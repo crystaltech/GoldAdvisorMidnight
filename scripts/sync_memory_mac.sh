@@ -5,14 +5,14 @@ set -euo pipefail
 #   ./scripts/sync_memory_mac.sh [source_dir]
 #
 # Default source_dir:
-#   GoldAdvisorMidnight/memory
+#   memory
 #
 # Files are copied into:
-#   GoldAdvisorMidnight/memory/snapshots/mac
+#   memory/snapshots/mac
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_DIR="${1:-$REPO_ROOT/GoldAdvisorMidnight/memory}"
-DEST_DIR="$REPO_ROOT/GoldAdvisorMidnight/memory/snapshots/mac"
+SOURCE_DIR="${1:-$REPO_ROOT/memory}"
+DEST_DIR="$REPO_ROOT/memory/snapshots/mac"
 
 if [[ ! -d "$SOURCE_DIR" ]]; then
   echo "Source directory does not exist: $SOURCE_DIR" >&2

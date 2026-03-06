@@ -1,0 +1,81 @@
+WORLD OF WARCRAFT: MIDNIGHT
+ENCHANTING LEVELING GUIDE (1–100)
+========================================
+Last Updated: January 26, 2026
+
+GUIDE GOAL
+----------
+This guide is focused on the cheapest possible route to max Enchanting skill (100), while also
+including all 18 first-time craft rewards for maximum bonus experience.
+
+General Tip: Always buy the cheapest quality of materials available. Quality does not affect
+the outcome when leveling a profession.
+
+Bonus Tip: If you have any excess gear or items lying around, you can disenchant them to gain
+skill for free up to around skill 25.
+
+
+MATERIALS REQUIRED
+-------------------
+- Refulgent Copper Rod: 1
+- Eversinging Dust: 652
+- Radiant Shard: 171
+- Dawn Crystal: 30
+- Sunglass Vial: 1
+- Mote of Light: 11
+- Mote of Wild Magic: 10
+- Flawless Amani Lapis: 1
+- Arcanoweave Bolt: 2
+- Majestic Fin: 1
+- Mote of Primal Energy: 60
+- Flawless Harandar Peridot: 12
+
+Note: Depending on your luck with crafts, you may need to purchase slightly more materials than listed.
+
+
+LEVELING PATH: SKILL 1 TO 62
+------------------------------
+Follow these crafts in order to level efficiently.
+
+Skill 1–2: Craft Runed Refulgent Copper Rod — Equip it if you don't already have one.
+Skill 2–5: Craft Enchant Ring - Thalassian Haste
+Skill 5–19: Craft Enchant Ring - Thalassian Versatility
+Skill 19–20: Craft Enchant Shoulders - Nature's Grace
+Skill 20–23: Craft Enchant Helm - Rune of Avoidance
+Skill 23–24: Craft Thalassian Phoenix Oil
+Skill 24–26: Craft Enchant Weapon - Berserker's Rage
+Skill 26–27: Craft Illusory Adornment - Blooming Light
+Skill 27–39: Craft Enchant Ring - Nature's Wrath
+Skill 39–40: Craft Enchant Shoulders - Flight of the Eagle
+Skill 40–42: Craft Enchant Ring - Nature's Wrath
+Skill 42–43: Craft Enchant Helm - Hex of Leeching
+Skill 43–45: Craft Enchant Weapon - Arcane Mastery
+Skill 45–49: Craft Enchant Ring - Amani Mastery
+Skill 49–52: Craft Thalassian Spellweaver's Wand
+Skill 52–58: Craft Enchant Ring - Amani Mastery
+Skill 58–59: Craft Enchant Shoulders - Thalassian Recovery
+Skill 59–60: Craft Enchant Helm - Blessing of Speed
+Skill 60–62: Craft Enchant Ring - Amani Mastery
+
+
+LEVELING PATH: SKILL 62 TO 67 — HIGHER COST PHASE
+----------------------------------------------------
+Note: From skill 62 onward, materials become more expensive. Plan your purchases accordingly.
+
+Skill 62–64: Craft Enchant Weapon - Jan'alai's Precision
+Skill 64–67: Craft Enchant Weapon - Worldsoul Aegis
+
+
+LEVELING PATH: SKILL 67 TO 100
+--------------------------------
+Tip: Depending on your specialization choices, you may be able to find alternative routes to
+skill 100. The path below is the general recommended route.
+
+Skill 67–100: Craft Enchant Weapon - Worldsoul Aegis repeatedly until you reach skill 100.
+
+
+COMPLETION NOTES
+----------------
+Once you reach skill 100, you have maxed out Enchanting in World of Warcraft: Midnight.
+Enchants crafted during leveling can be sold on the Auction House to recover some of the gold
+spent on materials.

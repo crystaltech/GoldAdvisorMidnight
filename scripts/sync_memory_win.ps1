@@ -9,16 +9,16 @@ $ErrorActionPreference = "Stop"
 #   pwsh -ExecutionPolicy Bypass -File .\scripts\sync_memory_win.ps1 -SourceDir "C:\path\to\memory"
 #
 # Files are copied into:
-#   GoldAdvisorMidnight\memory\snapshots\win11
+#   memory\snapshots\win11
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir "..")
 
 if ([string]::IsNullOrWhiteSpace($SourceDir)) {
-    $SourceDir = Join-Path $RepoRoot "GoldAdvisorMidnight\memory"
+    $SourceDir = Join-Path $RepoRoot "memory"
 }
 
-$DestDir = Join-Path $RepoRoot "GoldAdvisorMidnight\memory\snapshots\win11"
+$DestDir = Join-Path $RepoRoot "memory\snapshots\win11"
 
 if (-not (Test-Path -LiteralPath $SourceDir)) {
     throw "Source directory does not exist: $SourceDir"

@@ -1,0 +1,149 @@
+WORLD OF WARCRAFT
+CRAFTSIM ADDON GUIDE
+========================================
+Last Updated: January 14, 2026
+
+OVERVIEW
+--------
+CraftSim is the only addon that incorporates your actual profession stats when calculating
+crafting profits. This makes it an essential tool for any serious crafter, unless you manage
+all your crafting decisions through a personal spreadsheet. Combined with TradeSkillMaster,
+CraftSim is one of the most powerful addon setups available for gold-making through crafting.
+
+This guide covers initial setup and all the major features: Average Profit, Simulation Mode,
+Specialization Info, Price Overrides, and Recipe Scan.
+
+
+INITIAL SETUP
+--------------
+After downloading and installing CraftSim, type /craftsim in the chat window to open the
+settings panel.
+
+Price Source: Set your price source to TradeSkillMaster for the most reliable pricing data.
+Auctionator is also a valid option, but it is more susceptible to artificially low bait-priced
+listings on the Auction House, which can result in falsely optimistic profit estimates. If you
+use Auctionator, make sure you scan the Auction House before every crafting session.
+
+All other settings can be left at their defaults.
+
+
+FEATURE: AVERAGE PROFIT
+------------------------
+When you open your Profession window, a CraftSim button appears in the top left. The only
+option you need to enable here is Average Profit. This calculates your expected profit per
+craft using your actual profession stats, which is what makes CraftSim more accurate than
+generic profit calculators.
+
+Important limitations to be aware of:
+- Average Profit is not accurate for all craft types. Milling and unravelling will never show
+  a profit in CraftSim even when they are genuinely profitable. However, if a craft does show
+  profit, that number is reliable as long as Auction House prices have not changed since your
+  last scan.
+
+How material rank affects the calculation: CraftSim looks at the materials you currently have
+in your bags and uses those ranks in its calculation. If you have Quality 2 materials, it uses
+Q2. If you have Quality 3, it uses Q3. If you have a mix, it defaults to the lowest rank
+present, unless you check the "Use Max Rank Materials" checkbox in the CraftSim window.
+
+
+FEATURE: SIMULATION MODE
+--------------------------
+If you do not have the required materials in your bags, or if you want to compare profitability
+across different material ranks without actually owning them, use Simulation Mode.
+
+In Simulation Mode you can manually adjust the rank of each material input and the Average
+Profit window will update in real time to reflect those changes. This is useful for planning
+purchases or evaluating whether upgrading to higher quality materials is worth the cost.
+
+
+FEATURE: SPECIALIZATION INFO
+------------------------------
+Tick the "Specialization Info" option in CraftSim and a new popup window will appear. This
+window shows you exactly which profession knowledge points and specialization nodes affect the
+currently selected craft, what your current stat values are for that craft, and what the
+maximum possible stats are. This lets you confirm whether you are fully optimized for a
+particular craft before committing materials.
+
+
+FEATURE: PRICE OVERRIDES
+--------------------------
+Price Overrides allow you to substitute a custom material cost in place of the Auction House
+price for any reagent. This is one of the most powerful features in CraftSim for serious crafters.
+
+Example of how this works:
+Suppose you are crafting an enchant that requires Storm Dust, and Storm Dust costs 21g 70s on
+the Auction House. CraftSim calculates your profit at 21g 44s per craft based on that price.
+
+However, if you produce your own Storm Dust through a secondary craft such as Gleaming
+Shattering, your actual cost per unit might be only 18g — significantly below the Auction House
+price. By entering 18g as a Price Override for Storm Dust, CraftSim recalculates your profit
+using your real material cost, which is considerably higher.
+
+This is the core principle behind vertical integration in WoW crafting: crafting your own
+intermediate materials at a lower cost than the Auction House price and using them as inputs
+for your final crafts. Many crafts that appear unprofitable at Auction House material prices
+become profitable when you supply your own cheaper reagents. This is why certain in-demand
+items appear to have no margin — the crafters producing them are using self-sourced materials
+that are not reflected in public pricing.
+
+
+FEATURE: RECIPE SCAN
+----------------------
+Recipe Scan scans all of your known recipes and ranks them by profitability. This is the fastest
+way to identify what you should be crafting in any given session.
+
+IMPORTANT: Apply all your crafting buffs before running a Recipe Scan. If you scan without your
+buffs active, the stat values used in the calculation will be incorrect and the results will
+be misleading.
+
+How to run a Recipe Scan:
+1. Tick "Recipe Scan" in CraftSim to open the scan window.
+2. Click the cogwheel icon next to the Scan Recipes button to open scan settings.
+3. If you are crafting without concentration, leave the default settings.
+   If you are crafting with concentration, also tick "Use Concentration" in the settings.
+4. Click Scan Recipes.
+5. Sort the results by "Relative Profit" if not using concentration, or by "Concentration Value"
+   if using concentration.
+
+Reading the results: Hover over any item in the list to see the required materials for that
+craft. Left-clicking an item in the list will automatically select that recipe in your
+Profession window.
+
+
+FEATURE: CRAFT QUEUE
+----------------------
+To add a recipe to the Craft Queue, hold Shift and left-click the item in the Recipe Scan list.
+The Craft Queue window will open and display all queued crafts along with a summary showing
+your estimated total profit and total material cost across the entire queue.
+
+Creating a shopping list from the queue: If you have the Auctionator addon installed, press the
+"Create Auctionator Shopping List" button in the Craft Queue window. Then go to the Auction
+House, open the Shopping tab, and find the "CraftSim CraftQueue" list on the left side.
+Clicking it will scan for all required materials and automatically fill in the correct quantities
+when you click each item to purchase it.
+
+Note: The quantity auto-fill can behave unexpectedly when your queue includes crafts that
+require different material ranks. Double-check the quantities manually if your queue contains
+mixed-rank recipes.
+
+After purchasing materials, you can craft directly through the CraftQueue interface or continue
+crafting manually through the standard Profession window as usual.
+
+
+ADDITIONAL FEATURES
+--------------------
+CraftSim includes some additional tools such as the ability to simulate crafting buffs rather
+than requiring you to apply them before each scan. These are not necessary to get started and
+can be explored once you are comfortable with the core features described above.
+
+
+SUMMARY OF KEY POINTS
+-----------------------
+- Set price source to TradeSkillMaster for most reliable profit data.
+- Enable Average Profit to factor in your actual profession stats.
+- Use Simulation Mode to test profitability with materials you do not yet own.
+- Use Specialization Info to confirm you are optimized for a given craft.
+- Use Price Overrides when you craft your own materials cheaper than Auction House prices.
+- Apply all crafting buffs before running a Recipe Scan.
+- Sort Recipe Scan by Relative Profit (no concentration) or Concentration Value (with concentration).
+- Use the Craft Queue and Auctionator Shopping List integration to streamline buying and crafting.

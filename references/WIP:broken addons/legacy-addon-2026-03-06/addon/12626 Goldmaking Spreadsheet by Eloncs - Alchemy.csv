@@ -1,0 +1,30 @@
+ADDON LIST:,,,,,,,,,,,,,,,,,,,,,,
+"ListName:alchemy;Items:210802:DEFAULT,210806:DEFAULT,213197:500,213612:500,210799:DEFAULT,210803:DEFAULT,212264:100,212276:100,213613:500,210796:DEFAULT,210800:DEFAULT,210808:DEFAULT,212273:100,210797:DEFAULT,210805:DEFAULT,210809:DEFAULT,212270:100,212279:100,213611:500,212282:100",,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,
+,( * ) = input your amount/price,"Resourcefulness 21.7% ""585"" 
+Multicraft 24.5% ""809""",,,,"Resourcefulness 20% ""540"" 
+Multicraft 25% ""824""",,,,,,,,,,,,,,,,
+,Tempered Potion,,,,Alchemical Chaos,,,,,"Resourcefulness 19% ""510"" 
+Multicraft 25% ""794""",,,,,,,,,,,,
+,*Amount of Temp Pots Craft,1000,,,*Amount of Alchemical Chaos,1,,,Tempered Versatility,,,,Tempered Swiftness,,,,Tempered Mastery,,,,Tempered Aggression,
+,Tempered Potion,#N/A,,,Alchemical Chaos,#N/A,,,*Amount of Tempered Versatility,1000,,,*Amount of Tempered Swiftness,1000,,,*Amount of Tempered Mastery,1,,,*Amount of Tempered Aggression,1000
+,Gilded Vial,2.2,,,Gilded Vial,2.20,,,Tempered Versatility,#N/A,,,Tempered Swiftness,#N/A,,,Tempered Mastery,#N/A,,,Tempered Aggression,#N/A
+,Writhing Sample,#N/A,,,Null Lotus,#N/A,,,Gilded Vial,2.20,,,Gilded Vial,2.20,,,Gilded Vial,2.20,,,Gilded Vial,2.20
+,Mycobloom,6.09,,,Luredrop,0,,,Null Lotus,#N/A,,,Null Lotus,#N/A,,,Null Lotus,#N/A,,,Null Lotus,#N/A
+,Luredrop,0,,,Orbinid,0,,,Viridescent Spores,#N/A,,,Leyline Residue,#N/A,,,Leyline Residue,#N/A,,,Viridescent Spores,#N/A
+,Arathor's Spear,0,,,Arathor's Spear,0,,,Orbinid,0,,,Luredrop,0,,,Blessing Blossom,3.88,,,Luredrop,0
+,Cost Per Temp Pot,#N/A,,,Blessing blossom,3.88,,,Arathor's Spear,0,,,Blessing Blossom,3.88,,,Arathor's Spear,0,,,Orbinid,0
+,,,,,Cost Per Alchemical Chaos,#N/A,,,Cost Per Tempered Versatility,#N/A,,,Cost per Tempered Swiftness,#N/A,,,Cost per Tempered Mastery,#N/A,,,Cost per Tempered Aggression,#N/A
+,Total Cost,#N/A,,,Total Gold invested,#N/A,,,,,,,,,,,,,,,,
+,Estimated Tem Pots,7139,,,Estimated Flasks,2.78,,,Total Gold invested,#N/A,,,Total Gold invested,#N/A,,,Total Gold invested,#N/A,,,Total Gold invested,#N/A
+,Total Profit After AH,#N/A,,,Total Profit After AH,#N/A,,,Estimated Flasks,2841.00,,,Estimated Flasks,2841.00,,,Estimated Flasks,2.84,,,Estimated Flasks,2841.00
+,,#N/A,,,,#N/A,,,Total Profit After AH,#N/A,,,Total Profit After AH,#N/A,,,Total Profit After AH,#N/A,,,Total Profit After AH,#N/A
+,***WORK IN PROGRESS***,"CraftSim CraftQueue^""Mycobloom"";;;;;;;;;;;1;;12000^""Arathor's Spear"";;;;;;;;;;;1;;4000^""Writhing Sample"";;;;;;;;;;;#;;1000^""Gilded Vial"";;;;;;;;;;;1;;5000^""Luredrop"";;;;;;;;;;;1;;4000",,,***WORK IN PROGRESS***,"CraftSim CraftQueue^""Orbinid"";;;;;;;;;;;1;;8^""Arathor's Spear"";;;;;;;;;;;1;;8^""Luredrop"";;;;;;;;;;;1;;8^""Blessing Blossom"";;;;;;;;;;;2;;8^""Null Lotus"";;;;;;;;;;;#;;1^""Gilded Vial"";;;;;;;;;;;1;;2",,,,#N/A,,,,#N/A,,,,#N/A,,,,#N/A
+,,,,,,,,,***WORK IN PROGRESS***,"CraftSim CraftQueue^""Orbinid"";;;;;;;;;;;1;;12000^""Arathor's Spear"";;;;;;;;;;;1;;12000^""Null Lotus"";;;;;;;;;;;#;;1000^""Gilded Vial"";;;;;;;;;;;1;;2000^""Viridescent Spores"";;;;;;;;;;;#;;2000",,,***WORK IN PROGRESS***,"CraftSim CraftQueue^""Luredrop"";;;;;;;;;;;1;;12000^""Blessing Blossom"";;;;;;;;;;;2;;12000^""Null Lotus"";;;;;;;;;;;#;;1000^""Gilded Vial"";;;;;;;;;;;1;;2000^""Leyline Residue"";;;;;;;;;;;#;;2000",,,***WORK IN PROGRESS***,"CraftSim CraftQueue^""Blessing Blossom"";;;;;;;;;;;2;;12^""Arathor's Spear"";;;;;;;;;;;1;;12^""Null Lotus"";;;;;;;;;;;#;;1^""Gilded Vial"";;;;;;;;;;;1;;2^""Leyline Residue"";;;;;;;;;;;#;;2",,,***WORK IN PROGRESS***,"CraftSim CraftQueue^""Luredrop"";;;;;;;;;;;1;;12000^""Orbinid"";;;;;;;;;;;1;;12000^""Null Lotus"";;;;;;;;;;;#;;1000^""Gilded Vial"";;;;;;;;;;;1;;2000^""Viridescent Spores"";;;;;;;;;;;#;;2000"
+,,,,,,,,,,,,,,,,,,,,,,
+,Setup For Max Potion/Flask ,,,,,,,,,,,,,,,,,,,,,
+,Blue gear + Multi tool with resourcefullnes enchant,,,,,,,,,,,,,,,,,,,,,
+,"Q3 Phial of Bountiful Season 
+(Only from December 21st until June 21st)",,,,,,,,,,,,,,,,,,,,,
+,Recommend to use-->,Phial of Quick Hands,,,,,,,,,,,,,,,,,,,,

@@ -1,0 +1,124 @@
+WORLD OF WARCRAFT
+HOW TO SELL TRANSMOG CORRECTLY
+========================================
+Last Updated: January 14, 2026
+
+OVERVIEW
+--------
+Selling transmog (transmogrification items) on the Auction House is not straightforward, but
+following the right process dramatically increases your sales and saves a significant amount
+of time. This guide covers the essential addons, how to evaluate which items are worth posting,
+and how to configure TradeSkillMaster correctly.
+
+Credit: Transmog evaluation methods in this guide were taught by Methras.
+
+
+REQUIRED ADDONS
+----------------
+You need both of these addons before you begin. There are no substitutes.
+
+1. AllTheThings (ATT)
+   A heavy addon but mandatory for transmog selling. It tells you whether an item has a unique
+   appearance or shares its appearance with other items in the game.
+
+2. TradeSkillMaster (TSM)
+   Essential for posting efficiently when you have a large number of items. Without it, managing
+   a transmog operation becomes impractical.
+
+
+WHY PEOPLE BUY TRANSMOG
+------------------------
+Most transmog buyers are not purchasing items because they like how the item looks on their
+character. They are buying to add the appearance to their wardrobe collection. WoW has a large
+collector community, which means the visual appeal of an item to you is largely irrelevant —
+what matters is whether a buyer needs it for their collection.
+
+
+HOW TO EVALUATE ITEMS: UNIQUE VS SHARED APPEARANCE
+----------------------------------------------------
+Some items share the exact same appearance as other items. Collectors only need to obtain one
+item per appearance, so shared-appearance items are harder to sell.
+
+To check whether an item has a unique appearance, hover over it while the ATT addon is active.
+ATT will list every item in the game that shares that appearance. If ATT lists more than one
+item name, the item has a shared appearance. If ATT only lists that one item, it is unique.
+
+Example of a shared appearance: ATT lists both "Warleader's Breastplate" and
+"Adamantite Breastplate" when hovering either item. This means both items grant the same
+wardrobe appearance, and collectors only need one of them.
+
+Special case — treat as unique even if appearance is shared:
+- If ATT shows a red dot before an item name, that item is Bind on Pickup (BoP). A BoP item
+  cannot be traded, so your Auction House version may be the only obtainable source.
+- If ATT shows a yellow dot before an item name, that item is a quest reward. Same logic applies.
+In both cases, treat the item as unique regardless of whether it technically shares an appearance.
+
+
+MINIMUM SELL RATE THRESHOLDS
+------------------------------
+To check an item's sell rate, hover over it with TSM active and look at the "Region Avg Daily
+Sold" value. This tells you on average how many copies of that item sell per day across all
+realms in the region.
+
+Use these thresholds to decide whether to post an item:
+
+- Shared appearance item: Post only if Region Avg Daily Sold is 0.04 or higher.
+- Unique appearance item: Post if Region Avg Daily Sold is 0.02 or higher.
+
+Items that fall below these thresholds are unlikely to sell and will waste your posting time.
+
+Optional filter: Some sellers also set a minimum price floor, for example vendoring any item
+worth less than 200 gold rather than posting it. This is a personal preference. When starting
+out, it can be beneficial to post even cheap items to build up sales volume and learn what moves.
+
+
+WHY NOT POST EVERYTHING?
+--------------------------
+Posting every item you find might seem like it would generate more sales overall, and while it
+would add a small number of extra sales, the cost in time is not worth it. As your Auction House
+inventory grows, posting takes increasingly long. Filtering to only items that meet the thresholds
+above keeps your operation manageable and focused on items that have a realistic chance of selling.
+
+
+CRITICAL TSM SETTING: ADD ITEMS AS BASE ITEMS
+----------------------------------------------
+This is the single most important configuration step. If you do not add your transmog items to
+your TSM group as "Base Items," your transmog operation will not succeed.
+
+What Base Item means: When an item is added as a Base Item, TSM compares your listing against
+all other copies of that item regardless of stats, secondary stats, or item level. This is
+correct behavior for transmog because buyers do not care about stats or item level — they only
+want the appearance. Without this setting, TSM may treat your item as a different product from
+identical-looking items with different stats, causing pricing and comparison to work incorrectly.
+
+How to add items as Base Items: When adding items to your TSM group, select "Base Item" from
+the item type option. If you have already added items without choosing Base Item, you must
+remove them from the group and re-add them with the Base Item setting selected.
+
+
+TSM AUCTIONING OPERATION
+--------------------------
+A simple Auctioning operation is sufficient for posting transmog. You do not need a complex
+setup to get started. If you are unfamiliar with TSM operations, refer to a dedicated TSM
+beginner guide before proceeding, as understanding the basics will make this much easier.
+
+The operation settings used as a baseline for this guide are straightforward and not heavily
+optimized, but they are functional and will get items listed correctly.
+
+
+POSTING SPEED TIP: MULTI-REALM ROTATION
+-----------------------------------------
+After posting a large number of items, the Auction House interface will begin to lag noticeably.
+When this happens, log out and switch to a character on a different realm, then post the items
+stored on that character. Rotating between characters on different realms resets the lag and
+significantly improves your posting speed.
+
+Note: This technique is only relevant if you are selling transmog across multiple servers.
+
+
+FINAL NOTES
+-----------
+Transmog selling is not the fastest or most exciting gold-making method, but following this
+process — correct addons, appearance evaluation, sell rate thresholds, and the Base Item
+setting — will meaningfully increase the number of items you sell compared to posting without
+a system.

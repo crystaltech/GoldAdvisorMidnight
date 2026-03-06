@@ -1,0 +1,318 @@
+WORLD OF WARCRAFT: MIDNIGHT
+INSCRIPTION GUIDE: RECIPES & KNOWLEDGE POINTS
+========================================
+
+OVERVIEW
+--------
+This guide covers all of Midnight Inscription, including every weekly and one-time Knowledge
+Point source, profession equipment, specialization trees, renown-gated recipes, and full recipe
+lists for weapons, Darkmoon cards, contracts, treatises, missives, reagents, and housing decor.
+
+For leveling Inscription from 1 to 100, a separate leveling guide is available.
+For specialization builds and recommended Knowledge Point allocation, a separate specialization
+guide is available.
+
+
+WHAT CHANGED FROM THE WAR WITHIN
+----------------------------------
+Artisan Scribe's Moxie: The shared Artisan's Acuity currency from The War Within has been
+replaced by a profession-specific currency called Artisan Scribe's Moxie, which can only be
+spent on Inscription-specific recipes and items.
+
+No More Bronze Quality Reagents: Bronze quality has been removed. All reagents and consumables
+now only have Silver and Gold quality levels, meaning you always receive at least Silver quality.
+Concentration can be used immediately to target Gold quality. Weapons, profession equipment,
+and Darkmoon trinkets still have 5 ranks.
+
+Epic Profession Tools: A new Epic quality tier of profession tools is available with higher
+secondary stats than Rare tools. Both Epic and Rare tools provide the same base Skill bonus.
+
+Bows: Inscription can now craft bows, giving Hunters an alternative to Engineering for crafted
+ranged weapons. Engineering was previously the only profession able to craft them.
+
+Darkmoon Card Crafting Returns: In The War Within, Darkmoon cards only dropped from mobs. In
+Midnight, crafting is back. Scribes create individual cards through the new Darkmoon Curiosity
+specialization, collect all 8 cards of a suit into a deck, and craft a Darkmoon Dominion
+trinket (item level 220, 5 ranks) from the completed deck. Each suit also has a matching
+Darkmoon Sigil embellishment.
+
+
+WEEKLY KNOWLEDGE POINT SOURCES
+--------------------------------
+Midnight provides approximately 20 to 25 Knowledge Points per week from four sources. The
+actual total depends on whether you can meet the quality requirements for Patron Orders.
+
+Patron Crafting Orders (approximately 24 KP per week): Patron orders are the primary weekly
+Knowledge Point source. Multiple orders are available throughout the week, but not all of them
+award Knowledge Points. Those that do reward a Glimmer of Midnight Inscription Knowledge.
+
+Weekly Quest (2 KP): Your profession trainer offers a weekly quest requiring you to complete
+3 Crafting Orders. Completing it rewards a Thalassian Scribe's Journal worth 2 Knowledge
+Points. This quest resets weekly.
+
+Weekly Drops (4 KP): Each week, one of each of the following items can be looted from
+treasures in the new Midnight zones: Brilliant Phoenix Ink and Loa-Blessed Rune. Each is
+worth 2 KP.
+
+Inscription Treatise (1 to 2 KP): Scribes can use a Thalassian Treatise on Inscription weekly
+for 1 Knowledge Point. Treatises are Bind on Pickup but Warbound, so you can craft extras and
+send them to alts. If you fully unlock the Calm Hands specialization, your weekly treatise
+grants an additional Knowledge Point for a total of 2 KP.
+
+Catch-Up System: If you fall behind or start late, Patron Orders will reward Flickers of
+Midnight Inscription Knowledge instead of Glimmers. Flickers provide more Knowledge Points
+per item. Once you have caught up, orders will return to giving Glimmers.
+
+
+ONE-TIME KNOWLEDGE POINT SOURCES
+----------------------------------
+These sources can only be collected once per character.
+
+Renown Knowledge Book: "Traditions of the Haranir: Inscription" is sold by the Haranir Renown
+Quartermaster and provides a one-time Knowledge Point reward.
+
+Inscription Treasures: There are 8 Inscription treasures scattered across the Midnight zones,
+each providing 3 Knowledge Points for a total of 24 KP. One location has not yet been confirmed.
+
+Treasure list:
+- Songwriter's Pen — Silvermoon City
+- Songwriter's Quill — Eversong Woods
+- Spare Ink — Eversong Woods
+- Leather-Bound Techniques — Zul'Aman
+- Leftover Sanguithorn Pigment — Harandar
+- Intrepid Explorer's Marker — Harandar
+- Void-Touched Quill — Voidstorm
+- Half-Baked Techniques — Location not yet confirmed
+
+
+INSCRIPTION SPECIALIZATIONS
+-----------------------------
+Four specialization trees unlock progressively as you level Inscription, becoming available at
+skill levels 25, 50, 60, and 75.
+
+Blueprints: Covers tools, staves, off-hands, and bows. Includes sub-specializations for Staves,
+Off-Hands, and Bows. The Bows sub-specialization is new in Midnight.
+
+Calm Hands: Covers treatises and knowledge items. Fully unlocking this tree grants an extra
+Knowledge Point from your weekly Inscription treatise.
+
+Darkmoon Curiosity: Covers Darkmoon cards, decks, sigils, and the Darkmoon Dominion trinkets.
+This is a new dedicated tree in Midnight; in The War Within, Darkmoon cards were grouped with
+missives and contracts.
+
+Perfected Products: Covers crafting stat bonuses including Multicraft, Resourcefulness, and
+Ingenuity. This tree is smaller and cheaper to max than in The War Within, so capping your
+crafting stats requires less investment.
+
+
+PROFESSION EQUIPMENT
+---------------------
+Epic profession tools are new in Midnight. Epic tools have higher secondary stats than Rare
+tools but provide the same Skill bonus.
+
+To fully equip a Scribe, items from two professions are needed. The Quill (tool) is crafted
+by Inscription itself. Both accessories (Spectacles and Magnifying Glass) come from Jewelcrafting.
+
+Tool — Inscription:
+- Green: Hobbyist Scribe's Quill (learned from trainer)
+- Blue (Rare): Sin'dorei Quill (from Blueprints specialization)
+- Epic: Gilded Sin'dorei Quill (recipe sold by Lelorian in Silvermoon City for 150 Artisan Scribe's Moxie)
+
+Accessory — Spectacles (Jewelcrafting):
+- Green: Bold Biographer's Bifocals
+- Blue: Sin'dorei Scribe's Spectacles
+- Epic: Flawless Text Scrutinizers
+
+Accessory — Magnifying Glass (Jewelcrafting):
+- Green: Fantastic Font Focuser
+- Blue: Improved Right-Handed Magnifying Glass
+- Epic: Thalassian Scribe's Crystalline Lens
+
+Tool Tip: Consider keeping two tools — one with Resourcefulness for milling (which does not
+benefit from Multicraft) and one with Multicraft for crafting inks, reagents, missives, and
+everything else. Swap between them depending on what you are doing.
+
+
+CRAFTABLE PROFESSION EQUIPMENT FOR OTHER PROFESSIONS
+------------------------------------------------------
+Inscription crafts tools for three professions, including itself.
+
+Alchemy tools:
+- Green: Hobbyist Alchemist's Mixing Rod
+- Blue: Sin'dorei Alchemist's Mixing Rod
+- Epic: Gilded Alchemist's Mixing Rod
+
+Cooking tools:
+- Green: Hobbyist Rolling Pin
+- Blue: Sin'dorei Rolling Pin
+- Epic: Gilded Sin'dorei Rolling Pin
+
+Inscription tools:
+- Green: Hobbyist Scribe's Quill
+- Blue: Sin'dorei Quill
+- Epic: Gilded Sin'dorei Quill
+
+
+RENOWN-GATED RECIPES
+----------------------
+Several Inscription recipes are locked behind zone faction Renown and require Renown Rank 5
+to purchase. Contract recipes grant bonus reputation with the corresponding faction whenever
+you complete a World Quest in Midnight zones.
+
+- Contract: The Amani Tribe — Amani Tribe, Rank 5. Vendor: Magovu.
+- Contract: The Hara'ti — Hara'ti, Rank 5. Vendor: Naynar.
+- Harandar Signpost (Housing Decor) — Hara'ti, Rank 5. Vendor: Naynar.
+- Magnificent Towering Bookcase (Housing Decor) — Hara'ti, Rank 5. Vendor: Naynar.
+- Contract: The Silvermoon Court — Silvermoon Court, Rank 5. Vendor: Caeris Fairdawn.
+- Contract: The Singularity — The Singularity, Rank 5. Vendor: Void Researcher Anomander.
+- Floating Void-Touched Tome (Housing Decor) — The Singularity, Rank 5. Vendor: Void Researcher Anomander.
+
+
+WEAPONS — FULL RECIPE LIST
+----------------------------
+Inscription crafts staves, off-hands, and bows. Rare quality weapons are learned from the
+trainer. Epic quality weapons are unlocked through the Blueprints specialization.
+
+Epic weapons (Blueprints specialization):
+- Aln'hara Cane (Staff)
+- Aln'hara Lantern (Off-Hand)
+- Aln'hara Pikestaff (Staff)
+- Aln'hara Sprigshot (Bow)
+
+Rare weapons (Trainer):
+- Faunatender's Baton (Staff) — Trainer, skill 20.
+- Faunatender's Trust (Bow) — Trainer, skill 35.
+- Floratender's Crutch (Staff) — Trainer, skill 20.
+- Rootwarden's Lamp (Off-Hand) — Trainer, skill 20.
+
+PvP Competitor's Weapons (purchased with Honor from Mirvedon in Silvermoon City):
+- Thalassian Competitor's Bow
+- Thalassian Competitor's Emblem (Trinket)
+- Thalassian Competitor's Insignia of Alacrity (Trinket)
+- Thalassian Competitor's Lamp (Off-Hand)
+- Thalassian Competitor's Medallion (Trinket)
+- Thalassian Competitor's Pillar (Polearm)
+- Thalassian Competitor's Staff
+
+
+DARKMOON CARDS, DECKS, AND TRINKETS
+--------------------------------------
+Darkmoon cards are one of Inscription's signature products. In Midnight, crafting returns
+after being absent in The War Within, where cards only dropped from mobs.
+
+How the system works: There are four suits — Blood, Hunt, Rot, and Void. Each suit contains
+8 cards. To obtain a trinket, you craft or collect all 8 cards of one suit, combine them into
+a deck, and then have a Scribe craft the deck into a Darkmoon Dominion trinket. The trinket
+is item level 220 with 5 ranks.
+
+Note: Both cards and Thalassian Essence of the Faire also drop from world content for all
+players, not just Scribes. Anyone can collect cards and combine them into a deck, which
+functions as a lower item level trinket on its own.
+
+Inscribe Recipes (Darkmoon Curiosity specialization): Each suit has an Inscribe recipe that
+creates a random card from that suit. Reagents accepted are Munsell Ink, Sienna Ink, or
+Thalassian Essence of the Faire.
+
+Transcribe Recipes (Darkmoon Curiosity specialization): Each suit has a Transcribe recipe
+that swaps an existing card for a different random card from the same suit. This costs a
+Thalassian Essence of the Faire and is useful for targeting a specific missing card.
+
+Darkmoon Dominion Trinkets (all from Darkmoon Curiosity specialization):
+- Darkmoon Dominion: Blood
+- Darkmoon Dominion: Hunt
+- Darkmoon Dominion: Rot
+- Darkmoon Dominion: Void
+
+Darkmoon Sigil Embellishments (all from Darkmoon Curiosity specialization):
+Darkmoon Sigils are optional reagents that add embellishment effects to crafted gear. Each
+requires a full completed deck to craft. You can wear up to 2 embellished items at a time.
+- Darkmoon Sigil: Blood
+- Darkmoon Sigil: Hunt
+- Darkmoon Sigil: Rot
+- Darkmoon Sigil: Void
+
+
+CONTRACTS — FULL RECIPE LIST
+------------------------------
+Contracts grant bonus reputation with a faction each time you complete a World Quest in
+Midnight zones. Only one contract can be active per week, and the effect applies across your
+entire Warband. All contract recipes require Renown Rank 5 with the corresponding faction.
+
+- Contract: The Amani Tribe — Vendor: Magovu in Zul'Aman.
+- Contract: The Hara'ti — Vendor: Naynar in Harandar.
+- Contract: The Silvermoon Court — Vendor: Caeris Fairdawn in Eversong Woods.
+- Contract: The Singularity — Vendor: Void Researcher Anomander in Voidstorm.
+
+
+TREATISES — FULL RECIPE LIST
+------------------------------
+Treatises are weekly Knowledge Point items, one for each profession. Scribes learn the
+Inscription treatise from the Calm Hands specialization. All other profession treatises are
+discovered by repeatedly crafting any Thalassian Treatise. Treatises are Bind on Pickup
+but Warbound, so they can be mailed to alts.
+
+- Thalassian Treatise on Alchemy — Source: Discovery, crafting any treatise.
+- Thalassian Treatise on Blacksmithing — Source: Discovery.
+- Thalassian Treatise on Enchanting — Source: Discovery.
+- Thalassian Treatise on Engineering — Source: Discovery.
+- Thalassian Treatise on Herbalism — Source: Discovery.
+- Thalassian Treatise on Inscription — Source: Calm Hands specialization.
+- Thalassian Treatise on Jewelcrafting — Source: Discovery.
+- Thalassian Treatise on Leatherworking — Source: Discovery.
+- Thalassian Treatise on Mining — Source: Discovery.
+- Thalassian Treatise on Skinning — Source: Discovery.
+- Thalassian Treatise on Tailoring — Source: Discovery.
+
+
+MISSIVES — FULL RECIPE LIST
+-----------------------------
+Missives are optional reagents placed into crafting orders or crafts to determine the secondary
+stats on the finished item. Combat stat missives apply to weapons and armor. Profession stat
+missives apply to profession tools and accessories.
+
+Combat Stat Missives (learned from Trainer):
+- Thalassian Missive of the Aurora (Critical Strike + Versatility) — Trainer, skill 25.
+- Thalassian Missive of the Feverflare (Haste + Mastery) — Trainer, skill 25.
+- Thalassian Missive of the Fireflash (Critical Strike + Haste) — Trainer, skill 35.
+- Thalassian Missive of the Harmonious (Mastery + Versatility) — Trainer, skill 35.
+- Thalassian Missive of the Peerless (Critical Strike + Mastery) — Trainer, skill 45.
+- Thalassian Missive of the Quickblade (Haste + Versatility) — Trainer, skill 45.
+
+Profession Stat Missives (all sold by Lelorian in Silvermoon City):
+- Thalassian Missive of Crafting Speed
+- Thalassian Missive of Deftness
+- Thalassian Missive of Finesse
+- Thalassian Missive of Ingenuity
+- Thalassian Missive of Multicraft
+- Thalassian Missive of Perception
+- Thalassian Missive of Resourcefulness
+
+
+REAGENTS AND CONSUMABLES
+--------------------------
+Core Reagents (learned from Trainer):
+- Sienna Ink — Trainer, skill 10.
+- Munsell Ink — Trainer, skill 15.
+- Soul Cipher — Trainer, skill 20.
+- Codified Azeroot — Trainer, skill 25.
+
+Vantus Rune:
+- Vantus Rune: Radiant — Trainer, skill 50.
+
+
+HOUSING DECOR RECIPES
+----------------------
+Inscription crafts various furniture and decorations for player housing from multiple sources.
+
+- Floating Void-Touched Tome — Vendor: Void Researcher Anomander in Voidstorm (Singularity Renown 5).
+- Gilded Eversong Book — Vendor: Lelorian in Silvermoon City.
+- Harandar Signpost — Vendor: Naynar in Harandar (Hara'ti Renown 5).
+- Homely Sin'dorei Shelf — Vendor: Lelorian in Silvermoon City.
+- Homely Wall Shelves — Trainer, skill 1.
+- Lively Songwriter's Quill — Vendor: Lelorian in Silvermoon City.
+- Magnificent Towering Bookcase — Vendor: Naynar in Harandar (Hara'ti Renown 5).
+- Opened Sin'dorei Scroll — Vendor: Lelorian in Silvermoon City.
+- Restful Bronze Bench — Drop: Victorious Stormarion Pinnacle Cache.
+- Sin'dorei Phoenix Quill — Vendor: Ranger Allorn in Eversong Woods.
+- Sturdy Ren'dorei Cask — Vendor: Construct V'anore in Silvermoon City.
+- Wild Hanging Scroll — Vendor: Construct V'anore in Silvermoon City.

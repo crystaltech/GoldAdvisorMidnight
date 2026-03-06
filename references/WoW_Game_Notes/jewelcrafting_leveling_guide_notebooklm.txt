@@ -1,0 +1,105 @@
+WORLD OF WARCRAFT: MIDNIGHT
+JEWELCRAFTING LEVELING GUIDE (1–100)
+========================================
+Last Updated: January 26, 2026
+
+GUIDE GOAL
+----------
+This guide is focused on the cheapest possible route to max Jewelcrafting skill (100), while also
+including all 30 first-time craft rewards for maximum bonus experience.
+
+General Tip: Always buy the cheapest quality of materials available. Quality does not affect
+the outcome when leveling a profession.
+
+
+MATERIALS REQUIRED: SKILL 1 TO 65
+------------------------------------
+Note: Materials for skill 65–100 are listed separately below, as they depend on which recipe you choose.
+
+- Sin'dorei Lens: 2
+- Refulgent Copper Ore: 50
+- Crystalline Glass: 105
+- Glimmering Gemdust: 50
+- Harandar Peridot: 4
+- Tenebrous Amethyst: 4
+- Amani Lapis: 4
+- Sanguine Garnet: 4
+- Flawless Amani Lapis: 2
+- Flawless Harandar Peridot: 2
+- Flawless Tenebrous Amethyst: 2
+- Flawless Sanguine Garnet: 2
+- Umbral Tin Ore: 5
+
+Note: Depending on your luck with crafts, you may need to purchase slightly more materials than listed.
+
+
+LEVELING PATH: SKILL 1 TO 65
+------------------------------
+Follow these crafts in order to level efficiently.
+
+Skill 1–10: Prospect Refulgent Copper Ore (Midnight Prospecting)
+Skill 10–11: Craft Sunglass Vial
+Skill 11–12: Craft Sin'dorei Lens
+Skill 12–13: Craft Quick Peridot
+Skill 15–16: Craft Versatile Lapis
+Skill 16–18: Craft Masterful Amethyst
+Skill 18–20: Craft Deadly Garnet
+Skill 20–21: Craft Silvermoon Loupes
+Skill 21–23: Craft Deadly Lapis
+Skill 23–25: Craft Deadly Peridot
+Skill 25–27: Craft Masterful Peridot
+Skill 27–29: Craft Masterful Lapis
+Skill 29–31: Craft Deadly Amethyst
+Skill 31–32: Craft Quick Garnet
+Skill 32–33: Craft Gleaming Copper Band
+Skill 33–34: Craft Silver Focusing Shard
+Skill 34–36: Craft Versatile Peridot
+Skill 36–37: Craft Quick Lapis
+Skill 37–38: Craft Quick Amethyst
+Skill 38–39: Craft Masterful Garnet
+Skill 39–42: Craft Nocturnal Charm
+Skill 42–43: Craft Versatile Amethyst
+Skill 43–44: Craft Versatile Garnet
+Skill 44–45: Craft Fantastic Font Focuser
+Skill 45–47: Craft Kaleidoscopic Prism — If the materials are too expensive, craft 2x Monologuer's Chalice instead.
+Skill 47–48: Craft Bold Biographer's Bifocals
+Skill 48–50: Craft Monologuer's Chalice
+Skill 50–51: Craft Flawless Deadly Garnet
+Skill 51–53: Craft Flawless Masterful Amethyst
+Skill 53–55: Craft Flawless Versatile Lapis
+Skill 55–57: Craft Flawless Quick Peridot
+Skill 57–65: Craft Monologuer's Chalice
+
+
+LEVELING PATH: SKILL 65 TO 100 — CHOOSE YOUR RECIPE
+------------------------------------------------------
+Important: To continue past skill 65, you need a new pattern that is not learned automatically.
+The two recommended options are Prismatic Focusing Iris or Stabilizing Gemstone Bandolier.
+Both recipes can be purchased on the Auction House.
+
+Tip: Use Undermine.Exchange to find a realm where your chosen recipe is cheaply available.
+Also compare the material costs of both options before deciding, as prices vary by realm.
+
+
+OPTION A: Prismatic Focusing Iris (Skill 65–100)
+- Sin'dorei Lens: 80
+- Glimmering Gemdust: 80
+
+
+OPTION B: Stabilizing Gemstone Bandolier (Skill 65–100)
+- Sanguine Garnet: 40
+- Harandar Peridot: 40
+- Tenebrous Amethyst: 40
+- Amani Lapis: 40
+- Glimmering Gemdust: 120
+
+
+LEVELING PATH: SKILL 65 TO 100
+--------------------------------
+Skill 65–100: Craft your chosen recipe — either Prismatic Focusing Iris or Stabilizing Gemstone Bandolier — repeatedly until you reach skill 100.
+
+
+COMPLETION NOTES
+----------------
+Once you reach skill 100, you have maxed out Jewelcrafting in World of Warcraft: Midnight.
+Any extra crafted items can be sold on the Auction House to recover some of the gold spent on materials.

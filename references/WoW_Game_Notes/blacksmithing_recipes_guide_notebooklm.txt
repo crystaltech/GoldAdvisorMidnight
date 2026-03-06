@@ -1,0 +1,236 @@
+WORLD OF WARCRAFT: MIDNIGHT
+BLACKSMITHING GUIDE: RECIPES & KNOWLEDGE POINTS
+========================================
+
+OVERVIEW
+--------
+This guide covers all of Midnight Blacksmithing, including every weekly and one-time Knowledge
+Point source, profession equipment, and full recipe lists for plate armor, weapons,
+embellishments, alloys, and housing decor.
+
+For leveling Blacksmithing from 1 to 100, a separate leveling guide is available.
+For specialization builds and recommended Knowledge Point allocation, a separate specialization
+guide is available.
+
+
+WHAT CHANGED FROM THE WAR WITHIN
+----------------------------------
+Quality Tiers Reduced: Bronze quality reagents and consumables have been removed. All reagents
+and consumables now only have Silver and Gold quality levels, meaning you always receive at
+least Silver quality. Concentration can be used immediately to target Gold quality. Weapons,
+armor, and profession equipment still have 5 ranks.
+
+Artisan Blacksmith's Moxie: The shared Artisan's Acuity currency from The War Within has been
+replaced by a profession-specific currency called Artisan Blacksmith's Moxie, which can only
+be spent on Blacksmithing-specific recipes and items.
+
+Epic Profession Tools: A new Epic quality tier of profession tools is available with higher
+secondary stats than Rare tools. Both Epic and Rare tools provide the same Skill bonus.
+
+Ignition Buff Removed: The temporary crafting buff from The War Within, which required crafting
+a special ignition item before crafting gear, has been removed. Permanent stat bonuses are now
+granted through the specialization tree instead.
+
+Frameworks Removed: The framework optional reagent system from The War Within has been removed.
+These optional reagents now come from Patron Order bag rewards instead.
+
+
+WEEKLY KNOWLEDGE POINT SOURCES
+--------------------------------
+Midnight provides approximately 31 Knowledge Points per week from four sources. The actual
+total depends on whether you can meet the quality requirements for Patron Orders.
+
+Patron Crafting Orders (approximately 24 KP per week): Patron orders are the primary weekly
+Knowledge Point source. Multiple orders are available throughout the week, but not all of them
+award Knowledge Points. Those that do reward a Glimmer of Midnight Blacksmithing Knowledge.
+
+Weekly Quest (2 KP): Your profession trainer offers a weekly quest requiring you to complete
+3 Crafting Orders. Completing it rewards a Thalassian Blacksmith's Journal worth 2 Knowledge
+Points. This quest resets weekly.
+
+Weekly Drops (4 KP): Each week, one of each of the following items can be looted from
+treasures in the new Midnight zones: Thalassian Whetstone and Infused Quenching Oil.
+
+Inscription Treatise (1 KP): A Thalassian Treatise on Blacksmithing provides 1 Knowledge
+Point. Treatises are Bind on Pickup but Warbound, so an alt with Inscription can craft one
+and mail it to your main. Submit a Public Crafting Order to obtain one if you do not have an
+Inscription alt.
+
+Catch-Up System: If you fall behind or start late, Patron Orders will reward Flickers of
+Midnight Blacksmithing Knowledge instead of Glimmers until you have caught up.
+
+
+ONE-TIME KNOWLEDGE POINT SOURCES
+----------------------------------
+These sources can only be collected once per character. Collect them as early as possible to
+accelerate your specialization progress.
+
+Renown Knowledge Book: "Beyond the Event Horizon: Blacksmithing" is sold by the Voidstorm
+Renown Quartermaster and provides a one-time Knowledge Point reward.
+
+Blacksmithing Treasures: There are 8 Blacksmithing treasures in Midnight, each providing
+3 Knowledge Points for a total of 24 KP available from treasures.
+
+Treasure list:
+- Sin'dorei Master's Forgemace — Silvermoon City
+- Silvermoon Blacksmith's Hammer — Silvermoon City
+- Deconstructed Forge Techniques — Silvermoon City
+- Metalworking Cheat Sheet — Eversong Woods
+- Silvermoon Smithing Kit — Eversong Woods
+- Carefully Racked Spear — Zul'Aman, Atal'Aman
+- Rutaani Floratender's Sword — Harandar
+- Voidstorm Defense Spear — Voidstorm
+
+
+BLACKSMITHING SPECIALIZATIONS
+-------------------------------
+Four specialization trees unlock progressively as you level Blacksmithing, becoming available
+at skill levels 25, 50, 60, and 75.
+
+
+PROFESSION EQUIPMENT
+---------------------
+Epic profession tools are new in Midnight. Epic tools have higher secondary stats than Rare
+tools but provide the same Skill bonus.
+
+Blacksmiths can craft their own Hammer (tool) and Toolbox (accessory). The apron (second
+accessory) must be obtained from a Leatherworker.
+
+Tool — Blacksmithing:
+- Green: Thalassian Blacksmith's Hammer
+- Blue (Rare): Sun-Blessed Blacksmith's Hammer
+- Epic: Sunforged Blacksmith's Hammer
+
+Accessory — Toolbox (Blacksmithing):
+- Green: Thalassian Blacksmith's Toolbox
+- Blue: Sun-Blessed Blacksmith's Toolbox
+- Epic: Sunforged Blacksmith's Toolbox
+
+Accessory — Apron (Leatherworking):
+- Green: Apprentice Smith's Apron
+- Blue: Sin'dorei Forgemaster's Cover
+- Epic: Thalassian Ironbender's Regalia
+
+
+CRAFTABLE PROFESSION EQUIPMENT FOR OTHER PROFESSIONS
+------------------------------------------------------
+Blacksmiths can craft profession tools and accessories for Leatherworking, Tailoring, Mining,
+Herbalism, and Skinning.
+
+Leatherworking Tool:
+- Green: Thalassian Leatherworker's Knife
+- Blue: Sun-Blessed Leatherworker's Knife
+- Epic: Sunforged Leatherworker's Knife
+
+Leatherworking Accessory:
+- Green: Thalassian Leatherworker's Toolset
+- Blue: Sun-Blessed Leatherworker's Toolset
+- Epic: Sunforged Leatherworker's Toolset
+
+Tailoring Tool:
+- Green: Thalassian Needle Set
+- Blue: Sun-Blessed Needle Set
+- Epic: Sunforged Needle Set
+
+Mining Tool:
+- Green: Thalassian Pickaxe
+- Blue: Sun-Blessed Pickaxe
+- Epic: Sunforged Pickaxe
+
+Herbalism Tool:
+- Green: Thalassian Sickle
+- Blue: Sun-Blessed Sickle
+- Epic: Sunforged Sickle
+
+Skinning Tool:
+- Green: Thalassian Skinning Knife
+- Blue: Sun-Blessed Skinning Knife
+- Epic: Sunforged Skinning Knife
+
+
+PLATE ARMOR — FULL RECIPE LIST
+--------------------------------
+Blacksmiths can craft three tiers of plate armor: Rare (Blue), Epic (Purple), and PvP gear.
+
+Rare armor is learned from the trainer and is well suited for gearing up alts or fresh
+characters. Epic armor requires specialization points in Armorsmithing and can be upgraded
+to Mythic-raid item levels using the appropriate Crests. PvP gear provides a cheaper
+entry point for PvP-focused players, with recipes being Green quality but items scaling
+based on Skill and optional reagents.
+
+Rare Plate Armor (all learned from Trainer):
+- Blood-Tempered Greaves — Trainer, skill 5.
+- Blood-Tempered Chestplate — Trainer, skill 10.
+- Blood-Tempered Bracers — Trainer, skill 20.
+- Blood-Tempered Greatbelt — Trainer, skill 20.
+- Blood-Tempered Basinet — Trainer, skill 25.
+- Blood-Tempered Bulwark — Trainer, skill 25.
+- Blood-Tempered Gauntlets — Trainer, skill 30.
+- Blood-Tempered Pauldrons — Trainer, skill 30.
+- Blood-Tempered Leggings — Trainer, skill 35.
+
+
+WEAPONS — FULL RECIPE LIST
+----------------------------
+Blacksmiths can craft daggers, swords, axes, maces, fist weapons, polearms, and warglaives.
+Epic weapons require points in the Weaponsmithing specialization. Some recipes drop from
+specific rare enemies or are sold by vendors in Silvermoon City.
+
+Rare Weapons (all learned from Trainer):
+- Dawnforged Edge (Dagger) — Trainer, skill 20.
+- Dawnforged Ritual Knife (Dagger) — Trainer, skill 20.
+- Primalforged Heavy Axe (Two-Handed Axe) — Trainer, skill 20.
+- Dawnforged Long Blade (One-Handed Sword) — Trainer, skill 25.
+- Dawnforged Splitter (One-Handed Axe) — Trainer, skill 25.
+- Dawnforged War Mace (Two-Handed Mace) — Trainer, skill 35.
+- Primalforged Knuckles (Fist Weapon) — Trainer, skill 40.
+
+
+EMBELLISHMENTS
+---------------
+Embellished gear carries powerful unique effects. You can only equip two embellished items
+at a time across all your gear, so choose carefully based on your specialization and playstyle.
+
+Unlike The War Within where some embellishments were unlocked through specializations, all
+Midnight Blacksmithing embellishments are world drops. This means you can focus specialization
+points on crafting quality rather than recipe unlocks.
+
+- Knight-Commander's Palisade: Chance on hit to gain an absorption shield.
+  Source: Drop from Plans (world drop).
+
+- Murder Row Fleet Feet: Chance to increase Avoidance.
+  Source: Drop from Lithiel Cinderfury in Murder Row.
+
+- Murder Row Fishhook: Chance to bleed the target for Physical damage.
+  Source: Drop from Lithiel Cinderfury in Murder Row.
+
+
+REAGENTS, ALLOYS, AND MISCELLANEOUS
+--------------------------------------
+Blacksmiths produce alloys used as required materials in most Blacksmithing recipes, temporary
+weapon enhancement buffs (Weaponstones), and utility items like skeleton keys.
+
+Alloys are core crafting inputs. If you plan to craft large quantities, consider investing in
+The Old Ways specialization for more efficient alloy production. Weaponstones provide 2-hour
+weapon buffs and have consistent Auction House demand.
+
+- Refulgent Copper Ingot (Basic crafting alloy) — Trainer, skill 1.
+- Refulgent Repair Hammer (Repairs weapons and plate armor, consumed on use) — Trainer, skill 5.
+- Gloaming Alloy (Mid-tier crafting alloy) — Trainer, skill 15.
+- Sterling Alloy (Mid-tier crafting alloy) — Trainer, skill 25.
+- Refulgent Weightstone (+Attack Power for blunt weapons, 2 hours) — Trainer, skill 40.
+- Refulgent Razorstone (+Finesse for gathering tools, 2 hours) — Trainer, skill 45.
+- Refulgent Whetstone (+Attack Power for bladed weapons, 2 hours) — Specialization: Weaponsmithing, Weaponstones branch.
+- Thalassian Skeleton Key (Opens locked chests, consumed on use) — Vendor: Eriden in Silvermoon City.
+
+
+HOUSING DECOR RECIPES
+----------------------
+Blacksmiths can craft anvils, tool displays, and decorative hangers for player housing.
+
+- Gilded Silvermoon Anvil — Vendor: Caeris Fairdawn in Eversong Woods.
+- Gilded Silvermoon Hanger — Vendor: Caeris Fairdawn in Eversong Woods.
+- Masterwork Crafting Hammer — Vendor: Eriden in Silvermoon City.
+- Ornamental Silvermoon Hanger — Source: World gathering nodes.
+- Ornate Crafter's Tongs — Vendor: Eriden in Silvermoon City.
+- Ren'dorei Anvil — Vendor: Void Researcher Anomander in Voidstorm.

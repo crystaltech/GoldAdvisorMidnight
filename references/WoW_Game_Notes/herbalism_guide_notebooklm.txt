@@ -1,0 +1,183 @@
+WORLD OF WARCRAFT: MIDNIGHT
+HERBALISM LEVELING & FARMING GUIDE (1–100)
+========================================
+
+OVERVIEW
+--------
+This guide covers everything needed to level Herbalism from 1 to 100 and farm herbs efficiently
+in Midnight. Topics include skill ranges, farming routes, profession equipment, consumables,
+gathering stats, infused herbs, and the Overload mechanic.
+
+Note: This guide focuses on leveling and farming only. Knowledge Point sources, treasure
+locations, and specialization builds are covered in a separate guide.
+
+
+WHAT CHANGED FROM THE WAR WITHIN
+----------------------------------
+If you gathered herbs in The War Within, the following things are different in Midnight.
+
+Two Qualities Only: Herbs now only come in Silver and Gold quality. The Bronze quality tier has
+been removed entirely.
+
+Artisan Herbalist's Moxie: The shared Artisan's Acuity currency from The War Within has been
+replaced by a profession-specific currency called Artisan Herbalist's Moxie, which can only
+be spent on Herbalism-related items.
+
+Epic Profession Tools: A new Epic quality tier of gathering tools is available. Epic tools have
+more secondary stats than Rare (Blue) tools, but provide the same skill bonus.
+
+
+HERBALISM TRAINER
+------------------
+You can learn Midnight Herbalism from Botanist Nathera, located in Silvermoon City.
+
+
+PROFESSION EQUIPMENT
+---------------------
+Herbalism uses one Tool slot and two Accessory slots. All three slots have Green, Blue (Rare),
+and Epic quality tiers.
+
+Green quality items are tradeable (Bind on Equip) and can be purchased from the Auction House.
+Blue and Epic quality items are crafted and Bind on Pickup, meaning they must be obtained
+through Crafting Orders.
+
+Accessory Slot 1 — Crafted by Tailoring:
+- Green: Bright Linen Herbalism Hat
+- Blue: Elegant Artisan's Herbalism Hat
+- Epic: Thalassian Herbalist's Cowl
+
+Accessory Slot 2 — Crafted by Leatherworking:
+- Green: Eversong Botanist's Satchel
+- Blue: Silvermoon Herbalist's Backpack
+- Epic: Thalassian Herbtender's Cradle
+
+Tool Slot — Crafted by Blacksmithing:
+- Green: Thalassian Sickle
+- Blue: Sun-Blessed Sickle
+- Epic: Sunforged Sickle
+
+Customizing Stats: Accessory stats are fixed, so simply aim for the highest quality you can
+obtain. Tool stats can be customized using missives placed in the optional reagent slot when
+the tool is crafted or when submitting a crafting order. Tools should also be enchanted.
+
+Stat, Missive, and Enchant pairings:
+- Deftness: Thalassian Missive of Deftness / Enchant Tool - Sin'dorei Deftness
+- Finesse: Thalassian Missive of Finesse / Enchant Tool - Haranir Finesse
+- Perception: Thalassian Missive of Perception / Enchant Tool - Amani Perception
+
+
+GATHERING STATS: DEFTNESS, FINESSE, AND PERCEPTION
+----------------------------------------------------
+Deftness increases your gathering speed, which determines how quickly you complete the gather
+and whether mobs can interrupt you before you finish.
+
+Finesse gives you extra materials from each herb node.
+
+Perception gives you a chance to find extra Nocturnal Lotus when one drops. It does not
+increase the base drop chance of Nocturnal Lotus, only the bonus amount when one already drops.
+
+Recommended stat priority for tools: Finesse or Deftness. Perception is generally not worth
+prioritizing unless Nocturnal Lotus is selling for very high prices on the Auction House.
+
+Because some Midnight zones have high mob density that makes it difficult to gather without
+being interrupted, getting enough Deftness to gather safely is important. Using the consumables
+listed below provides a comfortable Deftness baseline, after which you can stack Finesse. If
+mobs are still interrupting you regularly, use a Deftness tool with a Deftness enchant as well.
+
+
+CONSUMABLES
+-----------
+Using Azeroot Tea and Darkmoon Firewater significantly improves the gathering experience.
+These are considered essential for effective farming until you have sufficient Deftness from
+gear and specialization.
+
+Haranir Phial of Perception: +38 Perception (+3.8%) and +11 Deftness (+3.6%). Lasts 30 minutes.
+Haranir Phial of Finesse: +38 Finesse (+3.8%) and +11 Deftness (+3.6%). Lasts 30 minutes.
+Argentleaf Tea: +50 Finesse (+5.0%). Lasts 1 hour.
+Sanguithorn Tea: +50 Perception (+5.0%). Lasts 1 hour.
+Azeroot Tea: +50 Deftness (+16.6%). Lasts 1 hour.
+Darkmoon Firewater: +15% Deftness. Lasts 1 hour.
+Refulgent Razorstone: +43 Finesse (+4.3%) specifically for gathering tools. Lasts 2 hours.
+
+
+INFUSED HERBS AND OVERLOADING
+-------------------------------
+While gathering in Midnight, you will occasionally encounter infused versions of regular herbs.
+These have a glowing visual effect. Gathering them drops extra materials in the form of motes,
+but also applies a negative debuff effect to your character.
+
+Learning Overload Infused Herb: The first time you gather any infused herb, you automatically
+learn the Overload Infused Herb ability. This ability can be activated while near an infused
+herb to trigger a bonus overload effect. The ability has a 12-hour cooldown, but the cooldown
+is reduced by 30 minutes each time you gather any Midnight herb. This means gathering
+approximately 24 herbs fully resets the cooldown.
+
+If the Overload Infused Herb ability does not appear on your action bar automatically, find it
+in your regular spellbook under the General tab. It is not listed in the Profession spellbook.
+
+Infused Herb Types by Zone:
+- Lightfused herbs are found primarily in Eversong Woods, with a few in Harandar. They drop Mote of Light.
+- Wild herbs are found primarily in Zul'Aman. They drop Mote of Wild Magic.
+- Primal herbs are found primarily in Harandar. They drop Mote of Primal Energy.
+- Voidbound herbs are found primarily in Voidstorm, with a few in Eversong Woods and Zul'Aman. They drop Mote of Pure Void.
+
+Overload Effects by Herb Type:
+
+Lightfused — Normal gather: Light circles appear on the ground. Stand in them to collect extra
+motes. Overload: More light circles spawn, but they are difficult to collect entirely so
+expect to miss some.
+
+Wild — Normal gather: Four herb creatures spawn. Kill them and use Herbalism on their corpses
+to collect extra motes. Overload: An elite creature spawns instead. Killing it grants a
+150 Perception buff for 5 minutes but provides no extra motes. The elite is difficult to
+defeat with low gear.
+
+Primal — Normal gather: A minor slow and damage-over-time effect is applied, nothing extra to
+interact with. Overload: You channel 50% of your maximum HP to generate extra motes. Do not
+interrupt the channel. Mobs do not appear to interrupt the channel, but the HP drain can kill
+you if you begin the channel below 50% health.
+
+Voidbound — Normal gather: A void zone pulls you toward it, but nothing significant happens.
+Walk out and continue. Overload: A portal appears along with four purple orbs. Run into the
+orbs quickly before they disappear to collect motes and ores. The portal itself teleports you
+to random locations and is not useful in its current form.
+
+
+SKILL RANGES AND WHAT TO GATHER
+---------------------------------
+Skill 1–30: Nearly everything gives skill points at this range. Tranquility Bloom stops
+providing skill at 30, but all other herbs continue past that. Reaching 30 is fast.
+
+Skill 30–60: The four main base herbs — Sanguithorn, Azeroot, Argentleaf, and Mana Lily —
+go yellow (reduced skill gain) at 30 and grey (no skill gain) at 60. Lush and Infused herb
+variants also provide skill points throughout this range.
+
+Skill 60–100: All base herbs are grey and provide no skill. Only Lush and Infused herb variants
+still give skill at this range, going yellow at 60 and grey at 100. These variants spawn
+randomly in place of normal herbs, so continue gathering normally and you will encounter them.
+
+
+FARMING ROUTES AND ZONE RECOMMENDATIONS
+-----------------------------------------
+Recommended starting zone: Eversong Woods. It has the most straightforward terrain and lower
+mob density compared to other zones, making it easier to get comfortable with the gathering
+flow before moving on.
+
+Once you are familiar with the mechanics, move to other zones for variety and to collect
+first-gather Knowledge Point bonuses from new herb types you have not gathered before.
+
+The routes below are general guidelines, not strict paths to follow. Herbs also spawn outside
+of the main routes, so exploring freely and finding your own paths is encouraged.
+
+Eversong Woods: Best starting zone. Relatively open terrain, lower mob interference, and
+Lightfused infused herbs that drop Mote of Light.
+
+Zul'Aman: Contains Wild infused herbs that drop Mote of Wild Magic. Mob density is higher
+than Eversong Woods.
+
+Harandar: Contains Primal infused herbs that drop Mote of Primal Energy. Some areas make it
+difficult to avoid mobs, so having enough Deftness to gather without being interrupted is
+especially important here.
+
+Voidstorm: Contains Voidbound infused herbs that drop Mote of Pure Void. This is the primary
+zone for Voidbound herbs.

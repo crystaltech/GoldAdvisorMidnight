@@ -1,0 +1,83 @@
+WORLD OF WARCRAFT: MIDNIGHT
+INSCRIPTION LEVELING GUIDE (1–100)
+========================================
+Last Updated: January 27, 2026
+
+GUIDE GOAL
+----------
+This guide is focused on the cheapest possible route to max Inscription skill (100), while also
+including all 29 first-time craft rewards for maximum bonus experience.
+
+General Tip: Always buy the cheapest quality of materials available. Quality does not affect
+the outcome when leveling a profession.
+
+
+MATERIALS REQUIRED (SKILL 1–100)
+----------------------------------
+- Sanguithorn Pigment: 50
+- Mana Lily Pigment: 35
+- Thalassian Songwater: 100
+- Argentleaf Pigment: 20
+- Soul Cipher: 58
+- Sienna Ink: 53
+- Munsell Ink: 43
+- Tranquility Bloom: 140 (used for milling)
+- Azeroot: 85
+- Mote of Pure Void: 15
+- Mote of Light: 4
+- Mote of Primal Energy: 7
+- Mote of Wild Magic: 13
+- Duskshrouded Stone: 1
+
+Note: Depending on your luck with crafts, you may need to purchase slightly more materials than listed.
+
+
+LEVELING PATH: SKILL 1 TO 50
+------------------------------
+Follow these crafts in order to level efficiently.
+
+Skill 1–10: Mill Tranquility Bloom
+Skill 10–11: Craft Sienna Ink
+Skill 11–15: Mill Tranquility Bloom
+Skill 15–21: Craft Munsell Ink
+Skill 21–22: Craft Faunatender's Baton
+Skill 22–23: Craft Floratender's Crutch
+Skill 23–24: Craft Rootwarden's Lamp
+Skill 24–25: Craft Soul Cipher
+Skill 25–26: Craft Codified Azeroot
+Skill 26–28: Craft Hobbyist Alchemist's Mixing Rod
+Skill 28–31: Craft Hobbyist Rolling Pin
+Skill 31–33: Craft Hobbyist Scribe's Quill
+Skill 33–34: Craft Thalassian Missive of the Aurora
+Skill 34–35: Craft Thalassian Missive of the Feverflare
+Skill 35–36: Craft Faunatender's Trust
+Skill 36–37: Craft Thalassian Missive of the Fireflash
+Skill 37–38: Craft Thalassian Missive of the Harmonious
+Skill 38–40: Craft Hobbyist Rolling Pin
+Skill 40–45: Craft Thalassian Missive of the Harmonious
+Skill 45–46: Craft Thalassian Missive of the Quickblade
+Skill 46–50: Craft Thalassian Missive of the Peerless
+
+
+LEVELING PATH: SKILL 50 TO 65 — DISCOVERY PHASE
+--------------------------------------------------
+Important: This section is discovery-based and works differently from the rest of the guide.
+
+You will be crafting Treatises repeatedly. Each time you craft one, you have a chance to
+discover a new recipe. Continue crafting Treatises until you have discovered all available
+recipes and crafted each one at least once to claim every first-time craft bonus.
+
+The number of crafts required will vary depending on your luck with discoveries.
+
+Skill 50–65: Craft Treatises (repeat until all first-craft bonus recipes are discovered and completed)
+
+
+LEVELING PATH: SKILL 65 TO 100
+--------------------------------
+Skill 65–100: Craft Vantus Rune: Radiant
+
+
+COMPLETION NOTES
+----------------
+Once you reach skill 100, you have maxed out Inscription in World of Warcraft: Midnight.
+Any extra crafted items can be sold on the Auction House to recover some of the gold spent on materials.

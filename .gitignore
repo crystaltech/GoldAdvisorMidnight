@@ -27,5 +27,5 @@ __pycache__/
 *.pyc
 
 # Keep memory snapshots tracked
-!GoldAdvisorMidnight/memory/snapshots/
-!GoldAdvisorMidnight/memory/snapshots/**
+!memory/snapshots/
+!memory/snapshots/**

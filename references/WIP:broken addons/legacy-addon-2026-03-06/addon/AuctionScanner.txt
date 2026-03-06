@@ -1,0 +1,420 @@
+-- GoldCraft Advisor - AuctionScanner.lua
+-- C_AuctionHouse wrapper for scanning commodity prices
+
+local _, GCA = ...
+
+-- ================= Configuration =================
+local SCAN_DELAY = 0.6  -- Delay between queries to respect throttling
+local BATCH_SIZE = 10   -- Process this many items before yielding
+local DEBOUNCE_DELAY = 1.0  -- Ignore duplicate results within this time
+
+-- ================= State =================
+local scanning = false
+local scanQueue = {}
+local currentIndex = 0
+local totalItems = 0
+local lastItemID = nil
+local lastQueryTime = 0
+
+-- ================= ItemKey Cache =================
+GCA.ItemKeyCache = {}
+
+function GCA:GetCachedItemKey(itemID)
+    if not itemID then return nil end
+
+    if self.ItemKeyCache[itemID] then
+        return self.ItemKeyCache[itemID]
+    end
+
+    local itemKey = C_AuctionHouse.MakeItemKey(itemID, 0, 0)
+    self.ItemKeyCache[itemID] = itemKey
+    return itemKey
+end
+
+-- ================= Commodity Cache =================
+-- Runtime cache for current AH session
+GCA.commodityCache = GCA.commodityCache or {}
+
+function GCA:ClearCommodityCache()
+    self.commodityCache = {}
+end
+
+-- ================= Price Computation =================
+
+-- Expand commodity results to individual unit prices
+local function ExpandResultsToUnitPrices(results, targetQuantity)
+    local unitPrices = {}
+    if not results or #results == 0 then return unitPrices end
+
+    -- Sort ascending to pick cheapest units first
+    table.sort(results, function(a, b) return a.unitPrice < b.unitPrice end)
+
+    local collected = 0
+    for _, r in ipairs(results) do
+        local take = math.min(r.quantity or 0, targetQuantity - collected)
+        if take <= 0 then break end
+        for i = 1, take do
+            unitPrices[#unitPrices + 1] = r.unitPrice
+        end
+        collected = collected + take
+        if collected >= targetQuantity then break end
+    end
+
+    return unitPrices
+end
+
+-- Compute stats from unit prices with trim
+local function ComputeStatsFromResults(results, targetQuantity, trimPercent)
+    if not results or #results == 0 then return nil end
+
+    local selectedUnits = ExpandResultsToUnitPrices(results, targetQuantity)
+    local n = #selectedUnits
+    if n == 0 then return nil end
+
+    -- Sort descending so most expensive are at the front
+    table.sort(selectedUnits, function(a, b) return a > b end)
+
+    -- Apply trim
+    local trimPercentNum = tonumber(trimPercent) or 0
+    if trimPercentNum < 0 then trimPercentNum = 0 end
+    if trimPercentNum > 100 then trimPercentNum = 100 end
+
+    local trimCount = math.floor(n * (trimPercentNum / 100))
+
+    -- If trimming removes all units, return zero-stats
+    if trimCount >= n then
+        return 0, 0, 0, 0
+    end
+
+    -- Build list of units to use (skip first trimCount entries)
+    local unitsToUse = {}
+    for i = trimCount + 1, n do
+        unitsToUse[#unitsToUse + 1] = selectedUnits[i]
+    end
+
+    if #unitsToUse == 0 then
+        return 0, 0, 0, 0
+    end
+
+    local sum = 0
+    local minUnit, maxUnit = unitsToUse[1], unitsToUse[1]
+    for _, price in ipairs(unitsToUse) do
+        sum = sum + price
+        if price < minUnit then minUnit = price end
+        if price > maxUnit then maxUnit = price end
+    end
+
+    local avg = sum / #unitsToUse
+    return avg, minUnit, maxUnit, #unitsToUse
+end
+
+-- ================= Get Commodity Stats =================
+
+function GCA:GetCommodityStats(itemID)
+    if not itemID then return nil end
+    if not C_AuctionHouse or not C_AuctionHouse.GetNumCommoditySearchResults then return nil end
+
+    local numResults = C_AuctionHouse.GetNumCommoditySearchResults(itemID)
+    if not numResults or numResults == 0 then
+        return nil
+    end
+
+    local results = {}
+    local minPrice, fullMaxPrice = nil, nil
+    local totalAvailable = 0
+
+    for i = 1, numResults do
+        local result = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, i)
+        if not result then break end
+        results[#results + 1] = { unitPrice = result.unitPrice, quantity = result.quantity or 0 }
+        totalAvailable = totalAvailable + (result.quantity or 0)
+        if not minPrice or result.unitPrice < minPrice then minPrice = result.unitPrice end
+        if not fullMaxPrice or result.unitPrice > fullMaxPrice then fullMaxPrice = result.unitPrice end
+    end
+
+    if #results == 0 then
+        return nil
+    end
+
+    -- Cache raw snapshot
+    self.commodityCache[itemID] = self.commodityCache[itemID] or {}
+    self.commodityCache[itemID].prices = results
+    self.commodityCache[itemID].minPrice = minPrice
+    self.commodityCache[itemID].maxPrice = fullMaxPrice
+    self.commodityCache[itemID].totalAvailable = totalAvailable
+    self.commodityCache[itemID].timestamp = time()
+
+    -- Compute according to current settings
+    local targetQuantity = tonumber(self.db.settings.quantity) or 10000
+    local trimPercent = tonumber(self.db.settings.trim) or 3
+
+    local avg, minP, maxP, count = ComputeStatsFromResults(results, targetQuantity, trimPercent)
+    if not avg then
+        return nil
+    end
+
+    -- Store computed result
+    self.commodityCache[itemID].lastComputed = {
+        avg = avg,
+        min = minP,
+        max = maxP,
+        count = count,
+        targetQuantity = targetQuantity,
+        trimPercent = trimPercent
+    }
+
+    return avg, minP, maxP, count
+end
+
+-- ================= Send AH Query =================
+
+local function SendAHQuery(itemID)
+    if not C_AuctionHouse or not C_AuctionHouse.SendSearchQuery then return false end
+
+    local itemKey = GCA:GetCachedItemKey(itemID)
+    if itemKey then
+        C_AuctionHouse.SendSearchQuery(itemKey, {}, false)
+        return true
+    else
+        -- Fallback
+        C_AuctionHouse.SendSearchQuery(itemID, {}, false)
+        return true
+    end
+end
+
+-- ================= Scan Management =================
+
+function GCA:StartScan(filterName)
+    if scanning then
+        print("|cffff0000[GCA]|r Scan already in progress.")
+        return
+    end
+
+    if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then
+        print("|cffff0000[GCA]|r Auction House must be open to scan.")
+        return
+    end
+
+    -- Get items to scan
+    local items
+    if filterName then
+        items = self:GetFilterItems(filterName)
+    else
+        -- Use all strategy items
+        items = {}
+        local allItemIDs = self:GetAllStrategyItemIDs()
+        for _, itemID in ipairs(allItemIDs) do
+            items[itemID] = { itemID = itemID }
+        end
+    end
+
+    -- Build scan queue
+    scanQueue = {}
+    for itemID in pairs(items) do
+        scanQueue[#scanQueue + 1] = itemID
+    end
+
+    if #scanQueue == 0 then
+        print("|cff00ff00[GCA]|r No items to scan.")
+        return
+    end
+
+    scanning = true
+    currentIndex = 0
+    totalItems = #scanQueue
+
+    print(string.format("|cff00ff00[GCA]|r Starting scan of %d items...", totalItems))
+
+    -- Start the scan
+    self:ProcessNextScanBatch()
+end
+
+function GCA:ProcessNextScanBatch()
+    if not scanning then return end
+
+    if currentIndex >= totalItems then
+        self:FinishScan()
+        return
+    end
+
+    currentIndex = currentIndex + 1
+    local itemID = scanQueue[currentIndex]
+
+    -- Send query
+    SendAHQuery(itemID)
+
+    -- Update progress
+    if self.UpdateScanProgress then
+        self:UpdateScanProgress(currentIndex, totalItems)
+    end
+
+    -- Schedule next query
+    C_Timer.After(SCAN_DELAY, function()
+        self:ProcessNextScanBatch()
+    end)
+end
+
+function GCA:FinishScan()
+    scanning = false
+    scanQueue = {}
+    currentIndex = 0
+    totalItems = 0
+
+    print("|cff00ff00[GCA]|r Scan complete!")
+
+    -- Calculate and display ROI
+    if self.CalculateAllROI then
+        C_Timer.After(1.0, function()
+            self:CalculateAllROI()
+        end)
+    end
+
+    -- Update UI
+    if self.UpdateResults then
+        self:UpdateResults()
+    end
+end
+
+function GCA:StopScan()
+    if scanning then
+        scanning = false
+        scanQueue = {}
+        print("|cff00ff00[GCA]|r Scan stopped.")
+    end
+end
+
+function GCA:IsScanInProgress()
+    return scanning
+end
+
+function GCA:GetScanProgress()
+    if not scanning then return 0, 0, 0 end
+    local percent = totalItems > 0 and (currentIndex / totalItems * 100) or 0
+    return currentIndex, totalItems, percent
+end
+
+-- ================= Event Handler =================
+
+function GCA:OnCommoditySearchResults()
+    C_Timer.After(0, function()
+        if not C_AuctionHouse then return end
+
+        -- Get the item ID from the current commodity frame
+        local itemID = nil
+        if AuctionHouseFrame and AuctionHouseFrame.CommoditiesBuyFrame then
+            local f = AuctionHouseFrame.CommoditiesBuyFrame
+            if f.GetItemID then
+                itemID = f:GetItemID()
+            end
+        end
+
+        if not itemID then return end
+
+        -- Debounce
+        local now = GetTime()
+        if itemID == lastItemID and (now - lastQueryTime) < DEBOUNCE_DELAY then
+            return
+        end
+        lastItemID = itemID
+        lastQueryTime = now
+
+        -- Get fresh stats
+        local avg, minP, maxP, collected = self:GetCommodityStats(itemID)
+
+        if avg then
+            -- Store in persistent price database
+            self:StorePrice(itemID, avg, minP, maxP, collected)
+
+            -- Debug output
+            self:Debug(string.format("Item %d: avg=%.2f min=%.2f max=%.2f count=%d",
+                itemID, avg/10000, minP/10000, maxP/10000, collected))
+        end
+    end)
+end
+
+-- ================= Price Storage =================
+
+function GCA:StorePrice(itemID, avg, minPrice, maxPrice, collected)
+    if not itemID or not avg then return end
+
+    -- Ensure price table exists
+    self.db.prices = self.db.prices or {}
+    self.db.prices[itemID] = self.db.prices[itemID] or {}
+
+    -- Determine rank from item info (simplified - use rank 2 as default)
+    local rank = 2  -- Most common rank in the spreadsheet
+
+    -- Store price
+    self.db.prices[itemID][rank] = {
+        price = avg,
+        minPrice = minPrice,
+        maxPrice = maxPrice,
+        collected = collected,
+        timestamp = time(),
+    }
+end
+
+function GCA:GetPrice(itemID, rank)
+    rank = rank or 2
+
+    -- Check runtime cache first
+    if self.commodityCache[itemID] and self.commodityCache[itemID].lastComputed then
+        return self.commodityCache[itemID].lastComputed.avg
+    end
+
+    -- Check persistent storage
+    if self.db.prices[itemID] and self.db.prices[itemID][rank] then
+        return self.db.prices[itemID][rank].price
+    end
+
+    return nil
+end
+
+function GCA:GetPriceInfo(itemID, rank)
+    rank = rank or 2
+
+    -- Check runtime cache first
+    if self.commodityCache[itemID] and self.commodityCache[itemID].lastComputed then
+        return self.commodityCache[itemID].lastComputed
+    end
+
+    -- Check persistent storage
+    if self.db.prices[itemID] and self.db.prices[itemID][rank] then
+        return self.db.prices[itemID][rank]
+    end
+
+    return nil
+end
+
+-- ================= Recalculation =================
+
+function GCA:RecalculatePrices()
+    local targetQuantity = tonumber(self.db.settings.quantity) or 10000
+    local trimPercent = tonumber(self.db.settings.trim) or 3
+
+    for itemID, cache in pairs(self.commodityCache) do
+        if cache.prices and #cache.prices > 0 then
+            local avg, minP, maxP, count = ComputeStatsFromResults(cache.prices, targetQuantity, trimPercent)
+            if avg then
+                cache.lastComputed = {
+                    avg = avg,
+                    min = minP,
+                    max = maxP,
+                    count = count,
+                    targetQuantity = targetQuantity,
+                    trimPercent = trimPercent
+                }
+
+                -- Update persistent storage
+                self:StorePrice(itemID, avg, minP, maxP, count)
+            end
+        end
+    end
+
+    print("|cff00ff00[GCA]|r Prices recalculated with new settings.")
+
+    -- Update UI
+    if self.UpdateResults then
+        self:UpdateResults()
+    end
+end

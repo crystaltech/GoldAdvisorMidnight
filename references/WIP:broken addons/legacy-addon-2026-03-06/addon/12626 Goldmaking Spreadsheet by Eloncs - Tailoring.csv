@@ -1,0 +1,44 @@
+,,,,,,,,,,,,,,,
+"Guide:
+1. Input the amount of cloth that your going to unravell.
+2. Input your current AH prices to all fields with a star (*).
+3. Now you will be able to see your total estimated profit
+after AH fee, and you can also use the Spool Crafted Price
+to override in CraftSim or other crafts in the sheet.
+(Find the optimal setup below)",,Checked = Q3 : Unchecked = Q2,,"Guide:
+1. This Weavercloth Bolt crafting setup requires you to unravell your own weavercloth. Input your Weavercloth
+amount that you are going to unravell.
+2.Input all other fields with a star (*) with your current AH Prices.
+3.You can now see your  expected profit after AH cut, and you can also see the Weavercloth Bolt Crafted value,
+which you can use to override in Craftsim or other crafts in the sheet.
+(Find the optimal setup below)",,,,,"Guide:
+1. This Exquisite Bolt crafting setup requires you to unravell your own weavercloth and Craft your own Weavercloth Bolts.
+Input your Weavercloth amount that you are going tto start with and unravell.
+2.Input all other fields with a star (*) with your current AH Prices.
+3.You can now see your expected profit after AH cut.
+(Find the optimal setup below)",,,,,,
+,,FALSE,,,,,,,,,,,,,
+,,Addon List Import,,,,,,,,,,,,,
+,,"ListName:Tailoring;Items:222795:2000,219951:1000,228232:DEFAULT,224834:250,222792:2000,222796:2000,219948:2000,228233:DEFAULT,222789:2000,222793:2000,222797:2000,219949:1000,222805:DEFAULT,224824:DEFAULT,224828:DEFAULT,222790:2000,222794:2000,219946:2000,219950:1000,222806:DEFAULT,228234:DEFAULT,224833:250,222791:2000,228231:2000",,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+( * ) = input your amount/price,,,,,,,,,,,,,,,
+Duskweave/Dawnweave Cloth Unravelling,,(24.3% resourcefulness),,( * ) = input your amount/price,,,"18,8% resourcefulness 
+19,5% multicraft",,( * ) = input your amount/price,,,"18,8%% resourcefulness 
+19,5% multicraft",,,
+*Amount of cloth,1,,,Weavercloth Bolt Crafting,,,,,,Exquisite Bolt Crafting,,,,Pioneer's Cloth Cuffs,
+Duskweave,#N/A,,,*Weavercloth Amount,2000,,,,*Weavercloth Amount,"2,000.00",Exquisite Weavercloth Bolt,#N/A,,*Weavercloth Amount,2000
+Spool of Duskthread,#N/A,,,,,,,,,,,,,Weavercloth,0
+Spool per cloth,0.98,,,Weavercloth,12.21,Weavercloth Bolt,#N/A,,Weavercloth,12.21,Total Exquisite Bolts Estimated,935.20,,Avg Q1 Shard per Cuffs,0.110
+Expected profit after AH fee,#N/A,,,,,,,,,,,,,Avg Q2 Shard per Cuffs,0.205
+Spool Crafted Price,#N/A,,,Avg Bolt per Cloth,0.57,Total Bolts Estimated,1130.80,,Avg Exquisite bolt per cloth,0.47,Estimated amount of Storm Dust needed,560.40,,Avg Q3 Shard per Cuffs,0.102
+ROI,#N/A,,,, ,,,,,,,,,Gleaming Shard,#N/A
+Weavercloth Unravelling,,(24.3% resourcefulness),,Weavercloth Batch Total Cost,"24,420.00",Total Revenue,#N/A,,Avg Storm Dust per cloth,0.28,Estimated total price Storm Dust,0.00,,Gleaming Shard,#N/A
+*Amount of cloth,1,,,,,,,,,,,,,Gleaming Shard,#N/A
+Weavercloth,12.21,,,Expected Profit ,#N/A,Weavercloth Bolt Crafting Value,21.60,,Storm Dust,0,,,,,
+Spool of Weaverthread,#N/A,,,ROI,#N/A,,,,,,,,,Total Crafting Cost,0
+Spool per cloth,3.370466667,,,,,,,,Total Batch Total Cost,"24,420.00",Total Revenue,#N/A,,Estimated Profit after AH cut,#N/A
+Expected profit after AH fee,#N/A,,,,,,,,,,,,,ROI,#N/A
+Spool Crafted Price,3.623,,,,,,,,Total Expected profit (after cut),#N/A,,,,,
+ROI,#N/A,,,,,,,,ROI,#N/A,,,,,

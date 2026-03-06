@@ -1,0 +1,65 @@
+,,,,,,,,,,,,,,,,,,
+Checked = Q3 : Unchecked Q2,,,,,,,,,,,,,,,,,,
+FALSE,,,,,,,,,,,,,,,,,,
+Addon Import List,Guide: DO NOT USE THE ORANGE GEM IT YIELDS WAY LESS STONES :),,,,,,,,,,,,,,,,,
+"ListName:Jewelcrafting;Items:210937:2000,213399:500,213221:250,212505:500,210932:1000,210934:2000,212511:500,213398:DEFAULT,213220:250,210931:1000,212508:500,212495:500,212498:500",,,,,,,,,,,,,,,,,,
+,,20.5% resourcefulness,,,,,20.5% resourcefulness,,,,,20.5% resourcefulness,,,,,,
+,CRUSHING,,,,IRONCLAW PROSPECTING Q2,,,,,AQIRITE PROSPECTING Q2,,,,,NULL STONE,,,
+,*Amount of Bismuth,2000,,,*Amount of Ironclaw Q2,30000,Ironclaw Ore,3.67,,*Amount of Aqirite Q2,30000,Aqirite,3.46,,*Amount of Null Stone,2000,Null stone,#N/A
+,,,,,Crushed gemstones per Ironclaw,0.02,Crushed gemstones,#N/A,,Crushed gemstones per Aqirite,0.02,Crushed gemstones,#N/A,,Handful of pebbles per Aqirite,0.22,Handful of pebbles,#N/A
+,Bismuth,8.69,,,Handful of pebbles per Ironclaw,0.23,Handful of pebbles,#N/A,,Handful of pebbles per Aqirite,0.23,Handful of pebbles,#N/A,,Glittering Glass per Aqirite,0.08,Glittering Glass,#N/A
+,Estimated amount of Gems needed,500,,,Glittering Glass per Ironclaw,0.08,Glittering Glass,#N/A,,Glittering Glass per Aqirite,0.08,Glittering Glass,#N/A,,Ambivalent Amber per Aqirite,0.02,Ambivalent Amber,#N/A
+,Radiant Ruby,28.5,,,Ambivalent Amber per Ironclaw,0.02,Ambivalent Amber,#N/A,,Ambivalent Amber per Aqirite,0.02,Ambivalent Amber,#N/A,,Radiant Ruby per Aqirite,0.16,Radiant Ruby,28.5
+,,,,,Radiant Ruby per Ironclaw,0.03,Radiant Ruby,28.5,,Radiant Ruby per Aqirite,0.03,Radiant Ruby,28.5,,Ostentatious Onyx per Aqirite,0.16,Ostentatious Onyx,#N/A
+,Crushed Gemstones,#N/A,,,Ostentatious Onyx per Ironclaw,0.03,Ostentatious Onyx,#N/A,,Ostentatious Onyx per Aqirite,0.03,Ostentatious Onyx,#N/A,,Extravagant Emerald per Aqirite,0.16,Extravagant Emerald,#N/A
+,,,,,Extravagant Emerald per Ironclaw,0.03,Extravagant Emerald,#N/A,,Extravagant Emerald per Aqirite,0.03,Extravagant Emerald,#N/A,,Stunning Sapphire per Aqirite,0.16,Stunning Sapphire,#N/A
+,Avg crushed gemstone per bismuth,0.96,,,Stunning Sapphire per Ironclaw,0.03,Stunning Sapphire,#N/A,,Stunning Sapphire per Aqirite,0.03,Stunning Sapphire,#N/A,,,,,
+,,,,,,,,,,,,,,,,,,
+,Avg Gem per Bismuth,0.25,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,Expected value,#N/A,,
+,Expected value,#N/A,,,Expected value,#N/A,,,,Expected value,#N/A,,,,,,,
+,,,,,,,,,,,,,,,Expected cost,#N/A,,
+,Expected cost,31630.00,,,Expected cost,110100.00,,,,Expected cost,103800.00,,,,,,,
+,,,,,,,,,,,,,,,Expected Profit,#N/A,,
+,Expected Profit,#N/A,,,Expected Profit,#N/A,,,,Expected Profit,#N/A,,,,ROI,#N/A,,
+,ROI,#N/A,,,ROI,#N/A,,,,ROI,#N/A,,,,,,,
+,Crafted price per Gemstone,16.49,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,WORK IN PROGRESS,,,,,,,,,,,,,,,,,
+,"Guide:
+1. Insert your current auction house prices on all the fields including a star (*).
+2. If you plan to use the Stone for crafing in Jewelcrafting you can now override
+the Stone price in Craftsim to get accurate values.
+3.This data & stats are based on being max skill in Jewelcrafting, You can find optimal tools below.",,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+,,"Multicraft: 20%
+Resourcefulness: 16%",,,,,,,,,,,,,,,,
+,Marbled Stone,,,,,,,,,,,,,,,,,
+,Bismuth Start Amount,150000,,,,,,,,,,,,,,,,
+,Bismuth,0,,,,,,,,,,,,,,,,
+,Marbled Stone,#N/A,,,,,,,,,,,,,,,,
+,Avg Marbled Stone per Bismuth,1.44,,,,,,,,,,,,,,,,
+,Expected Amount of Marbled Stone Crafted,216000,,,,,,,,,,,,,,,,
+,Total Crafting Cost,0.00,,,,,,,,,,,,,,,,
+,Crafted value per Marbled Stone,0.00,,,,,,,,,,,,,,,,
+,Expected total value of Marbled Stone,#N/A,,,,,,,,,,,,,,,,
+,Expected Profit After AH CUT,#N/A,,,,,,,,,,,,,,,,
+,ROI,#N/A,,,,,,,,,,,,,,,,

@@ -1,0 +1,89 @@
+WORLD OF WARCRAFT: MIDNIGHT
+TAILORING LEVELING GUIDE (1–100)
+========================================
+Last Updated: January 26, 2026
+
+GUIDE GOAL
+----------
+This guide is focused on the cheapest possible route to max Tailoring skill (100), while also
+including all 24 first-time craft rewards for maximum bonus experience.
+
+General Tip: Always buy the cheapest quality of materials available. Quality does not affect
+the outcome when leveling a profession.
+
+
+MATERIALS REQUIRED
+-------------------
+- Bright Linen Bolt: 66
+- Imbued Bright Linen Cloth: 33
+- Embroidery Floss: 70
+- Silverleaf Thread: 78
+- Eversinging Dust: 14
+- Bright Linen: 1
+- Mote of Primal Energy: 6
+- Mote of Pure Void: 6
+- Sunfire Silk Bolt: 10
+- Arcanoweave Bolt: 10
+- Sunfire Silk Bolt or Arcanoweave Bolt: 100 (choose one for skill 54–100; see below)
+- Sunfire Silk or Arcanoweave Silk: 300 (must match your bolt choice above)
+
+Note: Depending on your luck with crafts, you may need to purchase slightly more materials than listed.
+
+
+LEVELING PATH: SKILL 1 TO 50
+------------------------------
+Follow these crafts in order to level efficiently.
+
+Skill 1–2: Craft Bright Linen Bolt
+Skill 2–14: Craft Bright Linen Bandage
+Skill 14–16: Craft Courtly Wrists
+Skill 16–18: Craft Courtly Belt
+Skill 18–20: Craft Courtly Slippers
+Skill 20–22: Craft Courtly Gloves
+Skill 22–24: Craft Courtly Cloak
+Skill 24–26: Craft Courtly Pants
+Skill 26–28: Craft Courtly Helm
+Skill 28–29: Craft Imbued Bright Linen Bolt
+Skill 29–31: Craft Bright Linen Alchemy Apron
+Skill 31–33: Craft Bright Linen Enchanting Hat
+Skill 33–35: Craft Bright Linen Fishing Hat
+Skill 35–36: Craft Bright Linen Herbalism Hat
+Skill 36–37: Craft Bright Linen Tailoring Robe — Equip it if you don't already have one.
+Skill 37–38: Craft Bright Linen Cooking Chapeau
+Skill 38–39: Craft Bright Linen Reagent Satchel
+Skill 39–40: Craft Imbued Bright Linen Backpack
+Skill 40–41: Craft Courtly Robes
+Skill 41–42: Craft Bright Linen Spellthread
+Skill 42–50: Craft Courtly Shoulders
+
+
+LEVELING PATH: SKILL 50 TO 54 — HIGHER COST PHASE
+----------------------------------------------------
+Note: From skill 50 onward, materials become more expensive. Consider selling bags on the
+Auction House to recover costs, or equip them yourself to get value out of them.
+
+Skill 50–52: Craft Sunfire Silk Backpack
+Skill 52–54: Craft Arcanoweave Reagent Rucksack
+
+
+LEVELING PATH: SKILL 54 TO 100 — CHOOSE YOUR RECIPE
+------------------------------------------------------
+Important: From skill 54 onward, leveling becomes significantly harder, especially early in the
+Midnight expansion before materials become more widely available. Prices are expected to decrease
+over time as more materials enter the market.
+
+To continue, you must purchase one of the following recipes from the Auction House:
+- Arcanoweave Lining
+- Sunfire Silk Lining
+
+Tip: Check Undermine.Exchange to find which recipe and its materials are cheapest on your realm
+or nearby realms. Compare the price of Arcanoweave Bolts versus Sunfire Silk Bolts and choose
+whichever complete path is less expensive.
+
+Skill 54–100: Craft either Arcanoweave Lining or Sunfire Silk Lining repeatedly until you reach skill 100.
+
+
+COMPLETION NOTES
+----------------
+Once you reach skill 100, you have maxed out Tailoring in World of Warcraft: Midnight.
+Any extra crafted items can be sold on the Auction House to recover some of the gold spent on materials.

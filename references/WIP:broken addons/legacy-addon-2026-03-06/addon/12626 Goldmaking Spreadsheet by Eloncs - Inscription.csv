@@ -1,0 +1,73 @@
+,,,,,,,,,,,,
+,Crafts Including Apricate Ink,,,,,,Crafts Including Shadow Ink,,,,,
+Checked = Q3 : Unchecked = Q2,,,,,,,,,,,,
+TRUE,Guide:,,,,,,Guide:,,,,,
+Addon Import List,"(All crafting is using the best optimal setup and stats, you can find all of this below)
+1.Add your current auction house prices to all fields in Milling including a star (*). 
+2.Add your current auction house prices to Apricate Ink fields including a star (*). All other fields are using information from the Milling step before.
+3.If you want to make Ciphers, add your current auction house prices to Boundless Cipher fields including a star (*). All other fields is using information from the Milling
+& Apricate Ink step before, so make sure you have input that data.
+4.Make sure you use the double amount of mycobloom as luredrop
+(DO NOT USE Q1 HERBS TO GET Q2 PIGMENTS. IT YIELDS LESS PIGMENTS)",,,,,,"(All crafting is using the best optimal setup and stats, you can find all of this below)
+1.Add your current auction house prices to all fields in Milling including a star (*). 
+2.Add your current auction house prices to Shadow Ink fields including a star (*). All other fields are using information from the Milling step before.
+3.If you want to make Greenwood, add your current auction house prices to Codified Greenwood fields including a star (*). All other fields is using information from the Milling 
+& Shadow Ink step before, so make sure you have input that data.
+(DO NOT USE Q1 HERBS TO GET Q2 PIGMENTS. IT YIELDS LESS PIGMENTS)",,,,,
+"ListName:Inscription;Items:210798:DEFAULT,222617:250,222559:250,222610:250,210803:2000,210807:DEFAULT,222560:250,210800:2000,210804:DEFAULT,210808:DEFAULT,210797:DEFAULT,210801:DEFAULT,222616:250,210809:2000,222557:100,222556:100,222611:250,210806:DEFAULT,210810:DEFAULT",,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,Luredrop Milling,32.2% resourcefulness,,Mycobloom Milling,32.2% resourcefulness,,Orbinid Milling,32.2% resourcefulness,,Blessing Blossom Milling,32.2% resourcefulness,
+,*Amount of Luredrops ,"5,000.00",,*Amount of Mycobloom,"10,000.00",,*Amount of Orbinid,"6,850.00",,*Amount of Blessing Blossom,"6,850.00",
+,,,,,,,,,,,,
+,Expected amount of pigments,"7,500.00",,Expected amount of pigments,"15,000.00",,Expected amount of pigments,"10,275.00",,Expected amount of pigments,"10,275.00",
+,,,,,,,,,,,,
+,Avg pigment per Luredrop,1.50,,Avg pigment per Mycobloom,1.50,,Avg pigment per Orbinid,1.50,,Avg pigment per Blessing Blossom,1.50,
+,,,,,,,,,,,,
+,Luredrop,0,,Mycobloom,7.56,,Orbinid,0,,Blessing Blossom,10.28,
+,,,,,,,,,,,,
+,Expected price per pigment,0.00,,Expected price per pigment,5.04,,Expected price per pigment,0.00,,Expected price per pigment,6.85,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,Apricate Ink,,,Boundless Cipher,,,,,,,,
+,,"20% resourcefulness
+22,7% multicraft",,,"20% resourcefulness
+22,7% multicraft",,Shadow Ink,,,Codified Greenwood,,
+,Amount of Ink per Herb,0.53,,Amount of Apricate ink,2647,,,"20% resourcefulness
+22,7% multicraft",,,"20% resourcefulness
+22,7% multicraft",
+,,,,Cipher's Per Ink,0.88,,Amount of Ink per Herb,0.55,,*Amount of Shadow ink,3740.10,
+,Estimated amount of Inks,2647,,Arathor's spear per Cipher,2.84,,,,,Greenwood Per Ink,0.88, 
+,Crafted price per Ink,28.56,,Expected amount of Arathor's Needed,6627,,Estimated amount of Inks,3740,,Arathor's Spear per Greenwood,2.84,
+,Apricate Ink,#N/A,,Expected amount of Ciphers,2336,,Crafted price per ink,18.83,,Expected amount of Arathor's Needed,9364.41,
+,Estimated Crafting Cost,75600,,Arathor's Spear,0,,Shadow Ink,#N/A,,Expected amount of Greenwood,3300.79,
+,Estimated profit after AH cut,#N/A,,Boundless Cipher,#N/A,,Estimated Crafting Cost,70418,,Arathor's Spear,0,
+,ROI,#N/A,,Total Cost,75600.0,,Estimated profit after AH cut,#N/A,,Codified Greenwood,#N/A,
+,,,,Expected Crafted Value (no AH cut),#N/A,,ROI,#N/A,,Total Cost,70418.00,
+,,,,Expected Profit after AH cut,#N/A,,,,,Expected Crafted Value (no AH cut),#N/A,
+,,,,Your Cipher Crafted Price ,32.37,,,,,Expected Profit after AH Cut,#N/A,
+,,,,ROI,#N/A,,,,,ROI,#N/A,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,"When Milling use the ""Resourcefulness"" Tool.
+When Crafting Ink / Cipher use the ""Multicraft"" Tool.",,,THIS IS ONLY NEEDED FOR Q3 CRAFTS,,,,,,,THIS IS ONLY NEEDED FOR Q3 CRAFTS,

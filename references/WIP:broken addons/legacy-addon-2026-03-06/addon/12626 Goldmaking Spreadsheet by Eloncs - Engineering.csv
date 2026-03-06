@@ -1,0 +1,24 @@
+,,,,,
+CHECKED = Q3 : UNCHECKED = Q2,"Guide:
+1.Input the amount of bismuth you are going to craft with, then change all the values with a star (*)
+to your current auction house prices to see your estimated profit after AH cut.
+(Find the optimal build below)",,,"Guide:
+1.Input the amount of bismuth you are going to craft with, then change all the values with a star (*)
+to your current auction house prices to see your estimated profit after AH cut.
+(Find the optimal build below)",
+FALSE,,,,,
+Addon Import List,Handful of Bismuth Bolts,"20,4% resourcefulness
+19,5% multicraft",,Gyrating Gear,"20,4% resourcefulness
+19,5% multicraft"
+"ListName:Engineering;Items:221860:250,221854:250,221855:250,210935:2000,210934:2000,210931:1000,210932:1000,221861:250",*Amount of Bismuth,2000,,*Amount of Bismuth,2000
+,Bismuth,8.69,,Bismuth,8.69
+,Bolt per Bismuth,0.50,,Gear per Bismuth,0.70
+,Handful of Bismuth Bolts,#N/A,,Gyrating Gear,#N/A
+,,,,Aqirite,3.46
+,,,,Aqirite Needed,667
+,,,,Junk Bucket Price,10
+,,,,Junk Bucket Needed,667
+,,,,,
+,Total Cost,17380,,Total Cost,26353.33333
+,Estimated Profit after AH CUT,#N/A,,Estimated Profit after AH CUT,#N/A
+,ROI,#N/A,,ROI,#N/A

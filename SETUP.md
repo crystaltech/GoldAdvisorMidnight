@@ -75,12 +75,12 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\sync_memory_win.ps1
 ```
 
 Snapshots are written to:
-- `GoldAdvisorMidnight/memory/snapshots/mac/`
-- `GoldAdvisorMidnight/memory/snapshots/win11/`
+- `memory/snapshots/mac/`
+- `memory/snapshots/win11/`
 
 Commit snapshot updates when needed:
 ```bash
-git add GoldAdvisorMidnight/memory/snapshots
+git add memory/snapshots
 git commit -m "chore(memory): update snapshots"
 git push
 ```
