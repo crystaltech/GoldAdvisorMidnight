@@ -1,0 +1,42 @@
+[
+  {
+    "addr": "D6",
+    "formula": "=D5*4",
+    "cached_value": 8000
+  },
+  {
+    "addr": "H6",
+    "formula": "=H5*2",
+    "cached_value": 12000
+  },
+  {
+    "addr": "D13",
+    "formula": "=D5*1.592",
+    "cached_value": 3184
+  },
+  {
+    "addr": "H13",
+    "formula": "=H5*0.780948384389425",
+    "cached_value": 4685.690306
+  },
+  {
+    "addr": "D14",
+    "formula": "=((D10*D5)+(D11*D6))/D13",
+    "cached_value": 15.70351759
+  },
+  {
+    "addr": "H14",
+    "formula": "=((H10*H5)+(H11*H6))/H13",
+    "cached_value": 19.20741537
+  },
+  {
+    "addr": "D15",
+    "formula": "=sum((D13*D9*0.95)-((D10*D5)+(D11*D6)))",
+    "cached_value": -34876
+  },
+  {
+    "addr": "H15",
+    "formula": "=sum((H13*H11*0.95)-((H9*H5)+(H10*H6)))",
+    "cached_value": -67742.97104
+  }
+]

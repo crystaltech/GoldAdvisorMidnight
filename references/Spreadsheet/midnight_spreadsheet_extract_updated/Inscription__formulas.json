@@ -1,0 +1,142 @@
+[
+  {
+    "addr": "C8",
+    "formula": "=C3*1.53",
+    "cached_value": 7650
+  },
+  {
+    "addr": "G8",
+    "formula": "=G3*1.53",
+    "cached_value": 7650
+  },
+  {
+    "addr": "K8",
+    "formula": "=K3*1.53",
+    "cached_value": 7650
+  },
+  {
+    "addr": "C9",
+    "formula": "=(C5*C3)/C8",
+    "cached_value": 3.267973856
+  },
+  {
+    "addr": "G9",
+    "formula": "=(G5*G3)/G8",
+    "cached_value": 3.267973856
+  },
+  {
+    "addr": "K9",
+    "formula": "=(K5*K3)/K8",
+    "cached_value": 3.267973856
+  },
+  {
+    "addr": "C10",
+    "formula": "=SUM((C8*C6*0.95)-(C5*C3))",
+    "cached_value": 11337.5
+  },
+  {
+    "addr": "G10",
+    "formula": "=SUM((G8*G6*0.95)-(G5*G3))",
+    "cached_value": 11337.5
+  },
+  {
+    "addr": "K10",
+    "formula": "=SUM((K8*K6*0.95)-(K5*K3))",
+    "cached_value": 11337.5
+  },
+  {
+    "addr": "C19",
+    "formula": "=C18/2",
+    "cached_value": 10000
+  },
+  {
+    "addr": "G19",
+    "formula": "=G18/2",
+    "cached_value": 10000
+  },
+  {
+    "addr": "K19",
+    "formula": "=K18",
+    "cached_value": 1000
+  },
+  {
+    "addr": "C20",
+    "formula": "=C18/4",
+    "cached_value": 5000
+  },
+  {
+    "addr": "G20",
+    "formula": "=G18/4",
+    "cached_value": 5000
+  },
+  {
+    "addr": "K20",
+    "formula": "=K18",
+    "cached_value": 1000
+  },
+  {
+    "addr": "C21",
+    "formula": "=C18*1.5",
+    "cached_value": 30000
+  },
+  {
+    "addr": "G21",
+    "formula": "=G18*1.5",
+    "cached_value": 30000
+  },
+  {
+    "addr": "K21",
+    "formula": "=K18",
+    "cached_value": 1000
+  },
+  {
+    "addr": "K22",
+    "formula": "=K18",
+    "cached_value": 1000
+  },
+  {
+    "addr": "C27",
+    "formula": "=((C23*C18)+(C24*C19)+(C25*C20))/C28",
+    "cached_value": 48.61111111
+  },
+  {
+    "addr": "G27",
+    "formula": "=((G23*G18)+(G24*G19)+(G25*G20))/G28",
+    "cached_value": 48.61111111
+  },
+  {
+    "addr": "C28",
+    "formula": "=C18*0.18",
+    "cached_value": 3600
+  },
+  {
+    "addr": "G28",
+    "formula": "=G18*0.18",
+    "cached_value": 3600
+  },
+  {
+    "addr": "C29",
+    "formula": "=SUM((C28*C26*0.95)-((C23*C18)+(C24*C19)+(C25*C20)))",
+    "cached_value": -157900
+  },
+  {
+    "addr": "G29",
+    "formula": "=SUM((G28*G26*0.95)-((G23*G18)+(G24*G19)+(G25*G20)))",
+    "cached_value": -157900
+  },
+  {
+    "addr": "K31",
+    "formula": "=2.729*K19",
+    "cached_value": 2729
+  },
+  {
+    "addr": "K32",
+    "formula": "=((K24*K18)+(K25*K19)+(K26*K20)+(K27*K21)+(K28*K22))/K31",
+    "cached_value": 9.160864786
+  },
+  {
+    "addr": "K33",
+    "formula": "=SUM((K31*K29*0.95)-((K24*K18)+(K25*K19)+(K26*K20)+(K27*K21)+(K28*K22)))",
+    "cached_value": -12037.25
+  }
+]

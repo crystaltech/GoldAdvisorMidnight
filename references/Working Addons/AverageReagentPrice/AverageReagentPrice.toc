@@ -1,0 +1,14 @@
+## Interface: 110200, 110205, 120000
+## Title: ARP Tracker
+## Author: ChatGPT, Copilot & Brrserker
+## Version: v1.4.79
+## Notes: Tracks and displays average reagent and commodity prices from the Auction House with filtering and export features.
+## Category: Auctions
+## SavedVariables: AverageReagentPriceDB, ARP_DB
+
+# Dependencies (Global Ace3 structure)
+## OptionalDeps: Ace3
+
+ARP_EnItemNames.lua
+ARP_UserGuide.lua
+AverageReagentPrice.lua

@@ -1,0 +1,2433 @@
+{
+  "version": 1,
+  "source": "User-provided goldmaking spreadsheet material list aligned to Wowhead IDs",
+  "rank_rule": "Within an identical baseName, ranks are assigned by ascending itemID (rank 1 = lowest ID).",
+  "items": [
+    {
+      "baseName": "[OLD] Unalloyed Abundance",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244424
+        }
+      ]
+    },
+    {
+      "baseName": "[PH] Perception Finishing Reagent",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 247787
+        }
+      ]
+    },
+    {
+      "baseName": "A Big Ol' Stick of Butter",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242643
+        }
+      ]
+    },
+    {
+      "baseName": "Ace of Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245856
+        }
+      ]
+    },
+    {
+      "baseName": "Ace of Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245830
+        }
+      ]
+    },
+    {
+      "baseName": "Ace of Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245847
+        }
+      ]
+    },
+    {
+      "baseName": "Ace of Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245838
+        }
+      ]
+    },
+    {
+      "baseName": "Aetherlume",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 243578
+        },
+        {
+          "rank": 2,
+          "itemID": 243579
+        }
+      ]
+    },
+    {
+      "baseName": "Amani Lapis",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242554
+        },
+        {
+          "rank": 2,
+          "itemID": 242722
+        }
+      ]
+    },
+    {
+      "baseName": "Apprentice's Scribbles",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 246447
+        }
+      ]
+    },
+    {
+      "baseName": "Arcane Wyrmfish",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238371
+        }
+      ]
+    },
+    {
+      "baseName": "Arcanoweave",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 237017
+        },
+        {
+          "rank": 2,
+          "itemID": 237018
+        }
+      ]
+    },
+    {
+      "baseName": "Arcanoweave Bolt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 239198
+        },
+        {
+          "rank": 2,
+          "itemID": 239200
+        }
+      ]
+    },
+    {
+      "baseName": "Arcanoweave Lining",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 240166
+        },
+        {
+          "rank": 2,
+          "itemID": 240167
+        }
+      ]
+    },
+    {
+      "baseName": "Arden Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251772
+        }
+      ]
+    },
+    {
+      "baseName": "Argentleaf",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236776
+        },
+        {
+          "rank": 2,
+          "itemID": 236777
+        }
+      ]
+    },
+    {
+      "baseName": "Argentleaf Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245803
+        },
+        {
+          "rank": 2,
+          "itemID": 245804
+        }
+      ]
+    },
+    {
+      "baseName": "Artisan's Consortium Gold Star",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 246450
+        }
+      ]
+    },
+    {
+      "baseName": "Artisan's Ledger",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 246448
+        }
+      ]
+    },
+    {
+      "baseName": "Artisan's Moxie",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 237505
+        }
+      ]
+    },
+    {
+      "baseName": "Ashwood Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251764
+        }
+      ]
+    },
+    {
+      "baseName": "Azeroot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236774
+        },
+        {
+          "rank": 2,
+          "itemID": 236775
+        }
+      ]
+    },
+    {
+      "baseName": "B0P, Curator of Booms",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 257735
+        },
+        {
+          "rank": 2,
+          "itemID": 257741
+        }
+      ]
+    },
+    {
+      "baseName": "B1P, Scorcher of Souls",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 248135
+        },
+        {
+          "rank": 2,
+          "itemID": 248592
+        }
+      ]
+    },
+    {
+      "baseName": "Bamboo Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251763
+        }
+      ]
+    },
+    {
+      "baseName": "Bazaar Bites",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 265803
+        }
+      ]
+    },
+    {
+      "baseName": "Black Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262639
+        }
+      ]
+    },
+    {
+      "baseName": "Blessed Pango Charm",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244603
+        },
+        {
+          "rank": 2,
+          "itemID": 244604
+        }
+      ]
+    },
+    {
+      "baseName": "Blood Hunter",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238377
+        }
+      ]
+    },
+    {
+      "baseName": "Bloomtail Minnow",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238369
+        }
+      ]
+    },
+    {
+      "baseName": "Blue Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262643
+        }
+      ]
+    },
+    {
+      "baseName": "Bright Linen",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236963
+        },
+        {
+          "rank": 2,
+          "itemID": 236965
+        }
+      ]
+    },
+    {
+      "baseName": "Bright Linen Bolt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 239700
+        },
+        {
+          "rank": 2,
+          "itemID": 239701
+        }
+      ]
+    },
+    {
+      "baseName": "Brilliant Silver Ore",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 237364
+        },
+        {
+          "rank": 2,
+          "itemID": 237365
+        }
+      ]
+    },
+    {
+      "baseName": "Brown Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262642
+        }
+      ]
+    },
+    {
+      "baseName": "Carving Canine",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238523
+        }
+      ]
+    },
+    {
+      "baseName": "Codified Azeroot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245764
+        },
+        {
+          "rank": 2,
+          "itemID": 245765
+        }
+      ]
+    },
+    {
+      "baseName": "Coldwind Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251762
+        }
+      ]
+    },
+    {
+      "baseName": "Composite Flora",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 241280
+        },
+        {
+          "rank": 2,
+          "itemID": 241281
+        }
+      ]
+    },
+    {
+      "baseName": "Consistent Cogwheel",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244703
+        },
+        {
+          "rank": 2,
+          "itemID": 244704
+        }
+      ]
+    },
+    {
+      "baseName": "Cooking Spirits",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242641
+        }
+      ]
+    },
+    {
+      "baseName": "Crystalline Glass",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242786
+        },
+        {
+          "rank": 2,
+          "itemID": 242787
+        }
+      ]
+    },
+    {
+      "baseName": "Darkmoon Sigil: Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245871
+        },
+        {
+          "rank": 2,
+          "itemID": 245872
+        }
+      ]
+    },
+    {
+      "baseName": "Darkmoon Sigil: Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245875
+        },
+        {
+          "rank": 2,
+          "itemID": 245876
+        }
+      ]
+    },
+    {
+      "baseName": "Darkmoon Sigil: Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245877
+        },
+        {
+          "rank": 2,
+          "itemID": 245878
+        }
+      ]
+    },
+    {
+      "baseName": "Darkmoon Sigil: Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245873
+        },
+        {
+          "rank": 2,
+          "itemID": 245874
+        }
+      ]
+    },
+    {
+      "baseName": "Darkpine Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251768
+        }
+      ]
+    },
+    {
+      "baseName": "Dawn Crystal",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 243605
+        },
+        {
+          "rank": 2,
+          "itemID": 243606
+        }
+      ]
+    },
+    {
+      "baseName": "Dazzling Thorium",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 237366
+        }
+      ]
+    },
+    {
+      "baseName": "Devouring Banding",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244674
+        },
+        {
+          "rank": 2,
+          "itemID": 244675
+        }
+      ]
+    },
+    {
+      "baseName": "Dornic Fir Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 248012
+        }
+      ]
+    },
+    {
+      "baseName": "Dragonpine Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251773
+        }
+      ]
+    },
+    {
+      "baseName": "Duskshrouded Stone",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242788
+        },
+        {
+          "rank": 2,
+          "itemID": 242789
+        }
+      ]
+    },
+    {
+      "baseName": "Earthy Garnish",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 265800
+        }
+      ]
+    },
+    {
+      "baseName": "Eight of Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245863
+        }
+      ]
+    },
+    {
+      "baseName": "Eight of Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245837
+        }
+      ]
+    },
+    {
+      "baseName": "Eight of Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245854
+        }
+      ]
+    },
+    {
+      "baseName": "Eight of Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245845
+        }
+      ]
+    },
+    {
+      "baseName": "Embroidery Floss",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251691
+        }
+      ]
+    },
+    {
+      "baseName": "Evercore",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 243581
+        },
+        {
+          "rank": 2,
+          "itemID": 243582
+        }
+      ]
+    },
+    {
+      "baseName": "Eversinging Dust",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 243599
+        },
+        {
+          "rank": 2,
+          "itemID": 243600
+        }
+      ]
+    },
+    {
+      "baseName": "Eversong Diamond",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242608
+        },
+        {
+          "rank": 2,
+          "itemID": 242712
+        }
+      ]
+    },
+    {
+      "baseName": "Eversong Trout",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238383
+        }
+      ]
+    },
+    {
+      "baseName": "Fantastic Fur",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238525
+        }
+      ]
+    },
+    {
+      "baseName": "Fel-Touched Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251767
+        }
+      ]
+    },
+    {
+      "baseName": "Five of Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245860
+        }
+      ]
+    },
+    {
+      "baseName": "Five of Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245834
+        }
+      ]
+    },
+    {
+      "baseName": "Five of Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245851
+        }
+      ]
+    },
+    {
+      "baseName": "Five of Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245842
+        }
+      ]
+    },
+    {
+      "baseName": "Flawless Amani Lapis",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242612
+        },
+        {
+          "rank": 2,
+          "itemID": 242727
+        }
+      ]
+    },
+    {
+      "baseName": "Flawless Harandar Peridot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242610
+        },
+        {
+          "rank": 2,
+          "itemID": 242726
+        }
+      ]
+    },
+    {
+      "baseName": "Flawless Sanguine Garnet",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242613
+        },
+        {
+          "rank": 2,
+          "itemID": 242724
+        }
+      ]
+    },
+    {
+      "baseName": "Flawless Tenebrous Amethyst",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242611
+        },
+        {
+          "rank": 2,
+          "itemID": 242725
+        }
+      ]
+    },
+    {
+      "baseName": "Flux Cogwheel",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244697
+        },
+        {
+          "rank": 2,
+          "itemID": 244698
+        }
+      ]
+    },
+    {
+      "baseName": "Four of Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245859
+        }
+      ]
+    },
+    {
+      "baseName": "Four of Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245833
+        }
+      ]
+    },
+    {
+      "baseName": "Four of Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245850
+        }
+      ]
+    },
+    {
+      "baseName": "Four of Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245841
+        }
+      ]
+    },
+    {
+      "baseName": "Fungalskin Pike",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238375
+        }
+      ]
+    },
+    {
+      "baseName": "Fused Vitality",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245345
+        }
+      ]
+    },
+    {
+      "baseName": "Galactic Aspirant's Heraldry",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 256607
+        }
+      ]
+    },
+    {
+      "baseName": "Galactic Combatant's Heraldry",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 256559
+        }
+      ]
+    },
+    {
+      "baseName": "Galactic Gladiator's Heraldry",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 256608
+        }
+      ]
+    },
+    {
+      "baseName": "Glimmering Gemdust",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242620
+        },
+        {
+          "rank": 2,
+          "itemID": 242621
+        }
+      ]
+    },
+    {
+      "baseName": "Gloaming Alloy",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238202
+        },
+        {
+          "rank": 2,
+          "itemID": 238203
+        }
+      ]
+    },
+    {
+      "baseName": "Gore Guppy",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238382
+        }
+      ]
+    },
+    {
+      "baseName": "Greased Cogwheel",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244699
+        },
+        {
+          "rank": 2,
+          "itemID": 244700
+        }
+      ]
+    },
+    {
+      "baseName": "Green Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262647
+        }
+      ]
+    },
+    {
+      "baseName": "Griftah's Fool-Proof Embellishing Powder",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 256342
+        }
+      ]
+    },
+    {
+      "baseName": "Harandar Peridot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242607
+        },
+        {
+          "rank": 2,
+          "itemID": 242720
+        }
+      ]
+    },
+    {
+      "baseName": "Hollow Grouper",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238381
+        }
+      ]
+    },
+    {
+      "baseName": "HU5H, Nonchalant Pup",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 255843
+        },
+        {
+          "rank": 2,
+          "itemID": 255844
+        }
+      ]
+    },
+    {
+      "baseName": "Imbued Bright Linen Bolt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 239702
+        },
+        {
+          "rank": 2,
+          "itemID": 239703
+        }
+      ]
+    },
+    {
+      "baseName": "Infused Heliotrope",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 253307
+        }
+      ]
+    },
+    {
+      "baseName": "Infused Scalewoven Hide",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244633
+        },
+        {
+          "rank": 2,
+          "itemID": 244634
+        }
+      ]
+    },
+    {
+      "baseName": "Ingenious Identifier",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 260630
+        }
+      ]
+    },
+    {
+      "baseName": "Ingenious Identity",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 247788
+        }
+      ]
+    },
+    {
+      "baseName": "Ironwood Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245586
+        }
+      ]
+    },
+    {
+      "baseName": "Kaleidoscopic Prism",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 240974
+        },
+        {
+          "rank": 2,
+          "itemID": 240975
+        }
+      ]
+    },
+    {
+      "baseName": "Kinetic Ankle Primers",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 248132
+        },
+        {
+          "rank": 2,
+          "itemID": 248133
+        }
+      ]
+    },
+    {
+      "baseName": "Lexicologist's Vellum",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245881
+        }
+      ]
+    },
+    {
+      "baseName": "Lucky Keychain",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 248130
+        }
+      ]
+    },
+    {
+      "baseName": "Lucky Loa",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238376
+        }
+      ]
+    },
+    {
+      "baseName": "Luminant Flux",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 243060
+        }
+      ]
+    },
+    {
+      "baseName": "Lynxfish",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238366
+        }
+      ]
+    },
+    {
+      "baseName": "M0LL1, Atomic Anomaly",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 257733
+        },
+        {
+          "rank": 2,
+          "itemID": 257734
+        }
+      ]
+    },
+    {
+      "baseName": "M3DDY, Travel-Sized",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 248136
+        }
+      ]
+    },
+    {
+      "baseName": "Majestic Claw",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238528
+        }
+      ]
+    },
+    {
+      "baseName": "Majestic Fin",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238530
+        }
+      ]
+    },
+    {
+      "baseName": "Majestic Hide",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238529
+        }
+      ]
+    },
+    {
+      "baseName": "Malleable Wireframe",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 253302
+        }
+      ]
+    },
+    {
+      "baseName": "Mana Lily",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236778
+        },
+        {
+          "rank": 2,
+          "itemID": 236779
+        }
+      ]
+    },
+    {
+      "baseName": "Mana Lily Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245867
+        },
+        {
+          "rank": 2,
+          "itemID": 245866
+        }
+      ]
+    },
+    {
+      "baseName": "Mana-Wyrm Essence",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242644
+        }
+      ]
+    },
+    {
+      "baseName": "Mentor's Helpful Handiwork",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 246449
+        }
+      ]
+    },
+    {
+      "baseName": "Midnight Catalyst",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 241279
+        }
+      ]
+    },
+    {
+      "baseName": "Mini-Medical Team",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244705
+        },
+        {
+          "rank": 2,
+          "itemID": 244706
+        }
+      ]
+    },
+    {
+      "baseName": "Mote of Light",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236949
+        }
+      ]
+    },
+    {
+      "baseName": "Mote of Primal Energy",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236950
+        }
+      ]
+    },
+    {
+      "baseName": "Mote of Pure Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236952
+        }
+      ]
+    },
+    {
+      "baseName": "Mote of Wild Magic",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236951
+        }
+      ]
+    },
+    {
+      "baseName": "Multicraft Manifold",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 247724
+        }
+      ]
+    },
+    {
+      "baseName": "Multicraft Matrix",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 247719
+        }
+      ]
+    },
+    {
+      "baseName": "Munsell Ink",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245801
+        },
+        {
+          "rank": 2,
+          "itemID": 245802
+        }
+      ]
+    },
+    {
+      "baseName": "Nocturnal Lotus",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236780
+        }
+      ]
+    },
+    {
+      "baseName": "Null Voidfish",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238380
+        }
+      ]
+    },
+    {
+      "baseName": "Oil of Heartwood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 247811
+        }
+      ]
+    },
+    {
+      "baseName": "Olemba Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242691
+        }
+      ]
+    },
+    {
+      "baseName": "Ominous Octopus",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238373
+        }
+      ]
+    },
+    {
+      "baseName": "Orange Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262656
+        }
+      ]
+    },
+    {
+      "baseName": "Peerless Plumage",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238522
+        }
+      ]
+    },
+    {
+      "baseName": "Perfect Preservatives",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 259894
+        }
+      ]
+    },
+    {
+      "baseName": "Perfected Cogwheel",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244701
+        },
+        {
+          "rank": 2,
+          "itemID": 244702
+        }
+      ]
+    },
+    {
+      "baseName": "Petrified Root",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251285
+        }
+      ]
+    },
+    {
+      "baseName": "Pile of Junk",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 253303
+        }
+      ]
+    },
+    {
+      "baseName": "Plant Protein",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242640
+        }
+      ]
+    },
+    {
+      "baseName": "Pouch of Spices",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242646
+        }
+      ]
+    },
+    {
+      "baseName": "Powder Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245807
+        },
+        {
+          "rank": 2,
+          "itemID": 245808
+        }
+      ]
+    },
+    {
+      "baseName": "Practically Pork",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242639
+        }
+      ]
+    },
+    {
+      "baseName": "Primal Spore Binding",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244607
+        },
+        {
+          "rank": 2,
+          "itemID": 244608
+        }
+      ]
+    },
+    {
+      "baseName": "Prismatic Focusing Iris",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251487
+        },
+        {
+          "rank": 2,
+          "itemID": 251488
+        }
+      ]
+    },
+    {
+      "baseName": "Pure Loanite",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 239611
+        }
+      ]
+    },
+    {
+      "baseName": "Purple Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262625
+        }
+      ]
+    },
+    {
+      "baseName": "Radiant Shard",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 243602
+        },
+        {
+          "rank": 2,
+          "itemID": 243603
+        }
+      ]
+    },
+    {
+      "baseName": "Red Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262655
+        }
+      ]
+    },
+    {
+      "baseName": "Refulgent Copper Ingot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238197
+        },
+        {
+          "rank": 2,
+          "itemID": 238198
+        }
+      ]
+    },
+    {
+      "baseName": "Refulgent Copper Ore",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 237359
+        },
+        {
+          "rank": 2,
+          "itemID": 237361
+        }
+      ]
+    },
+    {
+      "baseName": "Resourceful Rebar",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 247725
+        }
+      ]
+    },
+    {
+      "baseName": "Resourceful Routing",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 247726
+        }
+      ]
+    },
+    {
+      "baseName": "Restored Songfish",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238372
+        }
+      ]
+    },
+    {
+      "baseName": "Ripened Vegetable Assortment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242645
+        }
+      ]
+    },
+    {
+      "baseName": "Root Crab",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238367
+        }
+      ]
+    },
+    {
+      "baseName": "Sanguine Garnet",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242553
+        },
+        {
+          "rank": 2,
+          "itemID": 242723
+        }
+      ]
+    },
+    {
+      "baseName": "Sanguithorn",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236770
+        },
+        {
+          "rank": 2,
+          "itemID": 236771
+        }
+      ]
+    },
+    {
+      "baseName": "Sanguithorn Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245865
+        },
+        {
+          "rank": 2,
+          "itemID": 245864
+        }
+      ]
+    },
+    {
+      "baseName": "Savory Anomaly",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 265801
+        }
+      ]
+    },
+    {
+      "baseName": "Scalewoven Hide",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244631
+        },
+        {
+          "rank": 2,
+          "itemID": 244632
+        }
+      ]
+    },
+    {
+      "baseName": "Seven of Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245862
+        }
+      ]
+    },
+    {
+      "baseName": "Seven of Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245836
+        }
+      ]
+    },
+    {
+      "baseName": "Seven of Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245853
+        }
+      ]
+    },
+    {
+      "baseName": "Seven of Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245844
+        }
+      ]
+    },
+    {
+      "baseName": "Shadowmoon Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251766
+        }
+      ]
+    },
+    {
+      "baseName": "Shimmer Spinefish",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238370
+        }
+      ]
+    },
+    {
+      "baseName": "Shimmersiren",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238378
+        }
+      ]
+    },
+    {
+      "baseName": "Sienna Ink",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245805
+        },
+        {
+          "rank": 2,
+          "itemID": 245806
+        }
+      ]
+    },
+    {
+      "baseName": "Silverleaf Thread",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251665
+        }
+      ]
+    },
+    {
+      "baseName": "Silvermoon Weapon Wrap",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244637
+        },
+        {
+          "rank": 2,
+          "itemID": 244638
+        }
+      ]
+    },
+    {
+      "baseName": "Sin'dorei Armor Banding",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 244635
+        },
+        {
+          "rank": 2,
+          "itemID": 244636
+        }
+      ]
+    },
+    {
+      "baseName": "Sin'dorei Lens",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 240972
+        },
+        {
+          "rank": 2,
+          "itemID": 240973
+        }
+      ]
+    },
+    {
+      "baseName": "Sin'dorei Swarmer",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238365
+        }
+      ]
+    },
+    {
+      "baseName": "Six of Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245861
+        }
+      ]
+    },
+    {
+      "baseName": "Six of Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245835
+        }
+      ]
+    },
+    {
+      "baseName": "Six of Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245852
+        }
+      ]
+    },
+    {
+      "baseName": "Six of Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245843
+        }
+      ]
+    },
+    {
+      "baseName": "Song Gear",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 243574
+        },
+        {
+          "rank": 2,
+          "itemID": 243575
+        }
+      ]
+    },
+    {
+      "baseName": "Soul Cipher",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245766
+        },
+        {
+          "rank": 2,
+          "itemID": 245767
+        }
+      ]
+    },
+    {
+      "baseName": "Soul Sprocket",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 243576
+        },
+        {
+          "rank": 2,
+          "itemID": 243577
+        }
+      ]
+    },
+    {
+      "baseName": "Spark of Radiance",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 232875
+        }
+      ]
+    },
+    {
+      "baseName": "Stabilized Derivate",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242651
+        }
+      ]
+    },
+    {
+      "baseName": "Stabilizing Gemstone Bandolier",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251489
+        },
+        {
+          "rank": 2,
+          "itemID": 251490
+        }
+      ]
+    },
+    {
+      "baseName": "Sterling Alloy",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238204
+        },
+        {
+          "rank": 2,
+          "itemID": 238205
+        }
+      ]
+    },
+    {
+      "baseName": "Sunfire Silk",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 237015
+        },
+        {
+          "rank": 2,
+          "itemID": 237016
+        }
+      ]
+    },
+    {
+      "baseName": "Sunfire Silk Bolt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 239201
+        },
+        {
+          "rank": 2,
+          "itemID": 239202
+        }
+      ]
+    },
+    {
+      "baseName": "Sunfire Silk Lining",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 240164
+        },
+        {
+          "rank": 2,
+          "itemID": 240165
+        }
+      ]
+    },
+    {
+      "baseName": "Sunglass Vial",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 240990
+        },
+        {
+          "rank": 2,
+          "itemID": 240991
+        }
+      ]
+    },
+    {
+      "baseName": "Sunwell Fish",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238384
+        }
+      ]
+    },
+    {
+      "baseName": "Tavern Fixings",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242647
+        }
+      ]
+    },
+    {
+      "baseName": "Teal Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262628
+        }
+      ]
+    },
+    {
+      "baseName": "Tender Lumifin",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238374
+        }
+      ]
+    },
+    {
+      "baseName": "Tenebrous Amethyst",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242606
+        },
+        {
+          "rank": 2,
+          "itemID": 242721
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Essence of the Faire",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251923
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Filet",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 253403
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Herbs",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 242642
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Lumber",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 256963
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of Crafting Speed",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245820
+        },
+        {
+          "rank": 2,
+          "itemID": 245821
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of Deftness",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245826
+        },
+        {
+          "rank": 2,
+          "itemID": 245827
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of Finesse",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245822
+        },
+        {
+          "rank": 2,
+          "itemID": 245823
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of Ingenuity",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245814
+        },
+        {
+          "rank": 2,
+          "itemID": 245815
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of Multicraft",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245818
+        },
+        {
+          "rank": 2,
+          "itemID": 245819
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of Perception",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245824
+        },
+        {
+          "rank": 2,
+          "itemID": 245825
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of Resourcefulness",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245816
+        },
+        {
+          "rank": 2,
+          "itemID": 245817
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of the Aurora",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245781
+        },
+        {
+          "rank": 2,
+          "itemID": 245782
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of the Feverflare",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245783
+        },
+        {
+          "rank": 2,
+          "itemID": 245784
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of the Fireflash",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245785
+        },
+        {
+          "rank": 2,
+          "itemID": 245786
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of the Harmonious",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245787
+        },
+        {
+          "rank": 2,
+          "itemID": 245788
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of the Peerless",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245789
+        },
+        {
+          "rank": 2,
+          "itemID": 245790
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Missive of the Quickblade",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245791
+        },
+        {
+          "rank": 2,
+          "itemID": 245792
+        }
+      ]
+    },
+    {
+      "baseName": "Thalassian Songwater",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245882
+        }
+      ]
+    },
+    {
+      "baseName": "Three of Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245858
+        }
+      ]
+    },
+    {
+      "baseName": "Three of Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245832
+        }
+      ]
+    },
+    {
+      "baseName": "Three of Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245849
+        }
+      ]
+    },
+    {
+      "baseName": "Three of Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245840
+        }
+      ]
+    },
+    {
+      "baseName": "Tormented Tantalum",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 251283
+        }
+      ]
+    },
+    {
+      "baseName": "Tranquility Bloom",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 236761
+        },
+        {
+          "rank": 2,
+          "itemID": 236767
+        }
+      ]
+    },
+    {
+      "baseName": "Twisted Tetra",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238368
+        }
+      ]
+    },
+    {
+      "baseName": "Two of Blood",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245857
+        }
+      ]
+    },
+    {
+      "baseName": "Two of Hunt",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245831
+        }
+      ]
+    },
+    {
+      "baseName": "Two of Rot",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245848
+        }
+      ]
+    },
+    {
+      "baseName": "Two of Void",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 245839
+        }
+      ]
+    },
+    {
+      "baseName": "Umbral Tin Ore",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 237362
+        },
+        {
+          "rank": 2,
+          "itemID": 237363
+        }
+      ]
+    },
+    {
+      "baseName": "Void-Tempered Hide",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238518
+        },
+        {
+          "rank": 2,
+          "itemID": 238519
+        }
+      ]
+    },
+    {
+      "baseName": "Void-Tempered Leather",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238511
+        },
+        {
+          "rank": 2,
+          "itemID": 238512
+        }
+      ]
+    },
+    {
+      "baseName": "Void-Tempered Plating",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238520
+        },
+        {
+          "rank": 2,
+          "itemID": 238521
+        }
+      ]
+    },
+    {
+      "baseName": "Void-Tempered Scales",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238513
+        },
+        {
+          "rank": 2,
+          "itemID": 238514
+        }
+      ]
+    },
+    {
+      "baseName": "Warping Wise",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 238379
+        }
+      ]
+    },
+    {
+      "baseName": "White Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 260947
+        }
+      ]
+    },
+    {
+      "baseName": "Wondrous Synergist",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 241282
+        },
+        {
+          "rank": 2,
+          "itemID": 241283
+        }
+      ]
+    },
+    {
+      "baseName": "Yellow Dye Pigment",
+      "ranks": [
+        {
+          "rank": 1,
+          "itemID": 262648
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "unique_baseNames": 228,
+    "total_name_id_pairs": 320,
+    "total_rank_entries": 320,
+    "max_ranks_for_any_item": 2
+  }
+}

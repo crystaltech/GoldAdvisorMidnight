@@ -1,0 +1,99 @@
+{
+  "Alchemy": [
+    {
+      "name": "Haranir Phial of Perception",
+      "ranks": [
+        { "rank": 2, "item_id": 241316 }
+      ]
+    },
+    {
+      "name": "Haranir Phial of Finesse",
+      "ranks": [
+        { "rank": 2, "item_id": 241310 }
+      ]
+    },
+    {
+      "name": "Amani Extract",
+      "ranks": [
+        { "rank": 1, "item_id": 241298 },
+        { "rank": 2, "item_id": 241299 }
+      ]
+    },
+    {
+      "name": "Silvermoon Health Potion",
+      "ranks": [
+        { "rank": 2, "item_id": 241304 }
+      ]
+    },
+    {
+      "name": "Draught of Rampant Abandon",
+      "ranks": [
+        { "rank": 2, "item_id": 241292 }
+      ]
+    },
+    {
+      "name": "Potion of Recklessness",
+      "ranks": [
+        { "rank": 2, "item_id": 241288 }
+      ]
+    }
+  ],
+  "Engineering": [
+    {
+      "name": "Smuggler's Lynxeye",
+      "ranks": [
+        { "rank": 1, "item_id": 257747 },
+        { "rank": 2, "item_id": 257748 }
+      ]
+    },
+    {
+      "name": "Laced Zoomshots",
+      "ranks": [
+        { "rank": 1, "item_id": 257749 },
+        { "rank": 2, "item_id": 257750 }
+      ]
+    },
+    {
+      "name": "Weighted Boomshots",
+      "ranks": [
+        { "rank": 1, "item_id": 257751 }
+      ]
+    }
+  ],
+  "Enchanting": [
+    {
+      "name": "Oil of Dawn",
+      "ranks": [
+        { "rank": 2, "item_id": 243735 }
+      ]
+    },
+    {
+      "name": "Smuggler's Enchanted Edge",
+      "ranks": [
+        { "rank": 1, "item_id": 243737 },
+        { "rank": 2, "item_id": 243738 }
+      ]
+    },
+    {
+      "name": "Thalassian Phoenix Oil",
+      "ranks": [
+        { "rank": 1, "item_id": 243733 },
+        { "rank": 2, "item_id": 243734 }
+      ]
+    },
+    {
+      "name": "Radiant Shatter",
+      "type": "recipe_dependency",
+      "required_item": "Radiant Shard",
+      "required_rank": 2
+    }
+  ],
+  "Leatherworking": [
+    {
+      "name": "Void-Touched Drums",
+      "ranks": [
+        { "rank": 1, "item_id": 244639 }
+      ]
+    }
+  ]
+}

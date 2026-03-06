@@ -1,0 +1,8 @@
+* text=auto
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tga binary
+*.blp binary
+*.zip binary

@@ -1,0 +1,164 @@
+-- GoldAdvisorMidnight/Locale/zhTW.lua
+-- Traditional Chinese (zhTW) translations for Gold Advisor Midnight.
+-- To contribute: replace each English value on the RIGHT side of = with your translation.
+-- Do NOT modify keys (the quoted text on the LEFT side of =).
+-- See TRANSLATING.md at the project root for full contributor guidelines.
+-- After making changes, reload the addon in-game with /reload to test.
+
+if GetLocale() ~= "zhTW" then return end
+local _, GAM = ...
+local L = GAM.L  -- base table already created by Locale.lua; override keys below
+
+-- ── General ──────────────────────────────────────────────────────────────
+-- L["ADDON_TITLE"]           = "Gold Advisor Midnight"  -- addon name, keep in English
+L["LOADED_MSG"]            = "Gold Advisor Midnight v%s 已載入。/gam 切換顯示。"
+
+-- ── Main Window ──────────────────────────────────────────────────────────
+-- L["MAIN_TITLE"]            = "Gold Advisor Midnight"  -- addon name, keep in English
+L["FILTER_PATCH"]          = "版本："
+L["FILTER_PROFESSION"]     = "專業："
+L["FILTER_SEARCH"]         = "搜尋..."
+L["COL_STRAT"]             = "策略"
+L["COL_PROF"]              = "專業"
+L["COL_PROFIT"]            = "利潤"
+L["COL_ROI"]               = "ROI%"
+L["COL_STATUS"]            = "狀態"
+L["BTN_SCAN_ALL"]          = "掃描全部"
+L["BTN_SCAN_STOP"]         = "停止掃描"
+L["BTN_SHOPPING"]          = "購物清單"
+L["BTN_LOG"]               = "除錯日誌"
+L["BTN_CLOSE"]             = "關閉"
+L["NO_STRATS"]             = "沒有符合篩選條件的策略。"
+L["MISSING_PRICES"]        = "! 缺少價格"
+L["STATUS_STALE"]          = "已過時"
+L["STATUS_FRESH"]          = "最新"
+L["STATUS_NEVER"]          = "從未掃描"
+L["STATUS_STRAT_COUNT"]    = "%d 個策略"
+L["STATUS_SCANNING_PROG"]  = "掃描中..."
+L["STATUS_QUEUING"]        = "正在準備物品..."
+
+-- ── Strat Detail ─────────────────────────────────────────────────────────
+L["DETAIL_TITLE"]          = "策略詳情"
+L["DETAIL_OUTPUT"]         = "產出："
+L["DETAIL_REAGENTS"]       = "材料："
+L["DETAIL_INPUT_HDR"]      = "輸入物品"
+L["DETAIL_OUTPUT_HDR"]     = "輸出物品"
+L["COL_ITEM"]              = "物品"
+L["COL_QTY_CRAFT"]         = "總數量"
+L["COL_HAVE"]              = "已有"
+L["COL_NEED_BUY"]          = "需購買"
+L["COL_UNIT_PRICE"]        = "單價"
+L["COL_TOTAL_COST"]        = "總費用"
+L["COL_REVENUE"]           = "淨收入"
+L["BTN_SCAN_ITEM"]         = "掃描"
+L["BTN_SCAN_ALL_ITEMS"]    = "掃描全部"
+L["BTN_PUSH_CRAFTSIM"]     = "推送至CraftSim"
+L["TT_CRAFTSIM_TITLE"]     = "將價格覆蓋推送至CraftSim"
+L["TT_CRAFTSIM_WARN"]      = "警告：這將覆蓋CraftSim中該策略所有材料的現有手動價格覆蓋。"
+L["LBL_COST"]              = "總費用："
+L["LBL_REVENUE"]           = "淨收入："
+L["LBL_PROFIT"]            = "利潤："
+L["LBL_ROI"]               = "ROI："
+L["LBL_BREAKEVEN"]         = "保本售價："
+L["RANK_SELECT"]           = "品質："
+L["RANK_BTN_R1"]           = "R1 材料"
+L["RANK_BTN_R2"]           = "R2 材料"
+L["NO_PRICE"]              = "—"
+L["CONFIRM_DELETE_BODY"]   = "刪除策略：\n\"|cffffffff%s|r\"\n\n此操作無法撤銷。"
+
+-- ── Shopping List ─────────────────────────────────────────────────────────
+L["SHOP_TITLE"]            = "購物清單"
+L["SHOP_ITEM"]             = "物品"
+L["SHOP_NEED"]             = "需購買"
+L["SHOP_HAVE"]             = "已有"
+L["BTN_COPY_LIST"]         = "複製"
+L["BTN_AUCTIONATOR"]       = "Auctionator清單"
+L["SHOP_EMPTY"]            = "無需購買物品。"
+L["AUCTIONATOR_LIST_NAME"] = "GAM Shopping List"  -- internal ID, keep in English
+L["MSG_AUCTIONATOR_CREATED"]   = "Auctionator清單 '%s' 已建立（%d 件物品）。打開購物標籤進行購買。"
+L["MSG_AUCTIONATOR_NO_ITEMS"]  = "無需購買 — 購物清單為空。"
+L["MSG_AUCTIONATOR_NOT_FOUND"] = "未安裝Auctionator。請安裝後使用此功能。"
+
+-- ── Debug Log ────────────────────────────────────────────────────────────
+L["LOG_TITLE"]             = "除錯日誌"
+L["BTN_CLEAR_LOG"]         = "清除"
+L["BTN_COPY_LOG"]          = "全部複製"
+L["BTN_PAUSE_LOG"]         = "暫停"
+L["BTN_RESUME_LOG"]        = "繼續"
+L["BTN_DUMP_IDS"]          = "匯出ID"
+L["LOG_PAUSED"]            = "[日誌已暫停]"
+L["LOG_CLEARED"]           = "[日誌已清除]"
+
+-- ── Settings ─────────────────────────────────────────────────────────────
+-- L["SETTINGS_NAME"]         = "Gold Advisor Midnight"  -- addon name, keep in English
+L["OPT_SCAN_DELAY"]        = "掃描延遲（秒）"
+L["OPT_SCAN_DELAY_TIP"]    = "拍賣行查詢間隔秒數。越低越快，但限速風險越高。"
+L["OPT_VERBOSITY"]         = "除錯級別"
+L["OPT_VERBOSITY_TIP"]     = "0=關閉, 1=資訊, 2=除錯, 3=詳細"
+L["OPT_MINIMAP"]           = "顯示小地圖按鈕"
+L["OPT_RANK_POLICY"]       = "品質選擇策略"
+L["OPT_RANK_HIGHEST"]      = "最高品質"
+L["OPT_RANK_LOWEST"]       = "最低品質"
+L["BTN_RELOAD_DATA"]       = "重新載入"
+L["BTN_CLEAR_CACHE"]       = "清除快取"
+L["BTN_OPEN_LOG"]          = "開啟日誌"
+L["BTN_APPLY_CLOSE"]       = "確認"
+L["OPT_SHALLOW_FILL"]      = "淺層填充模式（實驗性）"
+L["OPT_SHALLOW_FILL_TIP"]  = "價格根據以下填充數量計算，而非標準的50,000件深層填充。對小批量會話可能顯示更低價格，但在稀薄市場上不夠穩定。僅用於比較參考，不替代預設模式。"
+L["OPT_SHALLOW_FILL_QTY"]  = "填充數量："
+L["OPT_SHALLOW_FILL_RANGE"] = "（250 - 50,000）"
+L["SHALLOW_FILL_ACTIVE"]   = "[淺層填充] 拍賣行 %s 件價格（實驗性）"
+
+-- ── Strategy Creator ─────────────────────────────────────────────────────
+L["BTN_CREATE_STRAT"]      = "建立策略"
+L["BTN_IMPORT_STRAT"]      = "匯入"
+L["BTN_EXPORT_STRAT"]      = "匯出"
+L["BTN_EDIT_STRAT"]        = "編輯"
+L["BTN_DELETE_STRAT"]      = "刪除"
+L["BTN_REMOVE"]            = "x"
+L["CREATOR_TITLE"]         = "建立策略"
+L["CREATOR_EDIT_TITLE"]    = "編輯策略"
+L["CREATOR_PROFESSION"]    = "專業："
+L["CREATOR_NAME"]          = "策略名稱："
+L["CREATOR_INPUT_QTY"]     = "輸入數量："
+L["CREATOR_INPUT_QTY_TIP"] = "所有比率計算的基準數量（例如1000草藥用於研磨）"
+L["CREATOR_INPUT_HINT"]    = "（以下所有數量均基於此輸入數量）"
+L["CREATOR_OUTPUTS"]       = "產出"
+L["CREATOR_REAGENTS"]      = "材料"
+L["CREATOR_NOTES"]         = "備註："
+L["CREATOR_COL_NAME"]      = "物品名稱"
+L["CREATOR_COL_ITEMID"]    = "物品ID"
+L["CREATOR_COL_QTY"]       = "數量"
+L["BTN_CREATOR_SAVE"]      = "儲存"
+L["BTN_CREATOR_DELETE"]    = "刪除"
+L["BTN_CREATOR_ADD_OUT"]   = "+ 產出"
+L["BTN_CREATOR_ADD_REAG"]  = "+ 材料"
+L["CREATOR_CUSTOM_PROF"]   = "（自訂...）"
+L["MSG_STRAT_SAVED"]       = "策略 '%s' 已儲存。"
+L["MSG_STRAT_DELETED"]     = "策略 '%s' 已刪除。"
+L["EXPORT_POPUP_TITLE"]    = "匯出策略"
+L["EXPORT_ENCODED_LBL"]    = "已編碼 — 分享給其他GAM用戶："
+L["EXPORT_LUA_LBL"]        = "檔案編輯 — 貼上至 Data/StratsManual.lua："
+L["IMPORT_POPUP_TITLE"]    = "匯入策略"
+L["IMPORT_ENCODED_LBL"]    = "貼上編碼字串（GAM1:...）："
+L["MSG_STRAT_IMPORTED"]    = "策略 '%s' 已匯入。"
+L["ERR_IMPORT_INVALID"]    = "無效或無法識別的匯入字串。"
+L["ERR_PROF_REQUIRED"]     = "專業為必填項。"
+L["ERR_NAME_REQUIRED"]     = "策略名稱為必填項。"
+L["ERR_QTY_REQUIRED"]      = "輸入數量必須大於0。"
+L["ERR_OUTPUT_REQUIRED"]   = "至少需要一個產出。"
+
+-- ── Minimap ──────────────────────────────────────────────────────────────
+L["MINIMAP_TIP"]           = "Gold Advisor Midnight\n左鍵：切換視窗\n右鍵：設定\n拖曳：移動按鈕"
+
+-- ── Scanning ─────────────────────────────────────────────────────────────
+L["SCAN_STARTED"]          = "正在掃描 %d 件物品..."
+L["SCAN_COMPLETE"]         = "掃描完成。%d 成功，%d 失敗。"
+L["SCAN_AH_CLOSED"]        = "拍賣行已關閉 — 掃描停止。"
+L["SCAN_THROTTLED"]        = "拍賣行受限，重試中..."
+L["PRICE_UPDATED"]         = "價格已更新：%s = %s"
+
+-- ── Errors / Warnings ────────────────────────────────────────────────────
+L["ERR_NO_AH"]             = "請先開啟拍賣行。"
+L["ERR_STRAT_INVALID"]     = "無效策略：%s"
+L["WARN_PRICE_STALE"]      = "價格可能已過時（>%d 分鐘）。"

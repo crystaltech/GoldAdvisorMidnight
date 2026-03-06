@@ -1,0 +1,117 @@
+[
+  {
+    "addr": "C14",
+    "formula": "=SUM(2.3955*C7)",
+    "cached_value": 4791
+  },
+  {
+    "addr": "G14",
+    "formula": "=SUM(2.3334*G7)",
+    "cached_value": 7000.2
+  },
+  {
+    "addr": "C15",
+    "formula": "=C7*0.9465",
+    "cached_value": 1893
+  },
+  {
+    "addr": "G15",
+    "formula": "=G7*1",
+    "cached_value": 3000
+  },
+  {
+    "addr": "C18",
+    "formula": "=sum(((C14*C10)+(C15*C11))*0.95)-((C12*C7))",
+    "cached_value": 21749
+  },
+  {
+    "addr": "G18",
+    "formula": "=sum(((G14*G10)+(G15*G11))*0.95)-((G12*G7))",
+    "cached_value": 32500.95
+  },
+  {
+    "addr": "C23",
+    "formula": "=C22/2.5",
+    "cached_value": 2000
+  },
+  {
+    "addr": "G23",
+    "formula": "=G22",
+    "cached_value": 5000
+  },
+  {
+    "addr": "C24",
+    "formula": "=C22",
+    "cached_value": 5000
+  },
+  {
+    "addr": "G24",
+    "formula": "=G22/5",
+    "cached_value": 1000
+  },
+  {
+    "addr": "C25",
+    "formula": "=C22/5",
+    "cached_value": 1000
+  },
+  {
+    "addr": "C34",
+    "formula": "=SUM(1.5504*C22)",
+    "cached_value": 7752
+  },
+  {
+    "addr": "G34",
+    "formula": "=SUM(1.6202*G22)",
+    "cached_value": 8101
+  },
+  {
+    "addr": "C35",
+    "formula": "=((C31*C25)+(C30*C24)+(C29*C23)+(C28*C22))/C34",
+    "cached_value": 8.384932921
+  },
+  {
+    "addr": "G35",
+    "formula": "=((G30*G24)+(G29*G23)+(G28*G22))/G34",
+    "cached_value": 6.789285273
+  },
+  {
+    "addr": "C36",
+    "formula": "=sum((C34*C32)*0.95)-((C31*C25)+(C30*C24)+(C29*C23)+(C28*C22))",
+    "cached_value": -28178
+  },
+  {
+    "addr": "G36",
+    "formula": "=sum((G34*G31)*0.95)-((G30*G24)+(G29*G23)+(G28*G22))",
+    "cached_value": -16520.25
+  },
+  {
+    "addr": "C41",
+    "formula": "=C40/2.5",
+    "cached_value": 2000
+  },
+  {
+    "addr": "C42",
+    "formula": "=C40",
+    "cached_value": 5000
+  },
+  {
+    "addr": "C43",
+    "formula": "=C40/5",
+    "cached_value": 1000
+  },
+  {
+    "addr": "C52",
+    "formula": "=SUM(1.5504*C40)",
+    "cached_value": 7752
+  },
+  {
+    "addr": "C53",
+    "formula": "=((C49*C43)+(C48*C42)+(C47*C41)+(C46*C40))/C52",
+    "cached_value": 8.384932921
+  },
+  {
+    "addr": "C54",
+    "formula": "=sum((C52*C50)*0.95)-((C49*C43)+(C48*C42)+(C47*C41)+(C46*C40))",
+    "cached_value": -28178
+  }
+]
