@@ -1,0 +1,164 @@
+-- GoldAdvisorMidnight/Locale/esMX.lua
+-- Spanish Latin America (esMX) translations for Gold Advisor Midnight.
+-- To contribute: replace each English value on the RIGHT side of = with your translation.
+-- Do NOT modify keys (the quoted text on the LEFT side of =).
+-- See TRANSLATING.md at the project root for full contributor guidelines.
+-- After making changes, reload the addon in-game with /reload to test.
+
+if GetLocale() ~= "esMX" then return end
+local _, GAM = ...
+local L = GAM.L  -- base table already created by Locale.lua; override keys below
+
+-- ── General ──────────────────────────────────────────────────────────────
+-- L["ADDON_TITLE"]           = "Gold Advisor Midnight"  -- addon name, keep in English
+L["LOADED_MSG"]            = "Gold Advisor Midnight v%s cargado. /gam para mostrar/ocultar."
+
+-- ── Main Window ──────────────────────────────────────────────────────────
+-- L["MAIN_TITLE"]            = "Gold Advisor Midnight"  -- addon name, keep in English
+L["FILTER_PATCH"]          = "Parche:"
+L["FILTER_PROFESSION"]     = "Profesión:"
+L["FILTER_SEARCH"]         = "Buscar..."
+L["COL_STRAT"]             = "Estrategia"
+L["COL_PROF"]              = "Profesión"
+L["COL_PROFIT"]            = "Ganancia"
+L["COL_ROI"]               = "ROI%"
+L["COL_STATUS"]            = "Estado"
+L["BTN_SCAN_ALL"]          = "Escanear todo"
+L["BTN_SCAN_STOP"]         = "Detener"
+L["BTN_SHOPPING"]          = "Lista de compras"
+L["BTN_LOG"]               = "Registro"
+L["BTN_CLOSE"]             = "Cerrar"
+L["NO_STRATS"]             = "Ninguna estrategia coincide con los filtros."
+L["MISSING_PRICES"]        = "! Faltan precios"
+L["STATUS_STALE"]          = "Desactualizado"
+L["STATUS_FRESH"]          = "Actualizado"
+L["STATUS_NEVER"]          = "Nunca escaneado"
+L["STATUS_STRAT_COUNT"]    = "%d estrategias"
+L["STATUS_SCANNING_PROG"]  = "escaneando..."
+L["STATUS_QUEUING"]        = "Preparando artículos..."
+
+-- ── Strat Detail ─────────────────────────────────────────────────────────
+L["DETAIL_TITLE"]          = "Detalle de la estrategia"
+L["DETAIL_OUTPUT"]         = "Producción:"
+L["DETAIL_REAGENTS"]       = "Reactivos:"
+L["DETAIL_INPUT_HDR"]      = "Artículos de entrada"
+L["DETAIL_OUTPUT_HDR"]     = "Artículos de salida"
+L["COL_ITEM"]              = "Artículo"
+L["COL_QTY_CRAFT"]         = "Cant. total"
+L["COL_HAVE"]              = "En el inventario"
+L["COL_NEED_BUY"]          = "A comprar"
+L["COL_UNIT_PRICE"]        = "Precio unitario"
+L["COL_TOTAL_COST"]        = "Costo total"
+L["COL_REVENUE"]           = "Ingresos netos"
+L["BTN_SCAN_ITEM"]         = "Escanear"
+L["BTN_SCAN_ALL_ITEMS"]    = "Escanear todo"
+L["BTN_PUSH_CRAFTSIM"]     = "Enviar a CraftSim"
+L["TT_CRAFTSIM_TITLE"]     = "Enviar sustituciones de precios a CraftSim"
+L["TT_CRAFTSIM_WARN"]      = "Advertencia: Esto sobreescribirá todas las sustituciones de precios manuales existentes en CraftSim para todos los reactivos de esta estrategia."
+L["LBL_COST"]              = "Costo total:"
+L["LBL_REVENUE"]           = "Ingresos netos:"
+L["LBL_PROFIT"]            = "Ganancia:"
+L["LBL_ROI"]               = "ROI:"
+L["LBL_BREAKEVEN"]         = "Punto de equilibrio:"
+L["RANK_SELECT"]           = "Rango:"
+L["RANK_BTN_R1"]           = "Mat. R1"
+L["RANK_BTN_R2"]           = "Mat. R2"
+L["NO_PRICE"]              = "—"
+L["CONFIRM_DELETE_BODY"]   = "Eliminar estrategia:\n\"|cffffffff%s|r\"\n\nEsta acción no se puede deshacer."
+
+-- ── Shopping List ─────────────────────────────────────────────────────────
+L["SHOP_TITLE"]            = "Lista de compras"
+L["SHOP_ITEM"]             = "Artículo"
+L["SHOP_NEED"]             = "A comprar"
+L["SHOP_HAVE"]             = "Disponible"
+L["BTN_COPY_LIST"]         = "Copiar"
+L["BTN_AUCTIONATOR"]       = "Lista Auctionator"
+L["SHOP_EMPTY"]            = "No se necesitan artículos."
+L["AUCTIONATOR_LIST_NAME"] = "GAM Shopping List"  -- internal ID, keep in English
+L["MSG_AUCTIONATOR_CREATED"]   = "Lista Auctionator '%s' creada (%d artículos). Abre la pestaña de Compras para comprar."
+L["MSG_AUCTIONATOR_NO_ITEMS"]  = "Nada necesario — la lista de compras está vacía."
+L["MSG_AUCTIONATOR_NOT_FOUND"] = "Auctionator no instalado. Instálalo para usar esta función."
+
+-- ── Debug Log ────────────────────────────────────────────────────────────
+L["LOG_TITLE"]             = "Registro de depuración"
+L["BTN_CLEAR_LOG"]         = "Limpiar"
+L["BTN_COPY_LOG"]          = "Copiar todo"
+L["BTN_PAUSE_LOG"]         = "Pausar"
+L["BTN_RESUME_LOG"]        = "Reanudar"
+L["BTN_DUMP_IDS"]          = "Exportar IDs"
+L["LOG_PAUSED"]            = "[Registro en pausa]"
+L["LOG_CLEARED"]           = "[Registro limpiado]"
+
+-- ── Settings ─────────────────────────────────────────────────────────────
+-- L["SETTINGS_NAME"]         = "Gold Advisor Midnight"  -- addon name, keep in English
+L["OPT_SCAN_DELAY"]        = "Retardo de escaneo (seg)"
+L["OPT_SCAN_DELAY_TIP"]    = "Segundos entre consultas AH. Menor = más rápido pero aumenta el riesgo de limitación."
+L["OPT_VERBOSITY"]         = "Nivel de depuración"
+L["OPT_VERBOSITY_TIP"]     = "0=desactivado, 1=info, 2=debug, 3=verboso"
+L["OPT_MINIMAP"]           = "Mostrar botón de minimapa"
+L["OPT_RANK_POLICY"]       = "Política de selección de rango"
+L["OPT_RANK_HIGHEST"]      = "Rango más alto"
+L["OPT_RANK_LOWEST"]       = "Rango más bajo"
+L["BTN_RELOAD_DATA"]       = "Recargar datos"
+L["BTN_CLEAR_CACHE"]       = "Limpiar caché"
+L["BTN_OPEN_LOG"]          = "Abrir registro"
+L["BTN_APPLY_CLOSE"]       = "Aplicar"
+L["OPT_SHALLOW_FILL"]      = "Modo relleno superficial (Experimental)"
+L["OPT_SHALLOW_FILL_TIP"]  = "Los precios se calculan comprando la cantidad de relleno indicada abajo, en lugar del relleno profundo estándar de 50,000 unidades. Puede mostrar precios más baratos para sesiones pequeñas pero es menos estable en mercados escasos. Usar para comparación — no es un reemplazo general del modo predeterminado."
+L["OPT_SHALLOW_FILL_QTY"]  = "Cant. de relleno:"
+L["OPT_SHALLOW_FILL_RANGE"] = "(250 - 50,000)"
+L["SHALLOW_FILL_ACTIVE"]   = "[Relleno superficial] Precio AH de %s unidades (experimental)"
+
+-- ── Strategy Creator ─────────────────────────────────────────────────────
+L["BTN_CREATE_STRAT"]      = "Crear estrategia"
+L["BTN_IMPORT_STRAT"]      = "Importar"
+L["BTN_EXPORT_STRAT"]      = "Exportar"
+L["BTN_EDIT_STRAT"]        = "Editar"
+L["BTN_DELETE_STRAT"]      = "Eliminar"
+L["BTN_REMOVE"]            = "x"
+L["CREATOR_TITLE"]         = "Crear estrategia"
+L["CREATOR_EDIT_TITLE"]    = "Editar estrategia"
+L["CREATOR_PROFESSION"]    = "Profesión:"
+L["CREATOR_NAME"]          = "Nombre de la estrategia:"
+L["CREATOR_INPUT_QTY"]     = "Cantidad de entrada:"
+L["CREATOR_INPUT_QTY_TIP"] = "La cantidad base contra la que se calculan todos los ratios (p.ej. 1000 hierbas para moler)"
+L["CREATOR_INPUT_HINT"]    = "(todas las cant. abajo son por esta cantidad de entrada)"
+L["CREATOR_OUTPUTS"]       = "Producciones"
+L["CREATOR_REAGENTS"]      = "Reactivos"
+L["CREATOR_NOTES"]         = "Notas:"
+L["CREATOR_COL_NAME"]      = "Nombre del artículo"
+L["CREATOR_COL_ITEMID"]    = "ID del artículo"
+L["CREATOR_COL_QTY"]       = "Cant."
+L["BTN_CREATOR_SAVE"]      = "Guardar"
+L["BTN_CREATOR_DELETE"]    = "Eliminar"
+L["BTN_CREATOR_ADD_OUT"]   = "+ Producción"
+L["BTN_CREATOR_ADD_REAG"]  = "+ Reactivo"
+L["CREATOR_CUSTOM_PROF"]   = "(Personalizado...)"
+L["MSG_STRAT_SAVED"]       = "Estrategia '%s' guardada."
+L["MSG_STRAT_DELETED"]     = "Estrategia '%s' eliminada."
+L["EXPORT_POPUP_TITLE"]    = "Exportar estrategia"
+L["EXPORT_ENCODED_LBL"]    = "Codificado — comparte con otros usuarios de GAM:"
+L["EXPORT_LUA_LBL"]        = "Edición de archivo — pega en Data/StratsManual.lua:"
+L["IMPORT_POPUP_TITLE"]    = "Importar estrategia"
+L["IMPORT_ENCODED_LBL"]    = "Pega la cadena codificada (GAM1:...):"
+L["MSG_STRAT_IMPORTED"]    = "Estrategia '%s' importada."
+L["ERR_IMPORT_INVALID"]    = "Cadena de importación inválida o no reconocida."
+L["ERR_PROF_REQUIRED"]     = "La profesión es obligatoria."
+L["ERR_NAME_REQUIRED"]     = "El nombre de la estrategia es obligatorio."
+L["ERR_QTY_REQUIRED"]      = "La cantidad de entrada debe ser mayor que 0."
+L["ERR_OUTPUT_REQUIRED"]   = "Se requiere al menos una producción."
+
+-- ── Minimap ──────────────────────────────────────────────────────────────
+L["MINIMAP_TIP"]           = "Gold Advisor Midnight\nClic izquierdo: Mostrar/ocultar\nClic derecho: Configuración\nArrastrar: Mover botón"
+
+-- ── Scanning ─────────────────────────────────────────────────────────────
+L["SCAN_STARTED"]          = "Escaneando %d artículos..."
+L["SCAN_COMPLETE"]         = "Escaneo completado. %d OK, %d fallidos."
+L["SCAN_AH_CLOSED"]        = "CS cerrada — escaneo detenido."
+L["SCAN_THROTTLED"]        = "CS limitada, reintentando..."
+L["PRICE_UPDATED"]         = "Precio actualizado: %s = %s"
+
+-- ── Errors / Warnings ────────────────────────────────────────────────────
+L["ERR_NO_AH"]             = "Abre primero la Casa de Subastas."
+L["ERR_STRAT_INVALID"]     = "Estrategia inválida: %s"
+L["WARN_PRICE_STALE"]      = "Los precios pueden estar desactualizados (>%d min)."

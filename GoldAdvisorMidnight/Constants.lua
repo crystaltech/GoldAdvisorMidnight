@@ -1,0 +1,45 @@
+-- GoldAdvisorMidnight/Constants.lua
+-- Central configuration. All tunable values live here.
+-- Module: GAM.C
+
+local ADDON_NAME, GAM = ...
+GAM.C = {
+    ADDON_VERSION        = "1.2.0-RC2",
+    DATA_VERSION         = 3,
+    DEFAULT_PATCH        = "midnight-1",
+
+    -- Economy
+    AH_CUT               = 0.05,   -- 5% AH fee
+
+    -- AH scanning throttle (seconds)
+    SCAN_DELAY           = 3.0,    -- between successive queries
+    RESULT_WAIT          = 10.0,   -- timeout waiting for results
+    RESULT_RETRY_DELAY   = 0.5,    -- between retry attempts
+    MAX_RETRY            = 5,
+    EVENT_PROCESS_DELAY  = 0.8,    -- wait after event before reading results
+    DEBOUNCE_DELAY       = 1.0,    -- suppress duplicate events within window
+
+    -- Pricing
+    PRICE_STALE_SECONDS  = 600,    -- 10-minute cache freshness
+
+    -- Debug log
+    LOG_RING_SIZE        = 500,
+
+    -- Default options (mirrors DB.options defaults)
+    DEFAULT_AH_CUT       = 0.05,
+    DEFAULT_SCAN_DELAY   = 3.0,
+    DEFAULT_VERBOSITY    = 1,      -- 0=off,1=info,2=debug,3=verbose
+    DEFAULT_RANK_POLICY  = "lowest",
+    DEFAULT_PRICE_SOURCE = "ah",
+
+    -- UI scale
+    DEFAULT_UI_SCALE     = 1.0,    -- frame scale applied to non-settings addon windows/popups
+    MIN_UI_SCALE         = 0.7,
+    MAX_UI_SCALE         = 1.5,
+
+    -- Fill-price simulation quantities
+    DEEP_FILL_QTY            = 50000,   -- standard "full book" behaviour (unchanged)
+    DEFAULT_SHALLOW_FILL_QTY = 1000,    -- default when user first enables shallow mode
+    MIN_SHALLOW_FILL_QTY     = 250,     -- floor: ensures multiple sellers are sampled
+    MAX_SHALLOW_FILL_QTY     = 50000,   -- ceiling: equal to deep fill → safe no-op upper bound
+}
