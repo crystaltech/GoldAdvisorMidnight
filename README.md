@@ -74,7 +74,7 @@ python3 build/generate_strats.py
 ```
 
 **Input**: `references/Spreadsheet/midnight_spreadsheet_extract_updated/{Profession}__grid.csv` + `{Profession}__formulas.json`
-**Output**: `GoldAdvisorMidnight/Data/StratsGenerated.lua`
+**Output**: `source/GoldAdvisorMidnight/Data/StratsGenerated.lua`
 
 The script prints each strategy as it is parsed:
 ```
@@ -108,7 +108,7 @@ Alternatively, the AH name-scan feature discovers itemIDs at runtime for items t
 ## Architecture
 
 ```
-GoldAdvisorMidnight/
+source/GoldAdvisorMidnight/
 ├── GoldAdvisorMidnight.toc     TOC Interface 120001
 ├── Constants.lua               GAM.C — all tunable constants
 ├── Locale.lua                  GAM.L — all user-visible strings

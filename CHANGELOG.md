@@ -1,5 +1,13 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.0-RC3] — 2026-03-06
+
+### Repo / Release Tooling
+- Moved addon source tree to `source/GoldAdvisorMidnight/`
+- Updated packaging script to build from `source/` and write release zips to `releases/`
+- Updated sync scripts (`Sync_Addon.command`, memory sync scripts) for the new repo layout
+- Updated build and setup documentation to reflect current paths
+
 ## [1.2.0-RC2] — 2026-03-03
 
 ### Bug Fixes
