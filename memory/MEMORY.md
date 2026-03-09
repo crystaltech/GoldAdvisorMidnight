@@ -2,7 +2,22 @@
 
 ## Project
 - WoW Midnight AddOn. Lua 5.1, Blizzard AH APIs.
-- Load order: Constants → Locale → Log → Core → Minimap → Settings → Pricing → AHScan → Importer → Data/* → CraftSimBridge → UI/*
+- Addon name: **GoldAdvisorMidnight**
+- Current version: **1.2.0-RC3**
+- Repo: `git@github.com:crystaltech/GoldAdvisorMidnight.git` (private)
+- Working directory: `/Users/terry.pike/Desktop/Coding Projects/GoldAdvisorAddon/`
+
+## Repo Layout (post-RC3 reorganization)
+- `source/GoldAdvisorMidnight/` — active addon source (protected, do not touch during cleanup)
+- `releases/` — packaged zip artifacts (e.g. `GoldAdvisorMidnight-v1.2.0-RC3.zip`)
+- `scripts/` — `sync_memory_mac.sh`, `sync_memory_win.ps1`
+- `references/` — WoW API docs, Ace3 libs, working addons, WIP/broken addons
+- `memory/` — this file + snapshots (tracked in git via `.gitignore` exception)
+- `Package_Addon.command` — builds from `source/` → `releases/`
+- `Sync_Addon.command` — syncs addon to WoW install
+
+## Load Order
+Constants → Locale → Log → Core → Minimap → Settings → Pricing → AHScan → Importer → Data/* → CraftSimBridge → UI/*
 
 ## Key Architecture
 - `GAM.AHScan` — queue-based AH scanner in AHScan.lua
