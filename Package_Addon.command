@@ -13,7 +13,7 @@ OUT_DIR="releases"
 
 # ── Read version from TOC ──────────────────────────────────────────────────
 VERSION=$(grep "^## Version:" "$SRC_DIR/GoldAdvisorMidnight.toc" \
-          | awk '{print $NF}')
+          | awk '{print $NF}' | tr -d '\r')
 
 if [ -z "$VERSION" ]; then
     echo "ERROR: Could not read version from TOC."
