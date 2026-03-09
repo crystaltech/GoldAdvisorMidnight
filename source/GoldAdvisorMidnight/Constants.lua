@@ -4,7 +4,7 @@
 
 local ADDON_NAME, GAM = ...
 GAM.C = {
-    ADDON_VERSION        = "1.2.0-RC2",
+    ADDON_VERSION        = "1.2.0-RC4",
     DATA_VERSION         = 3,
     DEFAULT_PATCH        = "midnight-1",
 
@@ -12,7 +12,7 @@ GAM.C = {
     AH_CUT               = 0.05,   -- 5% AH fee
 
     -- AH scanning throttle (seconds)
-    SCAN_DELAY           = 3.0,    -- between successive queries
+    SCAN_DELAY           = 1.0,    -- between successive queries
     RESULT_WAIT          = 10.0,   -- timeout waiting for results
     RESULT_RETRY_DELAY   = 0.5,    -- between retry attempts
     MAX_RETRY            = 5,
@@ -27,7 +27,7 @@ GAM.C = {
 
     -- Default options (mirrors DB.options defaults)
     DEFAULT_AH_CUT       = 0.05,
-    DEFAULT_SCAN_DELAY   = 3.0,
+    DEFAULT_SCAN_DELAY   = 1.0,
     DEFAULT_VERBOSITY    = 1,      -- 0=off,1=info,2=debug,3=verbose
     DEFAULT_RANK_POLICY  = "lowest",
     DEFAULT_PRICE_SOURCE = "ah",
@@ -38,8 +38,13 @@ GAM.C = {
     MAX_UI_SCALE         = 1.5,
 
     -- Fill-price simulation quantities
-    DEEP_FILL_QTY            = 50000,   -- standard "full book" behaviour (unchanged)
+    DEEP_FILL_QTY            = 10000,   -- matches ARP Tracker default fill quantity
     DEFAULT_SHALLOW_FILL_QTY = 1000,    -- default when user first enables shallow mode
     MIN_SHALLOW_FILL_QTY     = 250,     -- floor: ensures multiple sellers are sampled
-    MAX_SHALLOW_FILL_QTY     = 50000,   -- ceiling: equal to deep fill → safe no-op upper bound
+    MAX_SHALLOW_FILL_QTY     = 10000,   -- ceiling: equal to deep fill → safe no-op upper bound
+
+    -- Price trimming: ARP-style percentage trim from the expensive end
+    -- After filling to targetQty, the top TRIM_PCT% most expensive units are dropped.
+    -- Matches ARP Tracker default (Trim: 2). Range 0–100; 0 = no trim.
+    TRIM_PCT                 = 2,
 }

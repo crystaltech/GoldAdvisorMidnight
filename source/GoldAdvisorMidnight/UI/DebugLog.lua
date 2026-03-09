@@ -295,6 +295,7 @@ end
 function DebugLog.Show()
     if not frame then Build() end
     frame:Show()
+    frame:Raise()
 end
 
 function DebugLog.Hide()
@@ -303,7 +304,7 @@ end
 
 function DebugLog.Toggle()
     if not frame then Build() end
-    if frame:IsShown() then frame:Hide() else frame:Show() end
+    if frame:IsShown() then frame:Hide() else frame:Show(); frame:Raise() end
 end
 
 function DebugLog.IsShown()

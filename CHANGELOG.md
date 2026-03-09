@@ -1,5 +1,20 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.0-RC4] — 2026-03-09
+
+### Bug Fixes
+- Fixed: R2 item prices were 29–45% higher than ARP Tracker — `DEEP_FILL_QTY` reduced
+  from 50,000 to 10,000 to match ARP Tracker's default fill quantity; `MAX_SHALLOW_FILL_QTY`
+  ceiling updated to match
+- Fixed: Output prices for milling and prospecting strategies now match the rank of the
+  input reagent — R1 herb/ore produces R1 pigment/gem price; R2 herb/ore produces R2
+  price. Previously always showed R1 (cheapest) regardless of selected rank.
+  Applies to all professions: Inscription (milling), Jewelcrafting (prospecting/crushing),
+  Engineering (recycling), Blacksmithing (smelting), Leatherworking, Tailoring, Enchanting.
+- Fixed: R2 quality items (non-commodity AH path) now use the same fill+trim logic as R1
+  commodities; raw listings cached in session and persisted for qty-aware pricing
+- Fixed: Debug log window now raises to front when opened via `/gam log` or minimap
+
 ## [1.2.0-RC3] — 2026-03-06
 
 ### Repo / Release Tooling

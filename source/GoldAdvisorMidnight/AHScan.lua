@@ -89,8 +89,9 @@ function AHScan.PreWarmCache()
     end
 end
 
--- ===== Runtime commodity cache (session only) =====
-local commodityCache = {}
+-- ===== Runtime caches (session only) =====
+local commodityCache = {}   -- R1 commodity results
+local itemCache      = {}   -- R2/quality item results
 
 function AHScan.GetCachedResults(itemID)
     return commodityCache[itemID]
@@ -113,36 +114,59 @@ local function ExpandResultsToUnitPrices(results, targetQty)
     return out
 end
 
--- ARP-style outlier removal: compute the median listing price (by index, not
--- quantity-weighted), then drop any listing priced above TRIM_FACTOR × median.
--- This eliminates both single-item rock-bottom bait listings AND expensive
--- outlier stacks that would inflate the average.
-local TRIM_FACTOR = 3.0
-
+-- ARP-style percentage trim: fill to targetQty from cheapest listings first,
+-- then drop the top TRIM_PCT% most expensive of the filled units.
+-- Matches ARP Tracker default (Trim: 2) and is more predictable than a
+-- median-multiple approach across both deep and thin markets.
 local function ComputeStatsFromResults(results, targetQty)
     if not results or #results == 0 then return nil end
 
-    -- results are pre-sorted ascending by unitPrice (from ReadCommodityResults)
-    local median = results[math.ceil(#results / 2)].unitPrice
-    local threshold = median * TRIM_FACTOR
+    local units = ExpandResultsToUnitPrices(results, targetQty)
+    local n = #units
+    if n == 0 then return nil end
 
-    local trimmed = {}
-    for _, r in ipairs(results) do
-        if r.unitPrice <= threshold then
-            trimmed[#trimmed + 1] = r
-        end
-    end
-    if #trimmed == 0 then trimmed = results end  -- safety: keep all if everything trimmed
+    -- Sort descending so the most expensive units are at the front
+    table.sort(units, function(a, b) return a > b end)
 
-    local units = ExpandResultsToUnitPrices(trimmed, targetQty)
-    if #units == 0 then return nil end
-    local sum, minP, maxP = 0, units[1], units[1]
-    for _, p in ipairs(units) do
+    local trimPct   = GAM.C.TRIM_PCT or 2
+    local trimCount = math.floor(n * (trimPct / 100))
+    if trimCount >= n then trimCount = n - 1 end  -- always keep at least 1
+
+    -- After descending sort: cheapest is at index n, most expensive at index 1.
+    local sum, minP, maxP = 0, units[n], units[n]
+    for i = trimCount + 1, n do
+        local p = units[i]
         sum = sum + p
         if p < minP then minP = p end
         if p > maxP then maxP = p end
     end
-    return sum / #units, minP, maxP, #units
+    local kept = n - trimCount
+    return sum / kept, minP, maxP, kept
+end
+
+-- ComputePriceForQty: average unit price for `requiredQty` units using live
+-- session caches (commodity → item) then persisted raw as fallback.
+-- Returns avg in copper, or nil if no raw data is available.
+function AHScan.ComputePriceForQty(itemID, requiredQty)
+    if not itemID or not requiredQty or requiredQty <= 0 then return nil end
+    -- 1. Live commodity session cache (R1 items)
+    local cached = commodityCache[itemID]
+    if cached and cached.prices and #cached.prices > 0 then
+        return ComputeStatsFromResults(cached.prices, requiredQty)
+    end
+    -- 2. Live item session cache (R2 quality items)
+    local icached = itemCache[itemID]
+    if icached and icached.prices and #icached.prices > 0 then
+        return ComputeStatsFromResults(icached.prices, requiredQty)
+    end
+    -- 3. Persisted raw from last session (via Pricing module)
+    if GAM.Pricing and GAM.Pricing.GetRawCache then
+        local raw = GAM.Pricing.GetRawCache(itemID)
+        if raw and #raw > 0 then
+            return ComputeStatsFromResults(raw, requiredQty)
+        end
+    end
+    return nil
 end
 
 -- ===== Commodity result reader =====
@@ -172,16 +196,12 @@ end
 
 -- ===== Queue helpers =====
 
--- Internal: add a price-scan entry (de-dup by itemID)
--- Midnight: SendCommoditySearchQuery was removed; SendSearchQuery handles all items.
--- The event that fires (COMMODITY_SEARCH_RESULTS_UPDATED or ITEM_SEARCH_RESULTS_UPDATED)
--- depends on whether the item is a commodity — both handlers are already wired.
+-- Internal: add a price-scan entry (de-dup by itemID).
+-- itemName  (optional) — stored so OnCommodityResults can issue a browse fallback
+--                        without a separate GetItemInfo call.
+-- noFallback (optional) — pre-marks browseFallbackUsed=true to prevent a second
+--                        browse escalation when re-queued from OnBrowseResults.
 local priceScanQueued = {}  -- [itemID] = true; reset at StartScan
---
--- itemName  (optional) — stored on the entry so OnCommodityResults can issue a
---                        browse fallback without needing a separate GetItemInfo call.
--- noFallback (optional) — pre-marks browseFallbackUsed=true to prevent cascade when
---                        a scan is re-queued from inside OnBrowseResults fallback path.
 local function EnqueuePriceScan(itemID, callback, itemName, noFallback)
     if not itemID or itemID == 0 then return end
     if priceScanQueued[itemID] then return end
@@ -214,9 +234,9 @@ local function EnqueueNameScan(itemName, patchTag, callback)
 end
 
 -- ===== Query sender: price scan =====
--- Midnight removed SendCommoditySearchQuery. SendSearchQuery handles all item types.
--- Blizzard fires COMMODITY_SEARCH_RESULTS_UPDATED for commodities,
--- ITEM_SEARCH_RESULTS_UPDATED for non-commodities — both handlers are wired in Core.
+-- Midnight removed SendCommoditySearchQuery; SendSearchQuery handles all item types.
+-- Blizzard fires COMMODITY_SEARCH_RESULTS_UPDATED for commodities and
+-- ITEM_SEARCH_RESULTS_UPDATED for non-commodities — both handlers wired in Core.
 
 local function SendPriceQuery(entry)
     local itemKey = GetCachedItemKey(entry.itemID)
@@ -374,6 +394,11 @@ function AHScan.OnCommodityResults(itemID)
             local avg, minP, maxP, count = ReadCommodityResults(entry.itemID)
             if avg then
                 GAM.Pricing.StorePrice(entry.itemID, avg)
+                -- Also persist raw listings so qty-aware pricing works between sessions
+                local rawEntry = commodityCache[entry.itemID]
+                if rawEntry and rawEntry.prices then
+                    GAM.Pricing.StoreRaw(entry.itemID, rawEntry.prices)
+                end
                 if entry.callback then
                     pcall(entry.callback, entry.itemID, avg, minP, maxP, count)
                 end
@@ -394,7 +419,7 @@ function AHScan.OnCommodityResults(itemID)
                 -- zero-row responses for quality-tier commodities.
                 if not entry.browseFallbackUsed then
                     entry.browseFallbackUsed = true
-                    entry.isBrowseFallback   = true  -- NEW state flag
+                    entry.isBrowseFallback   = true
 
                     -- Resolve item name for the browse query.
                     local name = entry.name
@@ -409,10 +434,10 @@ function AHScan.OnCommodityResults(itemID)
                             "AHScan: zero commodity rows itemID=%d → browse fallback '%s'",
                             entry.itemID, name)
 
-                        -- Bump generation so the original ProcessNextInQueue
-                        -- safety timeout becomes a no-op (see entryGen capture there).
+                        -- Bump generation so the original ProcessNextInQueue safety
+                        -- timeout becomes a no-op (see entryGen capture there).
                         -- A fresh RESULT_WAIT timer is scheduled below.
-                        entry._gen = (entry._gen or 0) + 1  -- NEW state field
+                        entry._gen = (entry._gen or 0) + 1
                         local gen  = entry._gen
                         C_Timer.After(RESULT_WAIT, function()
                             if waitingForResults and pendingEntry == entry
@@ -512,23 +537,33 @@ function AHScan.OnItemResults(itemKey)
             OnItemFail(entry)
             return
         end
-        -- Collect all buyout amounts, sort ascending, then apply the same
-        -- median-trim + average used by ComputeStatsFromResults for commodity results.
-        -- In Midnight's LIFO AH, stale overpriced listings accumulate; trimming
-        -- high outliers (above median × TRIM_FACTOR) gives a fairer market price.
+        -- Collect per-unit prices with quantity=1 (equal weighting per listing),
+        -- then apply the same ARP-style fill+trim as commodities.
         local raw = {}
         for i = 1, numResults do
             local r = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
             if r and r.buyoutAmount and r.buyoutAmount > 0 then
-                -- buyoutAmount is the TOTAL stack price; divide by quantity for per-unit.
-                -- Store quantity = 1 so ComputeStatsFromResults weights each listing
-                -- equally (price discovery), not by stack size.
+                -- buyoutAmount is the total stack price; divide by quantity for per-unit.
+                -- quantity=1 so fill+trim weights each listing equally, not by stack size.
                 local qty = r.quantity or 1
                 raw[#raw + 1] = { unitPrice = math.floor(r.buyoutAmount / qty), quantity = 1 }
             end
         end
         table.sort(raw, function(a, b) return a.unitPrice < b.unitPrice end)
-        local avg, minP, maxP, count = ComputeStatsFromResults(raw, #raw)
+
+        -- Apply same shallow/deep fill setting as commodities.
+        local opts = GAM.db and GAM.db.options
+        local targetQty
+        if opts and opts.shallowFillEnabled then
+            targetQty = opts.shallowFillQty or GAM.C.DEFAULT_SHALLOW_FILL_QTY
+        else
+            targetQty = GAM.C.DEEP_FILL_QTY
+        end
+
+        itemCache[entry.itemID] = { prices = raw, ts = time() }
+        GAM.Pricing.StoreRaw(entry.itemID, raw)
+
+        local avg, minP, maxP, count = ComputeStatsFromResults(raw, targetQty)
         if avg then
             local price = math.floor(avg)
             GAM.Pricing.StorePrice(entry.itemID, price)
@@ -539,6 +574,7 @@ function AHScan.OnItemResults(itemKey)
             doneCount         = doneCount + 1
             waitingForResults = false
             pendingEntry      = nil
+            GAM.Log.Debug("AHScan: price itemID=%d avg=%d", entry.itemID, price)
             FireProgress(false)
         else
             waitingForResults = false
@@ -594,10 +630,9 @@ function AHScan.OnBrowseResults()
                     if result and result.itemKey and result.itemKey.itemID then
                         local id = result.itemKey.itemID
 
-                        -- KEY FIX: overwrite the cached itemKey with the FULL struct
-                        -- returned by the AH (may include itemSuffix / quality fields
-                        -- that MakeItemKey(id,0,0,0) zeroes out).  The re-queued scan
-                        -- will call GetCachedItemKey(id) and get this full key.
+                        -- Overwrite cached itemKey with the full struct from the AH —
+                        -- may include itemSuffix/quality fields that MakeItemKey(id,0,0,0)
+                        -- zeroes out. Re-queued scan picks up the corrected key.
                         itemKeyCache[id] = result.itemKey
                         -- Persist full key to SavedVariables so future sessions skip browse
                         local ik = result.itemKey

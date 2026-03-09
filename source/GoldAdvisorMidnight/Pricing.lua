@@ -104,17 +104,17 @@ function Pricing.GetEffectivePriceForItem(item, patchTag)
     return nil, false
 end
 
--- GetOutputPriceForItem(item, patchTag) → price, isStale
--- Used for OUTPUT pricing: crafted/milled outputs produce a random mix of quality
--- tiers. Returns the average price across all ranked variants that have AH data,
--- giving a more accurate revenue estimate than any single rank's price.
--- Applies a cross-rank trim: ranks priced more than RANK_TRIM × the cheapest
--- rank are excluded (a thin/niche high-rank market, e.g. one listing at 5000g
--- when rank 1 is 285g, should not inflate the expected revenue estimate).
--- Falls back to single-rank behaviour when only one rank has data.
+-- GetOutputPriceForItem(item, patchTag, preferredRankIdx) → price, isStale
+-- Used for OUTPUT pricing. When preferredRankIdx is provided (1-based index into
+-- item.itemIDs), returns the price of that specific rank — used so milling/
+-- processing output rank matches the input reagent rank (R1 input → R1 output,
+-- R2 input → R2 output). Falls back to cheapest-rank logic when the preferred
+-- rank has no price data or when preferredRankIdx is nil.
+-- A cross-rank trim (RANK_TRIM) excludes extreme outlier ranks before the
+-- fallback minimum is chosen.
 local RANK_TRIM = 3.0
 
-local function GetOutputPriceForItem(item, patchTag)
+local function GetOutputPriceForItem(item, patchTag, preferredRankIdx)
     if not item then return nil, false end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local pdb = GetPatchDB(patchTag)
@@ -125,9 +125,17 @@ local function GetOutputPriceForItem(item, patchTag)
     end
     if not ids or #ids == 0 then return nil, false end
 
-    -- Single rank: no averaging needed
+    -- Single rank: no rank-matching needed
     if #ids == 1 then
         return Pricing.GetEffectivePrice(ids[1], patchTag)
+    end
+
+    -- Preferred rank: use the rank that matches the input reagent rank (e.g. R2
+    -- input → R2 output), so milling a rank-2 herb yields rank-2 pigment price.
+    if preferredRankIdx and ids[preferredRankIdx] then
+        local p, s = Pricing.GetEffectivePrice(ids[preferredRankIdx], patchTag)
+        if p then return p, s end
+        -- No price for preferred rank — fall through to cheapest-rank logic below
     end
 
     -- Multiple ranks: collect all prices that have AH data
@@ -143,25 +151,21 @@ local function GetOutputPriceForItem(item, patchTag)
     if #prices == 0 then return nil, false end
     if #prices == 1 then return prices[1], anyStale end
 
-    -- Cross-rank trim: find cheapest tier, exclude any rank priced > RANK_TRIM × that.
+    -- Cross-rank trim: exclude extreme outliers > RANK_TRIM × min.
     local minPrice = prices[1]
     for _, p in ipairs(prices) do
         if p < minPrice then minPrice = p end
     end
     local threshold = minPrice * RANK_TRIM
 
-    local totalPrice, count = 0, 0
+    local floorPrice = nil
     for _, p in ipairs(prices) do
         if p <= threshold then
-            totalPrice = totalPrice + p
-            count      = count + 1
+            if not floorPrice or p < floorPrice then floorPrice = p end
         end
     end
 
-    if count > 0 then
-        return math.floor(totalPrice / count), anyStale
-    end
-    return minPrice, anyStale  -- safety: everything was trimmed, return cheapest
+    return math.floor(floorPrice or minPrice), anyStale
 end
 
 -- FormatPrice(copper) → "1,234g 56s 78c" string (handles negatives)
@@ -178,6 +182,64 @@ function Pricing.FormatPrice(copper)
     if c > 0 or #parts == 0 then parts[#parts+1] = string.format("|cffae8f0a%dc|r", c) end
     local result = table.concat(parts, " ")
     return neg and ("-" .. result) or result
+end
+
+-- ===== Qty-aware reagent pricing =====
+
+-- GetReagentPriceAtQty(item, required, patchTag) → price, isStale
+-- Like GetEffectivePriceForItem but uses live (or persisted) raw AH data to
+-- compute the average of the cheapest `required` units — the actual cost for
+-- buying exactly what a strategy needs. Falls back to the stored avg price
+-- (less accurate but always available) when no raw data exists.
+-- Manual overrides and CraftSim prices bypass this entirely via GetEffectivePrice.
+local function GetReagentPriceAtQty(item, required, patchTag)
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    local pdb = GetPatchDB(patchTag)
+
+    -- Resolve item IDs (same as GetEffectivePriceForItem)
+    local ids = item.itemIDs
+    if (not ids or #ids == 0) and item.name then
+        ids = pdb.rankGroups[item.name] or {}
+    end
+
+    -- Manual override: bypass qty-aware path (override is exact, no qty needed)
+    if ids and #ids > 0 then
+        local picked = PickItemID(ids, patchTag)
+        if picked and pdb.priceOverrides and pdb.priceOverrides[picked] ~= nil then
+            return pdb.priceOverrides[picked], false
+        end
+    end
+
+    -- CraftSim: bypass qty-aware path
+    local opts = GetOpts()
+    if opts.priceSource == "craftsim" and GAM.CraftSimBridge then
+        if ids and #ids > 0 then
+            local picked = PickItemID(ids, patchTag)
+            if picked then
+                local csPrice = GAM.CraftSimBridge.GetPrice(picked)
+                if csPrice and csPrice > 0 then return csPrice, false end
+            end
+        end
+    end
+
+    -- Qty-aware AH price: try each rank via session/persisted raw data
+    if ids and #ids > 0 and GAM.AHScan and GAM.AHScan.ComputePriceForQty then
+        local picked = PickItemID(ids, patchTag)
+        if picked then
+            local p = GAM.AHScan.ComputePriceForQty(picked, required)
+            if p then return p, false end
+        end
+        -- Fallback through other quality ranks
+        for _, id in ipairs(ids) do
+            if id ~= PickItemID(ids, patchTag) then
+                local p = GAM.AHScan.ComputePriceForQty(id, required)
+                if p then return p, false end
+            end
+        end
+    end
+
+    -- Final fallback: stored avg price (deep-fill or shallow-fill avg from last scan)
+    return Pricing.GetEffectivePriceForItem(item, patchTag)
 end
 
 -- ===== Core calculation =====
@@ -244,7 +306,9 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         -- Price: only required if there is something left to buy.
         -- If the player already owns all copies (needToBuy == 0), cost is 0
         -- and a missing AH price should NOT block profit/ROI display.
-        local price, stale = Pricing.GetEffectivePriceForItem(r, patchTag)
+        -- Use qty-aware pricing so we average the cheapest `required` units,
+        -- not a global deep-fill average that over-samples expensive listings.
+        local price, stale = GetReagentPriceAtQty(r, required, patchTag)
         if stale then hasStale = true end
 
         local totalCost    = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
@@ -283,9 +347,25 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     -- Nearest-integer rounding only for the display qty field.
     local outputQtyRaw    = (primaryOut.qtyMultiplier or 0) * startingAmt
     local outputQty       = math.floor(outputQtyRaw + 0.5)
-    -- Use average price across all quality ranks: craft output is a random mix of
-    -- tiers (milling, inscription, etc.), so single-rank price over/understates revenue.
-    local outPrice, outStale = GetOutputPriceForItem(primaryOut, patchTag)
+
+    -- Determine which rank index the primary reagent uses, so output pricing can
+    -- match the same rank (R1 herb → R1 pigment, R2 herb → R2 pigment).
+    local primaryRankIdx = nil
+    if strat.reagents and #strat.reagents > 0 then
+        local r0   = strat.reagents[1]
+        local rIds = r0.itemIDs
+        if (not rIds or #rIds == 0) and r0.name then
+            rIds = pdb.rankGroups[r0.name] or {}
+        end
+        if rIds and #rIds > 0 then
+            local pickedId = PickItemID(rIds, patchTag)
+            for i, id in ipairs(rIds) do
+                if id == pickedId then primaryRankIdx = i; break end
+            end
+        end
+    end
+
+    local outPrice, outStale = GetOutputPriceForItem(primaryOut, patchTag, primaryRankIdx)
     if outStale then hasStale = true end
     local outMissingPrice = not outPrice
 
@@ -302,7 +382,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         for _, o in ipairs(strat.outputs) do
             local oQtyRaw = (o.qtyMultiplier or 0) * startingAmt                    -- float for revenue
             local oQty    = math.floor(oQtyRaw + 0.5)                               -- integer for display
-            local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag)
+            local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag, primaryRankIdx)
             if oStale2 then hasStale = true end
             local oIds = o.itemIDs
             if (not oIds or #oIds == 0) and o.name then
@@ -388,11 +468,32 @@ end
 function Pricing.StorePrice(itemID, price)
     if not itemID or not price then return end
     local cache = GAM:GetRealmCache()
+    local existing = cache[itemID]
     cache[itemID] = {
         price = price,
         ts    = time(),
+        raw   = existing and existing.raw or nil,  -- preserve raw if already stored
     }
     GAM.Log.Debug("Stored price: itemID=%d price=%d", itemID, price)
+end
+
+-- StoreRaw(itemID, sortedRaw) — persist raw AH listings alongside the avg price
+-- so ComputePriceForQty can give qty-aware prices between sessions.
+function Pricing.StoreRaw(itemID, sortedRaw)
+    if not itemID or not sortedRaw then return end
+    local cache = GAM:GetRealmCache()
+    local entry = cache[itemID]
+    if entry then
+        entry.raw = sortedRaw
+    end
+end
+
+-- GetRawCache(itemID) — return persisted raw listings, or nil.
+function Pricing.GetRawCache(itemID)
+    if not itemID then return nil end
+    local cache = GAM:GetRealmCache()
+    local entry = cache[itemID]
+    return entry and entry.raw or nil
 end
 
 -- SetPriceOverride(itemID, price, patchTag)
