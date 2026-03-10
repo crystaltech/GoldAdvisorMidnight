@@ -9,7 +9,7 @@ Scans the Auction House for live prices, computes profit and ROI for spreadsheet
 ## Features
 
 - **Live AH scanning** — throttled commodity + item queries via `C_AuctionHouse`
-- **62 strategies** across 8 professions parsed from the Midnight spreadsheet
+- **63 strategies** across 8 professions parsed from the Midnight spreadsheet
 - **Profit / ROI engine** — cost-to-buy, net revenue after AH cut, break-even sell price
 - **Editable starting amounts** — tell the addon what you already have in your bags
 - **Shopping list** — aggregated NeedToBuy across all strategies
@@ -81,7 +81,7 @@ The script prints each strategy as it is parsed:
 Processing Alchemy...
   ✓ [Alchemy] Composite Flora (4 reagents, 1 output(s), ×0.8107)
   ...
-Done. 62 total strats
+Done. 63 total strats
 ```
 
 ### Assigning item IDs
@@ -219,7 +219,7 @@ JC prospecting strats add an `outputs` list (all gem/stone yields):
 
 ## Verification checklist
 
-1. `python3 build/generate_strats.py` → 62 total strats, no Python errors
+1. `python3 build/generate_strats.py` → 63 total strats, no Python errors
 2. Copy to AddOns dir; `/run print(GoldAdvisorMidnight and "OK")` → `OK`
 3. Open AH → minimap button appears; left-click opens strategy list
 4. Strategies visible in list filtered by profession
@@ -237,6 +237,6 @@ JC prospecting strats add an `outputs` list (all gem/stone yields):
 ## Known limitations / next steps
 
 - `itemIDs` are all empty (`{}`) until populated via AH name scan or `StratsManual.lua`
-- JC crafting strats (Sunglass Vial, Sin'dorei Lens) have 2 reagents but a single `defaultStartingAmount` (the first reagent's qty); refine in `StratsManual.lua` as needed
+- Spreadsheet-driven strategy defaults depend on which workbook snapshot was last imported; `StratsManual.lua` carries any newer workbook corrections until the extraction/build inputs are refreshed
 - StratDetail rank picker UI for multi-itemID items is functional but does not persist the selected rank index between sessions (falls back to `rankPolicy`)
 - CraftSim price bridge reads the first available price API; exact API may change with CraftSim updates
