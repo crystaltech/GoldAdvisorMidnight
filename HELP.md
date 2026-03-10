@@ -62,7 +62,7 @@ The first time you use the addon you will need to **scan prices**. Until you do,
 5. Wait for the scan to complete (the progress bar will disappear when done)
 6. Profit and ROI values will populate — green = profitable, red = a loss
 
-Scanning 62 strategies takes a few minutes due to AH throttling. You only need to do a full scan when you want fresh prices; cached prices are reused for 10 minutes.
+Scanning 63 strategies takes a few minutes due to AH throttling. You only need to do a full scan when you want fresh prices; cached prices are reused for 10 minutes.
 
 ---
 
@@ -99,7 +99,7 @@ Opens automatically when you open the Auction House, or via `/gam` or the minima
 │  ☆ Goblin Grenade   Engineering  -8g 00s   -2.1% │
 │  ...                                             │
 │──────────────────────────────────────────────────│
-│  62 strategies   [Debug Log] [Scan All] [Close]  │
+│  63 strategies   [Debug Log] [Scan All] [Close]  │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -348,7 +348,7 @@ A: The AH throttles queries. The addon waits up to 10 seconds between queries. I
 A: Left-click the minimap coin button, or type `/gam`. The window only opens automatically when the AH is open.
 
 **Q: Profits look wildly different from the community spreadsheet.**
-A: The spreadsheet has a known formula error in the Jewelcrafting section (the 5% AH cut is only applied to the last output item, not all of them). The addon applies the cut correctly to all outputs, so JC prospecting profit numbers will differ from the spreadsheet by a constant amount.
+A: Older copies of the spreadsheet had a Jewelcrafting AH-cut formula bug. The March 10, 2026 workbook fixes that, and the addon is aligned to the corrected sheet values.
 
 **Q: How do I reset everything and start fresh?**
 A: `/gam clearcache` wipes prices. To also wipe your qty overrides and favorites, delete the `GoldAdvisorMidnightDB` entry from your SavedVariables file (in `WTF/Account/...`) and `/reload`.
@@ -362,7 +362,7 @@ A: Yes. CraftSim is completely optional. Every feature works without it. The onl
 
 - **Item IDs**: Most raw materials are pre-mapped. If a crafted item or gem shows no price, it likely needs a name scan (clicking Scan will attempt this automatically).
 - **JC prospecting display**: The output section shows the primary output item only. Revenue is calculated correctly from all gem yields; it's just not shown line-by-line in the panel.
-- **Spreadsheet bugs**: The Jewelcrafting strategies in the community spreadsheet have a formula error (5% AH cut only applied to last output). Gold Advisor Midnight applies the cut correctly, so JC numbers will differ from the sheet.
+- **Spreadsheet version matters**: Older community spreadsheet copies had Jewelcrafting formula issues. Gold Advisor Midnight is aligned to the corrected March 10, 2026 workbook.
 - **Price freshness**: Cached prices expire after 10 minutes. Run Scan All at the start of each AH session for best accuracy.
 - **Single realm**: Price cache is scoped to your realm+faction. If you play multiple realms, each has its own cache.
 

@@ -1,5 +1,45 @@
 [
   {
+    "addr": "C6",
+    "formula": "=VLOOKUP(B6,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G6",
+    "formula": "=VLOOKUP(F6,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K6",
+    "formula": "=VLOOKUP(J6,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "O6",
+    "formula": "=VLOOKUP(N6,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C7",
+    "formula": "=VLOOKUP(B7,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G7",
+    "formula": "=VLOOKUP(F7,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K7",
+    "formula": "=VLOOKUP(J7,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "O7",
+    "formula": "=VLOOKUP(N7,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "C10",
     "formula": "=SUM(0.7123*C4)",
     "cached_value": 7123
@@ -22,42 +62,82 @@
   {
     "addr": "C11",
     "formula": "=(C6*C4)/C10",
-    "cached_value": 7.01951425
+    "cached_value": "#N/A"
   },
   {
     "addr": "G11",
     "formula": "=(G6*G4)/G10",
-    "cached_value": 8.315316814
+    "cached_value": "#N/A"
   },
   {
     "addr": "K11",
     "formula": "=(K6*K4)/K10",
-    "cached_value": 7.060152499
+    "cached_value": "#N/A"
   },
   {
     "addr": "O11",
     "formula": "=(O6*O4)/O10",
-    "cached_value": 7.007708479
+    "cached_value": "#N/A"
   },
   {
     "addr": "C12",
     "formula": "=sum((C10*C7*0.95)-(C6*C4))",
-    "cached_value": -16165.75
+    "cached_value": "#N/A"
   },
   {
     "addr": "G12",
     "formula": "=sum((G10*G7*0.95)-(G6*G4))",
-    "cached_value": -21438.25
+    "cached_value": "#N/A"
   },
   {
     "addr": "K12",
     "formula": "=sum((K10*K7*0.95)-(K6*K4))",
-    "cached_value": -16360.5
+    "cached_value": "#N/A"
   },
   {
     "addr": "O12",
     "formula": "=sum((O10*O7*0.95)-(O6*O4))",
-    "cached_value": -16108.75
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C17",
+    "formula": "=VLOOKUP(B17,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G17",
+    "formula": "=VLOOKUP(F17,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K17",
+    "formula": "=VLOOKUP(J17,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "O17",
+    "formula": "=VLOOKUP(N17,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C18",
+    "formula": "=VLOOKUP(B18,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G18",
+    "formula": "=VLOOKUP(F18,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K18",
+    "formula": "=VLOOKUP(J18,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "O18",
+    "formula": "=VLOOKUP(N18,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
   },
   {
     "addr": "C21",
@@ -82,42 +162,82 @@
   {
     "addr": "C22",
     "formula": "=(C17*C15)/C21",
-    "cached_value": 6.922331441
+    "cached_value": "#N/A"
   },
   {
     "addr": "G22",
     "formula": "=(G17*G15)/G21",
-    "cached_value": 6.906077348
+    "cached_value": "#N/A"
   },
   {
     "addr": "K22",
     "formula": "=(K17*K15)/K21",
-    "cached_value": 8.287750704
+    "cached_value": "#N/A"
   },
   {
     "addr": "O22",
     "formula": "=(O17*O15)/O21",
-    "cached_value": 7.040270346
+    "cached_value": "#N/A"
   },
   {
     "addr": "C23",
     "formula": "=sum((C21*C18*0.95)-(C17*C15))",
-    "cached_value": -15690.75
+    "cached_value": "#N/A"
   },
   {
     "addr": "G23",
     "formula": "=sum((G21*G18*0.95)-(G17*G15))",
-    "cached_value": -15610
+    "cached_value": "#N/A"
   },
   {
     "addr": "K23",
     "formula": "=sum((K21*K18*0.95)-(K17*K15))",
-    "cached_value": -21343.25
+    "cached_value": "#N/A"
   },
   {
     "addr": "O23",
     "formula": "=sum((O21*O18*0.95)-(O17*O15))",
-    "cached_value": -16265.5
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C28",
+    "formula": "=VLOOKUP(B28,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G28",
+    "formula": "=VLOOKUP(F28,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K28",
+    "formula": "=VLOOKUP(J28,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "O28",
+    "formula": "=VLOOKUP(N28,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C29",
+    "formula": "=VLOOKUP(B29,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G29",
+    "formula": "=VLOOKUP(F29,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K29",
+    "formula": "=VLOOKUP(J29,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "O29",
+    "formula": "=VLOOKUP(N29,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
   },
   {
     "addr": "C32",
@@ -127,7 +247,7 @@
   {
     "addr": "G32",
     "formula": "=SUM(0.7208*G26)",
-    "cached_value": 7208
+    "cached_value": 1441.6
   },
   {
     "addr": "K32",
@@ -142,42 +262,72 @@
   {
     "addr": "C33",
     "formula": "=(C28*C26)/C32",
-    "cached_value": 7.074136955
+    "cached_value": "#N/A"
   },
   {
     "addr": "G33",
     "formula": "=(G28*G26)/G32",
-    "cached_value": 6.936736959
+    "cached_value": "#N/A"
   },
   {
     "addr": "K33",
     "formula": "=(K28*K26)/K32",
-    "cached_value": 6.940588562
+    "cached_value": "#N/A"
   },
   {
     "addr": "O33",
     "formula": "=(O28*O26)/O32",
-    "cached_value": 7.041261794
+    "cached_value": "#N/A"
   },
   {
     "addr": "C34",
     "formula": "=sum((C32*C29*0.95)-(C28*C26))",
-    "cached_value": -16427
+    "cached_value": "#N/A"
   },
   {
     "addr": "G34",
     "formula": "=sum((G32*G29*0.95)-(G28*G26))",
-    "cached_value": -15762
+    "cached_value": "#N/A"
   },
   {
     "addr": "K34",
     "formula": "=sum((K32*K29*0.95)-(K28*K26))",
-    "cached_value": -15781
+    "cached_value": "#N/A"
   },
   {
     "addr": "O34",
     "formula": "=sum((O32*O29*0.95)-(O28*O26))",
-    "cached_value": -16270.25
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C39",
+    "formula": "=VLOOKUP(B39,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G39",
+    "formula": "=VLOOKUP(F39,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K39",
+    "formula": "=VLOOKUP(J39,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C40",
+    "formula": "=VLOOKUP(B40,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G40",
+    "formula": "=VLOOKUP(F40,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K40",
+    "formula": "=VLOOKUP(J40,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
   },
   {
     "addr": "C43",
@@ -197,32 +347,32 @@
   {
     "addr": "C44",
     "formula": "=(C39*C37)/C43",
-    "cached_value": 6.977393246
+    "cached_value": "#N/A"
   },
   {
     "addr": "G44",
     "formula": "=(G39*G37)/G43",
-    "cached_value": 6.918500069
+    "cached_value": "#N/A"
   },
   {
     "addr": "K44",
     "formula": "=(K39*K37)/K43",
-    "cached_value": 6.918500069
+    "cached_value": "#N/A"
   },
   {
     "addr": "C45",
     "formula": "=sum((C43*C40*0.95)-(C39*C37))",
-    "cached_value": -15961.5
+    "cached_value": "#N/A"
   },
   {
     "addr": "G45",
     "formula": "=sum((G43*G40*0.95)-(G39*G37))",
-    "cached_value": -15671.75
+    "cached_value": "#N/A"
   },
   {
     "addr": "K45",
     "formula": "=sum((K43*K40*0.95)-(K39*K37))",
-    "cached_value": -15671.75
+    "cached_value": "#N/A"
   },
   {
     "addr": "C50",
@@ -265,6 +415,76 @@
     "cached_value": 6000
   },
   {
+    "addr": "O53",
+    "formula": "=VLOOKUP(N53,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K54",
+    "formula": "=VLOOKUP(J54,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "O54",
+    "formula": "=VLOOKUP(N54,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C55",
+    "formula": "=VLOOKUP(B55,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "41.14"
+  },
+  {
+    "addr": "G55",
+    "formula": "=VLOOKUP(F55,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "41.14"
+  },
+  {
+    "addr": "K55",
+    "formula": "=VLOOKUP(J55,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "O55",
+    "formula": "=VLOOKUP(N55,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C56",
+    "formula": "=VLOOKUP(B56,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "42"
+  },
+  {
+    "addr": "G56",
+    "formula": "=VLOOKUP(F56,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "42"
+  },
+  {
+    "addr": "K56",
+    "formula": "=VLOOKUP(J56,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C57",
+    "formula": "=VLOOKUP(B57,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G57",
+    "formula": "=VLOOKUP(F57,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K57",
+    "formula": "=VLOOKUP(J57,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K58",
+    "formula": "=VLOOKUP(J58,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "O58",
     "formula": "=SUM(1.875*O49)",
     "cached_value": 3750
@@ -282,17 +502,17 @@
   {
     "addr": "O59",
     "formula": "=((O54*O50)+(O53*O49))/O58",
-    "cached_value": 5.333333333
+    "cached_value": "#N/A"
   },
   {
     "addr": "C60",
     "formula": "=((C56*C51)+(C55*C50)+(C54*C49))/C59",
-    "cached_value": 42.66666667
+    "cached_value": 333.9733333
   },
   {
     "addr": "G60",
     "formula": "=((G56*G51)+(G55*G50)+(G54*G49))/G59",
-    "cached_value": 42.66666667
+    "cached_value": 331.68
   },
   {
     "addr": "K60",
@@ -302,27 +522,27 @@
   {
     "addr": "O60",
     "formula": "=sum((O58*O55*0.95)-((O54*O50)+(O53*O49)))",
-    "cached_value": -2187.5
+    "cached_value": "#N/A"
   },
   {
     "addr": "C61",
     "formula": "=sum((C59*C57*0.95)-((C56*C51)+(C55*C50)+(C54*C49)))",
-    "cached_value": -142187.5
+    "cached_value": "#N/A"
   },
   {
     "addr": "G61",
     "formula": "=sum((G59*G57*0.95)-((G56*G51)+(G55*G50)+(G54*G49)))",
-    "cached_value": -142187.5
+    "cached_value": "#N/A"
   },
   {
     "addr": "K61",
     "formula": "=((K57*K52)+(K56*K51)+(K55*K50)+(K54*K49))/K60",
-    "cached_value": 18.66666667
+    "cached_value": "#N/A"
   },
   {
     "addr": "K62",
     "formula": "=sum((K60*K58*0.95)-((K57*K52)+(K56*K51)+(K55*K50)+(K54*K49)))",
-    "cached_value": -52187.5
+    "cached_value": "#N/A"
   },
   {
     "addr": "C65",
@@ -370,6 +590,81 @@
     "cached_value": 6000
   },
   {
+    "addr": "C69",
+    "formula": "=VLOOKUP(B69,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G69",
+    "formula": "=VLOOKUP(F69,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C70",
+    "formula": "=VLOOKUP(B70,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G70",
+    "formula": "=VLOOKUP(F70,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K70",
+    "formula": "=VLOOKUP(J70,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C71",
+    "formula": "=VLOOKUP(B71,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G71",
+    "formula": "=VLOOKUP(F71,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K71",
+    "formula": "=VLOOKUP(J71,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C72",
+    "formula": "=VLOOKUP(B72,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G72",
+    "formula": "=VLOOKUP(F72,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K72",
+    "formula": "=VLOOKUP(J72,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "C73",
+    "formula": "=VLOOKUP(B73,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "G73",
+    "formula": "=VLOOKUP(F73,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K73",
+    "formula": "=VLOOKUP(J73,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "K74",
+    "formula": "=VLOOKUP(J74,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "C75",
     "formula": "=SUM(1.875*C65)",
     "cached_value": 3750
@@ -382,12 +677,12 @@
   {
     "addr": "C76",
     "formula": "=((C72*C67)+(C71*C66)+(C70*C65)+(C69*C64))/C75",
-    "cached_value": 18.66666667
+    "cached_value": "#N/A"
   },
   {
     "addr": "G76",
     "formula": "=((G72*G67)+(G71*G66)+(G70*G65)+(G69*G64))/G75",
-    "cached_value": 18.66666667
+    "cached_value": "#N/A"
   },
   {
     "addr": "K76",
@@ -397,21 +692,21 @@
   {
     "addr": "C77",
     "formula": "=sum((C75*C73*0.95)-((C72*C67)+(C71*C66)+(C70*C65)+(C69*C64)))",
-    "cached_value": -52187.5
+    "cached_value": "#N/A"
   },
   {
     "addr": "G77",
     "formula": "=sum((G75*G73*0.95)-((G72*G67)+(G71*G66)+(G70*G65)+(G69*G64)))",
-    "cached_value": -52187.5
+    "cached_value": "#N/A"
   },
   {
     "addr": "K77",
     "formula": "=((K73*K68)+(K72*K67)+(K71*K66)+(K70*K65))/K76",
-    "cached_value": 18.66666667
+    "cached_value": "#N/A"
   },
   {
     "addr": "K78",
     "formula": "=sum((K76*K74*0.95)-((K73*K68)+(K72*K67)+(K71*K66)+(K70*K65)))",
-    "cached_value": -52187.5
+    "cached_value": "#N/A"
   }
 ]

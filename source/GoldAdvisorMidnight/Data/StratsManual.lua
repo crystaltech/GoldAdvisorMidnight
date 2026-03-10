@@ -122,21 +122,26 @@ GAM_STRATS_MANUAL[#GAM_STRATS_MANUAL+1] = {
 }
 
 -- ─── Leatherworking: output name fixes ───────────────────────────────────
--- Both strats have the same spreadsheet copy-paste bug: the output price row
--- label was left as the material name (Void-Tempered Plating / Void-Tempered
--- Hide) instead of the crafted item name.  The profit formula references the
--- material's price cell, so the parser assigns the wrong output.
+-- The March 10, 2026 workbook keeps the same output-name layout ambiguity in
+-- the LW craft blocks, so we pin the crafted output names/IDs here and also
+-- match the workbook's default starting amounts.
 --
--- itemIDs confirmed via in-game GetItemInfo dump.
--- Sin'Dorei Armor Banding Q1=244636 confirmed; Q2 unknown.
--- Silvermoon Weapon Wrap IDs unknown — confirm via in-game AH browse.
+-- Item IDs confirmed via ranked mats export.
+GAM_STRATS_MANUAL[#GAM_STRATS_MANUAL+1] = {
+    patchTag   = "midnight-1",
+    profession = "Leatherworking",
+    stratName  = "Scale Woven Hide",
+    defaultStartingAmount = 2000,
+}
+
 GAM_STRATS_MANUAL[#GAM_STRATS_MANUAL+1] = {
     patchTag   = "midnight-1",
     profession = "Leatherworking",
     stratName  = "Sin'Dorei Armor Banding",
+    defaultStartingAmount = 2000,
     output = {
         name          = "Sin'dorei Armor Banding",  -- WoW uses lowercase 'd'
-        itemIDs       = { 244636 },  -- Q1=244636 confirmed; Q2 unknown
+        itemIDs       = { 244635, 244636 },
         qtyMultiplier = 0.85,
     },
 }
@@ -145,9 +150,10 @@ GAM_STRATS_MANUAL[#GAM_STRATS_MANUAL+1] = {
     patchTag   = "midnight-1",
     profession = "Leatherworking",
     stratName  = "Silvermoon Weapon Wrap",
+    defaultStartingAmount = 2000,
     output = {
         name          = "Silvermoon Weapon Wrap",
-        itemIDs       = {},  -- IDs unknown; confirm via in-game AH browse
+        itemIDs       = { 244637, 244638 },
         qtyMultiplier = 0.85,
     },
 }

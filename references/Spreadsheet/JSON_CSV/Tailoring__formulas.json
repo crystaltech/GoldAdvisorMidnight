@@ -2,7 +2,7 @@
   {
     "addr": "D6",
     "formula": "=D5*4",
-    "cached_value": 8000
+    "cached_value": 4000
   },
   {
     "addr": "H6",
@@ -10,9 +10,29 @@
     "cached_value": 12000
   },
   {
+    "addr": "D9",
+    "formula": "=VLOOKUP(C9,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "H9",
+    "formula": "=VLOOKUP(G9,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "D10",
+    "formula": "=VLOOKUP(C10,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "H11",
+    "formula": "=VLOOKUP(G11,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "D13",
     "formula": "=D5*1.592",
-    "cached_value": 3184
+    "cached_value": 1592
   },
   {
     "addr": "H13",
@@ -22,21 +42,21 @@
   {
     "addr": "D14",
     "formula": "=((D10*D5)+(D11*D6))/D13",
-    "cached_value": 15.70351759
+    "cached_value": "#N/A"
   },
   {
     "addr": "H14",
     "formula": "=((H10*H5)+(H11*H6))/H13",
-    "cached_value": 19.20741537
+    "cached_value": "#N/A"
   },
   {
     "addr": "D15",
     "formula": "=sum((D13*D9*0.95)-((D10*D5)+(D11*D6)))",
-    "cached_value": -34876
+    "cached_value": "#N/A"
   },
   {
     "addr": "H15",
     "formula": "=sum((H13*H11*0.95)-((H9*H5)+(H10*H6)))",
-    "cached_value": -67742.97104
+    "cached_value": "#N/A"
   }
 ]
