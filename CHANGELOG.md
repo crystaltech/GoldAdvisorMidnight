@@ -1,5 +1,17 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.0-RC4a] — 2026-03-10
+
+### Data
+- Refreshed all spreadsheet extract inputs from March 10, 2026 workbook
+- Updated Jewelcrafting strategy math: Dazzling Thorium Prospecting (2000 start,
+  corrected output multipliers), Sunglass Vial Crafting (2500 start, Stone ×0.2,
+  Vial ×0.35), Sin'dorei Lens Crafting (3000 start, Gemdust ×0.333, Lens ×0.575)
+- Updated Leatherworking strategy math: all 4 strats verified against workbook
+- Added Sanguithorn Milling as a distinct Inscription strategy (63 strats total; was 62)
+- Added `build/extract_spreadsheet.py` — openpyxl workbook extractor; fixes broken
+  build pipeline (`generate_strats.py` now reads from `references/Spreadsheet/JSON_CSV/`)
+
 ## [1.2.0-RC4] — 2026-03-09
 
 ### Bug Fixes
