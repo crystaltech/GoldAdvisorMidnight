@@ -12,19 +12,40 @@ local function GetDB() return GAM.db end
 local function GetOpts() return GAM.db.options end
 local function GetPatchDB(pt) return GAM:GetPatchDB(pt) end
 
--- Pick best itemID from a list according to rankPolicy
+-- Pick best itemID from a list according to rankPolicy.
+-- Uses C_TradeSkillUI.GetItemReagentQualityByItemInfo to sort by actual crafting
+-- quality rather than array position (array order is not guaranteed to be Q1-first).
 local function PickItemID(itemIDs, patchTag)
     if not itemIDs or #itemIDs == 0 then return nil end
     if #itemIDs == 1 then return itemIDs[1] end
     local policy = GetOpts().rankPolicy or "lowest"
-    if policy == "highest" then
-        return itemIDs[#itemIDs]
-    elseif policy == "lowest" then
-        return itemIDs[1]
-    else
-        -- "manual" — use highest as fallback (user sets via StratDetail rank picker)
-        return itemIDs[#itemIDs]
+
+    -- Build quality-aware sorted list
+    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+    local sorted = {}
+    local anyKnown = false
+    for _, id in ipairs(itemIDs) do
+        local q = api and api(id)
+        if q and q > 0 then
+            anyKnown = true
+            tinsert(sorted, { id = id, q = q })
+        elseif q == 0 then
+            -- Non-tiered item loaded → treat as rank 1
+            anyKnown = true
+            tinsert(sorted, { id = id, q = 1 })
+        else
+            -- Uncached: push to end so known ranks are preferred
+            tinsert(sorted, { id = id, q = 999 })
+        end
     end
+
+    if anyKnown then
+        table.sort(sorted, function(a, b) return a.q < b.q end)
+        return (policy == "highest") and sorted[#sorted].id or sorted[1].id
+    end
+
+    -- All uncached: fall back to array position
+    return (policy == "highest") and itemIDs[#itemIDs] or itemIDs[1]
 end
 
 -- ===== Public API =====
@@ -104,17 +125,17 @@ function Pricing.GetEffectivePriceForItem(item, patchTag)
     return nil, false
 end
 
--- GetOutputPriceForItem(item, patchTag, preferredRankIdx) → price, isStale
--- Used for OUTPUT pricing. When preferredRankIdx is provided (1-based index into
--- item.itemIDs), returns the price of that specific rank — used so milling/
--- processing output rank matches the input reagent rank (R1 input → R1 output,
--- R2 input → R2 output). Falls back to cheapest-rank logic when the preferred
--- rank has no price data or when preferredRankIdx is nil.
+-- GetOutputPriceForItem(item, patchTag, preferredQuality) → price, isStale
+-- Used for OUTPUT pricing. When preferredQuality is provided (1/2/3 crafting
+-- quality tier), finds the output itemID with that quality and prices it — used
+-- so milling/processing output rank matches the input reagent rank (R1 input →
+-- R1 output, R2 input → R2 output). Falls back to cheapest-rank logic when the
+-- preferred quality has no matching ID or no price data.
 -- A cross-rank trim (RANK_TRIM) excludes extreme outlier ranks before the
 -- fallback minimum is chosen.
 local RANK_TRIM = 3.0
 
-local function GetOutputPriceForItem(item, patchTag, preferredRankIdx)
+local function GetOutputPriceForItem(item, patchTag, preferredQuality)
     if not item then return nil, false end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local pdb = GetPatchDB(patchTag)
@@ -130,12 +151,19 @@ local function GetOutputPriceForItem(item, patchTag, preferredRankIdx)
         return Pricing.GetEffectivePrice(ids[1], patchTag)
     end
 
-    -- Preferred rank: use the rank that matches the input reagent rank (e.g. R2
-    -- input → R2 output), so milling a rank-2 herb yields rank-2 pigment price.
-    if preferredRankIdx and ids[preferredRankIdx] then
-        local p, s = Pricing.GetEffectivePrice(ids[preferredRankIdx], patchTag)
-        if p then return p, s end
-        -- No price for preferred rank — fall through to cheapest-rank logic below
+    -- Preferred quality: find the output itemID whose crafting quality matches
+    -- the input reagent's quality (e.g. R2 herb → R2 pigment price).
+    if preferredQuality then
+        local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+        if api then
+            for _, id in ipairs(ids) do
+                if api(id) == preferredQuality then
+                    local p, s = Pricing.GetEffectivePrice(id, patchTag)
+                    if p then return p, s end
+                    break  -- found the right quality rank but no price — fall through
+                end
+            end
+        end
     end
 
     -- Multiple ranks: collect all prices that have AH data
@@ -348,9 +376,9 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local outputQtyRaw    = (primaryOut.qtyMultiplier or 0) * startingAmt
     local outputQty       = math.floor(outputQtyRaw + 0.5)
 
-    -- Determine which rank index the primary reagent uses, so output pricing can
+    -- Determine the crafting quality of the primary reagent so output pricing can
     -- match the same rank (R1 herb → R1 pigment, R2 herb → R2 pigment).
-    local primaryRankIdx = nil
+    local primaryQuality = nil
     if strat.reagents and #strat.reagents > 0 then
         local r0   = strat.reagents[1]
         local rIds = r0.itemIDs
@@ -359,13 +387,15 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         end
         if rIds and #rIds > 0 then
             local pickedId = PickItemID(rIds, patchTag)
-            for i, id in ipairs(rIds) do
-                if id == pickedId then primaryRankIdx = i; break end
+            local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+            if api and pickedId then
+                local q = api(pickedId)
+                if q and q > 0 then primaryQuality = q end
             end
         end
     end
 
-    local outPrice, outStale = GetOutputPriceForItem(primaryOut, patchTag, primaryRankIdx)
+    local outPrice, outStale = GetOutputPriceForItem(primaryOut, patchTag, primaryQuality)
     if outStale then hasStale = true end
     local outMissingPrice = not outPrice
 
@@ -382,7 +412,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         for _, o in ipairs(strat.outputs) do
             local oQtyRaw = (o.qtyMultiplier or 0) * startingAmt                    -- float for revenue
             local oQty    = math.floor(oQtyRaw + 0.5)                               -- integer for display
-            local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag, primaryRankIdx)
+            local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag, primaryQuality)
             if oStale2 then hasStale = true end
             local oIds = o.itemIDs
             if (not oIds or #oIds == 0) and o.name then
