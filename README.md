@@ -17,6 +17,7 @@ Scans the Auction House for live prices, computes profit and ROI for spreadsheet
 - **Patch-tagged SavedVariables** — data scoped to `midnight-1` so future patch transitions are clean
 - **CraftSim price bridge** (optional) — falls back gracefully if CraftSim is absent
 - **Pure Blizzard UI** — no Ace3, no LibDBIcon, no external dependencies
+- **ARP Export** — one-click export of all item prices in ARP addon format for spreadsheet paste
 - **Debug log** — scrollable, copyable ring-buffer frame; `/gam log`
 
 ---
@@ -127,7 +128,7 @@ source/GoldAdvisorMidnight/
     ├── MainWindow.lua          Virtual-scroll strategy list
     ├── StratDetail.lua         Per-strategy detail + editable amounts
     ├── ShoppingList.lua        Aggregated NeedToBuy list
-    └── DebugLog.lua            Scrollable copyable log frame
+    └── DebugLog.lua            Scrollable copyable log frame + ARP Export
 
 build/
 └── generate_strats.py          CSV/JSON → StratsGenerated.lua
