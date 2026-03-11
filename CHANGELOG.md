@@ -1,6 +1,6 @@
 # Changelog — Gold Advisor Midnight
 
-## [1.2.0-RC5] — 2026-03-11
+## [1.2.0-RC5a] — 2026-03-11
 
 ### New Features
 - **ARP Export** — new button in the Debug Log window generates item pricing data in
