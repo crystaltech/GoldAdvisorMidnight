@@ -1,6 +1,6 @@
 # Gold Advisor Midnight — User Guide
 
-**Version 1.2.0-RC5 · WoW Midnight (12.0.1)**
+**Version 1.2.0-RC5a · WoW Midnight (12.0.1)**
 
 ---
 
@@ -374,4 +374,4 @@ A: Yes. CraftSim is completely optional. Every feature works without it. The onl
 
 ---
 
-*Gold Advisor Midnight v1.2.0-RC5 — WoW Midnight (Interface 120001)*
+*Gold Advisor Midnight v1.2.0-RC5a — WoW Midnight (Interface 120001)*
