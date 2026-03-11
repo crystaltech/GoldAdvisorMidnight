@@ -190,6 +190,26 @@ end
 handlers["PLAYER_LOGIN"] = function(self)
     self:GetRealmKey()
     self.Log.Debug("Realm key: %s", self.realmKey)
+    -- Pre-warm WoW item cache for all strat itemIDs so crafting quality API
+    -- calls (used by ARP Export) return correct data on first use.
+    if self.Importer and self.Importer.GetAllStrats then
+        local seen = {}
+        for _, strat in ipairs(self.Importer.GetAllStrats()) do
+            local function touch(item)
+                if item and item.itemIDs then
+                    for _, id in ipairs(item.itemIDs) do
+                        if not seen[id] then
+                            seen[id] = true
+                            GetItemInfo(id)
+                        end
+                    end
+                end
+            end
+            touch(strat.output)
+            for _, o in ipairs(strat.outputs or {}) do touch(o) end
+            for _, r in ipairs(strat.reagents or {}) do touch(r) end
+        end
+    end
 end
 
 -- ===== AUCTION_HOUSE_SHOW =====

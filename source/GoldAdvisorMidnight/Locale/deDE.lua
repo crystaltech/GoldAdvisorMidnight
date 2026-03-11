@@ -86,6 +86,7 @@ L["BTN_COPY_LOG"]          = "Alles kopieren"
 L["BTN_PAUSE_LOG"]         = "Pause"
 L["BTN_RESUME_LOG"]        = "Fortsetzen"
 L["BTN_DUMP_IDS"]          = "IDs ausgeben"
+L["BTN_ARP_EXPORT"]        = "ARP Export"
 L["LOG_PAUSED"]            = "[Protokoll pausiert]"
 L["LOG_CLEARED"]           = "[Protokoll geleert]"
 

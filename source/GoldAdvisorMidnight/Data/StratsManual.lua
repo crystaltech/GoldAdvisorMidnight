@@ -158,6 +158,21 @@ GAM_STRATS_MANUAL[#GAM_STRATS_MANUAL+1] = {
     },
 }
 
+-- ─── Enchanting: Oil of Dawn ──────────────────────────────────────────────
+-- StratsGenerated only captured one itemID (243735).  243736 is the second rank.
+-- Believed: 243735=Q1, 243736=Q2 — needs in-game verification via API.
+-- Export rank assignment is determined at runtime by GetItemReagentQualityByItemInfo,
+-- so array order only matters for Pricing rankPolicy fallback.
+GAM_STRATS_MANUAL[#GAM_STRATS_MANUAL+1] = {
+    patchTag   = "midnight-1",
+    profession = "Enchanting",
+    stratName  = "Oil of Dawn",
+    output = {
+        name    = "Oil of Dawn",
+        itemIDs = { 243735, 243736 },  -- Q1=243735, Q2=243736 (confirmed)
+    },
+}
+
 -- ─── Enchanting: Shatter strats ───────────────────────────────────────────
 -- "Dawn Shatter Q2" — shatter rank-2 Dawn Crystals into Radiant Shards.
 --   The spreadsheet strat name is not an item; the outputs are Q2 and Q1 Radiant Shards.

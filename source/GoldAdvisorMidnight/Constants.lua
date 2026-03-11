@@ -4,7 +4,7 @@
 
 local ADDON_NAME, GAM = ...
 GAM.C = {
-    ADDON_VERSION        = "1.2.0-RC4a",
+    ADDON_VERSION        = "1.2.0-RC5",
     DATA_VERSION         = 3,
     DEFAULT_PATCH        = "midnight-1",
 

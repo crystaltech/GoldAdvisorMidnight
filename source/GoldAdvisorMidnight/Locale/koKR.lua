@@ -86,6 +86,7 @@ L["BTN_COPY_LOG"]          = "전체 복사"
 L["BTN_PAUSE_LOG"]         = "일시정지"
 L["BTN_RESUME_LOG"]        = "재개"
 L["BTN_DUMP_IDS"]          = "ID 내보내기"
+L["BTN_ARP_EXPORT"]        = "ARP Export"
 L["LOG_PAUSED"]            = "[로그 일시정지]"
 L["LOG_CLEARED"]           = "[로그 지워짐]"
 
