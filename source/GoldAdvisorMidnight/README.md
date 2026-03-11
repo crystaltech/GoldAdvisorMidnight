@@ -1,5 +1,5 @@
 # Gold Advisor Midnight — How-To Guide
-**Version 1.2.0-Beta** | Author: Celaida | WoW Midnight (12.x)
+**Version 1.2.0-RC5** | Author: Celaida | WoW Midnight (12.x)
 
 ---
 
@@ -255,4 +255,4 @@ If you have [CraftSim](https://www.curseforge.com/wow/addons/craftsim) installed
 
 ---
 
-*Gold Advisor Midnight v1.2.0-Beta — feedback and bug reports welcome.*
+*Gold Advisor Midnight v1.2.0-RC5 — feedback and bug reports welcome.*

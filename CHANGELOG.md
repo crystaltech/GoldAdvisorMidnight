@@ -1,5 +1,27 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.0-RC5] — 2026-03-11
+
+### New Features
+- **ARP Export** — new button in the Debug Log window generates item pricing data in
+  AverageReagentPrice (ARP) addon format (`ItemName, Rank 1, X.XX, Rank 2, X.XX, Rank 3, X.XX`)
+  for direct paste into the comparison spreadsheet
+
+### Bug Fixes
+- Fixed: ARP Export rank ordering was wrong when itemID array order did not match crafting quality
+  order — now uses `C_TradeSkillUI.GetItemReagentQualityByItemInfo` to assign each ID to its
+  correct rank slot (Crystalline Glass, Sunglass Vial affected)
+- Fixed: Non-tiered items (e.g. Dazzling Thorium, Petrified Root) were skipped by the ARP Export
+  because `GetItemReagentQualityByItemInfo` returns `nil` for both uncached and non-tiered items;
+  now uses `GetItemInfo` fallback — cached non-tiered items are placed at Rank 1
+- Fixed: Q-suffix output items (e.g. "Eversinging Dust Q2") were placed at their quality rank
+  (Rank 2) instead of Rank 1, producing a 0 in the spreadsheet VLOOKUP; now forced to Rank 1
+- Item cache pre-warmed at `PLAYER_LOGIN` so ARP Export works reliably without a prior AH scan
+
+### Data
+- **Oil of Dawn** (Enchanting): added missing Q2 itemID 243736 — both ranks now export correctly
+  (Q1=243735, Q2=243736, confirmed in-game)
+
 ## [1.2.0-RC4a] — 2026-03-10
 
 ### Data

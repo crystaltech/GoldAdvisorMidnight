@@ -1,6 +1,6 @@
 # Gold Advisor Midnight — User Guide
 
-**Version 1.0.2 · WoW Midnight (12.0.1)**
+**Version 1.2.0-RC5 · WoW Midnight (12.0.1)**
 
 ---
 
@@ -28,7 +28,7 @@
 Gold Advisor Midnight helps you find profitable crafting opportunities by:
 
 - Scanning the **Auction House** for live prices on materials and crafted items
-- Calculating **profit, ROI, cost to buy, and break-even sell price** for 62 pre-built crafting strategies across 8 professions
+- Calculating **profit, ROI, cost to buy, and break-even sell price** for 63 pre-built crafting strategies across 8 professions
 - Showing you exactly **what to buy and how much** to maximize each strategy
 - Generating a **shopping list** of everything you need to purchase
 
@@ -241,6 +241,12 @@ A scrollable window showing all log entries from the current session. Useful for
 
 **Pause / Resume** — pauses the live feed so the log stops scrolling while you read it. New entries are still recorded in the buffer; they appear when you click Resume.
 
+**ARP Export** — generates a full item price export in AverageReagentPrice (ARP) addon format:
+```
+ItemName, Rank 1, X.XX, Rank 2, X.XX, Rank 3, X.XX
+```
+One line per item, covering every reagent and output across all strategies. Use this to paste live GAM prices into your comparison spreadsheet. The export uses the WoW crafting quality API to assign each itemID to its correct rank slot — not array position.
+
 ---
 
 ## CraftSim Integration
@@ -368,4 +374,4 @@ A: Yes. CraftSim is completely optional. Every feature works without it. The onl
 
 ---
 
-*Gold Advisor Midnight v1.0.2 — WoW Midnight (Interface 120001)*
+*Gold Advisor Midnight v1.2.0-RC5 — WoW Midnight (Interface 120001)*
