@@ -1,5 +1,25 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.1] — 2026-03-12
+
+### New Features
+- **Spreadsheet Export** button moved to the Main Window bottom-left (below strategy count) for quicker access — no longer requires opening the Debug Log
+
+### Bug Fixes
+- Fixed: `ToggleFavorite` used wrong Lua expression — could store `true` instead of removing the key when un-favoriting, causing favorites to be sticky
+- Fixed: `GAM.UI.MainWindow.Refresh()` was called by StratDetail and StratCreator on strat delete/save/import but the function did not exist — every delete/save operation produced a nil-call crash
+- Fixed: Settings panel `ApplySettings` ran twice when closing via native Blizzard Settings (okay callback + OnHide both fired) — could double-wipe the price cache on fill qty change
+- Fixed: `Pricing.GetOpts()` dereferenced `GAM.db.options` directly — now guards against `GAM.db` being nil before ADDON_LOADED
+- Fixed: `PickItemID` called redundantly on every iteration of the quality-rank fallback loop — result is now cached before the loop
+
+### Improvements
+- Scan delay default corrected in docs (was documented as 3.0 s; actual default is 1.0 s)
+- AH scan queue dequeue changed from O(n) `table.remove(scanQueue, 1)` to O(1) head-index advance — reduces per-tick CPU cost on large queues
+- Removed dead `pendingLines` table from DebugLog
+- Removed unused `DEBOUNCE_DELAY` constant; unified `DEFAULT_AH_CUT` into `AH_CUT` (Settings now reads `GAM.C.AH_CUT` instead of hardcoding `0.05`)
+
+---
+
 ## [1.2.0] — 2026-03-11
 
 ### Breaking Changes
