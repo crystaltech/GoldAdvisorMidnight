@@ -173,14 +173,10 @@ end
 
 local function ReadCommodityResults(itemID, targetQty)
     if targetQty == nil then
-        -- Use shallow fill qty when the option is active; otherwise default to full book.
+        -- Use configured fill qty.
         -- An explicit caller-supplied targetQty (non-nil) is always honoured unchanged.
         local opts = GAM.db and GAM.db.options
-        if opts and opts.shallowFillEnabled then
-            targetQty = opts.shallowFillQty or GAM.C.DEFAULT_SHALLOW_FILL_QTY
-        else
-            targetQty = GAM.C.DEEP_FILL_QTY
-        end
+        targetQty = (opts and opts.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
     end
     local numResults = C_AuctionHouse.GetNumCommoditySearchResults(itemID)
     if not numResults or numResults == 0 then return nil end
@@ -551,14 +547,9 @@ function AHScan.OnItemResults(itemKey)
         end
         table.sort(raw, function(a, b) return a.unitPrice < b.unitPrice end)
 
-        -- Apply same shallow/deep fill setting as commodities.
+        -- Use configured fill qty.
         local opts = GAM.db and GAM.db.options
-        local targetQty
-        if opts and opts.shallowFillEnabled then
-            targetQty = opts.shallowFillQty or GAM.C.DEFAULT_SHALLOW_FILL_QTY
-        else
-            targetQty = GAM.C.DEEP_FILL_QTY
-        end
+        local targetQty = (opts and opts.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
 
         itemCache[entry.itemID] = { prices = raw, ts = time() }
         GAM.Pricing.StoreRaw(entry.itemID, raw)

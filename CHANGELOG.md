@@ -1,5 +1,26 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.0] — 2026-03-11
+
+### Breaking Changes
+- **Fill Qty is now the only pricing mode** — the "Shallow Fill Mode (Experimental)" checkbox
+  has been removed. All pricing uses a single configurable Fill Qty (default: 50 units,
+  range: 10–10,000). Users who were on the old deep fill default (10,000 units) will be
+  reset to 50 on first load; change Fill Qty in Settings to restore higher values.
+
+### Improvements
+- Removed "Experimental" label from the fill qty setting
+- Strategy Detail window always shows active Fill Qty in the notice bar
+- Fill Qty range expanded: minimum is now 10 (was 250)
+- Settings UI simplified: checkbox removed, Fill Qty editbox is always active
+- All locale files updated with new range and neutral terminology
+
+### Bug Fixes
+- Fixed: Rank selection in the Pricing engine used array position instead of actual crafting
+  quality (Crystalline Glass, Sunglass Vial affected; Sin'dorei Lens showed wrong profit)
+
+---
+
 ## [1.2.0-RC5a] — 2026-03-11
 
 ### New Features

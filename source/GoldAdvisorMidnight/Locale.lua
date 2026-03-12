@@ -150,12 +150,11 @@ L["ERR_NO_AH"]             = "Open the Auction House first."
 L["ERR_STRAT_INVALID"]     = "Invalid strategy: %s"
 L["WARN_PRICE_STALE"]      = "Prices may be stale (>%d min)."
 
--- Shallow Fill Mode (experimental)
-L["OPT_SHALLOW_FILL"]      = "Shallow Fill Mode (Experimental)"
-L["OPT_SHALLOW_FILL_TIP"]  = "Prices are calculated from buying the Fill Qty below, instead of the standard 50,000-unit deep fill. May show cheaper prices for small batch sessions but is less stable on thin markets. Use for comparison — not a general replacement for the default."
+-- Fill Qty setting
+L["OPT_SHALLOW_FILL_TIP"]  = "Prices are calculated by simulating the purchase of this many units from the AH order book. Lower values reflect the cost of smaller batches; higher values average across more supply. Range: 10–10,000."
 L["OPT_SHALLOW_FILL_QTY"]  = "Fill Qty:"
-L["OPT_SHALLOW_FILL_RANGE"] = "(250 - 50,000)"
-L["SHALLOW_FILL_ACTIVE"]   = "[Shallow Fill] %s-unit AH price (experimental)"
+L["OPT_SHALLOW_FILL_RANGE"] = "(10 - 10,000)"
+L["FILL_QTY_ACTIVE"]       = "Fill Qty: %s units"
 
 -- Strat Detail (section headers / rank toggle)
 L["DETAIL_INPUT_HDR"]      = "Input Items"

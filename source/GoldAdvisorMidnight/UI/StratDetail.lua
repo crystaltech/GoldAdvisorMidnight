@@ -903,16 +903,12 @@ function SD.Refresh()
     if frame.btnEdit   then frame.btnEdit:SetShown(isUser)   end
     if frame.btnExport then frame.btnExport:SetShown(isUser) end
 
-    -- Shallow fill notice (shows live configured qty with comma formatting)
+    -- Fill qty notice (always shown — displays the configured fill qty)
     if frame.expNotice then
         local opts = GAM.db and GAM.db.options
-        if opts and opts.shallowFillEnabled then
-            local qty = opts.shallowFillQty or GAM.C.DEFAULT_SHALLOW_FILL_QTY
-            frame.expNotice:SetFormattedText(GAM.L["SHALLOW_FILL_ACTIVE"], FmtQty(qty))
-            frame.expNotice:Show()
-        else
-            frame.expNotice:Hide()
-        end
+        local qty = (opts and opts.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
+        frame.expNotice:SetFormattedText(GAM.L["FILL_QTY_ACTIVE"], FmtQty(qty))
+        frame.expNotice:Show()
     end
 
     -- Reagents

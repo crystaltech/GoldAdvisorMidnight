@@ -4,8 +4,8 @@
 
 local ADDON_NAME, GAM = ...
 GAM.C = {
-    ADDON_VERSION        = "1.2.0-RC5a",
-    DATA_VERSION         = 3,
+    ADDON_VERSION        = "1.2.0",
+    DATA_VERSION         = 4,
     DEFAULT_PATCH        = "midnight-1",
 
     -- Economy
@@ -38,10 +38,9 @@ GAM.C = {
     MAX_UI_SCALE         = 1.5,
 
     -- Fill-price simulation quantities
-    DEEP_FILL_QTY            = 10000,   -- matches ARP Tracker default fill quantity
-    DEFAULT_SHALLOW_FILL_QTY = 1000,    -- default when user first enables shallow mode
-    MIN_SHALLOW_FILL_QTY     = 250,     -- floor: ensures multiple sellers are sampled
-    MAX_SHALLOW_FILL_QTY     = 10000,   -- ceiling: equal to deep fill → safe no-op upper bound
+    DEFAULT_FILL_QTY = 50,     -- default fill qty for AH price simulation
+    MIN_FILL_QTY     = 10,     -- minimum configurable fill qty
+    MAX_FILL_QTY     = 10000,  -- maximum configurable fill qty
 
     -- Price trimming: ARP-style percentage trim from the expensive end
     -- After filling to targetQty, the top TRIM_PCT% most expensive units are dropped.

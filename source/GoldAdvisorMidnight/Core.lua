@@ -21,8 +21,7 @@ local DB_DEFAULTS = {
         minimapAngle   = 45,
         rankPolicy   = GAM.C.DEFAULT_RANK_POLICY,
         priceSource         = GAM.C.DEFAULT_PRICE_SOURCE,
-        shallowFillEnabled  = false,
-        shallowFillQty      = GAM.C.DEFAULT_SHALLOW_FILL_QTY,
+        shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
     },
     patch      = {},
@@ -48,12 +47,26 @@ local MIGRATIONS = {
         end,
     },
     -- v3: Remove legacy boolean field from the scrapped "experimentalFillQty" design.
-    -- The new schema uses shallowFillEnabled + shallowFillQty (injected by ApplyDefaults).
+    -- The new schema uses shallowFillQty (injected by ApplyDefaults).
     {
         dataVersion = 3,
         migrate = function(db)
             if type(db.options) == "table" then
                 db.options.experimentalFillQty = nil
+            end
+        end,
+    },
+    -- v4: Unify fill qty — remove shallow/deep toggle. shallowFillQty is kept as
+    -- the SavedVar key for continuity. Remove shallowFillEnabled; reset qty to the
+    -- new default (50) so all users start fresh.
+    {
+        dataVersion = 4,
+        migrate = function(db)
+            if type(db.options) == "table" then
+                db.options.shallowFillEnabled = nil
+                -- Reset everyone to new default (50). Old default was 1,000 and
+                -- users who never changed it should start fresh at the new value.
+                db.options.shallowFillQty = GAM.C.DEFAULT_FILL_QTY
             end
         end,
     },

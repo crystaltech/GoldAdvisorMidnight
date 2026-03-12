@@ -1,6 +1,6 @@
 # Gold Advisor Midnight — User Guide
 
-**Version 1.2.0-RC5a · WoW Midnight (12.0.1)**
+**Version 1.2.0 · WoW Midnight (12.0.1)**
 
 ---
 
@@ -218,6 +218,7 @@ Open via **right-click** on the minimap button, or via the Blizzard Settings UI 
 | **Debug Verbosity** | 0 = off, 1 = info, 2 = debug, 3 = verbose. Use 0 for normal play, 2–3 only when troubleshooting | 1 |
 | **Show Minimap Button** | Toggle the minimap coin button on/off | On |
 | **Rank Selection Policy** | How to pick between quality tiers when an item has multiple ranks. **Lowest Rank** = cheapest tier (Q1), **Highest Rank** = best tier (Q2+), **Manual** = use highest as fallback | Lowest Rank |
+| **Fill Qty** | Units to simulate purchasing from the AH order book when pricing reagents. Lower = small-batch cost; higher = larger-volume average. Range: 10–10,000 | 50 |
 
 **Reload Data** — re-reads the strategy tables from SavedVars. Use this if you edited `StratsManual.lua` and want the changes to take effect without a full `/reload`.
 
@@ -374,4 +375,4 @@ A: Yes. CraftSim is completely optional. Every feature works without it. The onl
 
 ---
 
-*Gold Advisor Midnight v1.2.0-RC5a — WoW Midnight (Interface 120001)*
+*Gold Advisor Midnight v1.2.0 — WoW Midnight (Interface 120001)*

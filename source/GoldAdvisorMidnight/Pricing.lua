@@ -266,7 +266,7 @@ local function GetReagentPriceAtQty(item, required, patchTag)
         end
     end
 
-    -- Final fallback: stored avg price (deep-fill or shallow-fill avg from last scan)
+    -- Final fallback: stored avg price (fill-qty avg from last scan)
     return Pricing.GetEffectivePriceForItem(item, patchTag)
 end
 
@@ -335,7 +335,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         -- If the player already owns all copies (needToBuy == 0), cost is 0
         -- and a missing AH price should NOT block profit/ROI display.
         -- Use qty-aware pricing so we average the cheapest `required` units,
-        -- not a global deep-fill average that over-samples expensive listings.
+        -- not a fill-qty average that over-samples expensive listings.
         local price, stale = GetReagentPriceAtQty(r, required, patchTag)
         if stale then hasStale = true end
 

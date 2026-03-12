@@ -338,23 +338,18 @@ local function BuildPanel()
     -- ── Pricing ────────────────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"], y)
 
-    local cbShallow
     local ebFillQty
 
-    cbShallow = MakeCheckbox(content, L["OPT_SHALLOW_FILL"], y - 4)
-    cbShallow:SetChecked(opts.shallowFillEnabled == true)
-    y = y - 30
-
     local lblFillQty = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblFillQty:SetPoint("TOPLEFT", content, "TOPLEFT", 44, y - 3)
+    lblFillQty:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
     lblFillQty:SetText(L["OPT_SHALLOW_FILL_QTY"])
 
     ebFillQty = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
     ebFillQty:SetSize(60, 22)
-    ebFillQty:SetPoint("TOPLEFT", content, "TOPLEFT", 108, y)
+    ebFillQty:SetPoint("TOPLEFT", content, "TOPLEFT", 84, y)
     ebFillQty:SetAutoFocus(false)
     ebFillQty:SetNumeric(true)
-    ebFillQty:SetText(tostring(opts.shallowFillQty or GAM.C.DEFAULT_SHALLOW_FILL_QTY))
+    ebFillQty:SetText(tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
 
     local lblRange = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     lblRange:SetPoint("LEFT", ebFillQty, "RIGHT", 6, 0)
@@ -364,30 +359,20 @@ local function BuildPanel()
     local function ClampFillQty()
         local raw = tonumber(ebFillQty:GetText())
         local val = raw
-            and math.max(GAM.C.MIN_SHALLOW_FILL_QTY,
-                math.min(GAM.C.MAX_SHALLOW_FILL_QTY, math.floor(raw)))
-            or GAM.C.DEFAULT_SHALLOW_FILL_QTY
+            and math.max(GAM.C.MIN_FILL_QTY,
+                math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
+            or GAM.C.DEFAULT_FILL_QTY
         ebFillQty:SetText(tostring(val))
         ebFillQty:ClearFocus()
     end
     ebFillQty:SetScript("OnEnterPressed", ClampFillQty)
     ebFillQty:SetScript("OnEditFocusLost", ClampFillQty)
-
-    local function SetShallowEnabled(on)
-        ebFillQty:SetEnabled(on)
-        local dim = on and 1.0 or 0.4
-        lblFillQty:SetTextColor(dim, dim, dim)
-        lblRange:SetTextColor(on and 0.55 or 0.3, on and 0.55 or 0.3, on and 0.55 or 0.3)
-    end
-    SetShallowEnabled(opts.shallowFillEnabled == true)
-
-    cbShallow:SetScript("OnClick", function(self) SetShallowEnabled(self:GetChecked()) end)
-    cbShallow:SetScript("OnEnter", function(self)
+    ebFillQty:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(L["OPT_SHALLOW_FILL_TIP"], 1, 1, 1, 1, true)
         GameTooltip:Show()
     end)
-    cbShallow:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    ebFillQty:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     y = y - 36
 
@@ -507,24 +492,21 @@ local function BuildPanel()
 
     -- ── Apply logic ────────────────────────────────────────────────────────
     local function ApplySettings()
-        local prevEnabled   = opts.shallowFillEnabled
-        local prevQty       = opts.shallowFillQty or GAM.C.DEFAULT_SHALLOW_FILL_QTY
-        local prevEffective = prevEnabled and prevQty or GAM.C.DEEP_FILL_QTY
+        local prevQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY
 
-        opts.scanDelay          = slScanDelay:GetValue()
-        opts.debugVerbosity     = slVerbosity:GetValue()
-        opts.minimapHidden      = not cbMinimap:GetChecked()
-        opts.rankPolicy         = ddRank.GetValue() or "lowest"
-        opts.shallowFillEnabled = cbShallow:GetChecked() == true
-        opts.uiScale            = slScale:GetValue()
-        opts.ahCut              = 0.05
+        opts.scanDelay      = slScanDelay:GetValue()
+        opts.debugVerbosity = slVerbosity:GetValue()
+        opts.minimapHidden  = not cbMinimap:GetChecked()
+        opts.rankPolicy     = ddRank.GetValue() or "lowest"
+        opts.uiScale        = slScale:GetValue()
+        opts.ahCut          = 0.05
         ApplyScaleToFrames(opts.uiScale)
 
         local raw = tonumber(ebFillQty:GetText())
         opts.shallowFillQty = raw
-            and math.max(GAM.C.MIN_SHALLOW_FILL_QTY,
-                math.min(GAM.C.MAX_SHALLOW_FILL_QTY, math.floor(raw)))
-            or GAM.C.DEFAULT_SHALLOW_FILL_QTY
+            and math.max(GAM.C.MIN_FILL_QTY,
+                math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
+            or GAM.C.DEFAULT_FILL_QTY
         ebFillQty:SetText(tostring(opts.shallowFillQty))
 
         GAM.Log.SetLevel(opts.debugVerbosity)
@@ -533,20 +515,18 @@ local function BuildPanel()
         end
         GAM.Minimap.SetShown(not opts.minimapHidden)
 
-        local newEffective = opts.shallowFillEnabled and opts.shallowFillQty or GAM.C.DEEP_FILL_QTY
-        local shallowChanged = (opts.shallowFillEnabled ~= prevEnabled) or (opts.shallowFillQty ~= prevQty)
-        if newEffective ~= prevEffective then
+        local qtyChanged = opts.shallowFillQty ~= prevQty
+        if qtyChanged then
             wipe(GAM.db.priceCache)
             local msg = string.format("Fill qty changed (%s -> %s units). Price cache cleared — re-scan.",
-                FmtQty(prevEffective), FmtQty(newEffective))
+                FmtQty(prevQty), FmtQty(opts.shallowFillQty))
             GAM.Log.Info(msg)
             print("|cffff8800[GAM]|r " .. msg)
         end
 
-        GAM.Log.Info("Shallow fill state: enabled=%s qty=%d",
-            tostring(opts.shallowFillEnabled), opts.shallowFillQty)
+        GAM.Log.Info("Fill qty: %d", opts.shallowFillQty)
 
-        if shallowChanged and GAM.UI and GAM.UI.StratDetail and
+        if qtyChanged and GAM.UI and GAM.UI.StratDetail and
             GAM.UI.StratDetail.IsShown and GAM.UI.StratDetail.Refresh and
             GAM.UI.StratDetail.IsShown() then
             GAM.UI.StratDetail.Refresh()
