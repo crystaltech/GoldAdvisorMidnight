@@ -1,5 +1,24 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.2] — 2026-03-12
+
+### New Strats
+- **Jewelcrafting — Crushing**: converts cheapest low-tier gem (e.g. Amani Lapis) + Duskshrouded Stone into Glimmering Gemdust (start=673, output mult=0.835015, DS mult=0.35 for 35% resourcefulness)
+
+### Data Fixes
+- Fixed: Engineering crafting strats — Smuggler's Lynxeye, Laced Zoomshots, Farstrider Hawkeye, Weighted Boomshots output `qtyMultiplier` was 1.0; corrected to 1.875 (3750 expected / 2000 start)
+- Fixed: Recycling Sunfire Silk Bolt output qty — 0.7068 → 0.7088 (7088 / 10000)
+- Fixed: Leatherworking Void-Touched Drums output qty — 1.0 → 1.7 (1700 / 1000)
+- Fixed: Enchanting Dawn Shatter Q2 — replaced stub with full multi-output: Q2 Radiant Shard ×2.3955 (4791/2000), Q1 Radiant Shard ×0.9465 (1893/2000)
+- Fixed: Enchanting Radiant Shatter Q2 — replaced stub with full multi-output: Q2 Eversinging Dust ×2.3334 (7000/3000), Q1 Eversinging Dust ×1.0 (3000/3000)
+- Fixed: Enchanting Oil of Dawn — added missing Q2 itemID 243736 (only Q1 243735 was in generated file)
+- Fixed: Leatherworking Sin'dorei Armor Banding output name — was "Sin'Dorei"; corrected to "Sin'dorei" (WoW uses lowercase 'd')
+
+### Code Quality
+- All strategy data consolidated into `StratsGenerated.lua`; `StratsManual.lua` now reserved for new strats and hotfixes only
+
+---
+
 ## [1.2.1] — 2026-03-12
 
 ### New Features
