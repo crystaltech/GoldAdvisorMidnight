@@ -588,7 +588,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.706800,
+    qtyMultiplier = 0.708800,  -- 7088 / 10000 (corrected from 7068)
   },
   reagents = {
     {
@@ -664,7 +664,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Smuggler's Lynxeye",
     itemIDs       = { 257747, 257748 },
-    qtyMultiplier = 1.000000,
+    qtyMultiplier = 1.875000,  -- 3750 expected crafted / 2000 start
   },
   reagents = {
     {
@@ -821,7 +821,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Laced Zoomshots",
     itemIDs       = { 257749, 257750 },
-    qtyMultiplier = 1.000000,
+    qtyMultiplier = 1.875000,  -- 3750 expected crafted / 2000 start
   },
   reagents = {
     {
@@ -946,7 +946,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Farstrider's Hawkeye",
     itemIDs       = {},
-    qtyMultiplier = 1.000000,
+    qtyMultiplier = 1.875000,  -- 3750 expected crafted / 2000 start
   },
   reagents = {
     {
@@ -983,7 +983,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Weighted Boomshots",
     itemIDs       = { 257751 },
-    qtyMultiplier = 1.000000,
+    qtyMultiplier = 1.875000,  -- 3750 expected crafted / 2000 start
   },
   reagents = {
     {
@@ -1107,13 +1107,17 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   patchTag   = "midnight-1",
   profession = "Enchanting",
   stratName  = "Dawn Shatter Q2",
-  notes      = "",
+  notes      = "Shatters rank-2 Dawn Crystals into Radiant Shards (Q1+Q2)",
   sourceTab  = "Enchanting",
   defaultStartingAmount = 2000,
   output = {
-    name          = "Dawn Shatter Q2",
-    itemIDs       = {},
-    qtyMultiplier = 0.946500,
+    name          = "Radiant Shard",
+    itemIDs       = { 243602, 243603 },  -- Q1=243602, Q2=243603
+    qtyMultiplier = 2.395500,  -- primary output stub; see outputs[] for full breakdown
+  },
+  outputs = {
+    { name = "Radiant Shard Q2", itemIDs = { 243603 }, qtyMultiplier = 2.395500 },  -- 4791 / 2000
+    { name = "Radiant Shard Q1", itemIDs = { 243602 }, qtyMultiplier = 0.946500 },  -- 1893 / 2000
   },
   reagents = {
     {
@@ -1134,7 +1138,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   defaultStartingAmount = 5000,
   output = {
     name          = "Oil of Dawn",
-    itemIDs       = { 243735 },
+    itemIDs       = { 243735, 243736 },  -- Q1=243735, Q2=243736
     qtyMultiplier = 1.550400,
   },
   reagents = {
@@ -1203,13 +1207,17 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   patchTag   = "midnight-1",
   profession = "Enchanting",
   stratName  = "Radiant Shatter Q2",
-  notes      = "",
+  notes      = "Shatters rank-2 Radiant Shards into Eversinging Dust (Q1+Q2)",
   sourceTab  = "Enchanting",
   defaultStartingAmount = 3000,
   output = {
-    name          = "Radiant Shatter Q2",
-    itemIDs       = {},
-    qtyMultiplier = 1.000000,
+    name          = "Eversinging Dust",
+    itemIDs       = { 243599, 243600 },  -- Q1=243599, Q2=243600
+    qtyMultiplier = 2.333400,  -- primary output stub; see outputs[] for full breakdown
+  },
+  outputs = {
+    { name = "Eversinging Dust Q2", itemIDs = { 243600 }, qtyMultiplier = 2.333400 },  -- 7000 / 3000
+    { name = "Eversinging Dust Q1", itemIDs = { 243599 }, qtyMultiplier = 1.000000 },  -- 3000 / 3000
   },
   reagents = {
     {
@@ -1494,7 +1502,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Void-Touched Drums",
     itemIDs       = { 244639 },
-    qtyMultiplier = 1.000000,
+    qtyMultiplier = 1.700000,  -- 1700 expected crafted / 1000 start
   },
   reagents = {
     {
@@ -1534,7 +1542,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   sourceTab  = "Leatherworking",
   defaultStartingAmount = 2000,
   output = {
-    name          = "Sin'Dorei Armor Banding",
+    name          = "Sin'dorei Armor Banding",  -- WoW uses lowercase 'd'
     itemIDs       = { 244635, 244636 },
     qtyMultiplier = 0.850000,
   },
@@ -1993,6 +2001,33 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
       name          = "Umbral Tin Ore",
       itemIDs       = { 237362, 237363 },
       qtyMultiplier = 1.000000,
+    },
+  },
+}
+
+GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
+  id         = "jewelcrafting__crushing__midnight_1",
+  patchTag   = "midnight-1",
+  profession = "Jewelcrafting",
+  stratName  = "Crushing",
+  notes      = "Uses cheapest low-tier gem as input (Amani Lapis shown as example). Substitute whichever Q1 gem is cheapest on your server.",
+  sourceTab  = "Jewelcrafting",
+  defaultStartingAmount = 673,
+  output = {
+    name          = "Glimmering Gemdust",
+    itemIDs       = { 242620, 242621 },
+    qtyMultiplier = 0.835015,  -- 561.965 gemdust / 673 start
+  },
+  reagents = {
+    {
+      name          = "Amani Lapis",  -- cheapest low-tier gem; substitute as needed
+      itemIDs       = { 242554, 242722 },
+      qtyMultiplier = 1.000000,
+    },
+    {
+      name          = "Duskshrouded Stone",  -- 35% resourcefulness reagent: 673 * 0.35 = 235.55
+      itemIDs       = { 242788, 242789 },
+      qtyMultiplier = 0.350000,
     },
   },
 }
