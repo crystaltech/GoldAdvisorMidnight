@@ -501,7 +501,7 @@ local function MakeItemRow(parent, yOff, onRemove)
     local removeBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     removeBtn:SetSize(22, 20)
     removeBtn:SetPoint("LEFT", qtyEB, "RIGHT", 4, 0)
-    removeBtn:SetText(L["BTN_REMOVE"])
+    removeBtn:SetText(GAM.L["BTN_REMOVE"])
     removeBtn:SetWidth(MeasureButtonWidth(parent, removeBtn:GetText(), 22, 90, 14))
     removeBtn:SetScript("OnClick", onRemove)
 

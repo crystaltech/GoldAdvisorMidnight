@@ -1,5 +1,12 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.3] — 2026-03-12
+
+### Bug Fixes
+- Fixed: Strategy Creator window did not open — `MakeItemRow` referenced `L` (local to `Build()`) from module scope where it is nil; changed to `GAM.L`
+
+---
+
 ## [1.2.2] — 2026-03-12
 
 ### New Strats
