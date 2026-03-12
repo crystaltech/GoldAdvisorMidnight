@@ -86,7 +86,7 @@ L["BTN_COPY_LOG"]          = "全部复制"
 L["BTN_PAUSE_LOG"]         = "暂停"
 L["BTN_RESUME_LOG"]        = "继续"
 L["BTN_DUMP_IDS"]          = "导出ID"
-L["BTN_ARP_EXPORT"]        = "ARP Export"
+L["BTN_ARP_EXPORT"]        = "导出到表格"
 L["LOG_PAUSED"]            = "[日志已暂停]"
 L["LOG_CLEARED"]           = "[日志已清除]"
 

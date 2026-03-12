@@ -9,7 +9,7 @@ GAM.Pricing = Pricing
 -- ===== Internal helpers =====
 
 local function GetDB() return GAM.db end
-local function GetOpts() return GAM.db.options end
+local function GetOpts() return GAM.db and GAM.db.options or {} end
 local function GetPatchDB(pt) return GAM:GetPatchDB(pt) end
 
 -- Pick best itemID from a list according to rankPolicy.
@@ -257,9 +257,9 @@ local function GetReagentPriceAtQty(item, required, patchTag)
             local p = GAM.AHScan.ComputePriceForQty(picked, required)
             if p then return p, false end
         end
-        -- Fallback through other quality ranks
+        -- Fallback through other quality ranks (cache picked to avoid repeated calls)
         for _, id in ipairs(ids) do
-            if id ~= PickItemID(ids, patchTag) then
+            if id ~= picked then
                 local p = GAM.AHScan.ComputePriceForQty(id, required)
                 if p then return p, false end
             end

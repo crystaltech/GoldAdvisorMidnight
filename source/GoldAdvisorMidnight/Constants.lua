@@ -4,12 +4,12 @@
 
 local ADDON_NAME, GAM = ...
 GAM.C = {
-    ADDON_VERSION        = "1.2.0",
+    ADDON_VERSION        = "1.2.1",
     DATA_VERSION         = 4,
     DEFAULT_PATCH        = "midnight-1",
 
     -- Economy
-    AH_CUT               = 0.05,   -- 5% AH fee
+    AH_CUT               = 0.05,   -- 5% AH fee (also used as the DB default)
 
     -- AH scanning throttle (seconds)
     SCAN_DELAY           = 1.0,    -- between successive queries
@@ -17,7 +17,6 @@ GAM.C = {
     RESULT_RETRY_DELAY   = 0.5,    -- between retry attempts
     MAX_RETRY            = 5,
     EVENT_PROCESS_DELAY  = 0.8,    -- wait after event before reading results
-    DEBOUNCE_DELAY       = 1.0,    -- suppress duplicate events within window
 
     -- Pricing
     PRICE_STALE_SECONDS  = 600,    -- 10-minute cache freshness
@@ -26,7 +25,6 @@ GAM.C = {
     LOG_RING_SIZE        = 500,
 
     -- Default options (mirrors DB.options defaults)
-    DEFAULT_AH_CUT       = 0.05,
     DEFAULT_SCAN_DELAY   = 1.0,
     DEFAULT_VERBOSITY    = 1,      -- 0=off,1=info,2=debug,3=verbose
     DEFAULT_RANK_POLICY  = "lowest",

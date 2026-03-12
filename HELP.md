@@ -1,6 +1,6 @@
 # Gold Advisor Midnight — User Guide
 
-**Version 1.2.0 · WoW Midnight (12.0.1)**
+**Version 1.2.1 · WoW Midnight (12.0.1)**
 
 ---
 
@@ -123,6 +123,12 @@ Opens automatically when you open the Auction House, or via `/gam` or the minima
 
 **Stop Scan button** — replaces Scan All while a scan is running. Clicking it halts the current scan immediately.
 
+**Spreadsheet Export button** — opens the export popup with pricing data in AverageReagentPrice (ARP) addon format:
+```
+ItemName, Rank 1, X.XX, Rank 2, X.XX, Rank 3, X.XX
+```
+One line per item, covering every reagent and output across all strategies. Select all and copy (Ctrl+A, Ctrl+C) to paste into your comparison spreadsheet.
+
 **Debug Log button** — opens the debug log window.
 
 **Close button** — hides the window. The window also closes when you close the Auction House.
@@ -214,7 +220,7 @@ Open via **right-click** on the minimap button, or via the Blizzard Settings UI 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Active Patch** | Which patch tag to use for strategy data | midnight-1 |
-| **Scan Delay (sec)** | Seconds between AH queries. Increase if you get throttle warnings. Decrease for faster scans (may cause throttling) | 3.0 |
+| **Scan Delay (sec)** | Seconds between AH queries. Increase if you get throttle warnings. Decrease for faster scans (may cause throttling) | 1.0 |
 | **Debug Verbosity** | 0 = off, 1 = info, 2 = debug, 3 = verbose. Use 0 for normal play, 2–3 only when troubleshooting | 1 |
 | **Show Minimap Button** | Toggle the minimap coin button on/off | On |
 | **Rank Selection Policy** | How to pick between quality tiers when an item has multiple ranks. **Lowest Rank** = cheapest tier (Q1), **Highest Rank** = best tier (Q2+), **Manual** = use highest as fallback | Lowest Rank |
@@ -242,11 +248,7 @@ A scrollable window showing all log entries from the current session. Useful for
 
 **Pause / Resume** — pauses the live feed so the log stops scrolling while you read it. New entries are still recorded in the buffer; they appear when you click Resume.
 
-**ARP Export** — generates a full item price export in AverageReagentPrice (ARP) addon format:
-```
-ItemName, Rank 1, X.XX, Rank 2, X.XX, Rank 3, X.XX
-```
-One line per item, covering every reagent and output across all strategies. Use this to paste live GAM prices into your comparison spreadsheet. The export uses the WoW crafting quality API to assign each itemID to its correct rank slot — not array position.
+**Dump IDs** — dumps all tracked item IDs and their resolved names to the log.
 
 ---
 
@@ -375,4 +377,4 @@ A: Yes. CraftSim is completely optional. Every feature works without it. The onl
 
 ---
 
-*Gold Advisor Midnight v1.2.0 — WoW Midnight (Interface 120001)*
+*Gold Advisor Midnight v1.2.1 — WoW Midnight (Interface 120001)*

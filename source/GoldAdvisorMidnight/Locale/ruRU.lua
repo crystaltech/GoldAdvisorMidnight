@@ -86,7 +86,7 @@ L["BTN_COPY_LOG"]          = "Копировать всё"
 L["BTN_PAUSE_LOG"]         = "Пауза"
 L["BTN_RESUME_LOG"]        = "Продолжить"
 L["BTN_DUMP_IDS"]          = "Экспорт ID"
-L["BTN_ARP_EXPORT"]        = "ARP Export"
+L["BTN_ARP_EXPORT"]        = "Экспорт таблицы"
 L["LOG_PAUSED"]            = "[Журнал на паузе]"
 L["LOG_CLEARED"]           = "[Журнал очищен]"
 

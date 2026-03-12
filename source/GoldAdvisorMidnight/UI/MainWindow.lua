@@ -107,7 +107,8 @@ end
 local function ToggleFavorite(stratID)
     local pdb = GAM:GetPatchDB(filterPatch)
     pdb.favorites = pdb.favorites or {}
-    pdb.favorites[stratID] = not pdb.favorites[stratID] or nil
+    -- Store true when favoriting, nil (removes key) when un-favoriting
+    pdb.favorites[stratID] = pdb.favorites[stratID] and nil or true
 end
 
 -- ===== Filter + sort =====
@@ -542,26 +543,38 @@ local function Build()
         return b
     end
 
-    local btnClose = MakeBottomBtn(L["BTN_CLOSE"],    70)
-    local btnLog   = MakeBottomBtn(L["BTN_LOG"],      90)
-    local btnScan  = MakeBottomBtn(L["BTN_SCAN_ALL"], 105)
+    local btnClose = MakeBottomBtn(L["BTN_CLOSE"],         70)
+    local btnLog   = MakeBottomBtn(L["BTN_LOG"],           90)
+    local btnScan  = MakeBottomBtn(L["BTN_SCAN_ALL"],     105)
+    local btnARP   = MakeBottomBtn(L["BTN_ARP_EXPORT"],   130)
     frame.btnScan = btnScan
+
+    local BTN_H    = 22
+    local BTN_Y    = 10  -- pixels from frame bottom
+    local LABEL_Y  = BTN_Y + BTN_H + 4
 
     local function RelayoutBottomButtons()
         btnClose:SetWidth(MeasureButtonWidth(frame, btnClose:GetText(), 70, 180, 24))
         btnLog:SetWidth(MeasureButtonWidth(frame, btnLog:GetText(), 90, 220, 24))
         btnScan:SetWidth(MeasureButtonWidth(frame, btnScan:GetText(), 105, 260, 24))
-        local info = LayoutButtonRowBottom(frame, { btnScan, btnLog, btnClose }, {
-            left = 14, right = WIN_W - 14, bottom = 10, gap = 8, rowGap = 4, align = "right",
+        -- Right-aligned group
+        LayoutButtonRowBottom(frame, { btnScan, btnLog, btnClose }, {
+            left = 14, right = WIN_W - 14, bottom = BTN_Y, gap = 8, rowGap = 4, align = "right",
         })
+        -- ARP button anchored bottom-left
+        btnARP:SetWidth(MeasureButtonWidth(frame, btnARP:GetText(), 130, 260, 24))
+        btnARP:ClearAllPoints()
+        btnARP:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, BTN_Y)
+        -- Status text above ARP button
         statusText:ClearAllPoints()
-        statusText:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, info.top + 4)
+        statusText:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, LABEL_Y)
     end
     frame.RelayoutBottomButtons = RelayoutBottomButtons
     RelayoutBottomButtons()
 
     btnClose:SetScript("OnClick", function() frame:Hide() end)
     btnLog:SetScript("OnClick",   function() GAM.UI.DebugLog.Toggle() end)
+    btnARP:SetScript("OnClick",   function() GAM.UI.DebugLog.ShowARPExport() end)
     btnScan:SetScript("OnClick", function()
         if GAM.AHScan.IsScanning() then
             GAM.AHScan.StopScan()
@@ -625,6 +638,14 @@ function MW.OnScanComplete()
         RebuildList()
         MW.RefreshRows()
     end
+end
+
+-- Refresh: rebuild and repaint the list. Called by StratDetail/StratCreator after
+-- adding, editing, or deleting a user strategy.
+function MW.Refresh()
+    if not frame then return end
+    RebuildList()
+    MW.RefreshRows()
 end
 
 function MW.Show()

@@ -499,7 +499,7 @@ local function BuildPanel()
         opts.minimapHidden  = not cbMinimap:GetChecked()
         opts.rankPolicy     = ddRank.GetValue() or "lowest"
         opts.uiScale        = slScale:GetValue()
-        opts.ahCut          = 0.05
+        opts.ahCut          = GAM.C.AH_CUT
         ApplyScaleToFrames(opts.uiScale)
 
         local raw = tonumber(ebFillQty:GetText())
@@ -537,11 +537,23 @@ local function BuildPanel()
 
     -- Blizzard Settings ok/cancel callbacks
     panel.name   = L["SETTINGS_NAME"]
-    panel.okay   = ApplySettings
     panel.cancel = function() end
+
+    -- Guard prevents double-apply: panel.okay sets the flag so the OnHide
+    -- handler (which fires immediately after okay on native Settings close)
+    -- knows not to run ApplySettings a second time.
+    local applyCalledFromOkay = false
+    panel.okay = function()
+        applyCalledFromOkay = true
+        ApplySettings()
+    end
 
     -- Apply on close for both native Blizzard settings and standalone fallback.
     panel:SetScript("OnHide", function()
+        if applyCalledFromOkay then
+            applyCalledFromOkay = false
+            return
+        end
         ApplySettings()
     end)
 

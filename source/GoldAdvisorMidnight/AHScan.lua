@@ -21,6 +21,7 @@ end
 -- ===== State =====
 local scanning          = false
 local scanQueue         = {}
+local queueHead         = 1     -- O(1) dequeue: advance head instead of table.remove
 local pendingEntry      = nil   -- { itemID, callback, isNameScan, name, patchTag }
 local waitingForResults = false
 local lastQueryTime     = 0
@@ -292,11 +293,12 @@ local function ProcessNextInQueue()
     end
     if waitingForResults then return end
 
-    if #scanQueue == 0 then
+    if queueHead > #scanQueue then
         -- Retry pass once
         if not isRetryPass and #failedQueue > 0 then
             isRetryPass = true
             scanQueue   = failedQueue
+            queueHead   = 1
             failedQueue = {}
             GAM.Log.Info("AHScan: retry pass, %d items", #scanQueue)
             return
@@ -320,7 +322,8 @@ local function ProcessNextInQueue()
         return
     end
 
-    local entry = table.remove(scanQueue, 1)
+    local entry = scanQueue[queueHead]
+    queueHead         = queueHead + 1
     pendingEntry      = entry
     waitingForResults = true
 
@@ -868,6 +871,7 @@ end
 -- Reset queuing dedup tables (call before building a new scan queue)
 function AHScan.ResetQueue()
     scanQueue       = {}
+    queueHead       = 1
     failedQueue     = {}
     priceScanQueued = {}
     nameScanQueued  = {}

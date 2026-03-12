@@ -11,7 +11,6 @@ local frame
 local scrollFrame
 local editBox
 local isPaused = false
-local pendingLines = {}
 
 local function GetUIScale()
     return (GAM.db and GAM.db.options and GAM.db.options.uiScale) or 1.0
@@ -377,19 +376,17 @@ local function Build()
         return b
     end
 
-    local btnClear     = MakeBtn(GAM.L["BTN_CLEAR_LOG"],   80)
-    local btnCopy      = MakeBtn(GAM.L["BTN_COPY_LOG"],    90)
-    local btnPause     = MakeBtn(GAM.L["BTN_PAUSE_LOG"],   80)
-    local btnDump      = MakeBtn(GAM.L["BTN_DUMP_IDS"],   100)
-    local btnARPExport = MakeBtn(GAM.L["BTN_ARP_EXPORT"],  90)
+    local btnClear = MakeBtn(GAM.L["BTN_CLEAR_LOG"],  80)
+    local btnCopy  = MakeBtn(GAM.L["BTN_COPY_LOG"],   90)
+    local btnPause = MakeBtn(GAM.L["BTN_PAUSE_LOG"],  80)
+    local btnDump  = MakeBtn(GAM.L["BTN_DUMP_IDS"],  100)
 
     local function RelayoutFooter()
         btnClear:SetWidth(MeasureButtonWidth(frame, btnClear:GetText(), 80, 180, 24))
         btnCopy:SetWidth(MeasureButtonWidth(frame, btnCopy:GetText(), 90, 200, 24))
         btnPause:SetWidth(MeasureButtonWidth(frame, btnPause:GetText(), 80, 200, 24))
         btnDump:SetWidth(MeasureButtonWidth(frame, btnDump:GetText(), 100, 220, 24))
-        btnARPExport:SetWidth(MeasureButtonWidth(frame, btnARPExport:GetText(), 90, 220, 24))
-        local info = LayoutButtonRowBottom(frame, { btnClear, btnCopy, btnPause, btnDump, btnARPExport }, {
+        local info = LayoutButtonRowBottom(frame, { btnClear, btnCopy, btnPause, btnDump }, {
             left = 14, right = WIN_W - 14, bottom = 10, gap = 8, rowGap = 4, align = "left",
         })
         scrollFrame:ClearAllPoints()
@@ -420,10 +417,6 @@ local function Build()
 
     btnDump:SetScript("OnClick", DumpItemIDs)
 
-    btnARPExport:SetScript("OnClick", function()
-        ShowARPExportPopup(GenerateARPExport())
-    end)
-
     -- ── Log listener: appends new lines when frame is visible ──
     GAM.Log.AddListener(function(entry)
         if not frame:IsShown() or isPaused then return end
@@ -448,6 +441,10 @@ local function Build()
 end
 
 -- ===== Public API =====
+function DebugLog.ShowARPExport()
+    ShowARPExportPopup(GenerateARPExport())
+end
+
 function DebugLog.DumpItemIDs()
     if not frame then Build() end
     DumpItemIDs()
