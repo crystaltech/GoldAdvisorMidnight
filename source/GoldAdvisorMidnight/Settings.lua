@@ -376,6 +376,10 @@ local function BuildPanel()
 
     y = y - 36
 
+    local cbMillOwn = MakeCheckbox(content, "Mill own herbs for Inscription", y - 4)
+    cbMillOwn:SetChecked((opts.pigmentCostSource or "ah") == "mill")
+    y = y - 32
+
     -- ── Actions ────────────────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_ACTIONS"], y)
 
@@ -497,7 +501,8 @@ local function BuildPanel()
         opts.scanDelay      = slScanDelay:GetValue()
         opts.debugVerbosity = slVerbosity:GetValue()
         opts.minimapHidden  = not cbMinimap:GetChecked()
-        opts.rankPolicy     = ddRank.GetValue() or "lowest"
+        opts.rankPolicy         = ddRank.GetValue() or "lowest"
+        opts.pigmentCostSource  = cbMillOwn:GetChecked() and "mill" or "ah"
         opts.uiScale        = slScale:GetValue()
         opts.ahCut          = GAM.C.AH_CUT
         ApplyScaleToFrames(opts.uiScale)

@@ -21,6 +21,7 @@ local DB_DEFAULTS = {
         minimapAngle   = 45,
         rankPolicy   = GAM.C.DEFAULT_RANK_POLICY,
         priceSource         = GAM.C.DEFAULT_PRICE_SOURCE,
+        pigmentCostSource   = GAM.C.DEFAULT_PIGMENT_COST_SOURCE,
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
     },

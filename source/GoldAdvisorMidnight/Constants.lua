@@ -28,7 +28,8 @@ GAM.C = {
     DEFAULT_SCAN_DELAY   = 1.0,
     DEFAULT_VERBOSITY    = 1,      -- 0=off,1=info,2=debug,3=verbose
     DEFAULT_RANK_POLICY  = "lowest",
-    DEFAULT_PRICE_SOURCE = "ah",
+    DEFAULT_PRICE_SOURCE         = "ah",
+    DEFAULT_PIGMENT_COST_SOURCE  = "ah",  -- "ah" | "mill"
 
     -- UI scale
     DEFAULT_UI_SCALE     = 1.0,    -- frame scale applied to non-settings addon windows/popups

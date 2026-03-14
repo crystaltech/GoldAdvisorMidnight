@@ -12,6 +12,20 @@ local function GetDB() return GAM.db end
 local function GetOpts() return GAM.db and GAM.db.options or {} end
 local function GetPatchDB(pt) return GAM:GetPatchDB(pt) end
 
+-- ===== Pigment → herb mapping for "Mill Own Herbs" cost mode =====
+-- Maps each pigment itemID → { herbIDs, yieldPerHerb }
+-- yieldPerHerb = output.qtyMultiplier (1.53) / reagent.qtyMultiplier (1.0)
+local PIGMENT_MILL_MAP = {
+    [245807] = { herbIDs = {236761,236767}, yieldPerHerb = 1.530000 }, -- Powder Pigment Q1
+    [245808] = { herbIDs = {236761,236767}, yieldPerHerb = 1.530000 }, -- Powder Pigment Q2
+    [245803] = { herbIDs = {236776,236777}, yieldPerHerb = 1.530000 }, -- Argentleaf Pigment Q1
+    [245804] = { herbIDs = {236776,236777}, yieldPerHerb = 1.530000 }, -- Argentleaf Pigment Q2
+    [245867] = { herbIDs = {236778,236779}, yieldPerHerb = 1.530000 }, -- Mana Lily Pigment Q1
+    [245866] = { herbIDs = {236778,236779}, yieldPerHerb = 1.530000 }, -- Mana Lily Pigment Q2
+    [245865] = { herbIDs = {236770,236771}, yieldPerHerb = 1.530000 }, -- Sanguithorn Pigment Q1
+    [245864] = { herbIDs = {236770,236771}, yieldPerHerb = 1.530000 }, -- Sanguithorn Pigment Q2
+}
+
 -- Pick best itemID from a list according to rankPolicy.
 -- Uses C_TradeSkillUI.GetItemReagentQualityByItemInfo to sort by actual crafting
 -- quality rather than array position (array order is not guaranteed to be Q1-first).
@@ -90,6 +104,25 @@ function Pricing.GetEffectivePrice(itemID, patchTag)
     return Pricing.GetUnitPrice(itemID)
 end
 
+-- GetMillDerivedPigmentCost(itemID, patchTag) → cost per pigment (copper), isStale
+-- Derives pigment cost from herb AH price ÷ milling yield.
+-- Returns nil if the item is not a known pigment or herb prices are unavailable
+-- (caller falls through to AH pigment price).
+local function GetMillDerivedPigmentCost(itemID, patchTag)
+    local info = PIGMENT_MILL_MAP[itemID]
+    if not info then return nil, false end
+    local bestPrice, isStale = nil, false
+    for _, hid in ipairs(info.herbIDs) do
+        local p, s = Pricing.GetEffectivePrice(hid, patchTag)
+        if p and (not bestPrice or p < bestPrice) then
+            bestPrice = p
+            isStale   = isStale or s
+        end
+    end
+    if not bestPrice then return nil, false end
+    return math.floor(bestPrice / info.yieldPerHerb + 0.5), isStale
+end
+
 -- GetEffectivePriceForItem(item, patchTag) → price, isStale
 -- item = { name, itemIDs = {}, ... }
 -- Used for REAGENT pricing: tries the rank-policy preferred itemID first, then
@@ -106,6 +139,21 @@ function Pricing.GetEffectivePriceForItem(item, patchTag)
     end
 
     if not ids or #ids == 0 then return nil, false end
+
+    -- "Mill Own Herbs" mode: for known pigment items, derive cost from herb prices.
+    -- Respects manual price overrides — skip mill path if one is set.
+    if GetOpts().pigmentCostSource == "mill" then
+        local pdb2 = GetPatchDB(patchTag)
+        for _, id in ipairs(ids) do
+            if PIGMENT_MILL_MAP[id] then
+                if not (pdb2.priceOverrides and pdb2.priceOverrides[id] ~= nil) then
+                    local millCost, millStale = GetMillDerivedPigmentCost(id, patchTag)
+                    if millCost then return millCost, millStale end
+                end
+                break  -- herb prices missing or override set → fall through to AH price
+            end
+        end
+    end
 
     local picked = PickItemID(ids, patchTag)
     if not picked then return nil, false end
@@ -212,64 +260,6 @@ function Pricing.FormatPrice(copper)
     return neg and ("-" .. result) or result
 end
 
--- ===== Qty-aware reagent pricing =====
-
--- GetReagentPriceAtQty(item, required, patchTag) → price, isStale
--- Like GetEffectivePriceForItem but uses live (or persisted) raw AH data to
--- compute the average of the cheapest `required` units — the actual cost for
--- buying exactly what a strategy needs. Falls back to the stored avg price
--- (less accurate but always available) when no raw data exists.
--- Manual overrides and CraftSim prices bypass this entirely via GetEffectivePrice.
-local function GetReagentPriceAtQty(item, required, patchTag)
-    patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    local pdb = GetPatchDB(patchTag)
-
-    -- Resolve item IDs (same as GetEffectivePriceForItem)
-    local ids = item.itemIDs
-    if (not ids or #ids == 0) and item.name then
-        ids = pdb.rankGroups[item.name] or {}
-    end
-
-    -- Manual override: bypass qty-aware path (override is exact, no qty needed)
-    if ids and #ids > 0 then
-        local picked = PickItemID(ids, patchTag)
-        if picked and pdb.priceOverrides and pdb.priceOverrides[picked] ~= nil then
-            return pdb.priceOverrides[picked], false
-        end
-    end
-
-    -- CraftSim: bypass qty-aware path
-    local opts = GetOpts()
-    if opts.priceSource == "craftsim" and GAM.CraftSimBridge then
-        if ids and #ids > 0 then
-            local picked = PickItemID(ids, patchTag)
-            if picked then
-                local csPrice = GAM.CraftSimBridge.GetPrice(picked)
-                if csPrice and csPrice > 0 then return csPrice, false end
-            end
-        end
-    end
-
-    -- Qty-aware AH price: try each rank via session/persisted raw data
-    if ids and #ids > 0 and GAM.AHScan and GAM.AHScan.ComputePriceForQty then
-        local picked = PickItemID(ids, patchTag)
-        if picked then
-            local p = GAM.AHScan.ComputePriceForQty(picked, required)
-            if p then return p, false end
-        end
-        -- Fallback through other quality ranks (cache picked to avoid repeated calls)
-        for _, id in ipairs(ids) do
-            if id ~= picked then
-                local p = GAM.AHScan.ComputePriceForQty(id, required)
-                if p then return p, false end
-            end
-        end
-    end
-
-    -- Final fallback: stored avg price (fill-qty avg from last scan)
-    return Pricing.GetEffectivePriceForItem(item, patchTag)
-end
-
 -- ===== Core calculation =====
 
 -- CalculateStratMetrics(strat, patchTag, craftQty) → metrics table or nil
@@ -334,9 +324,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         -- Price: only required if there is something left to buy.
         -- If the player already owns all copies (needToBuy == 0), cost is 0
         -- and a missing AH price should NOT block profit/ROI display.
-        -- Use qty-aware pricing so we average the cheapest `required` units,
-        -- not a fill-qty average that over-samples expensive listings.
-        local price, stale = GetReagentPriceAtQty(r, required, patchTag)
+        local price, stale = Pricing.GetEffectivePriceForItem(r, patchTag)
         if stale then hasStale = true end
 
         local totalCost    = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
