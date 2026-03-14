@@ -1,5 +1,15 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.6] — 2026-03-14
+
+### Improvements
+- After a scan completes, the strategy list now auto-sorts by highest ROI so the best opportunities surface immediately. Column headers remain clickable to re-sort manually.
+
+### Data Fixes
+- Fixed: Brilliant Silver Ore Prospecting — Crystalline Glass `qtyMultiplier` corrected from 0.180 → 0.095 (in-game testing: ~35 from 400 ore at 17% res; back-calculated baked rate ≈ 0.095).
+
+---
+
 ## [1.2.5] — 2026-03-13
 
 ### New Features
