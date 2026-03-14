@@ -260,6 +260,115 @@ function Pricing.FormatPrice(copper)
     return neg and ("-" .. result) or result
 end
 
+-- ===== Stat scaling (Master Equation) =====
+
+-- MCm: Multicraft multiplier at full talent investment (base 1.25 × 1.5 bonus = 1.875).
+-- Rs:  Resourcefulness save ratio at full specialization (base 0.30 + 0.15 = 0.45).
+-- Both sides of the scaling formula use the same constants → talent investment largely cancels.
+-- Only the gear-based multi% and res% differences drive the scale factor.
+local BAKED_MCM = 1.875
+local BAKED_RS  = 0.45
+
+-- Stat profiles: baked baseline values (multi/res at which qtyMultipliers were measured).
+-- bakedMulti/bakedRes are 0–1 floats. multiKey/resKey are DB option field names.
+-- Starred (*) profiles had bakedMulti=0 (tester had no multicraft gear for that tool set).
+local STAT_PROFILES = {
+    insc_milling   = { bakedMulti=0,    bakedRes=0.32, resKey="inscMillingRes"  },  -- no Multicraft stat
+    insc_ink       = { bakedMulti=0.26, bakedRes=0.17, multiKey="inscInkMulti",     resKey="inscInkRes"      },
+    jc_prospect    = { bakedMulti=0,    bakedRes=0.33, resKey="jcProspectRes"   },  -- no Multicraft stat
+    jc_crush       = { bakedMulti=0,    bakedRes=0.35, resKey="jcCrushRes"      },  -- no Multicraft stat
+    jc_craft       = { bakedMulti=0.30, bakedRes=0.18, multiKey="jcCraftMulti",     resKey="jcCraftRes"      },
+    ench_shatter   = { bakedMulti=0,    bakedRes=0.30, resKey="enchShatterRes"  },  -- no Multicraft stat
+    ench_craft     = { bakedMulti=0.25, bakedRes=0.16, multiKey="enchCraftMulti",   resKey="enchCraftRes"    },
+    alchemy        = { bakedMulti=0.30, bakedRes=0.15, multiKey="alchMulti",        resKey="alchRes"         },
+    tailoring      = { bakedMulti=0.25, bakedRes=0.15, multiKey="tailMulti",        resKey="tailRes"         },
+    blacksmithing  = { bakedMulti=0.28, bakedRes=0.19, multiKey="bsMulti",          resKey="bsRes"           },
+    leatherworking = { bakedMulti=0.29, bakedRes=0.17, multiKey="lwMulti",          resKey="lwRes"           },
+    engineering    = { bakedMulti=0,    bakedRes=0.38, multiKey="engMulti",         resKey="engRes"          }, -- *
+}
+
+-- Maps every strat ID to its stat profile key.
+-- Strat IDs not listed here (custom strats, unregistered strats) → outputStatScale = 1.0.
+local STRAT_STAT_PROFILE = {
+    -- Inscription milling
+    ["inscription__tranquility_bloom_milling__midnight_1"] = "insc_milling",
+    ["inscription__argentleaf_milling__midnight_1"]        = "insc_milling",
+    ["inscription__mana_lily_milling__midnight_1"]         = "insc_milling",
+    ["inscription__sanguithorn_milling__midnight_1"]       = "insc_milling",
+    -- Inscription ink / soul cipher
+    ["inscription__sienna_ink__midnight_1"]                = "insc_ink",
+    ["inscription__munsell_ink__midnight_1"]               = "insc_ink",
+    ["inscription__soul_cipher__midnight_1"]               = "insc_ink",
+    -- JC prospecting
+    ["jewelcrafting__brilliant_silver_ore_prospecting__midnight_1"] = "jc_prospect",
+    ["jewelcrafting__dazzling_thorium_prospecting__midnight_1"]     = "jc_prospect",
+    ["jewelcrafting__refulgent_copper_ore_prospecting__midnight_1"] = "jc_prospect",
+    ["jewelcrafting__umbral_tin_ore_prospecting__midnight_1"]       = "jc_prospect",
+    -- JC crushing
+    ["jewelcrafting__crushing__midnight_1"]                         = "jc_crush",
+    -- JC gem crafting
+    ["jewelcrafting__sin_dorei_lens_crafting__midnight_1"]          = "jc_craft",
+    ["jewelcrafting__sunglass_vial_crafting__midnight_1"]           = "jc_craft",
+    -- Enchanting shattering
+    ["enchanting__dawn_shatter_q2__midnight_1"]                     = "ench_shatter",
+    ["enchanting__radiant_shatter_q1__midnight_1"]                  = "ench_shatter",
+    ["enchanting__radiant_shatter_q2__midnight_1"]                  = "ench_shatter",
+    -- Enchanting crafting
+    ["enchanting__oil_of_dawn__midnight_1"]                         = "ench_craft",
+    ["enchanting__thalassian_phoenix_oil__midnight_1"]              = "ench_craft",
+    ["enchanting__smuggler_s_enchanted_edge__midnight_1"]           = "ench_craft",
+    -- Alchemy
+    ["alchemy__amani_extract__midnight_1"]                          = "alchemy",
+    ["alchemy__composite_flora__midnight_1"]                        = "alchemy",
+    ["alchemy__draught_of_rampant_abandon__midnight_1"]             = "alchemy",
+    ["alchemy__flask_of_the_blood_knights__midnight_1"]             = "alchemy",
+    ["alchemy__flask_of_the_shattered_sun__midnight_1"]             = "alchemy",
+    ["alchemy__haranir_phial_of_finesse__midnight_1"]               = "alchemy",
+    ["alchemy__haranir_phial_of_perception__midnight_1"]            = "alchemy",
+    ["alchemy__light_s_potential__midnight_1"]                      = "alchemy",
+    ["alchemy__lightfused_mana_potion__midnight_1"]                 = "alchemy",
+    ["alchemy__potion_of_recklessness__midnight_1"]                 = "alchemy",
+    ["alchemy__potion_of_zealotry__midnight_1"]                     = "alchemy",
+    ["alchemy__silvermoon_health_potion__midnight_1"]               = "alchemy",
+    ["alchemy__vicious_thalassian_flask_of_honor__midnight_1"]      = "alchemy",
+    ["alchemy__void_shrouded_tincture__midnight_1"]                 = "alchemy",
+    -- Tailoring
+    ["tailoring__bright_linen_bolt__midnight_1"]                    = "tailoring",
+    ["tailoring__imbued_bright_linen_bolt__midnight_1"]             = "tailoring",
+    -- Blacksmithing
+    ["blacksmithing__gloaming_alloy__midnight_1"]                   = "blacksmithing",
+    ["blacksmithing__refulgent_copper_ingot__midnight_1"]           = "blacksmithing",
+    ["blacksmithing__sterling_alloy__midnight_1"]                   = "blacksmithing",
+    -- Leatherworking
+    ["leatherworking__scale_woven_hide__midnight_1"]                = "leatherworking",
+    ["leatherworking__silvermoon_weapon_wrap__midnight_1"]          = "leatherworking",
+    ["leatherworking__sin_dorei_armor_banding__midnight_1"]         = "leatherworking",
+    ["leatherworking__void_touched_drums__midnight_1"]              = "leatherworking",
+    -- Engineering
+    ["engineering__recycling_arcanoweave__midnight_1"]              = "engineering",
+    ["engineering__recycling_arcanoweave_lining__midnight_1"]       = "engineering",
+    ["engineering__recycling_argentleaf_pigment__midnight_1"]       = "engineering",
+    ["engineering__recycling_bright_linen_bolt__midnight_1"]        = "engineering",
+    ["engineering__recycling_codified_azeroot__midnight_1"]         = "engineering",
+    ["engineering__recycling_devouring_banding__midnight_1"]        = "engineering",
+    ["engineering__recycling_gloaming_alloy__midnight_1"]           = "engineering",
+    ["engineering__recycling_imbued_bright_linen_bolt__midnight_1"] = "engineering",
+    ["engineering__recycling_infused_scalewoven_hide__midnight_1"]  = "engineering",
+    ["engineering__recycling_munsell_ink__midnight_1"]              = "engineering",
+    ["engineering__recycling_powder_pigment__midnight_1"]           = "engineering",
+    ["engineering__recycling_refulgent_copper_ingot__midnight_1"]   = "engineering",
+    ["engineering__recycling_song_gear__midnight_1"]                = "engineering",
+    ["engineering__recycling_soul_sprocket__midnight_1"]            = "engineering",
+    ["engineering__recycling_sunfire_silk_bolt__midnight_1"]        = "engineering",
+    ["engineering__soul_sprocket__midnight_1"]                      = "engineering",
+    ["engineering__song_gear__midnight_1"]                          = "engineering",
+    ["engineering__farstrider_hawkeye__midnight_1"]                 = "engineering",
+    ["engineering__emergency_soul_link__midnight_1"]                = "engineering",
+    ["engineering__smuggler_s_lynxeye__midnight_1"]                 = "engineering",
+    ["engineering__laced_zoomshots__midnight_1"]                    = "engineering",
+    ["engineering__weighted_boomshots__midnight_1"]                 = "engineering",
+}
+
 -- ===== Core calculation =====
 
 -- CalculateStratMetrics(strat, patchTag, craftQty) → metrics table or nil
@@ -288,6 +397,26 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local opts   = GetOpts()
     local ahCut  = opts.ahCut or GAM.C.AH_CUT
     local pdb    = GetPatchDB(patchTag)
+
+    -- Master Equation stat scaling: adjust output quantities from baked baseline to player's gear.
+    -- scale = [(1 + u_multi × MCm) / (1 + b_multi × MCm)] × [(1 - b_res × Rs) / (1 - u_res × Rs)]
+    -- Returns 1.0 for strats not in STRAT_STAT_PROFILE (custom strats → unchanged).
+    local outputStatScale = 1.0
+    local profileKey = STRAT_STAT_PROFILE[strat.id]
+    if profileKey then
+        local prof    = STAT_PROFILES[profileKey]
+        local u_multi = prof.multiKey and ((opts[prof.multiKey] or 0) / 100) or 0
+        local u_res   = (opts[prof.resKey]   or 0) / 100
+        local b_multi = prof.bakedMulti
+        local b_res   = prof.bakedRes
+        local multi_denom = 1 + b_multi * BAKED_MCM
+        local res_denom   = 1 - u_res   * BAKED_RS
+        local res_baked   = 1 - b_res   * BAKED_RS
+        if multi_denom > 0 and res_denom > 0 and res_baked > 0 then
+            outputStatScale = ((1 + u_multi * BAKED_MCM) / multi_denom)
+                            * (res_baked / res_denom)
+        end
+    end
 
     local startingAmt = (strat.defaultStartingAmount or 1) * craftQty
 
@@ -361,7 +490,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local primaryOut      = strat.output or {}
     -- Raw float used for revenue calculation (expected value over many crafts).
     -- Nearest-integer rounding only for the display qty field.
-    local outputQtyRaw    = (primaryOut.qtyMultiplier or 0) * startingAmt
+    local outputQtyRaw    = (primaryOut.qtyMultiplier or 0) * startingAmt * outputStatScale
     local outputQty       = math.floor(outputQtyRaw + 0.5)
 
     -- Determine the crafting quality of the primary reagent so output pricing can
@@ -398,7 +527,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         local allHavePrices = true
         outResults = {}
         for _, o in ipairs(strat.outputs) do
-            local oQtyRaw = (o.qtyMultiplier or 0) * startingAmt                    -- float for revenue
+            local oQtyRaw = (o.qtyMultiplier or 0) * startingAmt * outputStatScale    -- float for revenue
             local oQty    = math.floor(oQtyRaw + 0.5)                               -- integer for display
             local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag, primaryQuality)
             if oStale2 then hasStale = true end

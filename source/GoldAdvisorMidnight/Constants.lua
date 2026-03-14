@@ -4,7 +4,7 @@
 
 local ADDON_NAME, GAM = ...
 GAM.C = {
-    ADDON_VERSION        = "1.2.3",
+    ADDON_VERSION        = "1.2.5",
     DATA_VERSION         = 4,
     DEFAULT_PATCH        = "midnight-1",
 
@@ -30,6 +30,37 @@ GAM.C = {
     DEFAULT_RANK_POLICY  = "lowest",
     DEFAULT_PRICE_SOURCE         = "ah",
     DEFAULT_PIGMENT_COST_SOURCE  = "ah",  -- "ah" | "mill"
+
+    -- Crafting stat defaults (integer %; match baked spreadsheet baseline values)
+    -- Milling, Prospecting, Crushing, Shattering: no Multicraft stat (profession window doesn't show it).
+    -- Inscription
+    DEFAULT_INSC_MILLING_RES   = 32,   -- Resourcefulness % for Inscription milling
+    DEFAULT_INSC_INK_MULTI     = 26,   -- Multicraft % for Inscription ink crafting
+    DEFAULT_INSC_INK_RES       = 17,   -- Resourcefulness % for Inscription ink crafting
+    -- Jewelcrafting
+    DEFAULT_JC_PROSPECT_RES    = 33,   -- Resourcefulness % for JC prospecting
+    DEFAULT_JC_CRUSH_RES       = 35,   -- Resourcefulness % for JC crushing
+    DEFAULT_JC_CRAFT_MULTI     = 30,   -- Multicraft % for JC gem crafting
+    DEFAULT_JC_CRAFT_RES       = 18,   -- Resourcefulness % for JC gem crafting
+    -- Enchanting
+    DEFAULT_ENCH_SHATTER_RES   = 30,   -- Resourcefulness % for Enchanting shattering
+    DEFAULT_ENCH_CRAFT_MULTI   = 25,   -- Multicraft % for Enchanting oil/edge crafting
+    DEFAULT_ENCH_CRAFT_RES     = 16,   -- Resourcefulness % for Enchanting oil/edge crafting
+    -- Alchemy
+    DEFAULT_ALCH_MULTI         = 30,   -- Multicraft % for Alchemy
+    DEFAULT_ALCH_RES           = 15,   -- Resourcefulness % for Alchemy
+    -- Tailoring
+    DEFAULT_TAIL_MULTI         = 25,   -- Multicraft % for Tailoring
+    DEFAULT_TAIL_RES           = 15,   -- Resourcefulness % for Tailoring
+    -- Blacksmithing
+    DEFAULT_BS_MULTI           = 28,   -- Multicraft % for Blacksmithing
+    DEFAULT_BS_RES             = 19,   -- Resourcefulness % for Blacksmithing
+    -- Leatherworking
+    DEFAULT_LW_MULTI           = 29,   -- Multicraft % for Leatherworking
+    DEFAULT_LW_RES             = 17,   -- Resourcefulness % for Leatherworking
+    -- Engineering
+    DEFAULT_ENG_MULTI          = 0,    -- * Multicraft % for Engineering (baseline: 0%)
+    DEFAULT_ENG_RES            = 38,   -- Resourcefulness % for Engineering
 
     -- UI scale
     DEFAULT_UI_SCALE     = 1.0,    -- frame scale applied to non-settings addon windows/popups

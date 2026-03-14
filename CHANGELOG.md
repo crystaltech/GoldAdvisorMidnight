@@ -1,5 +1,20 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.5] — 2026-03-13
+
+### New Features
+- **Crafting Stat Scaling** — Settings > Crafting Stats section lets you enter your actual Multicraft% and Resourcefulness% per profession/tool-set. The addon scales output quantities from the baked spreadsheet baseline to your gear using the Master Equation: `scale = [(1 + u_multi × 1.875) / (1 + b_multi × 1.875)] × [(1 - b_res × 0.45) / (1 - u_res × 0.45)]`. Defaults match the baked-in values → fully-geared players see no change; players with lower stats see corrected (lower) outputs and profits.
+- 12 stat groups cover all professions: Inscription (Milling, Ink), Jewelcrafting (Prospecting, Crushing, Crafting), Enchanting (Shattering, Crafting), Alchemy, Tailoring, Blacksmithing, Leatherworking, Engineering. Milling/Prospecting/Crushing/Shattering have no Multicraft field (profession window does not show Multicraft for those tool sets).
+- Custom strats created in Strategy Creator are unaffected (scale = 1.0).
+
+### New Strats
+- **Enchanting — Radiant Shatter Q1**: shatters rank-1 Radiant Shards (3000) into Eversinging Dust Q1 (×3.36, i.e. 10,080 expected dust).
+
+### Data Fixes
+- Fixed: Blacksmithing Gloaming Alloy and Sterling Alloy Q1 — `defaultStartingAmount` corrected from 6,000 → 3,000 ore; `qtyMultiplier` corrected from 0.243667 → 0.240000 (720 expected alloy per 3,000 ore per updated March 2026 spreadsheet).
+
+---
+
 ## [1.2.4] — 2026-03-13
 
 ### New Features

@@ -1229,6 +1229,28 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
 }
 
 GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
+  id         = "enchanting__radiant_shatter_q1__midnight_1",
+  patchTag   = "midnight-1",
+  profession = "Enchanting",
+  stratName  = "Radiant Shatter Q1",
+  notes      = "Shatters rank-1 Radiant Shards into Eversinging Dust Q1",
+  sourceTab  = "Enchanting",
+  defaultStartingAmount = 3000,
+  output = {
+    name          = "Eversinging Dust Q1",
+    itemIDs       = { 243599 },  -- Q1=243599
+    qtyMultiplier = 3.360000,  -- 10080 / 3000
+  },
+  reagents = {
+    {
+      name          = "Radiant Shard Q1",
+      itemIDs       = { 243602 },
+      qtyMultiplier = 1.000000,
+    },
+  },
+}
+
+GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   id         = "enchanting__thalassian_phoenix_oil__midnight_1",
   patchTag   = "midnight-1",
   profession = "Enchanting",
@@ -1631,11 +1653,11 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Gloaming Alloy",
   notes      = "",
   sourceTab  = "Blacksmithing",
-  defaultStartingAmount = 6000,
+  defaultStartingAmount = 3000,
   output = {
     name          = "Gloaming Alloy",
     itemIDs       = { 238202, 238203 },
-    qtyMultiplier = 0.243667,
+    qtyMultiplier = 0.240000,
   },
   reagents = {
     {
@@ -1663,11 +1685,11 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Sterling Alloy",
   notes      = "",
   sourceTab  = "Blacksmithing",
-  defaultStartingAmount = 6000,
+  defaultStartingAmount = 3000,
   output = {
     name          = "Sterling Alloy",
     itemIDs       = { 238204, 238205 },
-    qtyMultiplier = 0.243667,
+    qtyMultiplier = 0.240000,
   },
   reagents = {
     {

@@ -380,6 +380,101 @@ local function BuildPanel()
     cbMillOwn:SetChecked((opts.pigmentCostSource or "ah") == "mill")
     y = y - 32
 
+    -- ── Crafting Stats ─────────────────────────────────────────────────────
+    y = MakeSectionHeader(content, "Crafting Stats", y)
+
+    local subHdr = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    subHdr:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
+    subHdr:SetText("Enter your actual gear stats. Defaults = baked spreadsheet baseline.")
+    y = y - 20
+
+    local chMulti = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    chMulti:SetPoint("TOPLEFT", content, "TOPLEFT", 250, y)
+    chMulti:SetText("Multi%")
+    local chRes = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    chRes:SetPoint("TOPLEFT", content, "TOPLEFT", 345, y)
+    chRes:SetText("Res%")
+    y = y - 20
+
+    -- multiDefault=nil → no Multi% field (Milling/Prospecting/Crushing/Shattering have no Multicraft stat)
+    local function MakeStatRow(labelText, multiDefault, resDefault)
+        local lbl = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
+        lbl:SetText(labelText)
+
+        local ebMulti = nil
+        if multiDefault ~= nil then
+            ebMulti = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+            ebMulti:SetSize(44, 22)
+            ebMulti:SetAutoFocus(false)
+            ebMulti:SetNumeric(true)
+            ebMulti:SetPoint("TOPLEFT", content, "TOPLEFT", 250, y)
+            ebMulti:SetText(tostring(multiDefault))
+        end
+
+        local ebRes = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+        ebRes:SetSize(44, 22)
+        ebRes:SetAutoFocus(false)
+        ebRes:SetNumeric(true)
+        ebRes:SetPoint("TOPLEFT", content, "TOPLEFT", 345, y)
+        ebRes:SetText(tostring(resDefault))
+
+        y = y - 26
+        return ebMulti, ebRes
+    end
+
+    -- nil multiDefault = no Multicraft stat for this tool set
+    local _, ebInscMillingRes = MakeStatRow(
+        "Inscription - Milling:",
+        nil,
+        opts.inscMillingRes or GAM.C.DEFAULT_INSC_MILLING_RES)
+    local ebInscInkMulti, ebInscInkRes = MakeStatRow(
+        "Inscription - Ink:",
+        opts.inscInkMulti or GAM.C.DEFAULT_INSC_INK_MULTI,
+        opts.inscInkRes   or GAM.C.DEFAULT_INSC_INK_RES)
+    local _, ebJcProspectRes = MakeStatRow(
+        "Jewelcrafting - Prospect:",
+        nil,
+        opts.jcProspectRes or GAM.C.DEFAULT_JC_PROSPECT_RES)
+    local _, ebJcCrushRes = MakeStatRow(
+        "Jewelcrafting - Crushing:",
+        nil,
+        opts.jcCrushRes or GAM.C.DEFAULT_JC_CRUSH_RES)
+    local ebJcCraftMulti, ebJcCraftRes = MakeStatRow(
+        "Jewelcrafting - Crafting:",
+        opts.jcCraftMulti or GAM.C.DEFAULT_JC_CRAFT_MULTI,
+        opts.jcCraftRes   or GAM.C.DEFAULT_JC_CRAFT_RES)
+    local _, ebEnchShatterRes = MakeStatRow(
+        "Enchanting - Shattering:",
+        nil,
+        opts.enchShatterRes or GAM.C.DEFAULT_ENCH_SHATTER_RES)
+    local ebEnchCraftMulti, ebEnchCraftRes = MakeStatRow(
+        "Enchanting - Crafting:",
+        opts.enchCraftMulti or GAM.C.DEFAULT_ENCH_CRAFT_MULTI,
+        opts.enchCraftRes   or GAM.C.DEFAULT_ENCH_CRAFT_RES)
+    local ebAlchMulti, ebAlchRes = MakeStatRow(
+        "Alchemy:",
+        opts.alchMulti or GAM.C.DEFAULT_ALCH_MULTI,
+        opts.alchRes   or GAM.C.DEFAULT_ALCH_RES)
+    local ebTailMulti, ebTailRes = MakeStatRow(
+        "Tailoring:",
+        opts.tailMulti or GAM.C.DEFAULT_TAIL_MULTI,
+        opts.tailRes   or GAM.C.DEFAULT_TAIL_RES)
+    local ebBsMulti, ebBsRes = MakeStatRow(
+        "Blacksmithing:",
+        opts.bsMulti or GAM.C.DEFAULT_BS_MULTI,
+        opts.bsRes   or GAM.C.DEFAULT_BS_RES)
+    local ebLwMulti, ebLwRes = MakeStatRow(
+        "Leatherworking:",
+        opts.lwMulti or GAM.C.DEFAULT_LW_MULTI,
+        opts.lwRes   or GAM.C.DEFAULT_LW_RES)
+    local ebEngMulti, ebEngRes = MakeStatRow(
+        "Engineering: *",
+        opts.engMulti or GAM.C.DEFAULT_ENG_MULTI,
+        opts.engRes   or GAM.C.DEFAULT_ENG_RES)
+
+    y = y - 4
+
     -- ── Actions ────────────────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_ACTIONS"], y)
 
@@ -503,6 +598,31 @@ local function BuildPanel()
         opts.minimapHidden  = not cbMinimap:GetChecked()
         opts.rankPolicy         = ddRank.GetValue() or "lowest"
         opts.pigmentCostSource  = cbMillOwn:GetChecked() and "mill" or "ah"
+
+        local function clampStat(eb, default)
+            return math.max(0, math.min(100, tonumber(eb:GetText()) or default))
+        end
+        opts.inscMillingRes   = clampStat(ebInscMillingRes,   GAM.C.DEFAULT_INSC_MILLING_RES)
+        opts.inscInkMulti     = clampStat(ebInscInkMulti,     GAM.C.DEFAULT_INSC_INK_MULTI)
+        opts.inscInkRes       = clampStat(ebInscInkRes,       GAM.C.DEFAULT_INSC_INK_RES)
+        opts.jcProspectRes    = clampStat(ebJcProspectRes,    GAM.C.DEFAULT_JC_PROSPECT_RES)
+        opts.jcCrushRes       = clampStat(ebJcCrushRes,       GAM.C.DEFAULT_JC_CRUSH_RES)
+        opts.jcCraftMulti     = clampStat(ebJcCraftMulti,     GAM.C.DEFAULT_JC_CRAFT_MULTI)
+        opts.jcCraftRes       = clampStat(ebJcCraftRes,       GAM.C.DEFAULT_JC_CRAFT_RES)
+        opts.enchShatterRes   = clampStat(ebEnchShatterRes,   GAM.C.DEFAULT_ENCH_SHATTER_RES)
+        opts.enchCraftMulti   = clampStat(ebEnchCraftMulti,   GAM.C.DEFAULT_ENCH_CRAFT_MULTI)
+        opts.enchCraftRes     = clampStat(ebEnchCraftRes,     GAM.C.DEFAULT_ENCH_CRAFT_RES)
+        opts.alchMulti        = clampStat(ebAlchMulti,        GAM.C.DEFAULT_ALCH_MULTI)
+        opts.alchRes          = clampStat(ebAlchRes,          GAM.C.DEFAULT_ALCH_RES)
+        opts.tailMulti        = clampStat(ebTailMulti,        GAM.C.DEFAULT_TAIL_MULTI)
+        opts.tailRes          = clampStat(ebTailRes,          GAM.C.DEFAULT_TAIL_RES)
+        opts.bsMulti          = clampStat(ebBsMulti,          GAM.C.DEFAULT_BS_MULTI)
+        opts.bsRes            = clampStat(ebBsRes,            GAM.C.DEFAULT_BS_RES)
+        opts.lwMulti          = clampStat(ebLwMulti,          GAM.C.DEFAULT_LW_MULTI)
+        opts.lwRes            = clampStat(ebLwRes,            GAM.C.DEFAULT_LW_RES)
+        opts.engMulti         = clampStat(ebEngMulti,         GAM.C.DEFAULT_ENG_MULTI)
+        opts.engRes           = clampStat(ebEngRes,           GAM.C.DEFAULT_ENG_RES)
+
         opts.uiScale        = slScale:GetValue()
         opts.ahCut          = GAM.C.AH_CUT
         ApplyScaleToFrames(opts.uiScale)
