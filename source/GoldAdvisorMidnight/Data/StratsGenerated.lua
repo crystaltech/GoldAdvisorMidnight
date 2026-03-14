@@ -1929,7 +1929,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
     {
       name          = "Crystalline Glass",
       itemIDs       = { 242786, 242787 },
-      qtyMultiplier = 0.180000,
+      qtyMultiplier = 0.095000,  -- in-game: ~35 from 400 ore at 17% res (rate 0.0875 / scale 0.922 ≈ 0.095)
     },
   },
   reagents = {

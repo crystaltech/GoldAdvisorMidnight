@@ -635,6 +635,9 @@ function MW.OnScanComplete()
     -- Progress cleanup is handled by OnScanProgress(isComplete=true) via callback.
     -- This function handles the list refresh once prices have been stored.
     if frame and frame:IsShown() then
+        -- Auto-sort by highest ROI after each scan so the best opportunities surface immediately.
+        sortKey = "roi"
+        sortAsc = true  -- ROI sort fn already sorts descending (highest first)
         RebuildList()
         MW.RefreshRows()
     end
