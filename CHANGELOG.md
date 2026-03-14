@@ -1,5 +1,12 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.4] — 2026-03-13
+
+### New Features
+- **Mill Own Herbs** checkbox in Settings > Pricing — switches Inscription ink strategy cost from AH pigment prices to milling-derived cost (herb price ÷ expected pigment yield). Persists between sessions; defaults to AH pricing (no behavior change for existing users).
+
+---
+
 ## [1.2.3] — 2026-03-12
 
 ### Bug Fixes
