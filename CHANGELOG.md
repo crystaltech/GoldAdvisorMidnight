@@ -1,5 +1,27 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.8] — 2026-03-16
+
+### New Features
+- **New UI Layout (Beta)** — opt-in three-panel redesign available via Settings > "Use New UI Layout (Beta)". Classic UI remains the default and is fully preserved. Toggle takes effect next time you open the window; no `/reload` required.
+  - **Three-panel layout**: Left panel (190px — char info, profession filter, scan button), Center panel (flexible — strategy list), Right panel (340px — inline strategy detail). All three panels are collapsible; collapse state persists across sessions.
+  - **Best Strategy Card**: hero card above the strategy list scores all strategies using `profit × √ROI` (minimum 5g profit and 5% ROI gates) and surfaces the top opportunity automatically. Updates after every scan and filter change.
+  - **Inline Strategy Detail**: clicking any strategy row or the Best Strategy Card populates the right panel with reagents, outputs, and metrics (Cost, Revenue, Profit, ROI, Break-even). Action buttons: Scan All, CraftSim push, Shopping List, Edit/Delete (user strats only).
+  - **Dual column config**: "All Professions" mode shows a Profession column; "My Professions" mode widens the strategy name column and shows profession as a subtitle on each row.
+  - **Scan button disable**: both the left-panel and status-bar scan buttons are disabled while a scan is in progress to prevent double-trigger; re-enabled automatically on scan complete.
+  - **First-run onboarding**: a semi-transparent overlay guides new users on first open. "Got It" dismisses; "Scan Auction House" dismisses and starts a scan immediately.
+  - **Scan progress bar**: moved to the status bar at the bottom of the window; shows `X / Y items` label during scans.
+
+### Bug Fixes
+- Fixed: `StratDetail` and `StratCreator` delete/save/import handlers called `GAM.UI.MainWindow.Refresh()` directly, bypassing V2 when the new UI is active. All four call sites updated to use `GAM:GetActiveMainWindow().Refresh()`.
+
+### Internal
+- `Pricing.GetBestStrategy(patchTag, profFilter)` — returns `(strat, profit, roi)` for the highest `profit × √ROI` strategy above minimum thresholds.
+- `GAM:GetActiveMainWindow()` helper in Core.lua routes window calls to the correct UI based on `useNewUI` DB option.
+- `UI\MainWindowV2.lua` added to TOC (1,326 lines).
+
+---
+
 ## [1.2.7] — 2026-03-16
 
 ### New Features
