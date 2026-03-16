@@ -44,6 +44,25 @@ local DB_DEFAULTS = {
         lwRes            = GAM.C.DEFAULT_LW_RES,
         engMulti         = GAM.C.DEFAULT_ENG_MULTI,
         engRes           = GAM.C.DEFAULT_ENG_RES,
+        -- Per-profession spec node bonuses (integer %; default = value baked into spreadsheet)
+        -- Used by CalculateStratMetrics to scale from the spreadsheet's baked-in stats
+        -- to the user's actual spec tree allocation.
+        alchMcNode       = 20,   -- Alchemy MCm node bonus baked in spreadsheet
+        alchRsNode       = 0,    -- Alchemy Rs node bonus baked in spreadsheet
+        enchMcNode       = 100,  -- Enchanting crafting MCm node bonus baked in spreadsheet
+        enchRsNode       = 20,   -- Enchanting Rs node bonus baked in spreadsheet
+        inscMcNode       = 100,  -- Inscription ink MCm node bonus baked in spreadsheet
+        inscRsNode       = 55,   -- Inscription Rs node bonus baked in spreadsheet
+        lwMcNode         = 50,   -- Leatherworking MCm node bonus baked in spreadsheet
+        lwRsNode         = 50,   -- Leatherworking Rs node bonus baked in spreadsheet
+        jcMcNode         = 50,   -- Jewelcrafting MCm node bonus baked in spreadsheet
+        jcRsNode         = 50,   -- Jewelcrafting Rs node bonus baked in spreadsheet
+        tailMcNode       = 40,   -- Tailoring MCm node bonus baked in spreadsheet
+        tailRsNode       = 50,   -- Tailoring Rs node bonus baked in spreadsheet
+        bsMcNode         = 0,    -- Blacksmithing MCm node bonus baked in spreadsheet
+        bsRsNode         = 0,    -- Blacksmithing Rs node bonus baked in spreadsheet
+        engMcNode        = 50,   -- Engineering MCm node bonus baked in spreadsheet
+        engRsNode        = 50,   -- Engineering Rs node bonus baked in spreadsheet
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
     },
@@ -90,6 +109,16 @@ local MIGRATIONS = {
                 -- Reset everyone to new default (50). Old default was 1,000 and
                 -- users who never changed it should start fresh at the new value.
                 db.options.shallowFillQty = GAM.C.DEFAULT_FILL_QTY
+            end
+        end,
+    },
+    -- v5: New "Dynamic Stats" spreadsheet with per-profession baked MCm/Rs constants.
+    -- Wipe price cache so stale multipliers for changed strats don't persist.
+    {
+        dataVersion = 5,
+        migrate = function(db)
+            if type(db.priceCache) == "table" then
+                wipe(db.priceCache)
             end
         end,
     },

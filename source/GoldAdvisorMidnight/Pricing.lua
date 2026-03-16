@@ -262,29 +262,26 @@ end
 
 -- ===== Stat scaling (Master Equation) =====
 
--- MCm: Multicraft multiplier at full talent investment (base 1.25 × 1.5 bonus = 1.875).
--- Rs:  Resourcefulness save ratio at full specialization (base 0.30 + 0.15 = 0.45).
--- Both sides of the scaling formula use the same constants → talent investment largely cancels.
--- Only the gear-based multi% and res% differences drive the scale factor.
-local BAKED_MCM = 1.875
-local BAKED_RS  = 0.45
-
--- Stat profiles: baked baseline values (multi/res at which qtyMultipliers were measured).
--- bakedMulti/bakedRes are 0–1 floats. multiKey/resKey are DB option field names.
+-- Stat profiles: baseline values baked into spreadsheet qtyMultipliers.
+--   bakedMulti / bakedRes  — the tester's gear stats (0–1) when the multipliers were measured.
+--   mcm / rs               — MCm/Rs formula constants baked into the spreadsheet (per-profession).
+--   multiKey / resKey      — DB option keys for the user's current gear stats (integer %).
+--   mcNodeKey / rsNodeKey  — DB option keys for the user's spec node bonuses (integer %).
+--                            Default values (baked into DB_DEFAULTS) match what the spreadsheet
+--                            assumed → scale = 1.0 for users who haven't changed them.
 -- Starred (*) profiles had bakedMulti=0 (tester had no multicraft gear for that tool set).
 local STAT_PROFILES = {
-    insc_milling   = { bakedMulti=0,    bakedRes=0.32, resKey="inscMillingRes"  },  -- no Multicraft stat
-    insc_ink       = { bakedMulti=0.26, bakedRes=0.17, multiKey="inscInkMulti",     resKey="inscInkRes"      },
-    jc_prospect    = { bakedMulti=0,    bakedRes=0.33, resKey="jcProspectRes"   },  -- no Multicraft stat
-    jc_crush       = { bakedMulti=0,    bakedRes=0.35, resKey="jcCrushRes"      },  -- no Multicraft stat
-    jc_craft       = { bakedMulti=0.30, bakedRes=0.18, multiKey="jcCraftMulti",     resKey="jcCraftRes"      },
-    ench_shatter   = { bakedMulti=0,    bakedRes=0.30, resKey="enchShatterRes"  },  -- no Multicraft stat
-    ench_craft     = { bakedMulti=0.25, bakedRes=0.16, multiKey="enchCraftMulti",   resKey="enchCraftRes"    },
-    alchemy        = { bakedMulti=0.30, bakedRes=0.15, multiKey="alchMulti",        resKey="alchRes"         },
-    tailoring      = { bakedMulti=0.25, bakedRes=0.15, multiKey="tailMulti",        resKey="tailRes"         },
-    blacksmithing  = { bakedMulti=0.28, bakedRes=0.19, multiKey="bsMulti",          resKey="bsRes"           },
-    leatherworking = { bakedMulti=0.29, bakedRes=0.17, multiKey="lwMulti",          resKey="lwRes"           },
-    engineering    = { bakedMulti=0,    bakedRes=0.38, multiKey="engMulti",         resKey="engRes"          }, -- *
+    insc_milling   = { bakedMulti=0,    bakedRes=0.32, resKey="inscMillingRes",                              mcm=0,     rs=0.465, rsNodeKey="inscRsNode"                           },  -- no MC stat
+    insc_ink       = { bakedMulti=0.26, bakedRes=0.17, multiKey="inscInkMulti", resKey="inscInkRes",         mcm=2.5,   rs=0.465, mcNodeKey="inscMcNode", rsNodeKey="inscRsNode"   },
+    jc_prospect    = { bakedMulti=0,    bakedRes=0.33, resKey="jcProspectRes",                               mcm=0,     rs=0.45,  rsNodeKey="jcRsNode"                             },  -- no MC stat
+    jc_crush       = { bakedMulti=0,    bakedRes=0.35, resKey="jcCrushRes",                                  mcm=0,     rs=0.45,  rsNodeKey="jcRsNode"                             },  -- no MC stat
+    ench_shatter   = { bakedMulti=0,    bakedRes=0.30, resKey="enchShatterRes",                              mcm=0,     rs=0.36,  rsNodeKey="enchRsNode"                           },  -- no MC stat
+    ench_craft     = { bakedMulti=0.25, bakedRes=0.16, multiKey="enchCraftMulti", resKey="enchCraftRes",     mcm=2.5,   rs=0.36,  mcNodeKey="enchMcNode", rsNodeKey="enchRsNode"   },
+    alchemy        = { bakedMulti=0.30, bakedRes=0.15, multiKey="alchMulti",      resKey="alchRes",          mcm=1.5,   rs=0.30,  mcNodeKey="alchMcNode", rsNodeKey="alchRsNode"  },
+    tailoring      = { bakedMulti=0.25, bakedRes=0.15, multiKey="tailMulti",      resKey="tailRes",          mcm=1.75,  rs=0.45,  mcNodeKey="tailMcNode", rsNodeKey="tailRsNode"  },
+    blacksmithing  = { bakedMulti=0.28, bakedRes=0.19, multiKey="bsMulti",        resKey="bsRes",            mcm=1.25,  rs=0.30,  mcNodeKey="bsMcNode",   rsNodeKey="bsRsNode"    },
+    leatherworking = { bakedMulti=0.29, bakedRes=0.17, multiKey="lwMulti",        resKey="lwRes",            mcm=1.875, rs=0.45,  mcNodeKey="lwMcNode",   rsNodeKey="lwRsNode"    },
+    engineering    = { bakedMulti=0,    bakedRes=0.38, multiKey="engMulti",        resKey="engRes",           mcm=1.875, rs=0.45,  mcNodeKey="engMcNode",  rsNodeKey="engRsNode"   }, -- *
 }
 
 -- Maps every strat ID to its stat profile key.
@@ -300,15 +297,8 @@ local STRAT_STAT_PROFILE = {
     ["inscription__munsell_ink__midnight_1"]               = "insc_ink",
     ["inscription__soul_cipher__midnight_1"]               = "insc_ink",
     -- JC prospecting
-    ["jewelcrafting__brilliant_silver_ore_prospecting__midnight_1"] = "jc_prospect",
     ["jewelcrafting__dazzling_thorium_prospecting__midnight_1"]     = "jc_prospect",
     ["jewelcrafting__refulgent_copper_ore_prospecting__midnight_1"] = "jc_prospect",
-    ["jewelcrafting__umbral_tin_ore_prospecting__midnight_1"]       = "jc_prospect",
-    -- JC crushing
-    ["jewelcrafting__crushing__midnight_1"]                         = "jc_crush",
-    -- JC gem crafting
-    ["jewelcrafting__sin_dorei_lens_crafting__midnight_1"]          = "jc_craft",
-    ["jewelcrafting__sunglass_vial_crafting__midnight_1"]           = "jc_craft",
     -- Enchanting shattering
     ["enchanting__dawn_shatter_q2__midnight_1"]                     = "ench_shatter",
     ["enchanting__radiant_shatter_q1__midnight_1"]                  = "ench_shatter",
@@ -334,16 +324,16 @@ local STRAT_STAT_PROFILE = {
     ["alchemy__void_shrouded_tincture__midnight_1"]                 = "alchemy",
     -- Tailoring
     ["tailoring__bright_linen_bolt__midnight_1"]                    = "tailoring",
-    ["tailoring__imbued_bright_linen_bolt__midnight_1"]             = "tailoring",
     -- Blacksmithing
-    ["blacksmithing__gloaming_alloy__midnight_1"]                   = "blacksmithing",
-    ["blacksmithing__refulgent_copper_ingot__midnight_1"]           = "blacksmithing",
-    ["blacksmithing__sterling_alloy__midnight_1"]                   = "blacksmithing",
+    ["blacksmithing__gloaming_alloy_q1__midnight_1"]                = "blacksmithing",
+    ["blacksmithing__gloaming_alloy_q2__midnight_1"]                = "blacksmithing",
+    ["blacksmithing__refulgent_copper_ingot_q1__midnight_1"]        = "blacksmithing",
+    ["blacksmithing__refulgent_copper_ingot_q2__midnight_1"]        = "blacksmithing",
+    ["blacksmithing__sterling_alloy_q1__midnight_1"]                = "blacksmithing",
+    ["blacksmithing__sterling_alloy_q2__midnight_1"]                = "blacksmithing",
     -- Leatherworking
-    ["leatherworking__scale_woven_hide__midnight_1"]                = "leatherworking",
     ["leatherworking__silvermoon_weapon_wrap__midnight_1"]          = "leatherworking",
     ["leatherworking__sin_dorei_armor_banding__midnight_1"]         = "leatherworking",
-    ["leatherworking__void_touched_drums__midnight_1"]              = "leatherworking",
     -- Engineering
     ["engineering__recycling_arcanoweave__midnight_1"]              = "engineering",
     ["engineering__recycling_arcanoweave_lining__midnight_1"]       = "engineering",
@@ -399,7 +389,9 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local pdb    = GetPatchDB(patchTag)
 
     -- Master Equation stat scaling: adjust output quantities from baked baseline to player's gear.
-    -- scale = [(1 + u_multi × MCm) / (1 + b_multi × MCm)] × [(1 - b_res × Rs) / (1 - u_res × Rs)]
+    -- scale = [(1 + u_multi × eff_mcm) / (1 + b_multi × b_mcm)]
+    --       × [(1 - b_res × b_rs) / (1 - u_res × eff_rs)]
+    -- where eff_mcm/eff_rs = BASE × (1 + user_node_bonus).
     -- Returns 1.0 for strats not in STRAT_STAT_PROFILE (custom strats → unchanged).
     local outputStatScale = 1.0
     local profileKey = STRAT_STAT_PROFILE[strat.id]
@@ -409,11 +401,22 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         local u_res   = (opts[prof.resKey]   or 0) / 100
         local b_multi = prof.bakedMulti
         local b_res   = prof.bakedRes
-        local multi_denom = 1 + b_multi * BAKED_MCM
-        local res_denom   = 1 - u_res   * BAKED_RS
-        local res_baked   = 1 - b_res   * BAKED_RS
+        local b_mcm   = prof.mcm  -- MCm baked into spreadsheet formula
+        local b_rs    = prof.rs   -- Rs  baked into spreadsheet formula
+
+        -- User's effective MCm/Rs from spec node bonus (integer % in DB → decimal)
+        local u_mc_node = prof.mcNodeKey and ((opts[prof.mcNodeKey] or 0) / 100)
+                          or (GAM.C.BASE_MCM > 0 and (b_mcm / GAM.C.BASE_MCM - 1) or 0)
+        local u_rs_node = prof.rsNodeKey and ((opts[prof.rsNodeKey] or 0) / 100)
+                          or (GAM.C.BASE_RS  > 0 and (b_rs  / GAM.C.BASE_RS  - 1) or 0)
+        local eff_mcm   = GAM.C.BASE_MCM * (1 + u_mc_node)
+        local eff_rs    = GAM.C.BASE_RS  * (1 + u_rs_node)
+
+        local multi_denom = 1 + b_multi * b_mcm
+        local res_denom   = 1 - u_res   * eff_rs
+        local res_baked   = 1 - b_res   * b_rs
         if multi_denom > 0 and res_denom > 0 and res_baked > 0 then
-            outputStatScale = ((1 + u_multi * BAKED_MCM) / multi_denom)
+            outputStatScale = ((1 + u_multi * eff_mcm) / multi_denom)
                             * (res_baked / res_denom)
         end
     end

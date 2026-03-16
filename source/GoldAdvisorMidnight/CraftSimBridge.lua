@@ -48,6 +48,11 @@ bridgeFrame:RegisterEvent("PLAYER_LOGIN")
 bridgeFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
         OnLoad()
+        -- Auto-sync node bonuses from CraftSim SavedVars (silent, best-effort)
+        local count = Bridge.SyncNodeBonusesFromCraftSim()
+        if count > 0 then
+            GAM.Log.Debug("CraftSimBridge: synced node bonuses for %d professions.", count)
+        end
         bridgeFrame:UnregisterAllEvents()
     end
 end)
@@ -59,6 +64,76 @@ end
 -- CraftSimDB is accessible even without the full CraftSimAPI (direct SavedVars).
 local function CraftSimDBAvailable()
     return CraftSimDB ~= nil and type(CraftSimDB) == "table"
+end
+
+-- ===== Node bonus reader =====
+
+-- Maps WoW professionID → GAM profession key (used for DB node bonus fields).
+local PROF_ID_TO_KEY = {
+    [773] = "insc",  -- Inscription
+    [755] = "jc",    -- Jewelcrafting
+    [333] = "ench",  -- Enchanting
+    [171] = "alch",  -- Alchemy
+    [197] = "tail",  -- Tailoring
+    [164] = "bs",    -- Blacksmithing
+    [165] = "lw",    -- Leatherworking
+    [202] = "eng",   -- Engineering
+}
+
+-- GetAllProfessionNodeBonuses() → { profKey → { rsNode, mcNode } } or {}
+-- Reads per-profession Rs/MC spec node bonuses from CraftSimDB for the current
+-- character. Returns decimal 0–1 values clamped to [0,1].
+-- Returns an empty table if CraftSimDB is unavailable or has no data for this char.
+function Bridge.GetAllProfessionNodeBonuses()
+    if not CraftSimDBAvailable() then return {} end
+    local uid = UnitName("player") .. "-" .. GetRealmName()
+    local specData = CraftSimDB.crafterDB
+                     and CraftSimDB.crafterDB.data
+                     and CraftSimDB.crafterDB.data[uid]
+                     and CraftSimDB.crafterDB.data[uid].specializationData
+    if not specData then return {} end
+
+    local result = {}
+    for recipeID, entry in pairs(specData) do
+        if entry and entry.professionStats then
+            local ok, info = pcall(C_TradeSkillUI.GetRecipeInfo, recipeID)
+            local profKey = ok and info and PROF_ID_TO_KEY[info.professionID]
+            if profKey and not result[profKey] then
+                local ps = entry.professionStats
+                local rsNode = ps.resourcefulness
+                               and ps.resourcefulness.extraValues
+                               and ps.resourcefulness.extraValues[1]
+                local mcNode = ps.multicraft
+                               and ps.multicraft.extraValues
+                               and ps.multicraft.extraValues[1]
+                result[profKey] = {
+                    rsNode = math.max(0, math.min(1, tonumber(rsNode) or 0)),
+                    mcNode = math.max(0, math.min(1, tonumber(mcNode) or 0)),
+                }
+            end
+        end
+    end
+    return result
+end
+
+-- SyncNodeBonusesFromCraftSim() → count (number of professions updated)
+-- Reads CraftSim spec data and updates per-profession node bonus DB fields.
+-- Returns 0 if CraftSim data is unavailable.
+function Bridge.SyncNodeBonusesFromCraftSim()
+    local bonuses = Bridge.GetAllProfessionNodeBonuses()
+    local count   = 0
+    local opts    = GAM.db and GAM.db.options
+    if not opts then return 0 end
+
+    for profKey, data in pairs(bonuses) do
+        local mcField = profKey .. "McNode"
+        local rsField = profKey .. "RsNode"
+        -- Store as integer percent (0–100) to match the existing DB convention
+        opts[mcField] = math.floor(data.mcNode * 100 + 0.5)
+        opts[rsField] = math.floor(data.rsNode * 100 + 0.5)
+        count = count + 1
+    end
+    return count
 end
 
 -- PushStratPrices(strat, patchTag) → pushed (number), err (string or nil)

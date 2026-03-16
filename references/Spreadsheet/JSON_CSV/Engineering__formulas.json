@@ -42,22 +42,22 @@
   {
     "addr": "C10",
     "formula": "=SUM(0.7123*C4)",
-    "cached_value": 7123
+    "cached_value": 3561.5
   },
   {
     "addr": "G10",
     "formula": "=SUM(0.6013*G4)",
-    "cached_value": 6013
+    "cached_value": 3006.5
   },
   {
     "addr": "K10",
     "formula": "=SUM(0.7082*K4)",
-    "cached_value": 7082
+    "cached_value": 3541
   },
   {
     "addr": "O10",
     "formula": "=SUM(0.7135*O4)",
-    "cached_value": 7135
+    "cached_value": 3567.5
   },
   {
     "addr": "C11",
@@ -85,8 +85,18 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "D12",
+    "formula": "=\"Profit \" & ROUND(SUM(C12/(C6*C4)*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "G12",
     "formula": "=sum((G10*G7*0.95)-(G6*G4))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "H12",
+    "formula": "=\"Profit \" & ROUND(SUM(G12/(G6*G4)*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -95,8 +105,18 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "L12",
+    "formula": "=\"Profit \" & ROUND(SUM(K12/(K6*K4)*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "O12",
     "formula": "=sum((O10*O7*0.95)-(O6*O4))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "P12",
+    "formula": "=\"Profit \" & ROUND(SUM(O12/(O6*O4)*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -147,7 +167,7 @@
   {
     "addr": "G21",
     "formula": "=SUM(0.724*G15)",
-    "cached_value": 7240
+    "cached_value": 3620
   },
   {
     "addr": "K21",
@@ -185,8 +205,18 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "D23",
+    "formula": "=\"Profit \" & ROUND(SUM(C23/(C17*C15)*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "G23",
     "formula": "=sum((G21*G18*0.95)-(G17*G15))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "H23",
+    "formula": "=\"Profit \" & ROUND(SUM(G23/(G17*G15)*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -195,8 +225,18 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "L23",
+    "formula": "=\"Profit \" & ROUND(SUM(K23/(K17*K15)*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "O23",
     "formula": "=sum((O21*O18*0.95)-(O17*O15))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "P23",
+    "formula": "=\"Profit \" & ROUND(SUM(O23/(O17*O15)*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -242,7 +282,7 @@
   {
     "addr": "C32",
     "formula": "=SUM(0.7068*C26)",
-    "cached_value": 7068
+    "cached_value": 3534
   },
   {
     "addr": "G32",
@@ -285,8 +325,18 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "D34",
+    "formula": "=\"Profit \" & ROUND(SUM(C34/(C28*C26)*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "G34",
     "formula": "=sum((G32*G29*0.95)-(G28*G26))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "H34",
+    "formula": "=\"Profit \" & ROUND(SUM(G34/(G28*G26)*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -295,8 +345,18 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "L34",
+    "formula": "=\"Profit \" & ROUND(SUM(K34/(K28*K26)*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "O34",
     "formula": "=sum((O32*O29*0.95)-(O28*O26))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "P34",
+    "formula": "=\"Profit \" & ROUND(SUM(O34/(O28*O26)*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -365,13 +425,28 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "D45",
+    "formula": "=\"Profit \" & ROUND(SUM(C45/(C39*C37)*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "G45",
     "formula": "=sum((G43*G40*0.95)-(G39*G37))",
     "cached_value": "#N/A"
   },
   {
+    "addr": "H45",
+    "formula": "=\"Profit \" & ROUND(SUM(G45/(G39*G37)*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "K45",
     "formula": "=sum((K43*K40*0.95)-(K39*K37))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "L45",
+    "formula": "=\"Profit \" & ROUND(SUM(K45/(K39*K37)*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -432,12 +507,12 @@
   {
     "addr": "C55",
     "formula": "=VLOOKUP(B55,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
-    "cached_value": "41.14"
+    "cached_value": "#N/A"
   },
   {
     "addr": "G55",
     "formula": "=VLOOKUP(F55,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
-    "cached_value": "41.14"
+    "cached_value": "#N/A"
   },
   {
     "addr": "K55",
@@ -452,12 +527,12 @@
   {
     "addr": "C56",
     "formula": "=VLOOKUP(B56,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
-    "cached_value": "42"
+    "cached_value": "#N/A"
   },
   {
     "addr": "G56",
     "formula": "=VLOOKUP(F56,Data!A:G,IF(A2,CHOOSE(2,3,5,7),CHOOSE(1,3,5,7)),FALSE)",
-    "cached_value": "42"
+    "cached_value": "#N/A"
   },
   {
     "addr": "K56",
@@ -507,12 +582,12 @@
   {
     "addr": "C60",
     "formula": "=((C56*C51)+(C55*C50)+(C54*C49))/C59",
-    "cached_value": 333.9733333
+    "cached_value": "#N/A"
   },
   {
     "addr": "G60",
     "formula": "=((G56*G51)+(G55*G50)+(G54*G49))/G59",
-    "cached_value": 331.68
+    "cached_value": "#N/A"
   },
   {
     "addr": "K60",
@@ -525,13 +600,28 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "P60",
+    "formula": "=\"Profit \" & ROUND(SUM(O60/((O54*O50)+(O53*O49))*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "C61",
     "formula": "=sum((C59*C57*0.95)-((C56*C51)+(C55*C50)+(C54*C49)))",
     "cached_value": "#N/A"
   },
   {
+    "addr": "D61",
+    "formula": "=\"Profit \" & ROUND(SUM(C61/((C56*C51)+(C55*C50)+(C54*C49))*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "G61",
     "formula": "=sum((G59*G57*0.95)-((G56*G51)+(G55*G50)+(G54*G49)))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "H61",
+    "formula": "=\"Profit \" & ROUND(SUM(G61/((G56*G51)+(G55*G50)+(G54*G49))*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -542,6 +632,11 @@
   {
     "addr": "K62",
     "formula": "=sum((K60*K58*0.95)-((K57*K52)+(K56*K51)+(K55*K50)+(K54*K49)))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "L62",
+    "formula": "=\"Profit \" & ROUND(SUM(K62/((K57*K52)+(K56*K51)+(K55*K50)+(K54*K49))*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -695,8 +790,18 @@
     "cached_value": "#N/A"
   },
   {
+    "addr": "D77",
+    "formula": "=\"Profit \" & ROUND(SUM(C77/((C72*C67)+(C71*C66)+(C70*C65)+(C69*C64))*100),2) & \"%\"",
+    "cached_value": "#N/A"
+  },
+  {
     "addr": "G77",
     "formula": "=sum((G75*G73*0.95)-((G72*G67)+(G71*G66)+(G70*G65)+(G69*G64)))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "H77",
+    "formula": "=\"Profit \" & ROUND(SUM(G77/((G72*G67)+(G71*G66)+(G70*G65)+(G69*G64))*100),2) & \"%\"",
     "cached_value": "#N/A"
   },
   {
@@ -707,6 +812,11 @@
   {
     "addr": "K78",
     "formula": "=sum((K76*K74*0.95)-((K73*K68)+(K72*K67)+(K71*K66)+(K70*K65)))",
+    "cached_value": "#N/A"
+  },
+  {
+    "addr": "L78",
+    "formula": "=\"Profit \" & ROUND(SUM(K78/((K73*K68)+(K72*K67)+(K71*K66)+(K70*K65))*100),2) & \"%\"",
     "cached_value": "#N/A"
   }
 ]

@@ -16,7 +16,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Composite Flora",
     itemIDs       = { 241280, 241281 },
-    qtyMultiplier = 0.810750,
+    qtyMultiplier = 0.759162,
   },
   reagents = {
     {
@@ -53,7 +53,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Haranir Phial of Perception",
     itemIDs       = { 241316 },
-    qtyMultiplier = 3.000000,
+    qtyMultiplier = 3.036649,
   },
   reagents = {
     {
@@ -95,7 +95,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Amani Extract",
     itemIDs       = { 241298, 241299 },
-    qtyMultiplier = 1.539000,
+    qtyMultiplier = 1.518325,
   },
   reagents = {
     {
@@ -127,7 +127,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Silvermoon Health Potion",
     itemIDs       = { 241304 },
-    qtyMultiplier = 1.510800,
+    qtyMultiplier = 1.518325,
   },
   reagents = {
     {
@@ -154,7 +154,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Draught of Rampant Abandon",
     itemIDs       = { 241292 },
-    qtyMultiplier = 2.428000,
+    qtyMultiplier = 2.530541,
   },
   reagents = {
     {
@@ -165,12 +165,12 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
     {
       name          = "Sunglass Vial",
       itemIDs       = { 240990, 240991 },
-      qtyMultiplier = 1.667000,
+      qtyMultiplier = 1.666667,
     },
     {
       name          = "Tranquility Bloom",
       itemIDs       = { 236761, 236767 },
-      qtyMultiplier = 2.667000,
+      qtyMultiplier = 2.666667,
     },
     {
       name          = "Mana Lily",
@@ -196,7 +196,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Vicious Thalassian Flask of Honor",
     itemIDs       = {},
-    qtyMultiplier = 1.552500,
+    qtyMultiplier = 1.518325,
   },
   reagents = {
     {
@@ -233,7 +233,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Haranir Phial of Finesse",
     itemIDs       = { 241310 },
-    qtyMultiplier = 3.000000,
+    qtyMultiplier = 3.036649,
   },
   reagents = {
     {
@@ -275,7 +275,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Potion of Recklessness",
     itemIDs       = { 241288 },
-    qtyMultiplier = 3.644000,
+    qtyMultiplier = 3.795812,
   },
   reagents = {
     {
@@ -312,7 +312,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Potion of Zealotry",
     itemIDs       = {},
-    qtyMultiplier = 7.680000,
+    qtyMultiplier = 7.591623,
   },
   reagents = {
     {
@@ -349,7 +349,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Light's Potential",
     itemIDs       = {},
-    qtyMultiplier = 7.460000,
+    qtyMultiplier = 7.591623,
   },
   reagents = {
     {
@@ -391,7 +391,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Flask of the Blood Knights",
     itemIDs       = {},
-    qtyMultiplier = 3.000000,
+    qtyMultiplier = 3.036649,
   },
   reagents = {
     {
@@ -433,7 +433,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Flask of the Shattered Sun",
     itemIDs       = {},
-    qtyMultiplier = 3.000000,
+    qtyMultiplier = 3.036649,
   },
   reagents = {
     {
@@ -475,7 +475,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Void-Shrouded Tincture",
     itemIDs       = {},
-    qtyMultiplier = 3.831500,
+    qtyMultiplier = 3.795812,
   },
   reagents = {
     {
@@ -512,7 +512,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Lightfused Mana Potion",
     itemIDs       = {},
-    qtyMultiplier = 1.577800,
+    qtyMultiplier = 1.518325,
   },
   reagents = {
     {
@@ -540,7 +540,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Recycling Arcanoweave",
   notes      = "",
   sourceTab  = "Engineering",
-  defaultStartingAmount = 10000,
+  defaultStartingAmount = 5000,
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
@@ -584,11 +584,11 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Recycling Sunfire Silk Bolt",
   notes      = "",
   sourceTab  = "Engineering",
-  defaultStartingAmount = 10000,
+  defaultStartingAmount = 5000,
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.708800,  -- 7088 / 10000 (corrected from 7068)
+    qtyMultiplier = 0.706800,
   },
   reagents = {
     {
@@ -664,7 +664,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Smuggler's Lynxeye",
     itemIDs       = { 257747, 257748 },
-    qtyMultiplier = 1.875000,  -- 3750 expected crafted / 2000 start
+    qtyMultiplier = 1.875000,
   },
   reagents = {
     {
@@ -697,7 +697,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Recycling Arcanoweave Lining",
   notes      = "",
   sourceTab  = "Engineering",
-  defaultStartingAmount = 10000,
+  defaultStartingAmount = 5000,
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
@@ -719,7 +719,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Recycling Gloaming Alloy",
   notes      = "",
   sourceTab  = "Engineering",
-  defaultStartingAmount = 10000,
+  defaultStartingAmount = 5000,
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
@@ -821,7 +821,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Laced Zoomshots",
     itemIDs       = { 257749, 257750 },
-    qtyMultiplier = 1.875000,  -- 3750 expected crafted / 2000 start
+    qtyMultiplier = 1.875000,
   },
   reagents = {
     {
@@ -854,7 +854,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Recycling Argentleaf Pigment",
   notes      = "",
   sourceTab  = "Engineering",
-  defaultStartingAmount = 10000,
+  defaultStartingAmount = 5000,
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
@@ -946,7 +946,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Farstrider's Hawkeye",
     itemIDs       = {},
-    qtyMultiplier = 1.875000,  -- 3750 expected crafted / 2000 start
+    qtyMultiplier = 1.875000,
   },
   reagents = {
     {
@@ -983,7 +983,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Weighted Boomshots",
     itemIDs       = { 257751 },
-    qtyMultiplier = 1.875000,  -- 3750 expected crafted / 2000 start
+    qtyMultiplier = 1.875000,
   },
   reagents = {
     {
@@ -1016,7 +1016,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Recycling Bright Linen Bolt",
   notes      = "",
   sourceTab  = "Engineering",
-  defaultStartingAmount = 10000,
+  defaultStartingAmount = 5000,
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
@@ -1107,22 +1107,23 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   patchTag   = "midnight-1",
   profession = "Enchanting",
   stratName  = "Dawn Shatter Q2",
-  notes      = "Shatters rank-2 Dawn Crystals into Radiant Shards (Q1+Q2)",
+  notes      = "",
   sourceTab  = "Enchanting",
-  defaultStartingAmount = 2000,
+  defaultStartingAmount = 1000,
   output = {
-    name          = "Radiant Shard",
-    itemIDs       = { 243602, 243603 },  -- Q1=243602, Q2=243603
-    qtyMultiplier = 2.395500,  -- primary output stub; see outputs[] for full breakdown
-  },
-  outputs = {
-    { name = "Radiant Shard Q2", itemIDs = { 243603 }, qtyMultiplier = 2.395500 },  -- 4791 / 2000
-    { name = "Radiant Shard Q1", itemIDs = { 243602 }, qtyMultiplier = 0.946500 },  -- 1893 / 2000
+    name          = "Dawn Shatter Q2",
+    itemIDs       = {},
+    qtyMultiplier = 0.824142,
   },
   reagents = {
     {
       name          = "Dawn Crystal",
       itemIDs       = { 243605, 243606 },
+      qtyMultiplier = 1.000000,
+    },
+    {
+      name          = "Radiant Shard",
+      itemIDs       = { 243602, 243603 },
       qtyMultiplier = 1.000000,
     },
   },
@@ -1138,8 +1139,8 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   defaultStartingAmount = 5000,
   output = {
     name          = "Oil of Dawn",
-    itemIDs       = { 243735, 243736 },  -- Q1=243735, Q2=243736
-    qtyMultiplier = 1.550400,
+    itemIDs       = { 243735 },
+    qtyMultiplier = 1.659087,
   },
   reagents = {
     {
@@ -1176,7 +1177,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Smuggler's Enchanted Edge",
     itemIDs       = { 243737, 243738 },
-    qtyMultiplier = 1.550400,
+    qtyMultiplier = 1.659087,
   },
   reagents = {
     {
@@ -1207,44 +1208,18 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   patchTag   = "midnight-1",
   profession = "Enchanting",
   stratName  = "Radiant Shatter Q2",
-  notes      = "Shatters rank-2 Radiant Shards into Eversinging Dust (Q1+Q2)",
+  notes      = "",
   sourceTab  = "Enchanting",
-  defaultStartingAmount = 3000,
+  defaultStartingAmount = 1000,
   output = {
-    name          = "Eversinging Dust",
-    itemIDs       = { 243599, 243600 },  -- Q1=243599, Q2=243600
-    qtyMultiplier = 2.333400,  -- primary output stub; see outputs[] for full breakdown
-  },
-  outputs = {
-    { name = "Eversinging Dust Q2", itemIDs = { 243600 }, qtyMultiplier = 2.333400 },  -- 7000 / 3000
-    { name = "Eversinging Dust Q1", itemIDs = { 243599 }, qtyMultiplier = 1.000000 },  -- 3000 / 3000
+    name          = "Radiant Shatter Q2",
+    itemIDs       = {},
+    qtyMultiplier = 0.824142,
   },
   reagents = {
     {
       name          = "Radiant Shard",
       itemIDs       = { 243602, 243603 },
-      qtyMultiplier = 1.000000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "enchanting__radiant_shatter_q1__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Enchanting",
-  stratName  = "Radiant Shatter Q1",
-  notes      = "Shatters rank-1 Radiant Shards into Eversinging Dust Q1",
-  sourceTab  = "Enchanting",
-  defaultStartingAmount = 3000,
-  output = {
-    name          = "Eversinging Dust Q1",
-    itemIDs       = { 243599 },  -- Q1=243599
-    qtyMultiplier = 3.360000,  -- 10080 / 3000
-  },
-  reagents = {
-    {
-      name          = "Radiant Shard Q1",
-      itemIDs       = { 243602 },
       qtyMultiplier = 1.000000,
     },
   },
@@ -1261,7 +1236,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Thalassian Phoenix Oil",
     itemIDs       = { 243733, 243734 },
-    qtyMultiplier = 1.620200,
+    qtyMultiplier = 1.659087,
   },
   reagents = {
     {
@@ -1283,17 +1258,39 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
 }
 
 GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
+  id         = "enchanting__radiant_shatter_q1__midnight_1",
+  patchTag   = "midnight-1",
+  profession = "Enchanting",
+  stratName  = "Radiant Shatter Q1",
+  notes      = "",
+  sourceTab  = "Enchanting",
+  defaultStartingAmount = 1000,
+  output = {
+    name          = "Radiant Shatter Q1",
+    itemIDs       = {},
+    qtyMultiplier = 3.086674,
+  },
+  reagents = {
+    {
+      name          = "Radiant Shard",
+      itemIDs       = { 243602, 243603 },
+      qtyMultiplier = 1.000000,
+    },
+  },
+}
+
+GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   id         = "inscription__tranquility_bloom_milling__midnight_1",
   patchTag   = "midnight-1",
   profession = "Inscription",
   stratName  = "Tranquility Bloom Milling",
   notes      = "",
   sourceTab  = "Inscription",
-  defaultStartingAmount = 2500,
+  defaultStartingAmount = 13850,
   output = {
     name          = "Powder Pigment",
     itemIDs       = { 245807, 245808 },
-    qtyMultiplier = 1.530000,
+    qtyMultiplier = 1.511566,
   },
   reagents = {
     {
@@ -1311,11 +1308,11 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Sienna Ink",
   notes      = "",
   sourceTab  = "Inscription",
-  defaultStartingAmount = 3825,
+  defaultStartingAmount = 20935,
   output = {
     name          = "Sienna Ink",
     itemIDs       = { 245805, 245806 },
-    qtyMultiplier = 0.180000,
+    qtyMultiplier = 0.178082,
   },
   reagents = {
     {
@@ -1348,11 +1345,11 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Argentleaf Milling",
   notes      = "",
   sourceTab  = "Inscription",
-  defaultStartingAmount = 1250,
+  defaultStartingAmount = 6925,
   output = {
     name          = "Argentleaf Pigment",
     itemIDs       = { 245803, 245804 },
-    qtyMultiplier = 1.530000,
+    qtyMultiplier = 1.511566,
   },
   reagents = {
     {
@@ -1370,11 +1367,11 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Munsell Ink",
   notes      = "",
   sourceTab  = "Inscription",
-  defaultStartingAmount = 3825,
+  defaultStartingAmount = 20935,
   output = {
     name          = "Munsell Ink",
     itemIDs       = { 245801, 245802 },
-    qtyMultiplier = 0.180000,
+    qtyMultiplier = 0.178082,
   },
   reagents = {
     {
@@ -1407,11 +1404,11 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Mana Lily Milling",
   notes      = "",
   sourceTab  = "Inscription",
-  defaultStartingAmount = 625,
+  defaultStartingAmount = 3462,
   output = {
     name          = "Mana Lily Pigment",
     itemIDs       = { 245867, 245866 },
-    qtyMultiplier = 1.530000,
+    qtyMultiplier = 1.511566,
   },
   reagents = {
     {
@@ -1433,7 +1430,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Soul Cipher",
     itemIDs       = { 245766, 245767 },
-    qtyMultiplier = 2.729000,
+    qtyMultiplier = 2.671232,
   },
   reagents = {
     {
@@ -1471,86 +1468,17 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   stratName  = "Sanguithorn Milling",
   notes      = "",
   sourceTab  = "Inscription",
-  defaultStartingAmount = 1250,
+  defaultStartingAmount = 6925,
   output = {
     name          = "Sanguithorn Pigment",
     itemIDs       = { 245865, 245864 },
-    qtyMultiplier = 1.530000,
+    qtyMultiplier = 1.511566,
   },
   reagents = {
     {
       name          = "Sanguithorn",
       itemIDs       = { 236770, 236771 },
       qtyMultiplier = 1.000000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "leatherworking__scale_woven_hide__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Leatherworking",
-  stratName  = "Scale Woven Hide",
-  notes      = "",
-  sourceTab  = "Leatherworking",
-  defaultStartingAmount = 2000,
-  output = {
-    name          = "Scalewoven Hide",
-    itemIDs       = { 244631, 244632 },
-    qtyMultiplier = 1.700000,
-  },
-  reagents = {
-    {
-      name          = "Void-Tempered Hide",
-      itemIDs       = { 238518, 238519 },
-      qtyMultiplier = 1.000000,
-    },
-    {
-      name          = "Void-Tempered Plating",
-      itemIDs       = { 238520, 238521 },
-      qtyMultiplier = 1.000000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "leatherworking__void_touched_drums__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Leatherworking",
-  stratName  = "Void-Touched Drums",
-  notes      = "",
-  sourceTab  = "Leatherworking",
-  defaultStartingAmount = 1000,
-  output = {
-    name          = "Void-Touched Drums",
-    itemIDs       = { 244639 },
-    qtyMultiplier = 1.700000,  -- 1700 expected crafted / 1000 start
-  },
-  reagents = {
-    {
-      name          = "Mote of Pure Void",
-      itemIDs       = { 236952 },
-      qtyMultiplier = 1.000000,
-    },
-    {
-      name          = "Fantastic Fur",
-      itemIDs       = { 238525 },
-      qtyMultiplier = 1.000000,
-    },
-    {
-      name          = "Peerless Plumage",
-      itemIDs       = { 238522 },
-      qtyMultiplier = 1.000000,
-    },
-    {
-      name          = "Void-Tempered Leather",
-      itemIDs       = { 238511, 238512 },
-      qtyMultiplier = 10.000000,
-    },
-    {
-      name          = "Void-Tempered Scales",
-      itemIDs       = { 238513, 238514 },
-      qtyMultiplier = 10.000000,
     },
   },
 }
@@ -1564,9 +1492,9 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   sourceTab  = "Leatherworking",
   defaultStartingAmount = 2000,
   output = {
-    name          = "Sin'dorei Armor Banding",  -- WoW uses lowercase 'd'
+    name          = "Sin'Dorei Armor Banding",
     itemIDs       = { 244635, 244636 },
-    qtyMultiplier = 0.850000,
+    qtyMultiplier = 0.819310,
   },
   reagents = {
     {
@@ -1598,7 +1526,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Silvermoon Weapon Wrap",
     itemIDs       = { 244637, 244638 },
-    qtyMultiplier = 0.850000,
+    qtyMultiplier = 0.819310,
   },
   reagents = {
     {
@@ -1620,17 +1548,17 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
 }
 
 GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "blacksmithing__refulgent_copper_ingot__midnight_1",
+  id         = "blacksmithing__refulgent_copper_ingot_q1__midnight_1",
   patchTag   = "midnight-1",
   profession = "Blacksmithing",
-  stratName  = "Refulgent Copper Ingot",
+  stratName  = "Refulgent Copper Ingot Q1",
   notes      = "",
   sourceTab  = "Blacksmithing",
-  defaultStartingAmount = 600,
+  defaultStartingAmount = 5000,
   output = {
     name          = "Refulgent Copper Ingot",
     itemIDs       = { 238197, 238198 },
-    qtyMultiplier = 0.294200,
+    qtyMultiplier = 0.285782,
   },
   reagents = {
     {
@@ -1647,17 +1575,44 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
 }
 
 GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "blacksmithing__gloaming_alloy__midnight_1",
+  id         = "blacksmithing__refulgent_copper_ingot_q2__midnight_1",
   patchTag   = "midnight-1",
   profession = "Blacksmithing",
-  stratName  = "Gloaming Alloy",
+  stratName  = "Refulgent Copper Ingot Q2",
   notes      = "",
   sourceTab  = "Blacksmithing",
   defaultStartingAmount = 3000,
   output = {
+    name          = "Refulgent Copper Ingot",
+    itemIDs       = { 238197, 238198 },
+    qtyMultiplier = 0.476304,
+  },
+  reagents = {
+    {
+      name          = "Refulgent Copper Ore",
+      itemIDs       = { 237359, 237361 },
+      qtyMultiplier = 1.000000,
+    },
+    {
+      name          = "Luminant Flux",
+      itemIDs       = { 243060 },
+      qtyMultiplier = 0.666667,
+    },
+  },
+}
+
+GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
+  id         = "blacksmithing__gloaming_alloy_q1__midnight_1",
+  patchTag   = "midnight-1",
+  profession = "Blacksmithing",
+  stratName  = "Gloaming Alloy Q1",
+  notes      = "",
+  sourceTab  = "Blacksmithing",
+  defaultStartingAmount = 6000,
+  output = {
     name          = "Gloaming Alloy",
     itemIDs       = { 238202, 238203 },
-    qtyMultiplier = 0.240000,
+    qtyMultiplier = 0.238152,
   },
   reagents = {
     {
@@ -1679,17 +1634,49 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
 }
 
 GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "blacksmithing__sterling_alloy__midnight_1",
+  id         = "blacksmithing__gloaming_alloy_q2__midnight_1",
   patchTag   = "midnight-1",
   profession = "Blacksmithing",
-  stratName  = "Sterling Alloy",
+  stratName  = "Gloaming Alloy Q2",
   notes      = "",
   sourceTab  = "Blacksmithing",
   defaultStartingAmount = 3000,
   output = {
+    name          = "Gloaming Alloy",
+    itemIDs       = { 238202, 238203 },
+    qtyMultiplier = 0.476304,
+  },
+  reagents = {
+    {
+      name          = "Umbral Tin Ore",
+      itemIDs       = { 237362, 237363 },
+      qtyMultiplier = 1.000000,
+    },
+    {
+      name          = "Luminant Flux",
+      itemIDs       = { 243060 },
+      qtyMultiplier = 1.333333,
+    },
+    {
+      name          = "Refulgent Copper Ingot",
+      itemIDs       = { 238197, 238198 },
+      qtyMultiplier = 1.000000,
+    },
+  },
+}
+
+GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
+  id         = "blacksmithing__sterling_alloy_q1__midnight_1",
+  patchTag   = "midnight-1",
+  profession = "Blacksmithing",
+  stratName  = "Sterling Alloy Q1",
+  notes      = "",
+  sourceTab  = "Blacksmithing",
+  defaultStartingAmount = 6000,
+  output = {
     name          = "Sterling Alloy",
     itemIDs       = { 238204, 238205 },
-    qtyMultiplier = 0.240000,
+    qtyMultiplier = 0.238152,
   },
   reagents = {
     {
@@ -1711,17 +1698,49 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
 }
 
 GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
+  id         = "blacksmithing__sterling_alloy_q2__midnight_1",
+  patchTag   = "midnight-1",
+  profession = "Blacksmithing",
+  stratName  = "Sterling Alloy Q2",
+  notes      = "",
+  sourceTab  = "Blacksmithing",
+  defaultStartingAmount = 3000,
+  output = {
+    name          = "Sterling Alloy",
+    itemIDs       = { 238204, 238205 },
+    qtyMultiplier = 0.476304,
+  },
+  reagents = {
+    {
+      name          = "Brilliant Silver Ore",
+      itemIDs       = { 237364, 237365 },
+      qtyMultiplier = 1.000000,
+    },
+    {
+      name          = "Luminant Flux",
+      itemIDs       = { 243060 },
+      qtyMultiplier = 1.333333,
+    },
+    {
+      name          = "Refulgent Copper Ingot",
+      itemIDs       = { 238197, 238198 },
+      qtyMultiplier = 1.000000,
+    },
+  },
+}
+
+GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   id         = "tailoring__bright_linen_bolt__midnight_1",
   patchTag   = "midnight-1",
   profession = "Tailoring",
   stratName  = "Bright Linen Bolt",
   notes      = "",
   sourceTab  = "Tailoring",
-  defaultStartingAmount = 1000,
+  defaultStartingAmount = 2000,
   output = {
     name          = "Bright Linen Bolt",
     itemIDs       = { 239700, 239701 },
-    qtyMultiplier = 1.592000,
+    qtyMultiplier = 1.453651,
   },
   reagents = {
     {
@@ -1738,81 +1757,17 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
 }
 
 GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "tailoring__imbued_bright_linen_bolt__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Tailoring",
-  stratName  = "Imbued Bright Linen Bolt",
-  notes      = "",
-  sourceTab  = "Tailoring",
-  defaultStartingAmount = 6000,
-  output = {
-    name          = "Imbued Bright Linen Bolt",
-    itemIDs       = { 239702, 239703 },
-    qtyMultiplier = 0.780948,
-  },
-  reagents = {
-    {
-      name          = "Bright Linen Bolt",
-      itemIDs       = { 239700, 239701 },
-      qtyMultiplier = 1.000000,
-    },
-    {
-      name          = "Silverleaf Thread",
-      itemIDs       = { 251665 },
-      qtyMultiplier = 2.000000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   id         = "jewelcrafting__refulgent_copper_ore_prospecting__midnight_1",
   patchTag   = "midnight-1",
   profession = "Jewelcrafting",
   stratName  = "Refulgent Copper Ore Prospecting",
   notes      = "",
   sourceTab  = "Jewelcrafting",
-  defaultStartingAmount = 1000,
+  defaultStartingAmount = 800,
   output = {
-    name          = "Duskshrouded Stone",
-    itemIDs       = { 242788, 242789 },
-    qtyMultiplier = 0.270000,
-  },
-  outputs = {
-    {
-      name          = "Harandar Peridot",
-      itemIDs       = { 242607, 242720 },
-      qtyMultiplier = 0.020000,
-    },
-    {
-      name          = "Tenebrous Amethyst",
-      itemIDs       = { 242606, 242721 },
-      qtyMultiplier = 0.020000,
-    },
-    {
-      name          = "Amani Lapis",
-      itemIDs       = { 242554, 242722 },
-      qtyMultiplier = 0.020000,
-    },
-    {
-      name          = "Sanguine Garnet",
-      itemIDs       = { 242553, 242723 },
-      qtyMultiplier = 0.020000,
-    },
-    {
-      name          = "Eversong Diamond",
-      itemIDs       = { 242608, 242712 },
-      qtyMultiplier = 0.006400,
-    },
-    {
-      name          = "Duskshrouded Stone",
-      itemIDs       = { 242788, 242789 },
-      qtyMultiplier = 0.270000,
-    },
-    {
-      name          = "Crystalline Glass",
-      itemIDs       = { 242786, 242787 },
-      qtyMultiplier = 0.170000,
-    },
+    name          = "Refulgent Copper Ore",
+    itemIDs       = { 237359, 237361 },
+    qtyMultiplier = 5.000000,
   },
   reagents = {
     {
@@ -1878,205 +1833,6 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
       name          = "Dazzling Thorium",
       itemIDs       = { 237366 },
       qtyMultiplier = 1.000000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "jewelcrafting__brilliant_silver_ore_prospecting__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Jewelcrafting",
-  stratName  = "Brilliant Silver Ore Prospecting",
-  notes      = "",
-  sourceTab  = "Jewelcrafting",
-  defaultStartingAmount = 1000,
-  output = {
-    name          = "Duskshrouded Stone",
-    itemIDs       = { 242788, 242789 },
-    qtyMultiplier = 0.254400,
-  },
-  outputs = {
-    {
-      name          = "Sanguine Garnet",
-      itemIDs       = { 242553, 242723 },
-      qtyMultiplier = 0.030000,
-    },
-    {
-      name          = "Amani Lapis",
-      itemIDs       = { 242554, 242722 },
-      qtyMultiplier = 0.030000,
-    },
-    {
-      name          = "Flawless Sanguine Garnet",
-      itemIDs       = { 242613, 242724 },
-      qtyMultiplier = 0.028000,
-    },
-    {
-      name          = "Flawless Amani Lapis",
-      itemIDs       = { 242612, 242727 },
-      qtyMultiplier = 0.028000,
-    },
-    {
-      name          = "Eversong Diamond",
-      itemIDs       = { 242608, 242712 },
-      qtyMultiplier = 0.012117,
-    },
-    {
-      name          = "Duskshrouded Stone",
-      itemIDs       = { 242788, 242789 },
-      qtyMultiplier = 0.254400,
-    },
-    {
-      name          = "Crystalline Glass",
-      itemIDs       = { 242786, 242787 },
-      qtyMultiplier = 0.095000,  -- in-game: ~35 from 400 ore at 17% res (rate 0.0875 / scale 0.922 ≈ 0.095)
-    },
-  },
-  reagents = {
-    {
-      name          = "Brilliant Silver Ore",
-      itemIDs       = { 237364, 237365 },
-      qtyMultiplier = 1.000000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "jewelcrafting__sunglass_vial_crafting__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Jewelcrafting",
-  stratName  = "Sunglass Vial Crafting",
-  notes      = "",
-  sourceTab  = "Jewelcrafting",
-  defaultStartingAmount = 2500,
-  output = {
-    name          = "Sunglass Vial",
-    itemIDs       = { 240990, 240991 },
-    qtyMultiplier = 0.350000,
-  },
-  reagents = {
-    {
-      name          = "Crystalline Glass",
-      itemIDs       = { 242786, 242787 },
-      qtyMultiplier = 1.000000,
-    },
-    {
-      name          = "Duskshrouded Stone",
-      itemIDs       = { 242788, 242789 },
-      qtyMultiplier = 0.200000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "jewelcrafting__umbral_tin_ore_prospecting__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Jewelcrafting",
-  stratName  = "Umbral Tin Ore Prospecting",
-  notes      = "",
-  sourceTab  = "Jewelcrafting",
-  defaultStartingAmount = 1000,
-  output = {
-    name          = "Duskshrouded Stone",
-    itemIDs       = { 242788, 242789 },
-    qtyMultiplier = 0.254400,
-  },
-  outputs = {
-    {
-      name          = "Harandar Peridot",
-      itemIDs       = { 242607, 242720 },
-      qtyMultiplier = 0.030000,
-    },
-    {
-      name          = "Tenebrous Amethyst",
-      itemIDs       = { 242606, 242721 },
-      qtyMultiplier = 0.030000,
-    },
-    {
-      name          = "Flawless Harandar Peridot",
-      itemIDs       = { 242610, 242726 },
-      qtyMultiplier = 0.028000,
-    },
-    {
-      name          = "Flawless Tenebrous Amethyst",
-      itemIDs       = { 242611, 242725 },
-      qtyMultiplier = 0.028000,
-    },
-    {
-      name          = "Eversong Diamond",
-      itemIDs       = { 242608, 242712 },
-      qtyMultiplier = 0.012117,
-    },
-    {
-      name          = "Duskshrouded Stone",
-      itemIDs       = { 242788, 242789 },
-      qtyMultiplier = 0.254400,
-    },
-    {
-      name          = "Crystalline Glass",
-      itemIDs       = { 242786, 242787 },
-      qtyMultiplier = 0.180000,
-    },
-  },
-  reagents = {
-    {
-      name          = "Umbral Tin Ore",
-      itemIDs       = { 237362, 237363 },
-      qtyMultiplier = 1.000000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "jewelcrafting__crushing__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Jewelcrafting",
-  stratName  = "Crushing",
-  notes      = "Uses cheapest low-tier gem as input (Amani Lapis shown as example). Substitute whichever Q1 gem is cheapest on your server.",
-  sourceTab  = "Jewelcrafting",
-  defaultStartingAmount = 673,
-  output = {
-    name          = "Glimmering Gemdust",
-    itemIDs       = { 242620, 242621 },
-    qtyMultiplier = 0.835015,  -- 561.965 gemdust / 673 start
-  },
-  reagents = {
-    {
-      name          = "Amani Lapis",  -- cheapest low-tier gem; substitute as needed
-      itemIDs       = { 242554, 242722 },
-      qtyMultiplier = 1.000000,
-    },
-    {
-      name          = "Duskshrouded Stone",  -- 35% resourcefulness reagent: 673 * 0.35 = 235.55
-      itemIDs       = { 242788, 242789 },
-      qtyMultiplier = 0.350000,
-    },
-  },
-}
-
-GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
-  id         = "jewelcrafting__sin_dorei_lens_crafting__midnight_1",
-  patchTag   = "midnight-1",
-  profession = "Jewelcrafting",
-  stratName  = "Sin'dorei Lens Crafting",
-  notes      = "",
-  sourceTab  = "Jewelcrafting",
-  defaultStartingAmount = 3000,
-  output = {
-    name          = "Sin'dorei Lens",
-    itemIDs       = { 240972, 240973 },
-    qtyMultiplier = 0.575000,
-  },
-  reagents = {
-    {
-      name          = "Crystalline Glass",
-      itemIDs       = { 242786, 242787 },
-      qtyMultiplier = 1.000000,
-    },
-    {
-      name          = "Glimmering Gemdust",
-      itemIDs       = { 242620, 242621 },
-      qtyMultiplier = 0.333333,
     },
   },
 }

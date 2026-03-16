@@ -1,19 +1,19 @@
 {
-  "source_file": "3-10-26 Spreadsheet for Midnight by Eloncs using ARP Tracker.xlsx",
-  "extracted_at": "2026-03-10T18:48:13Z",
+  "source_file": "Copy of Spreadsheet for Midnight by Eloncs using ARP Tracker & Dynamic Stats.xlsx",
+  "extracted_at": "2026-03-15T22:55:22Z",
   "sheets": {
     "Alchemy": {
       "used_range": {
         "min_cell": "A1",
-        "max_cell": "N97",
+        "max_cell": "N102",
         "min_row": 1,
         "min_col": 1,
-        "max_row": 97,
+        "max_row": 102,
         "max_col": 14
       },
       "grid_file": "Alchemy__grid.csv",
       "formulas_file": "Alchemy__formulas.json",
-      "formula_count": 158
+      "formula_count": 186
     },
     "Engineering": {
       "used_range": {
@@ -26,9 +26,35 @@
       },
       "grid_file": "Engineering__grid.csv",
       "formulas_file": "Engineering__formulas.json",
-      "formula_count": 142
+      "formula_count": 164
     },
     "Enchanting": {
+      "used_range": {
+        "min_cell": "A1",
+        "max_cell": "O56",
+        "min_row": 1,
+        "min_col": 1,
+        "max_row": 56,
+        "max_col": 15
+      },
+      "grid_file": "Enchanting__grid.csv",
+      "formulas_file": "Enchanting__formulas.json",
+      "formula_count": 58
+    },
+    "Inscription": {
+      "used_range": {
+        "min_cell": "A1",
+        "max_cell": "P51",
+        "min_row": 1,
+        "min_col": 1,
+        "max_row": 51,
+        "max_col": 16
+      },
+      "grid_file": "Inscription__grid.csv",
+      "formulas_file": "Inscription__formulas.json",
+      "formula_count": 76
+    },
+    "Leatherworking": {
       "used_range": {
         "min_cell": "A1",
         "max_cell": "L54",
@@ -37,74 +63,48 @@
         "max_row": 54,
         "max_col": 12
       },
-      "grid_file": "Enchanting__grid.csv",
-      "formulas_file": "Enchanting__formulas.json",
-      "formula_count": 43
-    },
-    "Inscription": {
-      "used_range": {
-        "min_cell": "A1",
-        "max_cell": "P49",
-        "min_row": 1,
-        "min_col": 1,
-        "max_row": 49,
-        "max_col": 16
-      },
-      "grid_file": "Inscription__grid.csv",
-      "formulas_file": "Inscription__formulas.json",
-      "formula_count": 62
-    },
-    "Leatherworking": {
-      "used_range": {
-        "min_cell": "A1",
-        "max_cell": "L53",
-        "min_row": 1,
-        "min_col": 1,
-        "max_row": 53,
-        "max_col": 12
-      },
       "grid_file": "Leatherworking__grid.csv",
       "formulas_file": "Leatherworking__formulas.json",
-      "formula_count": 37
+      "formula_count": 50
     },
     "Blacksmithing": {
       "used_range": {
         "min_cell": "A1",
-        "max_cell": "L42",
+        "max_cell": "O72",
         "min_row": 1,
         "min_col": 1,
-        "max_row": 42,
-        "max_col": 12
+        "max_row": 72,
+        "max_col": 15
       },
       "grid_file": "Blacksmithing__grid.csv",
       "formulas_file": "Blacksmithing__formulas.json",
-      "formula_count": 22
+      "formula_count": 62
     },
     "Tailoring": {
       "used_range": {
         "min_cell": "A1",
-        "max_cell": "I39",
+        "max_cell": "I40",
         "min_row": 1,
         "min_col": 1,
-        "max_row": 39,
+        "max_row": 40,
         "max_col": 9
       },
       "grid_file": "Tailoring__grid.csv",
       "formulas_file": "Tailoring__formulas.json",
-      "formula_count": 12
+      "formula_count": 16
     },
     "Jewelcrafting": {
       "used_range": {
         "min_cell": "A1",
-        "max_cell": "L39",
+        "max_cell": "L40",
         "min_row": 1,
         "min_col": 1,
-        "max_row": 39,
+        "max_row": 40,
         "max_col": 12
       },
       "grid_file": "Jewelcrafting__grid.csv",
       "formulas_file": "Jewelcrafting__formulas.json",
-      "formula_count": 90
+      "formula_count": 102
     }
   }
 }

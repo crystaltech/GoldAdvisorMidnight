@@ -475,6 +475,23 @@ local function BuildPanel()
 
     y = y - 4
 
+    -- ── CraftSim node bonus sync ────────────────────────────────────────────
+    local btnSyncCraftSim = MakeButton(content, "Sync from CraftSim", 160)
+    btnSyncCraftSim:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
+    btnSyncCraftSim:SetScript("OnClick", function()
+        if not GAM.CraftSimBridge then
+            print("|cffff8800[GAM]|r CraftSimBridge not loaded.")
+            return
+        end
+        local count = GAM.CraftSimBridge.SyncNodeBonusesFromCraftSim()
+        if count == 0 then
+            print("|cffff8800[GAM]|r CraftSim node bonus data not found. Open CraftSim and spec your characters first.")
+        else
+            print(string.format("|cffff8800[GAM]|r Synced node bonuses from CraftSim for %d profession(s). Reload the settings panel to see updated values.", count))
+        end
+    end)
+    y = y - 30
+
     -- ── Actions ────────────────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_ACTIONS"], y)
 

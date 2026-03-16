@@ -4,9 +4,13 @@
 
 local ADDON_NAME, GAM = ...
 GAM.C = {
-    ADDON_VERSION        = "1.2.6",
-    DATA_VERSION         = 4,
+    ADDON_VERSION        = "1.2.7",
+    DATA_VERSION         = 5,
     DEFAULT_PATCH        = "midnight-1",
+
+    -- Base crafting-stat multipliers (game-level, before talent/spec node bonuses)
+    BASE_MCM             = 1.25,   -- Multicraft multiplier base (MCm before any node bonus)
+    BASE_RS              = 0.30,   -- Resourcefulness saved fraction base (Rs before any node bonus)
 
     -- Economy
     AH_CUT               = 0.05,   -- 5% AH fee (also used as the DB default)
