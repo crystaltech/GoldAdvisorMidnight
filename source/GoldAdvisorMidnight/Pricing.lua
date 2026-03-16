@@ -614,6 +614,44 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     }
 end
 
+-- GetBestStrategy(patchTag, profFilter) — returns (strat, profit, roi) for the top
+-- scoring strategy that clears both minimum thresholds. Returns nil,nil,nil if none qualify.
+-- Score = profit × √ROI; capital tie-break on totalCostToBuy.
+-- Called only on: scan complete, filter change, window open — never per-frame.
+function Pricing.GetBestStrategy(patchTag, profFilter)
+    patchTag   = patchTag  or GAM.C.DEFAULT_PATCH
+    profFilter = profFilter or "All"
+    local minProfit = GAM.C.BEST_STRAT_MIN_PROFIT
+    local minROI    = GAM.C.BEST_STRAT_MIN_ROI
+    local all = GAM.Importer.GetAllStrats(patchTag)
+    if not all or #all == 0 then return nil, nil, nil end
+
+    local bestStrat, bestScore, bestProfit, bestROI, bestCost =
+        nil, -math.huge, nil, nil, nil
+
+    for _, strat in ipairs(all) do
+        if profFilter == "All" or strat.profession == profFilter then
+            local m = Pricing.CalculateStratMetrics(strat, patchTag)
+            if m then
+                local p, r, cost = m.profit, m.roi, m.totalCostToBuy
+                if p and p >= minProfit and r and r >= minROI then
+                    -- Composite score: profit × √ROI (balances magnitude vs capital efficiency)
+                    local score = p * math.sqrt(r)
+                    local better = not bestStrat
+                        or score > bestScore
+                        or (score == bestScore
+                            and (cost or math.huge) < (bestCost or math.huge))
+                    if better then
+                        bestStrat, bestScore   = strat, score
+                        bestProfit, bestROI, bestCost = p, r, cost
+                    end
+                end
+            end
+        end
+    end
+    return bestStrat, bestProfit, bestROI
+end
+
 -- StorePrice(itemID, price) — called by AHScan after scan
 function Pricing.StorePrice(itemID, price)
     if not itemID or not price then return end

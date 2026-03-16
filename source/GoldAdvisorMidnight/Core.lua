@@ -65,6 +65,11 @@ local DB_DEFAULTS = {
         engRsNode        = 50,   -- Engineering Rs node bonus baked in spreadsheet
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
+        -- New UI opt-in + per-session panel state
+        useNewUI            = false,   -- false = classic MainWindow; true = MainWindowV2
+        hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
+        leftPanelCollapsed  = false,   -- V2 left panel collapse state
+        rightPanelCollapsed = false,   -- V2 right panel collapse state
     },
     patch      = {},
     priceCache = {},
@@ -281,9 +286,9 @@ end
 handlers["AUCTION_HOUSE_SHOW"] = function(self)
     self.ahOpen = true
     self.Log.Debug("AH opened.")
-    -- Open the main window automatically
+    -- Open the main window automatically (routes to V2 if useNewUI is set)
     if self.UI and self.UI.MainWindow then
-        self.UI.MainWindow.Show()
+        self:GetActiveMainWindow().Show()
     end
     -- Pre-warm itemKey cache from persisted DB (skips slow browse on subsequent scans)
     if self.AHScan and self.AHScan.PreWarmCache then
@@ -373,12 +378,21 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             GAM.UI.StratCreator.Show()
         end
     else
-        -- Default: toggle main window
+        -- Default: toggle main window (routes to V2 if useNewUI is set)
         if GAM.UI and GAM.UI.MainWindow then
-            GAM.UI.MainWindow.Toggle()
+            GAM:GetActiveMainWindow().Toggle()
         end
     end
 end
 
 -- ===== UI namespace =====
 GAM.UI = GAM.UI or {}
+
+-- ===== Active main window router =====
+-- Returns GAM.UI.MainWindowV2 if the new UI is enabled and loaded, else GAM.UI.MainWindow.
+function GAM:GetActiveMainWindow()
+    if self.db and self.db.options.useNewUI and self.UI.MainWindowV2 then
+        return self.UI.MainWindowV2
+    end
+    return self.UI.MainWindow
+end

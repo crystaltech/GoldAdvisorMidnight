@@ -39,6 +39,7 @@ end
 local function ApplyScaleToFrames(scale)
     local targets = {
         _G["GoldAdvisorMidnightMainWindow"],
+        _G["GoldAdvisorMidnightMainWindowV2"],
         _G["GoldAdvisorMidnightStratDetail"],
         _G["GoldAdvisorMidnightDebugLog"],
         _G["GAMStratCreator"],
@@ -334,6 +335,16 @@ local function BuildPanel()
     slScaleRange:SetText(L["OPT_UI_SCALE_RANGE"])
     slScaleRange:SetTextColor(0.55, 0.55, 0.55)
     y = y - 48
+
+    local cbNewUI = MakeCheckbox(content, "Use New UI Layout (Beta)", y - 4)
+    cbNewUI:SetChecked(opts.useNewUI == true)
+    cbNewUI:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Switches to the redesigned three-panel interface.\nChanges take effect next time you open the window.", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    cbNewUI:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    y = y - 32
 
     -- ── Pricing ────────────────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"], y)
@@ -643,6 +654,16 @@ local function BuildPanel()
         opts.uiScale        = slScale:GetValue()
         opts.ahCut          = GAM.C.AH_CUT
         ApplyScaleToFrames(opts.uiScale)
+
+        -- New UI toggle: hide both windows; next /gam opens the correct one
+        local newUIVal = cbNewUI:GetChecked()
+        if newUIVal ~= opts.useNewUI then
+            opts.useNewUI = newUIVal
+            if GAM.UI then
+                if GAM.UI.MainWindow   then GAM.UI.MainWindow.Hide()   end
+                if GAM.UI.MainWindowV2 then GAM.UI.MainWindowV2.Hide() end
+            end
+        end
 
         local raw = tonumber(ebFillQty:GetText())
         opts.shallowFillQty = raw

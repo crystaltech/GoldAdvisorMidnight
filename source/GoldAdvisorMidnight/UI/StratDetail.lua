@@ -158,7 +158,7 @@ local function ShowDeleteConfirm(strat)
             end
         end
         GAM.Importer.Init()
-        if GAM.UI and GAM.UI.MainWindow then GAM.UI.MainWindow.Refresh() end
+        GAM:GetActiveMainWindow().Refresh()
         print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_DELETED"], strat.stratName or "?"))
         if frame then frame:Hide() end
     end)
@@ -966,4 +966,12 @@ end
 
 function SD.IsShown()
     return frame and frame:IsShown()
+end
+
+-- ===== Inline panel mode (Phase 5 — stub) =====
+-- Called by MainWindowV2 when the right panel is visible.
+-- Currently delegates to the floating SD.Show(); full inline rendering
+-- (reparented contentHost, 340px layout) will replace this in Phase 5.
+function SD.ShowInPanel(strat, patchTag, panelFrame)
+    SD.Show(strat, patchTag)
 end

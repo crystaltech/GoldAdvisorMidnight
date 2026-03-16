@@ -425,7 +425,7 @@ local function BuildImportPopup()
         GAM.db.userStrats = GAM.db.userStrats or {}
         GAM.db.userStrats[#GAM.db.userStrats + 1] = strat
         GAM.Importer.Init()
-        if GAM.UI and GAM.UI.MainWindow then GAM.UI.MainWindow.Refresh() end
+        GAM:GetActiveMainWindow().Refresh()
         print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_IMPORTED"], strat.stratName))
         importPopup:Hide()
     end
@@ -815,9 +815,7 @@ local function Build()
 
         -- Reload importer so strat appears immediately
         GAM.Importer.Init()
-        if GAM.UI and GAM.UI.MainWindow then
-            GAM.UI.MainWindow.Refresh()
-        end
+        GAM:GetActiveMainWindow().Refresh()
 
         print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_SAVED"], stratName))
         frame:Hide()
@@ -836,7 +834,7 @@ local function Build()
             local name = GAM.db.userStrats[editingIndex].stratName or "?"
             table.remove(GAM.db.userStrats, editingIndex)
             GAM.Importer.Init()
-            if GAM.UI and GAM.UI.MainWindow then GAM.UI.MainWindow.Refresh() end
+            GAM:GetActiveMainWindow().Refresh()
             print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_DELETED"], name))
         end
         frame:Hide()

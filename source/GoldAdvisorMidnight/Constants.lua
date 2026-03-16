@@ -4,7 +4,7 @@
 
 local ADDON_NAME, GAM = ...
 GAM.C = {
-    ADDON_VERSION        = "1.2.7",
+    ADDON_VERSION        = "1.2.8",
     DATA_VERSION         = 5,
     DEFAULT_PATCH        = "midnight-1",
 
@@ -80,4 +80,16 @@ GAM.C = {
     -- After filling to targetQty, the top TRIM_PCT% most expensive units are dropped.
     -- Matches ARP Tracker default (Trim: 2). Range 0–100; 0 = no trim.
     TRIM_PCT                 = 2,
+
+    -- ── New UI (MainWindowV2) layout constants ────────────────────────────
+    MAIN_WIN_W              = 960,   -- total frame width
+    MAIN_WIN_H              = 580,   -- total frame height
+    LEFT_PANEL_W            = 190,   -- left panel (tools/scan)
+    RIGHT_PANEL_W           = 340,   -- right panel (inline detail); center = remainder
+    HEADER_H                = 34,    -- title bar height
+    STATUS_BAR_H            = 22,    -- bottom status bar height
+
+    -- Best Strategy scoring thresholds
+    BEST_STRAT_MIN_PROFIT   = 50000, -- 5g minimum profit to qualify (copper)
+    BEST_STRAT_MIN_ROI      = 5,     -- 5% minimum ROI to qualify
 }
