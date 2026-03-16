@@ -4,8 +4,8 @@
 
 local ADDON_NAME, GAM = ...
 GAM.C = {
-    ADDON_VERSION        = "1.2.8",
-    DATA_VERSION         = 5,
+    ADDON_VERSION        = "1.2.9",
+    DATA_VERSION         = 6,
     DEFAULT_PATCH        = "midnight-1",
 
     -- Base crafting-stat multipliers (game-level, before talent/spec node bonuses)

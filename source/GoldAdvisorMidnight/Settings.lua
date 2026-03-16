@@ -396,7 +396,7 @@ local function BuildPanel()
 
     local subHdr = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     subHdr:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
-    subHdr:SetText("Enter your actual gear stats. Defaults = baked spreadsheet baseline.")
+    subHdr:SetText("Enter your actual gear stats (decimals ok, e.g. 25.5). Defaults = baked spreadsheet baseline.")
     y = y - 20
 
     local chMulti = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -418,7 +418,7 @@ local function BuildPanel()
             ebMulti = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
             ebMulti:SetSize(44, 22)
             ebMulti:SetAutoFocus(false)
-            ebMulti:SetNumeric(true)
+            ebMulti:SetMaxLetters(6)
             ebMulti:SetPoint("TOPLEFT", content, "TOPLEFT", 250, y)
             ebMulti:SetText(tostring(multiDefault))
         end
@@ -426,7 +426,7 @@ local function BuildPanel()
         local ebRes = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
         ebRes:SetSize(44, 22)
         ebRes:SetAutoFocus(false)
-        ebRes:SetNumeric(true)
+        ebRes:SetMaxLetters(6)
         ebRes:SetPoint("TOPLEFT", content, "TOPLEFT", 345, y)
         ebRes:SetText(tostring(resDefault))
 

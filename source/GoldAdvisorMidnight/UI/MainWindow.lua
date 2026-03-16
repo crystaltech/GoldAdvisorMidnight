@@ -600,8 +600,6 @@ local function Build()
         frame.InitProfDD()
     end)
 
-    -- Wire scan progress updates
-    GAM.AHScan.SetProgressCallback(MW.OnScanProgress)
 end
 
 -- ===== Public API =====

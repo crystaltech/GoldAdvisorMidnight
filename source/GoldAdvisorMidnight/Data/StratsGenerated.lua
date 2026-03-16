@@ -16,7 +16,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Composite Flora",
     itemIDs       = { 241280, 241281 },
-    qtyMultiplier = 0.759162,
+    baseYieldMultiplier = 0.500000,
   },
   reagents = {
     {
@@ -53,7 +53,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Haranir Phial of Perception",
     itemIDs       = { 241316 },
-    qtyMultiplier = 3.036649,
+    baseYieldMultiplier = 1.999999,
   },
   reagents = {
     {
@@ -95,7 +95,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Amani Extract",
     itemIDs       = { 241298, 241299 },
-    qtyMultiplier = 1.518325,
+    baseYieldMultiplier = 1.000000,
   },
   reagents = {
     {
@@ -127,7 +127,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Silvermoon Health Potion",
     itemIDs       = { 241304 },
-    qtyMultiplier = 1.518325,
+    baseYieldMultiplier = 1.000000,
   },
   reagents = {
     {
@@ -154,7 +154,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Draught of Rampant Abandon",
     itemIDs       = { 241292 },
-    qtyMultiplier = 2.530541,
+    baseYieldMultiplier = 1.666666,
   },
   reagents = {
     {
@@ -196,7 +196,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Vicious Thalassian Flask of Honor",
     itemIDs       = {},
-    qtyMultiplier = 1.518325,
+    baseYieldMultiplier = 1.000000,
   },
   reagents = {
     {
@@ -233,7 +233,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Haranir Phial of Finesse",
     itemIDs       = { 241310 },
-    qtyMultiplier = 3.036649,
+    baseYieldMultiplier = 1.999999,
   },
   reagents = {
     {
@@ -275,7 +275,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Potion of Recklessness",
     itemIDs       = { 241288 },
-    qtyMultiplier = 3.795812,
+    baseYieldMultiplier = 2.500000,
   },
   reagents = {
     {
@@ -312,7 +312,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Potion of Zealotry",
     itemIDs       = {},
-    qtyMultiplier = 7.591623,
+    baseYieldMultiplier = 4.999999,
   },
   reagents = {
     {
@@ -349,7 +349,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Light's Potential",
     itemIDs       = {},
-    qtyMultiplier = 7.591623,
+    baseYieldMultiplier = 4.999999,
   },
   reagents = {
     {
@@ -391,7 +391,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Flask of the Blood Knights",
     itemIDs       = {},
-    qtyMultiplier = 3.036649,
+    baseYieldMultiplier = 1.999999,
   },
   reagents = {
     {
@@ -433,7 +433,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Flask of the Shattered Sun",
     itemIDs       = {},
-    qtyMultiplier = 3.036649,
+    baseYieldMultiplier = 1.999999,
   },
   reagents = {
     {
@@ -475,7 +475,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Void-Shrouded Tincture",
     itemIDs       = {},
-    qtyMultiplier = 3.795812,
+    baseYieldMultiplier = 2.500000,
   },
   reagents = {
     {
@@ -512,7 +512,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Lightfused Mana Potion",
     itemIDs       = {},
-    qtyMultiplier = 1.518325,
+    baseYieldMultiplier = 1.000000,
   },
   reagents = {
     {
@@ -544,7 +544,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.712300,
+    baseYieldMultiplier = 0.590497,
   },
   reagents = {
     {
@@ -566,7 +566,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.722300,
+    baseYieldMultiplier = 0.598787,
   },
   reagents = {
     {
@@ -588,7 +588,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.706800,
+    baseYieldMultiplier = 0.585937,
   },
   reagents = {
     {
@@ -610,7 +610,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.716600,
+    baseYieldMultiplier = 0.594061,
   },
   reagents = {
     {
@@ -632,7 +632,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Soul Sprocket",
     itemIDs       = { 243576, 243577 },
-    qtyMultiplier = 1.875000,
+    baseYieldMultiplier = 1.554375,
   },
   reagents = {
     {
@@ -664,7 +664,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Smuggler's Lynxeye",
     itemIDs       = { 257747, 257748 },
-    qtyMultiplier = 1.875000,
+    baseYieldMultiplier = 1.554375,
   },
   reagents = {
     {
@@ -701,7 +701,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.601300,
+    baseYieldMultiplier = 0.498478,
   },
   reagents = {
     {
@@ -723,7 +723,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.724000,
+    baseYieldMultiplier = 0.600196,
   },
   reagents = {
     {
@@ -745,7 +745,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
-    qtyMultiplier = 0.720800,
+    baseYieldMultiplier = 0.597543,
   },
   reagents = {
     {
@@ -767,7 +767,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
-    qtyMultiplier = 0.722700,
+    baseYieldMultiplier = 0.599118,
   },
   reagents = {
     {
@@ -789,7 +789,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Song Gear",
     itemIDs       = { 243574, 243575 },
-    qtyMultiplier = 1.875000,
+    baseYieldMultiplier = 1.554375,
   },
   reagents = {
     {
@@ -821,7 +821,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Laced Zoomshots",
     itemIDs       = { 257749, 257750 },
-    qtyMultiplier = 1.875000,
+    baseYieldMultiplier = 1.554375,
   },
   reagents = {
     {
@@ -858,7 +858,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
-    qtyMultiplier = 0.708200,
+    baseYieldMultiplier = 0.587098,
   },
   reagents = {
     {
@@ -880,7 +880,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.603300,
+    baseYieldMultiplier = 0.500136,
   },
   reagents = {
     {
@@ -902,7 +902,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
-    qtyMultiplier = 0.720400,
+    baseYieldMultiplier = 0.597211,
   },
   reagents = {
     {
@@ -924,7 +924,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
-    qtyMultiplier = 0.722700,
+    baseYieldMultiplier = 0.599118,
   },
   reagents = {
     {
@@ -946,7 +946,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Farstrider's Hawkeye",
     itemIDs       = {},
-    qtyMultiplier = 1.875000,
+    baseYieldMultiplier = 1.554375,
   },
   reagents = {
     {
@@ -983,7 +983,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Weighted Boomshots",
     itemIDs       = { 257751 },
-    qtyMultiplier = 1.875000,
+    baseYieldMultiplier = 1.554375,
   },
   reagents = {
     {
@@ -1020,7 +1020,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
-    qtyMultiplier = 0.713500,
+    baseYieldMultiplier = 0.591491,
   },
   reagents = {
     {
@@ -1042,7 +1042,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Aetherlume",
     itemIDs       = { 243578, 243579 },
-    qtyMultiplier = 0.710200,
+    baseYieldMultiplier = 0.588756,
   },
   reagents = {
     {
@@ -1064,7 +1064,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Evercore",
     itemIDs       = { 243581, 243582 },
-    qtyMultiplier = 0.710100,
+    baseYieldMultiplier = 0.588673,
   },
   reagents = {
     {
@@ -1086,7 +1086,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Emergency Soul Link",
     itemIDs       = {},
-    qtyMultiplier = 1.875000,
+    baseYieldMultiplier = 1.554375,
   },
   reagents = {
     {
@@ -1113,7 +1113,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Dawn Shatter Q2",
     itemIDs       = {},
-    qtyMultiplier = 0.824142,
+    baseYieldMultiplier = 0.735135,
   },
   reagents = {
     {
@@ -1140,7 +1140,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Oil of Dawn",
     itemIDs       = { 243735 },
-    qtyMultiplier = 1.659087,
+    baseYieldMultiplier = 0.962168,
   },
   reagents = {
     {
@@ -1177,7 +1177,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Smuggler's Enchanted Edge",
     itemIDs       = { 243737, 243738 },
-    qtyMultiplier = 1.659087,
+    baseYieldMultiplier = 0.962168,
   },
   reagents = {
     {
@@ -1214,7 +1214,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Radiant Shatter Q2",
     itemIDs       = {},
-    qtyMultiplier = 0.824142,
+    baseYieldMultiplier = 0.735135,
   },
   reagents = {
     {
@@ -1236,7 +1236,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Thalassian Phoenix Oil",
     itemIDs       = { 243733, 243734 },
-    qtyMultiplier = 1.659087,
+    baseYieldMultiplier = 0.962168,
   },
   reagents = {
     {
@@ -1268,7 +1268,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Radiant Shatter Q1",
     itemIDs       = {},
-    qtyMultiplier = 3.086674,
+    baseYieldMultiplier = 2.753314,
   },
   reagents = {
     {
@@ -1290,7 +1290,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Powder Pigment",
     itemIDs       = { 245807, 245808 },
-    qtyMultiplier = 1.511566,
+    baseYieldMultiplier = 1.286645,
   },
   reagents = {
     {
@@ -1312,7 +1312,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Sienna Ink",
     itemIDs       = { 245805, 245806 },
-    qtyMultiplier = 0.178082,
+    baseYieldMultiplier = 0.099397,
   },
   reagents = {
     {
@@ -1349,7 +1349,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Argentleaf Pigment",
     itemIDs       = { 245803, 245804 },
-    qtyMultiplier = 1.511566,
+    baseYieldMultiplier = 1.286645,
   },
   reagents = {
     {
@@ -1371,7 +1371,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Munsell Ink",
     itemIDs       = { 245801, 245802 },
-    qtyMultiplier = 0.178082,
+    baseYieldMultiplier = 0.099397,
   },
   reagents = {
     {
@@ -1408,7 +1408,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Mana Lily Pigment",
     itemIDs       = { 245867, 245866 },
-    qtyMultiplier = 1.511566,
+    baseYieldMultiplier = 1.286645,
   },
   reagents = {
     {
@@ -1430,7 +1430,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Soul Cipher",
     itemIDs       = { 245766, 245767 },
-    qtyMultiplier = 2.671232,
+    baseYieldMultiplier = 1.490952,
   },
   reagents = {
     {
@@ -1472,7 +1472,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Sanguithorn Pigment",
     itemIDs       = { 245865, 245864 },
-    qtyMultiplier = 1.511566,
+    baseYieldMultiplier = 1.286645,
   },
   reagents = {
     {
@@ -1494,7 +1494,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Sin'Dorei Armor Banding",
     itemIDs       = { 244635, 244636 },
-    qtyMultiplier = 0.819310,
+    baseYieldMultiplier = 0.490126,
   },
   reagents = {
     {
@@ -1526,7 +1526,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Silvermoon Weapon Wrap",
     itemIDs       = { 244637, 244638 },
-    qtyMultiplier = 0.819310,
+    baseYieldMultiplier = 0.490126,
   },
   reagents = {
     {
@@ -1558,7 +1558,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Refulgent Copper Ingot",
     itemIDs       = { 238197, 238198 },
-    qtyMultiplier = 0.285782,
+    baseYieldMultiplier = 0.199624,
   },
   reagents = {
     {
@@ -1585,7 +1585,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Refulgent Copper Ingot",
     itemIDs       = { 238197, 238198 },
-    qtyMultiplier = 0.476304,
+    baseYieldMultiplier = 0.332707,
   },
   reagents = {
     {
@@ -1612,7 +1612,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Gloaming Alloy",
     itemIDs       = { 238202, 238203 },
-    qtyMultiplier = 0.238152,
+    baseYieldMultiplier = 0.166354,
   },
   reagents = {
     {
@@ -1644,7 +1644,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Gloaming Alloy",
     itemIDs       = { 238202, 238203 },
-    qtyMultiplier = 0.476304,
+    baseYieldMultiplier = 0.332707,
   },
   reagents = {
     {
@@ -1676,7 +1676,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Sterling Alloy",
     itemIDs       = { 238204, 238205 },
-    qtyMultiplier = 0.238152,
+    baseYieldMultiplier = 0.166354,
   },
   reagents = {
     {
@@ -1708,7 +1708,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Sterling Alloy",
     itemIDs       = { 238204, 238205 },
-    qtyMultiplier = 0.476304,
+    baseYieldMultiplier = 0.332707,
   },
   reagents = {
     {
@@ -1740,7 +1740,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Bright Linen Bolt",
     itemIDs       = { 239700, 239701 },
-    qtyMultiplier = 1.453651,
+    baseYieldMultiplier = 0.942977,
   },
   reagents = {
     {
@@ -1767,7 +1767,7 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Refulgent Copper Ore",
     itemIDs       = { 237359, 237361 },
-    qtyMultiplier = 5.000000,
+    baseYieldMultiplier = 4.257500,
   },
   reagents = {
     {
@@ -1789,43 +1789,43 @@ GAM_STRATS_GENERATED[#GAM_STRATS_GENERATED+1] = {
   output = {
     name          = "Duskshrouded Stone",
     itemIDs       = { 242788, 242789 },
-    qtyMultiplier = 0.270000,
+    baseYieldMultiplier = 0.229905,
   },
   outputs = {
     {
       name          = "Flawless Sanguine Garnet",
       itemIDs       = { 242613, 242724 },
-      qtyMultiplier = 0.035000,
+      baseYieldMultiplier = 0.029803,
     },
     {
       name          = "Flawless Amani Lapis",
       itemIDs       = { 242612, 242727 },
-      qtyMultiplier = 0.035000,
+      baseYieldMultiplier = 0.029803,
     },
     {
       name          = "Flawless Tenebrous Amethyst",
       itemIDs       = { 242611, 242725 },
-      qtyMultiplier = 0.035000,
+      baseYieldMultiplier = 0.029803,
     },
     {
       name          = "Flawless Harandar Peridot",
       itemIDs       = { 242610, 242726 },
-      qtyMultiplier = 0.035000,
+      baseYieldMultiplier = 0.029803,
     },
     {
       name          = "Eversong Diamond",
       itemIDs       = { 242608, 242712 },
-      qtyMultiplier = 0.047500,
+      baseYieldMultiplier = 0.040446,
     },
     {
       name          = "Duskshrouded Stone",
       itemIDs       = { 242788, 242789 },
-      qtyMultiplier = 0.270000,
+      baseYieldMultiplier = 0.229905,
     },
     {
       name          = "Crystalline Glass",
       itemIDs       = { 242786, 242787 },
-      qtyMultiplier = 0.160000,
+      baseYieldMultiplier = 0.136240,
     },
   },
   reagents = {

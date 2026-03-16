@@ -46,18 +46,26 @@ local function ValidateStrat(s, src)
         GAM.Log.Warn("Importer: %s '%s' — missing reagents table, skipping", src, s.stratName)
         return false
     end
-    -- Validate output multipliers
+    -- Validate output multipliers (accept baseYieldMultiplier or legacy qtyMultiplier)
     if hasOutput then
-        if type(s.output.qtyMultiplier) ~= "number" or s.output.qtyMultiplier < 0 then
-            GAM.Log.Warn("Importer: %s '%s' — bad output.qtyMultiplier", src, s.stratName)
+        local bym = s.output.baseYieldMultiplier
+        local qm  = s.output.qtyMultiplier
+        if type(bym) ~= "number" and type(qm) ~= "number" then
+            GAM.Log.Warn("Importer: %s '%s' — missing output baseYieldMultiplier", src, s.stratName)
+            return false
+        end
+        if (type(bym) == "number" and bym < 0) or (type(qm) == "number" and qm < 0) then
+            GAM.Log.Warn("Importer: %s '%s' — negative output yield multiplier", src, s.stratName)
             return false
         end
         s.output.itemIDs = s.output.itemIDs or {}
     end
     if type(s.outputs) == "table" then
         for i, o in ipairs(s.outputs) do
-            if type(o.qtyMultiplier) ~= "number" or o.qtyMultiplier < 0 then
-                GAM.Log.Warn("Importer: %s '%s' outputs[%d] — bad qtyMultiplier", src, s.stratName, i)
+            local bym = o.baseYieldMultiplier
+            local qm  = o.qtyMultiplier
+            if type(bym) ~= "number" and type(qm) ~= "number" then
+                GAM.Log.Warn("Importer: %s '%s' outputs[%d] — missing baseYieldMultiplier", src, s.stratName, i)
                 return false
             end
             o.itemIDs = o.itemIDs or {}

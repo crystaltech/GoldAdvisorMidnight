@@ -127,6 +127,17 @@ local MIGRATIONS = {
             end
         end,
     },
+    -- v6: Formula redesign — output quantities now computed directly from baseYieldMultiplier
+    -- (B) instead of baked qtyMultiplier scaled from a baseline. Wipe price cache so any
+    -- cached net revenue values (which used the old multipliers) are recalculated.
+    {
+        dataVersion = 6,
+        migrate = function(db)
+            if type(db.priceCache) == "table" then
+                wipe(db.priceCache)
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)
@@ -248,6 +259,14 @@ handlers["ADDON_LOADED"] = function(self, _, name)
     -- not the compiled constant (AHScan captures the constant at load time).
     if self.AHScan then
         self.AHScan.SetScanDelay(opts.scanDelay)
+        -- Centralized scan progress callback: routes to whichever window is active
+        -- at call time. Prevents V1/V2 Build() from overwriting each other's callback.
+        self.AHScan.SetProgressCallback(function(done, total, isComplete)
+            local win = self:GetActiveMainWindow()
+            if win and win.OnScanProgress then
+                win.OnScanProgress(done, total, isComplete)
+            end
+        end)
     end
 
     self.Log.Info(self.L["LOADED_MSG"], GAM.C.ADDON_VERSION)

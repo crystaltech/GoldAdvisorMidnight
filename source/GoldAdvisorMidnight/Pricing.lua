@@ -260,32 +260,34 @@ function Pricing.FormatPrice(copper)
     return neg and ("-" .. result) or result
 end
 
--- ===== Stat scaling (Master Equation) =====
+-- ===== Stat scaling (Direct Formula) =====
 
--- Stat profiles: baseline values baked into spreadsheet qtyMultipliers.
---   bakedMulti / bakedRes  — the tester's gear stats (0–1) when the multipliers were measured.
---   mcm / rs               — MCm/Rs formula constants baked into the spreadsheet (per-profession).
---   multiKey / resKey      — DB option keys for the user's current gear stats (integer %).
---   mcNodeKey / rsNodeKey  — DB option keys for the user's spec node bonuses (integer %).
---                            Default values (baked into DB_DEFAULTS) match what the spreadsheet
---                            assumed → scale = 1.0 for users who haven't changed them.
--- Starred (*) profiles had bakedMulti=0 (tester had no multicraft gear for that tool set).
-local STAT_PROFILES = {
-    insc_milling   = { bakedMulti=0,    bakedRes=0.32, resKey="inscMillingRes",                              mcm=0,     rs=0.465, rsNodeKey="inscRsNode"                           },  -- no MC stat
-    insc_ink       = { bakedMulti=0.26, bakedRes=0.17, multiKey="inscInkMulti", resKey="inscInkRes",         mcm=2.5,   rs=0.465, mcNodeKey="inscMcNode", rsNodeKey="inscRsNode"   },
-    jc_prospect    = { bakedMulti=0,    bakedRes=0.33, resKey="jcProspectRes",                               mcm=0,     rs=0.45,  rsNodeKey="jcRsNode"                             },  -- no MC stat
-    jc_crush       = { bakedMulti=0,    bakedRes=0.35, resKey="jcCrushRes",                                  mcm=0,     rs=0.45,  rsNodeKey="jcRsNode"                             },  -- no MC stat
-    ench_shatter   = { bakedMulti=0,    bakedRes=0.30, resKey="enchShatterRes",                              mcm=0,     rs=0.36,  rsNodeKey="enchRsNode"                           },  -- no MC stat
-    ench_craft     = { bakedMulti=0.25, bakedRes=0.16, multiKey="enchCraftMulti", resKey="enchCraftRes",     mcm=2.5,   rs=0.36,  mcNodeKey="enchMcNode", rsNodeKey="enchRsNode"   },
-    alchemy        = { bakedMulti=0.30, bakedRes=0.15, multiKey="alchMulti",      resKey="alchRes",          mcm=1.5,   rs=0.30,  mcNodeKey="alchMcNode", rsNodeKey="alchRsNode"  },
-    tailoring      = { bakedMulti=0.25, bakedRes=0.15, multiKey="tailMulti",      resKey="tailRes",          mcm=1.75,  rs=0.45,  mcNodeKey="tailMcNode", rsNodeKey="tailRsNode"  },
-    blacksmithing  = { bakedMulti=0.28, bakedRes=0.19, multiKey="bsMulti",        resKey="bsRes",            mcm=1.25,  rs=0.30,  mcNodeKey="bsMcNode",   rsNodeKey="bsRsNode"    },
-    leatherworking = { bakedMulti=0.29, bakedRes=0.17, multiKey="lwMulti",        resKey="lwRes",            mcm=1.875, rs=0.45,  mcNodeKey="lwMcNode",   rsNodeKey="lwRsNode"    },
-    engineering    = { bakedMulti=0,    bakedRes=0.38, multiKey="engMulti",        resKey="engRes",           mcm=1.875, rs=0.45,  mcNodeKey="engMcNode",  rsNodeKey="engRsNode"   }, -- *
+-- New formula: outputQtyRaw = startingAmt × B × (1 + MCp × MCm_total) / (1 − Rp × Rs_total)
+-- where:
+--   B          = strat.output.baseYieldMultiplier  (pure base yield, no stat bonuses)
+--   MCp        = multicraft %  from gear   (DB option, integer %; divided by 100)
+--   MCm_total  = BASE_MCM × (1 + mcNodeBonus/100)
+--   Rp         = resourcefulness % from gear (DB option, integer %; divided by 100)
+--   Rs_total   = BASE_RS  × (1 + rsNodeBonus/100)
+--
+-- STRAT_STAT_KEYS maps stat-profile name → { DB key names for MCp, Rp, node bonuses }.
+-- Strats with no profile entry (custom strats) use outputQtyRaw = startingAmt × B directly.
+local STRAT_STAT_KEYS = {
+    insc_milling   = {                             resKey="inscMillingRes",                              rsNodeKey="inscRsNode"                           },  -- no MC stat
+    insc_ink       = { multiKey="inscInkMulti",    resKey="inscInkRes",         mcNodeKey="inscMcNode",  rsNodeKey="inscRsNode"                           },
+    jc_prospect    = {                             resKey="jcProspectRes",                               rsNodeKey="jcRsNode"                             },  -- no MC stat
+    jc_crush       = {                             resKey="jcCrushRes",                                  rsNodeKey="jcRsNode"                             },  -- no MC stat
+    ench_shatter   = {                             resKey="enchShatterRes",                              rsNodeKey="enchRsNode"                           },  -- no MC stat
+    ench_craft     = { multiKey="enchCraftMulti",  resKey="enchCraftRes",       mcNodeKey="enchMcNode",  rsNodeKey="enchRsNode"                           },
+    alchemy        = { multiKey="alchMulti",       resKey="alchRes",            mcNodeKey="alchMcNode",  rsNodeKey="alchRsNode"                           },
+    tailoring      = { multiKey="tailMulti",       resKey="tailRes",            mcNodeKey="tailMcNode",  rsNodeKey="tailRsNode"                           },
+    blacksmithing  = { multiKey="bsMulti",         resKey="bsRes",              mcNodeKey="bsMcNode",    rsNodeKey="bsRsNode"                             },
+    leatherworking = { multiKey="lwMulti",         resKey="lwRes",              mcNodeKey="lwMcNode",    rsNodeKey="lwRsNode"                             },
+    engineering    = { multiKey="engMulti",        resKey="engRes",             mcNodeKey="engMcNode",   rsNodeKey="engRsNode"                            },
 }
 
--- Maps every strat ID to its stat profile key.
--- Strat IDs not listed here (custom strats, unregistered strats) → outputStatScale = 1.0.
+-- Maps every known strat ID to its STRAT_STAT_KEYS profile name.
+-- Strat IDs not listed here (custom user strats) → direct formula with B only (no stat bonuses).
 local STRAT_STAT_PROFILE = {
     -- Inscription milling
     ["inscription__tranquility_bloom_milling__midnight_1"] = "insc_milling",
@@ -388,36 +390,29 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local ahCut  = opts.ahCut or GAM.C.AH_CUT
     local pdb    = GetPatchDB(patchTag)
 
-    -- Master Equation stat scaling: adjust output quantities from baked baseline to player's gear.
-    -- scale = [(1 + u_multi × eff_mcm) / (1 + b_multi × b_mcm)]
-    --       × [(1 - b_res × b_rs) / (1 - u_res × eff_rs)]
-    -- where eff_mcm/eff_rs = BASE × (1 + user_node_bonus).
-    -- Returns 1.0 for strats not in STRAT_STAT_PROFILE (custom strats → unchanged).
-    local outputStatScale = 1.0
+    -- Direct formula stat factors:  Y = X × B × (1 + MCp × MCm_total) / (1 − Rp × Rs_total)
+    -- MCm_total = BASE_MCM × (1 + mcNodeBonus/100)
+    -- Rs_total  = BASE_RS  × (1 + rsNodeBonus/100)
+    -- Computed once here and reused for all outputs (primary + multi-output strats).
     local profileKey = STRAT_STAT_PROFILE[strat.id]
+    local statMCp, statRp, statMCm_tot, statRs_tot, statDenom
     if profileKey then
-        local prof    = STAT_PROFILES[profileKey]
-        local u_multi = prof.multiKey and ((opts[prof.multiKey] or 0) / 100) or 0
-        local u_res   = (opts[prof.resKey]   or 0) / 100
-        local b_multi = prof.bakedMulti
-        local b_res   = prof.bakedRes
-        local b_mcm   = prof.mcm  -- MCm baked into spreadsheet formula
-        local b_rs    = prof.rs   -- Rs  baked into spreadsheet formula
+        local keys    = STRAT_STAT_KEYS[profileKey]
+        statMCp       = keys.multiKey  and ((opts[keys.multiKey]  or 0) / 100) or 0
+        statRp        = (opts[keys.resKey] or 0) / 100
+        statMCm_tot   = GAM.C.BASE_MCM * (1 + (keys.mcNodeKey and (opts[keys.mcNodeKey] or 0) or 0) / 100)
+        statRs_tot    = GAM.C.BASE_RS  * (1 + (keys.rsNodeKey  and (opts[keys.rsNodeKey]  or 0) or 0) / 100)
+        statDenom     = 1 - statRp * statRs_tot
+        if statDenom <= 0 then statDenom = 1 end  -- guard against degenerate inputs
+    end
 
-        -- User's effective MCm/Rs from spec node bonus (integer % in DB → decimal)
-        local u_mc_node = prof.mcNodeKey and ((opts[prof.mcNodeKey] or 0) / 100)
-                          or (GAM.C.BASE_MCM > 0 and (b_mcm / GAM.C.BASE_MCM - 1) or 0)
-        local u_rs_node = prof.rsNodeKey and ((opts[prof.rsNodeKey] or 0) / 100)
-                          or (GAM.C.BASE_RS  > 0 and (b_rs  / GAM.C.BASE_RS  - 1) or 0)
-        local eff_mcm   = GAM.C.BASE_MCM * (1 + u_mc_node)
-        local eff_rs    = GAM.C.BASE_RS  * (1 + u_rs_node)
-
-        local multi_denom = 1 + b_multi * b_mcm
-        local res_denom   = 1 - u_res   * eff_rs
-        local res_baked   = 1 - b_res   * b_rs
-        if multi_denom > 0 and res_denom > 0 and res_baked > 0 then
-            outputStatScale = ((1 + u_multi * eff_mcm) / multi_denom)
-                            * (res_baked / res_denom)
+    -- Helper: apply formula to a base yield multiplier B.
+    -- Returns outputQtyRaw (float, used for revenue math).
+    local function ApplyYieldFormula(B, startAmt)
+        if profileKey and statDenom then
+            return startAmt * B * (1 + statMCp * statMCm_tot) / statDenom
+        else
+            return startAmt * B  -- custom strats: no stat bonuses
         end
     end
 
@@ -493,8 +488,9 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local primaryOut      = strat.output or {}
     -- Raw float used for revenue calculation (expected value over many crafts).
     -- Nearest-integer rounding only for the display qty field.
-    local outputQtyRaw    = (primaryOut.qtyMultiplier or 0) * startingAmt * outputStatScale
-    local outputQty       = math.floor(outputQtyRaw + 0.5)
+    local B            = primaryOut.baseYieldMultiplier or primaryOut.qtyMultiplier or 0
+    local outputQtyRaw = ApplyYieldFormula(B, startingAmt)
+    local outputQty    = math.floor(outputQtyRaw + 0.5)
 
     -- Determine the crafting quality of the primary reagent so output pricing can
     -- match the same rank (R1 herb → R1 pigment, R2 herb → R2 pigment).
@@ -530,7 +526,8 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         local allHavePrices = true
         outResults = {}
         for _, o in ipairs(strat.outputs) do
-            local oQtyRaw = (o.qtyMultiplier or 0) * startingAmt * outputStatScale    -- float for revenue
+            local oB      = o.baseYieldMultiplier or o.qtyMultiplier or 0
+            local oQtyRaw = ApplyYieldFormula(oB, startingAmt)                       -- float for revenue
             local oQty    = math.floor(oQtyRaw + 0.5)                               -- integer for display
             local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag, primaryQuality)
             if oStale2 then hasStale = true end

@@ -1255,10 +1255,6 @@ local function Build()
         end
     end)
 
-    -- Wire scan progress callback
-    if GAM.AHScan then
-        GAM.AHScan.SetProgressCallback(MW2.OnScanProgress)
-    end
 end
 
 -- ===== Public API =====
