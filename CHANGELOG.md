@@ -1,5 +1,23 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.2.7] — 2026-03-16
+
+### New Features
+- **Per-Profession Spec Node Bonuses** — Settings > Crafting Stats now includes MCm Node and Rs Node fields for each profession. These model the extra multiplier bonus from your spec tree's Multicraft/Resourcefulness node upgrades, separate from your base gear stats. The addon scales output quantities using: `eff_mcm = BASE_MCM × (1 + u_mc_node)`, `eff_rs = BASE_RS × (1 + u_rs_node)`. Defaults match the values baked into the new Dynamic Stats spreadsheet.
+- **CraftSim Spec Node Auto-Sync** — If CraftSim is installed, node bonus percentages are read automatically from CraftSimDB on login and applied to your stat profile. A "Sync from CraftSim" button in Settings lets you pull them on demand at any time.
+- **Dynamic Stats Spreadsheet** — All 60 strategies regenerated from the updated Dynamic Stats spreadsheet (March 2026). Per-profession baked MCm/Rs constants are now modeled explicitly in STAT_PROFILES rather than using a global baseline.
+
+### Data Updates
+- Alchemy, Enchanting, Inscription, Jewelcrafting, Leatherworking, Tailoring, Blacksmithing, Engineering: strat values updated from the new Dynamic Stats sheet.
+- Blacksmithing: explicit Q1/Q2 strat IDs for Gloaming Alloy, Sterling Alloy, Refulgent Copper Ingot.
+- Removed strats no longer in the spreadsheet (Sin'dorei Lens/Sunglass Vial crafting, Scale-Woven Hide, Void-Touched Drums, Imbued Bright Linen Bolt, old generic BS IDs).
+
+### Internal
+- `DATA_VERSION` bumped to 5 — wipes price cache on first login so stale multipliers from changed strats do not persist.
+- All 60 strats verified against spreadsheet source values (60/60 pass).
+
+---
+
 ## [1.2.6] — 2026-03-14
 
 ### Improvements
