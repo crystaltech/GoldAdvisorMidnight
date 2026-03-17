@@ -3,6 +3,16 @@
 -- Module: GAM (root)
 
 local ADDON_NAME, GAM = ...
+local workbookProfiles = (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+
+local function ProfileDefault(profileKey, field, fallback)
+    local profile = workbookProfiles[profileKey]
+    local value = profile and profile[field]
+    if value == nil then
+        return fallback
+    end
+    return value
+end
 
 -- ===== Namespace =====
 GAM.version   = GAM.C.ADDON_VERSION
@@ -22,7 +32,9 @@ local DB_DEFAULTS = {
         rankPolicy   = GAM.C.DEFAULT_RANK_POLICY,
         priceSource         = GAM.C.DEFAULT_PRICE_SOURCE,
         pigmentCostSource   = GAM.C.DEFAULT_PIGMENT_COST_SOURCE,
-        -- Crafting stat overrides (integer %, 0–100; default = baked spreadsheet baseline)
+        boltCostSource      = GAM.C.DEFAULT_BOLT_COST_SOURCE,
+        ingotCostSource     = GAM.C.DEFAULT_INGOT_COST_SOURCE,
+        -- Crafting stat overrides (percent values, 0–100; decimals allowed; default = workbook baseline)
         -- Milling, Prospecting, Crushing, Shattering have no Multicraft stat.
         inscMillingRes   = GAM.C.DEFAULT_INSC_MILLING_RES,
         inscInkMulti     = GAM.C.DEFAULT_INSC_INK_MULTI,
@@ -44,25 +56,25 @@ local DB_DEFAULTS = {
         lwRes            = GAM.C.DEFAULT_LW_RES,
         engMulti         = GAM.C.DEFAULT_ENG_MULTI,
         engRes           = GAM.C.DEFAULT_ENG_RES,
-        -- Per-profession spec node bonuses (integer %; default = value baked into spreadsheet)
+        -- Per-profession spec node bonuses (percent values; default = value baked into spreadsheet)
         -- Used by CalculateStratMetrics to scale from the spreadsheet's baked-in stats
         -- to the user's actual spec tree allocation.
-        alchMcNode       = 20,   -- Alchemy MCm node bonus baked in spreadsheet
-        alchRsNode       = 0,    -- Alchemy Rs node bonus baked in spreadsheet
-        enchMcNode       = 100,  -- Enchanting crafting MCm node bonus baked in spreadsheet
-        enchRsNode       = 20,   -- Enchanting Rs node bonus baked in spreadsheet
-        inscMcNode       = 100,  -- Inscription ink MCm node bonus baked in spreadsheet
-        inscRsNode       = 55,   -- Inscription Rs node bonus baked in spreadsheet
-        lwMcNode         = 50,   -- Leatherworking MCm node bonus baked in spreadsheet
-        lwRsNode         = 50,   -- Leatherworking Rs node bonus baked in spreadsheet
-        jcMcNode         = 50,   -- Jewelcrafting MCm node bonus baked in spreadsheet
-        jcRsNode         = 50,   -- Jewelcrafting Rs node bonus baked in spreadsheet
-        tailMcNode       = 40,   -- Tailoring MCm node bonus baked in spreadsheet
-        tailRsNode       = 50,   -- Tailoring Rs node bonus baked in spreadsheet
-        bsMcNode         = 0,    -- Blacksmithing MCm node bonus baked in spreadsheet
-        bsRsNode         = 0,    -- Blacksmithing Rs node bonus baked in spreadsheet
-        engMcNode        = 50,   -- Engineering MCm node bonus baked in spreadsheet
-        engRsNode        = 50,   -- Engineering Rs node bonus baked in spreadsheet
+        alchMcNode       = ProfileDefault("alchemy", "defaultMcNode", 20),
+        alchRsNode       = ProfileDefault("alchemy", "defaultRsNode", 0),
+        enchMcNode       = ProfileDefault("ench_craft", "defaultMcNode", 100),
+        enchRsNode       = ProfileDefault("ench_craft", "defaultRsNode", 20),
+        inscMcNode       = ProfileDefault("insc_ink", "defaultMcNode", 100),
+        inscRsNode       = ProfileDefault("insc_ink", "defaultRsNode", 55),
+        lwMcNode         = ProfileDefault("leatherworking", "defaultMcNode", 50),
+        lwRsNode         = ProfileDefault("leatherworking", "defaultRsNode", 50),
+        jcMcNode         = ProfileDefault("jc_craft", "defaultMcNode", 50),
+        jcRsNode         = ProfileDefault("jc_craft", "defaultRsNode", 50),
+        tailMcNode       = ProfileDefault("tailoring", "defaultMcNode", 40),
+        tailRsNode       = ProfileDefault("tailoring", "defaultRsNode", 50),
+        bsMcNode         = ProfileDefault("blacksmithing", "defaultMcNode", 0),
+        bsRsNode         = ProfileDefault("blacksmithing", "defaultRsNode", 0),
+        engMcNode        = ProfileDefault("engineering", "defaultMcNode", 50),
+        engRsNode        = ProfileDefault("engineering", "defaultRsNode", 50),
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         -- New UI opt-in + per-session panel state
@@ -138,6 +150,14 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        dataVersion = 7,
+        migrate = function(db)
+            if type(db.priceCache) == "table" then
+                wipe(db.priceCache)
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)
@@ -204,6 +224,154 @@ function GAM:GetRealmCache()
     self.db.priceCache        = self.db.priceCache or {}
     self.db.priceCache[key]   = self.db.priceCache[key] or {}
     return self.db.priceCache[key]
+end
+
+-- ===== Auctionator Quick Buy =====
+GAM.quickBuyList = GAM.quickBuyList or nil
+GAM.quickBuyState = {
+    active = false,
+    searchPending = false,
+    searchRetries = 0,
+    resultRows = {},
+    currentSearchString = nil,
+    pendingItemID = nil,
+    pendingQty = nil,
+}
+
+local function ResetQuickBuy(silent)
+    local qb = GAM.quickBuyState
+    qb.active = false
+    qb.searchPending = false
+    qb.searchRetries = 0
+    qb.resultRows = {}
+    qb.currentSearchString = nil
+    qb.pendingItemID = nil
+    qb.pendingQty = nil
+    if not silent then
+        print("|cffff8800[GAM]|r Auctionator quick buy stopped.")
+    end
+end
+
+local function GetQuickBuyContext()
+    if not GAM.ahOpen then
+        return nil, "Open the Auction House first."
+    end
+    if not Auctionator or not Auctionator.API or not Auctionator.API.v1 then
+        return nil, "Auctionator is required for quick buy."
+    end
+    if not AuctionatorShoppingFrame then
+        return nil, "Open the Auctionator Shopping tab first."
+    end
+    if not GAM.quickBuyList or not GAM.quickBuyList.entries or #GAM.quickBuyList.entries == 0 then
+        return nil, "Create a GAM shopping list first."
+    end
+    local listName = GAM.quickBuyList.listName or (GAM.L and GAM.L["AUCTIONATOR_LIST_NAME"]) or "Gold Advisor Midnight"
+    local listManager = Auctionator.Shopping and Auctionator.Shopping.ListManager
+    local listIndex = listManager and listManager:GetIndexForName(listName)
+    if not listIndex then
+        return nil, "Create a GAM shopping list first."
+    end
+    local list = listManager:GetByIndex(listIndex)
+    if not list then
+        return nil, "Create a GAM shopping list first."
+    end
+    return {
+        listName = listName,
+        list = list,
+        listsContainer = AuctionatorShoppingFrame.ListsContainer,
+        resultsList = AuctionatorShoppingFrame.ResultsListing,
+        searchStrings = list:GetAllItems() or {},
+        entries = GAM.quickBuyList.entries,
+    }
+end
+
+local function MapQuickBuyResultRows(entries, resultsList)
+    local mapped = {}
+    if not resultsList or not resultsList.dataProvider then
+        return mapped, false
+    end
+    local rows = {}
+    local used = {}
+    for i = 1, resultsList.dataProvider:GetCount() do
+        rows[#rows + 1] = resultsList.dataProvider:GetEntryAt(i)
+    end
+    local allMatched = true
+    for _, entry in ipairs(entries or {}) do
+        local match
+        for idx, row in ipairs(rows) do
+            if not used[idx] and row and row.itemKey and row.itemKey.itemID == entry.itemID then
+                match = row
+                used[idx] = true
+                break
+            end
+        end
+        if match then
+            mapped[entry.searchString] = match
+        else
+            allMatched = false
+        end
+    end
+    return mapped, allMatched
+end
+
+local AdvanceQuickBuy
+AdvanceQuickBuy = function()
+    local qb = GAM.quickBuyState
+    if not qb.active then return end
+
+    local ctx, err = GetQuickBuyContext()
+    if not ctx then
+        ResetQuickBuy(true)
+        print("|cffff8800[GAM]|r " .. err)
+        return
+    end
+
+    if #ctx.searchStrings == 0 or #ctx.entries == 0 then
+        ResetQuickBuy(true)
+        print("|cffff8800[GAM]|r No items left in the GAM shopping list.")
+        return
+    end
+
+    if ctx.listsContainer and ctx.listsContainer.IsListExpanded and not ctx.listsContainer:IsListExpanded(ctx.list) then
+        ctx.listsContainer:ExpandList(ctx.list)
+    end
+
+    if not qb.searchPending then
+        qb.searchPending = true
+        qb.searchRetries = 0
+        AuctionatorShoppingFrame:DoSearch(ctx.searchStrings)
+    end
+
+    local allMatched
+    qb.resultRows, allMatched = MapQuickBuyResultRows(ctx.entries, ctx.resultsList)
+    if not allMatched then
+        if qb.searchRetries >= 20 then
+            ResetQuickBuy(true)
+            print("|cffff8800[GAM]|r Quick buy timed out waiting for Auctionator search results.")
+            return
+        end
+        qb.searchRetries = qb.searchRetries + 1
+        C_Timer.After(0.20, function()
+            AdvanceQuickBuy()
+        end)
+        return
+    end
+
+    qb.searchPending = false
+    qb.searchRetries = 0
+
+    local nextEntry = ctx.entries[1]
+    local row = nextEntry and qb.resultRows[nextEntry.searchString]
+    if not row or not row.itemKey or not row.purchaseQuantity or row.purchaseQuantity <= 0 then
+        ResetQuickBuy(true)
+        print("|cffff8800[GAM]|r Quick buy only works for commodity rows with an available purchase quantity.")
+        return
+    end
+
+    qb.currentSearchString = nextEntry.searchString
+    qb.pendingItemID = row.itemKey.itemID
+    qb.pendingQty = row.purchaseQuantity
+    C_AuctionHouse.StartCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
 end
 
 -- ===== Event frame =====
@@ -297,6 +465,11 @@ handlers["PLAYER_LOGIN"] = function(self)
             touch(strat.output)
             for _, o in ipairs(strat.outputs or {}) do touch(o) end
             for _, r in ipairs(strat.reagents or {}) do touch(r) end
+            for _, variant in pairs(strat.rankVariants or {}) do
+                touch(variant.output)
+                for _, o in ipairs(variant.outputs or {}) do touch(o) end
+                for _, r in ipairs(variant.reagents or {}) do touch(r) end
+            end
         end
     end
 end
@@ -324,6 +497,7 @@ end
 handlers["AUCTION_HOUSE_CLOSED"] = function(self)
     self.ahOpen = false
     self.Log.Debug("AH closed.")
+    ResetQuickBuy(true)
     if self.AHScan then
         self.AHScan.OnAHClosed()
     end
@@ -351,6 +525,73 @@ handlers["AUCTION_HOUSE_BROWSE_RESULTS_UPDATED"] = function(self)
     end
 end
 
+handlers["AUCTION_HOUSE_THROTTLED_SYSTEM_READY"] = function(self)
+    local qb = self.quickBuyState
+    if qb and qb.active and qb.pendingItemID and qb.pendingQty then
+        C_AuctionHouse.ConfirmCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
+    end
+end
+
+handlers["COMMODITY_PURCHASE_SUCCEEDED"] = function(self)
+    local qb = self.quickBuyState
+    if not (qb and qb.active and qb.currentSearchString and qb.pendingQty) then
+        return
+    end
+
+    local listName = self.quickBuyList and self.quickBuyList.listName
+    local oldSearchString = qb.currentSearchString
+    local purchasedQty = qb.pendingQty
+
+    qb.pendingItemID = nil
+    qb.pendingQty = nil
+    qb.currentSearchString = nil
+    qb.searchPending = false
+    qb.searchRetries = 0
+
+    if Auctionator and Auctionator.API and Auctionator.API.v1 and listName then
+        local oldTerms = Auctionator.API.v1.ConvertFromSearchString(ADDON_NAME, oldSearchString)
+        if oldTerms and oldTerms.quantity then
+            local newQty = oldTerms.quantity - purchasedQty
+            if newQty > 0 then
+                oldTerms.quantity = newQty
+                local newSearchString = Auctionator.API.v1.ConvertToSearchString(ADDON_NAME, oldTerms)
+                pcall(Auctionator.API.v1.AlterShoppingListItem, ADDON_NAME, listName, oldSearchString, newSearchString)
+                if self.quickBuyList and self.quickBuyList.entries then
+                    for _, entry in ipairs(self.quickBuyList.entries) do
+                        if entry.searchString == oldSearchString then
+                            entry.searchString = newSearchString
+                            entry.quantity = newQty
+                            break
+                        end
+                    end
+                end
+            else
+                pcall(Auctionator.API.v1.DeleteShoppingListItem, ADDON_NAME, listName, oldSearchString)
+                if self.quickBuyList and self.quickBuyList.entries then
+                    for idx, entry in ipairs(self.quickBuyList.entries) do
+                        if entry.searchString == oldSearchString then
+                            table.remove(self.quickBuyList.entries, idx)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    C_Timer.After(0.25, function()
+        AdvanceQuickBuy()
+    end)
+end
+
+handlers["COMMODITY_PURCHASE_FAILED"] = function(self)
+    local qb = self.quickBuyState
+    if qb and qb.active then
+        ResetQuickBuy(true)
+        print("|cffff8800[GAM]|r Commodity purchase failed. Quick buy stopped.")
+    end
+end
+
 -- Register persistent events
 GAM:RegisterEvent("ADDON_LOADED")
 GAM:RegisterEvent("PLAYER_LOGIN")
@@ -359,6 +600,9 @@ GAM:RegisterEvent("AUCTION_HOUSE_CLOSED")
 GAM:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED")
 GAM:RegisterEvent("ITEM_SEARCH_RESULTS_UPDATED")
 GAM:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
+GAM:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY")
+GAM:RegisterEvent("COMMODITY_PURCHASE_SUCCEEDED")
+GAM:RegisterEvent("COMMODITY_PURCHASE_FAILED")
 
 -- ===== Slash command =====
 SLASH_GOLDADVISORMIDNIGHT1 = "/gam"
@@ -395,6 +639,14 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
     elseif cmd == "create" then
         if GAM.UI and GAM.UI.StratCreator then
             GAM.UI.StratCreator.Show()
+        end
+    elseif cmd == "quickbuy" then
+        if GAM.quickBuyState.active then
+            ResetQuickBuy()
+        else
+            GAM.quickBuyState.active = true
+            print("|cffff8800[GAM]|r Auctionator quick buy started.")
+            AdvanceQuickBuy()
         end
     else
         -- Default: toggle main window (routes to V2 if useNewUI is set)

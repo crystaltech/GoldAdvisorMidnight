@@ -8,7 +8,7 @@ local ADDON_NAME, GAM = ...
 local SD = {}
 GAM.UI.StratDetail = SD
 
-local WIN_W, WIN_H = 700, 700
+local WIN_W, WIN_H = 720, 720
 local ROW_H        = 22
 local PROFIT_BASE_Y = 52
 local MIN_NOTICE_GAP_ABOVE_BUTTONS = 6
@@ -186,27 +186,40 @@ local function FmtQty(n)
     return s:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
 end
 
--- ===== Item hyperlink helper =====
--- Returns the full |H...| link string if the item is in the client cache,
--- otherwise falls back to the plain name so the row is always readable.
-local function GetItemLink(itemID, fallbackName)
-    if itemID and itemID > 0 then
-        local _, link = GetItemInfo(itemID)
-        if link then return link end
-    end
-    return fallbackName or "?"
+-- ===== Item row helper =====
+-- Detail rows only become clickable once WoW has produced a safe cached item link.
+-- Before that, the row stays readable but inert so shift-click / SetItemRef never
+-- receives a nil or plain-text fallback.
+local function BindItemRow(frameObj, display)
+    frameObj._itemDisplay = display
+    frameObj:EnableMouse(display and display.hasSafeLink and display.itemLink and true or false)
 end
 
--- Shared hyperlink handlers wired onto every reagent/output row frame.
--- SetHyperlinksEnabled(true) on each row frame makes FontString |H links
--- clickable; these three handlers do the standard WoW tooltip/ref behaviour.
-local function HyperlinkClick(_, link, text, button) SetItemRef(link, text, button) end
-local function HyperlinkEnter(_, link)
-    GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
+local function ItemRowClick(self, button)
+    local display = self and self._itemDisplay
+    local link = display and display.itemLink
+    if not link or link == "" then return end
+    if HandleModifiedItemClick and HandleModifiedItemClick(link) then
+        return
+    end
+    local itemString = link:match("|H([^|]+)|h")
+    if itemString then
+        SetItemRef(itemString, link, button)
+    end
+end
+
+local function ItemRowEnter(self)
+    local display = self and self._itemDisplay
+    local link = display and display.itemLink
+    if not link or link == "" then return end
+    GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
     GameTooltip:SetHyperlink(link)
     GameTooltip:Show()
 end
-local function HyperlinkLeave() GameTooltip:Hide() end
+
+local function ItemRowLeave()
+    GameTooltip:Hide()
+end
 
 -- ===== Auctionator export =====
 local function CreateAuctionatorList()
@@ -290,10 +303,10 @@ local function MakeReagentRow(parent, idx)
     local row = CreateFrame("Frame", nil, parent)
     row:SetSize(TABLE_ROW_W, ROW_H)
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(idx - 1) * ROW_H)
-    row:SetHyperlinksEnabled(true)
-    row:SetScript("OnHyperlinkClick",  HyperlinkClick)
-    row:SetScript("OnHyperlinkEnter",  HyperlinkEnter)
-    row:SetScript("OnHyperlinkLeave",  HyperlinkLeave)
+    row:SetHyperlinksEnabled(false)
+    row:SetScript("OnMouseUp",  ItemRowClick)
+    row:SetScript("OnEnter",    ItemRowEnter)
+    row:SetScript("OnLeave",    ItemRowLeave)
 
     -- Column x positions: Item | Total Qty | In Bags | NeedBuy | UnitPrice | TotalCost | [Scan]
     -- colX[3] shifted left to 232 to give COL_HAVE 88px (fits translated "In Bags" labels).
@@ -373,7 +386,9 @@ end
 
 local function PopulateReagentRow(row, reagentMetric, reagentDef, isPrimary)
     row.reagentData = reagentDef
-    row.nameText:SetText(GetItemLink(reagentMetric.itemID, reagentDef.name))
+    local display = GAM.Pricing.GetItemDisplayData(reagentMetric.itemID, reagentDef.name)
+    row.nameText:SetText(display.displayText)
+    BindItemRow(row, display)
 
     local qtyStr = string.format("%.0f", reagentMetric.required or 0)
     if isPrimary then
@@ -410,10 +425,10 @@ local function MakeOutputRow(parent, idx)
     local row = CreateFrame("Frame", nil, parent)
     row:SetSize(TABLE_ROW_W, ROW_H)
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(idx - 1) * ROW_H)
-    row:SetHyperlinksEnabled(true)
-    row:SetScript("OnHyperlinkClick",  HyperlinkClick)
-    row:SetScript("OnHyperlinkEnter",  HyperlinkEnter)
-    row:SetScript("OnHyperlinkLeave",  HyperlinkLeave)
+    row:SetHyperlinksEnabled(false)
+    row:SetScript("OnMouseUp",  ItemRowClick)
+    row:SetScript("OnEnter",    ItemRowEnter)
+    row:SetScript("OnLeave",    ItemRowLeave)
 
     local function MakeFontCell(xOff, w)
         local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -466,7 +481,9 @@ end
 
 local function PopulateOutputRow(row, outputMetric, isPrimary)
     row.outputData = outputMetric
-    row.nameText:SetText(GetItemLink(outputMetric.itemID, outputMetric.name))
+    local display = GAM.Pricing.GetItemDisplayData(outputMetric.itemID, outputMetric.name)
+    row.nameText:SetText(display.displayText)
+    BindItemRow(row, display)
 
     local qtyStr = outputMetric.expectedQty
         and string.format("%.0f", math.floor(outputMetric.expectedQty)) or "—"
@@ -556,9 +573,9 @@ local function Build()
 
     -- ── Input Section Frame ──
     local inputSection = CreateFrame("Frame", nil, frame)
-    inputSection:SetPoint("TOPLEFT",  frame, "TOPLEFT",  14, -72)
-    inputSection:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -72)
-    inputSection:SetHeight(240)
+    inputSection:SetPoint("TOPLEFT",  notesFS, "BOTTOMLEFT",  0, -10)
+    inputSection:SetPoint("TOPRIGHT", notesFS, "BOTTOMRIGHT", 0, -10)
+    inputSection:SetHeight(224)
 
     local inHdr = inputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     inHdr:SetPoint("TOPLEFT", inputSection, "TOPLEFT", 0, 0)
@@ -611,7 +628,7 @@ local function Build()
     local outputSection = CreateFrame("Frame", nil, frame)
     outputSection:SetPoint("TOPLEFT",  inputSection, "BOTTOMLEFT",  0, -6)
     outputSection:SetPoint("TOPRIGHT", inputSection, "BOTTOMRIGHT", 0, -6)
-    outputSection:SetHeight(176)
+    outputSection:SetHeight(152)
 
     local outHdr = outputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     outHdr:SetPoint("TOPLEFT", outputSection, "TOPLEFT", 0, 0)
@@ -880,6 +897,7 @@ end
 
 function SD.Refresh()
     if not frame or not currentStrat then return end
+    GAM.Pricing.PreloadStratItemData(currentStrat, currentPatch)
     local L = GAM.L
 
     frame.stratNameFS:SetText(currentStrat.stratName .. " (" .. currentStrat.profession .. ")")
@@ -921,6 +939,7 @@ function SD.Refresh()
         if rDef and rMet then
             PopulateReagentRow(row, rMet, rDef, i == 1)
         else
+            BindItemRow(row, nil)
             row:Hide()
             row.reagentData = nil
         end
@@ -949,6 +968,7 @@ function SD.Refresh()
         if oi then
             PopulateOutputRow(row, oi.metric, oi.isPrimary)
         else
+            BindItemRow(row, nil)
             row:Hide()
         end
     end

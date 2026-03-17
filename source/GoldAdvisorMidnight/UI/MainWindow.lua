@@ -6,10 +6,11 @@
 local ADDON_NAME, GAM = ...
 local MW = {}
 GAM.UI.MainWindow = MW
+local lastScanRefreshAt = 0
 local L = GAM.L   -- file-scope so all module functions (RefreshRows, etc.) can access it
 
-local WIN_W, WIN_H   = 720, 540
-local ROW_H          = 22
+local WIN_W, WIN_H   = 760, 560
+local ROW_H          = 24
 local VISIBLE_ROWS   = 18   -- number of rendered row frames
 local STRAT_TEXT_PAD = 10   -- star icon gutter inside strategy column
 
@@ -38,6 +39,7 @@ local filteredList    = {}   -- current sorted+filtered strat list
 local scrollOffset    = 0    -- first visible row index (0-based)
 local rowFrames       = {}   -- reusable row frames
 local selectedStratID = nil
+local suppressScrollCallback = false
 
 local function MeasureButtonWidth(parent, text, minW, maxW, padding)
     parent._gamMeasureFS = parent._gamMeasureFS or parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -180,6 +182,7 @@ local function MakeRowFrame(parent, idx)
     nameText:SetPoint("LEFT", row, "LEFT", colStrat.x + STRAT_TEXT_PAD, 0)
     nameText:SetWidth(colStrat.w - STRAT_TEXT_PAD)
     nameText:SetJustifyH(colStrat.justify)
+    nameText:SetWordWrap(false)
     row.nameText = nameText
 
     -- Profession
@@ -187,6 +190,7 @@ local function MakeRowFrame(parent, idx)
     profText:SetPoint("LEFT", row, "LEFT", colProf.x, 0)
     profText:SetWidth(colProf.w)
     profText:SetJustifyH(colProf.justify)
+    profText:SetWordWrap(false)
     row.profText = profText
 
     -- Profit
@@ -194,6 +198,7 @@ local function MakeRowFrame(parent, idx)
     profitText:SetPoint("LEFT", row, "LEFT", colProfit.x, 0)
     profitText:SetWidth(colProfit.w)
     profitText:SetJustifyH(colProfit.justify)
+    profitText:SetWordWrap(false)
     row.profitText = profitText
 
     -- ROI
@@ -201,6 +206,7 @@ local function MakeRowFrame(parent, idx)
     roiText:SetPoint("LEFT", row, "LEFT", colRoi.x, 0)
     roiText:SetWidth(colRoi.w)
     roiText:SetJustifyH(colRoi.justify)
+    roiText:SetWordWrap(false)
     row.roiText = roiText
 
     -- Missing price indicator
@@ -209,6 +215,7 @@ local function MakeRowFrame(parent, idx)
     missingText:SetWidth(colStatus.w)
     missingText:SetJustifyH(colStatus.justify)
     missingText:SetTextColor(1, 0.6, 0)
+    missingText:SetWordWrap(false)
     row.missingText = missingText
 
     -- Initialise missing-price list so OnEnter can always reference it safely
@@ -275,7 +282,7 @@ local function PopulateRow(row, strat)
         row.star:SetAlpha(0.35)
     end
     row.nameText:SetText(strat.stratName)
-    row.profText:SetText(strat.profession)
+    row.profText:SetText((filterProf == "All") and strat.profession or "")
 
     -- Compute metrics (cached where possible)
     local m = GAM.Pricing.CalculateStratMetrics(strat, filterPatch)
@@ -333,8 +340,10 @@ function MW.RefreshRows()
         local total = #filteredList
         local max   = math.max(0, total - VISIBLE_ROWS)
         frame.scrollBar:SetMinMaxValues(0, max)
+        suppressScrollCallback = true
         frame.scrollBar:SetValue(scrollOffset)
-        frame.scrollBar:Show()
+        suppressScrollCallback = false
+        frame.scrollBar:SetShown(max > 0)
     end
     -- Status text
     if frame.statusText then
@@ -495,6 +504,7 @@ local function Build()
     local listHost = CreateFrame("Frame", nil, frame)
     listHost:SetPoint("TOPLEFT",     frame, "TOPLEFT",  14,  listY)
     listHost:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 44)
+    listHost:SetClipsChildren(true)
 
     for i = 1, VISIBLE_ROWS do
         rowFrames[i] = MakeRowFrame(listHost, i)
@@ -513,9 +523,8 @@ local function Build()
     sb:SetValue(0)
     sb:SetValueStep(1)
     sb:SetObeyStepOnDrag(true)
-    -- isUserInput guards against re-entry when RefreshRows programmatically calls SetValue
     sb:SetScript("OnValueChanged", function(self, val, isUserInput)
-        if not isUserInput then return end
+        if suppressScrollCallback then return end
         scrollOffset = math.floor(val + 0.5)
         MW.RefreshRows()
     end)
@@ -625,6 +634,14 @@ function MW.OnScanProgress(done, total, isComplete)
         else
             frame.progBar:SetValue(0)
             frame.progLabel:SetText(L["STATUS_QUEUING"])
+        end
+        if frame:IsShown() and done and done > 0 then
+            local now = GetTime()
+            if (now - lastScanRefreshAt) >= 0.75 then
+                lastScanRefreshAt = now
+                RebuildList()
+                MW.RefreshRows()
+            end
         end
     end
 end

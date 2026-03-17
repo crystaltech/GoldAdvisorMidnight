@@ -1,5 +1,28 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.3.0] — 2026-03-17
+
+### Bug Fixes
+- **Qty-aware pricing** — Reagent costs now use the actual purchase quantity (`needToBuy`) for AH fill calculations instead of the global `shallowFillQty` (default 50). A strategy needing 870 Mote of Light now fills 870 units of AH depth and averages that, rather than the shallow 50-unit cached average. Covers all four price paths:
+  - Direct AH purchases (all professions)
+  - Mill-derived herb costs — Inscription `pigmentCostSource = "mill"` now passes the actual herb volume needed (`pigmentQty / yieldPerHerb`) to the herb price lookup
+  - Craft-derived bolt/ingot ingredient costs — Tailoring bolts and Blacksmithing ingots use per-ingredient volume
+  - Stale price flag — was incorrectly returning `false` when using qty-aware raw data from a previous session; now always inherits the cached timestamp staleness
+
+### New Features
+- **V2 Profession sub-filter** — A `Profession` dropdown has been added to the V2 left panel between the Mine/All toggle and Fill Qty. Players with multiple professions (e.g. Leatherworking + Enchanting) can narrow the strategy list to a single profession. The dropdown auto-populates based on the current filter mode: player professions in Mine mode, all available professions in All mode. Resets to "All" when the mode toggle is switched.
+- **Community info ticker** — A scrolling strip at the very bottom of the V2 window displays Discord, Twitch, Patreon, and tip links. The ticker pauses when hovered and resumes on mouse-off. Clicking anywhere on it opens a small copy-link dialog with a pre-selected EditBox for the tip URL.
+
+### Internal / Data
+- **WorkbookGenerated.lua** added — auto-generated item catalog and formula profiles from the workbook spreadsheet, replacing the hand-maintained `StratsManual.lua`
+- `StratsManual.lua` removed; all strategies consolidated into `StratsGenerated.lua`
+- **Direct formula output calculation** — output quantities now computed as `crafts × baseYieldPerCraft × statMultiplier` for cleaner stat scaling
+- **Per-profession spec node bonuses** — Resourcefulness/Multicraft node bonus fields per profession; sync-able from CraftSim via the Sync button in Settings
+- `DATA_VERSION` → 7; price cache wiped on upgrade
+- V2 window height increased to 680px to accommodate profession dropdown and ticker
+
+---
+
 ## [1.2.8] — 2026-03-16
 
 ### New Features

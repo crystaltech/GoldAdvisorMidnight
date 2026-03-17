@@ -48,11 +48,7 @@ bridgeFrame:RegisterEvent("PLAYER_LOGIN")
 bridgeFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
         OnLoad()
-        -- Auto-sync node bonuses from CraftSim SavedVars (silent, best-effort)
-        local count = Bridge.SyncNodeBonusesFromCraftSim()
-        if count > 0 then
-            GAM.Log.Debug("CraftSimBridge: synced node bonuses for %d professions.", count)
-        end
+        GAM.Log.Debug("CraftSimBridge: workbook defaults remain authoritative; node bonuses are available for manual compare/import only.")
         bridgeFrame:UnregisterAllEvents()
     end
 end)

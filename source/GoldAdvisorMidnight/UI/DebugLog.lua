@@ -12,6 +12,13 @@ local scrollFrame
 local editBox
 local isPaused = false
 
+local function PresentTop(frameObj)
+    if not frameObj then return end
+    frameObj:SetFrameStrata("FULLSCREEN_DIALOG")
+    frameObj:SetToplevel(true)
+    frameObj:Raise()
+end
+
 local function GetUIScale()
     return (GAM.db and GAM.db.options and GAM.db.options.uiScale) or 1.0
 end
@@ -128,6 +135,15 @@ local function DumpItemIDs()
 
     local totalIDs, mismatches, uncached = 0, 0, 0
 
+    local function NormalizeDumpName(name)
+        if type(name) ~= "string" then return "" end
+        local normalized = name:lower()
+        normalized = normalized:gsub("[‘’´`]", "'")
+        normalized = normalized:gsub("%s*%([qr]%d+%)", "")
+        normalized = normalized:gsub("%s+", " ")
+        return normalized
+    end
+
     for _, expectedName in ipairs(names) do
         local ids = {}
         for id in pairs(nameMap[expectedName]) do ids[#ids+1] = id end
@@ -145,7 +161,7 @@ local function DumpItemIDs()
                 nameParts[#nameParts+1] = "???"
                 uncached = uncached + 1
                 anyBad = true
-            elseif actual ~= expectedName then
+            elseif NormalizeDumpName(actual) ~= NormalizeDumpName(expectedName) then
                 nameParts[#nameParts+1] = "MISMATCH:" .. actual
                 mismatches = mismatches + 1
                 anyBad = true
@@ -265,8 +281,7 @@ local function BuildARPExportPopup()
     arpPopup:RegisterForDrag("LeftButton")
     arpPopup:SetScript("OnDragStart", arpPopup.StartMoving)
     arpPopup:SetScript("OnDragStop",  arpPopup.StopMovingOrSizing)
-    arpPopup:SetFrameStrata("DIALOG")
-    arpPopup:SetToplevel(true)
+    PresentTop(arpPopup)
     arpPopup:SetClampedToScreen(true)
     arpPopup:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
@@ -316,7 +331,7 @@ local function ShowARPExportPopup(text)
     arpPopupSF:SetVerticalScroll(0)
     arpPopupEB:SetText(text or "")
     arpPopup:Show()
-    arpPopup:Raise()
+    PresentTop(arpPopup)
     arpPopupEB:SetFocus()
     arpPopupEB:HighlightText()
 end
@@ -333,7 +348,7 @@ local function Build()
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
-    frame:SetFrameStrata("DIALOG")
+    PresentTop(frame)
     frame:SetClampedToScreen(true)
     frame:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
@@ -433,6 +448,7 @@ local function Build()
 
     -- On show: populate from ring buffer
     frame:SetScript("OnShow", function()
+        PresentTop(frame)
         local txt = GAM.Log.GetAllText()
         editBox:SetText(txt)
         local max = scrollFrame:GetVerticalScrollRange()
@@ -453,7 +469,7 @@ end
 function DebugLog.Show()
     if not frame then Build() end
     frame:Show()
-    frame:Raise()
+    PresentTop(frame)
 end
 
 function DebugLog.Hide()
@@ -462,7 +478,7 @@ end
 
 function DebugLog.Toggle()
     if not frame then Build() end
-    if frame:IsShown() then frame:Hide() else frame:Show(); frame:Raise() end
+    if frame:IsShown() then frame:Hide() else frame:Show(); PresentTop(frame) end
 end
 
 function DebugLog.IsShown()

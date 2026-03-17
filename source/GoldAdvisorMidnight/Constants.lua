@@ -3,9 +3,20 @@
 -- Module: GAM.C
 
 local ADDON_NAME, GAM = ...
+local workbookProfiles = (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+
+local function ProfileDefault(profileKey, field, fallback)
+    local profile = workbookProfiles[profileKey]
+    local value = profile and profile[field]
+    if value == nil then
+        return fallback
+    end
+    return value
+end
+
 GAM.C = {
-    ADDON_VERSION        = "1.2.9",
-    DATA_VERSION         = 6,
+    ADDON_VERSION        = "1.3.0",
+    DATA_VERSION         = 7,
     DEFAULT_PATCH        = "midnight-1",
 
     -- Base crafting-stat multipliers (game-level, before talent/spec node bonuses)
@@ -34,37 +45,39 @@ GAM.C = {
     DEFAULT_RANK_POLICY  = "lowest",
     DEFAULT_PRICE_SOURCE         = "ah",
     DEFAULT_PIGMENT_COST_SOURCE  = "ah",  -- "ah" | "mill"
+    DEFAULT_BOLT_COST_SOURCE     = "ah",  -- "ah" | "craft"
+    DEFAULT_INGOT_COST_SOURCE    = "ah",  -- "ah" | "craft"
 
-    -- Crafting stat defaults (integer %; match baked spreadsheet baseline values)
+    -- Crafting stat defaults (percent values; decimals allowed; match workbook baseline values)
     -- Milling, Prospecting, Crushing, Shattering: no Multicraft stat (profession window doesn't show it).
     -- Inscription
-    DEFAULT_INSC_MILLING_RES   = 32,   -- Resourcefulness % for Inscription milling
-    DEFAULT_INSC_INK_MULTI     = 26,   -- Multicraft % for Inscription ink crafting
-    DEFAULT_INSC_INK_RES       = 17,   -- Resourcefulness % for Inscription ink crafting
+    DEFAULT_INSC_MILLING_RES   = ProfileDefault("insc_milling", "defaultRes", 30.1),
+    DEFAULT_INSC_INK_MULTI     = ProfileDefault("insc_ink", "defaultMulti", 25.9),
+    DEFAULT_INSC_INK_RES       = ProfileDefault("insc_ink", "defaultRes", 16.1),
     -- Jewelcrafting
-    DEFAULT_JC_PROSPECT_RES    = 33,   -- Resourcefulness % for JC prospecting
+    DEFAULT_JC_PROSPECT_RES    = ProfileDefault("jc_prospect", "defaultRes", 33),
     DEFAULT_JC_CRUSH_RES       = 35,   -- Resourcefulness % for JC crushing
-    DEFAULT_JC_CRAFT_MULTI     = 30,   -- Multicraft % for JC gem crafting
-    DEFAULT_JC_CRAFT_RES       = 18,   -- Resourcefulness % for JC gem crafting
+    DEFAULT_JC_CRAFT_MULTI     = ProfileDefault("jc_craft", "defaultMulti", 29.5),
+    DEFAULT_JC_CRAFT_RES       = ProfileDefault("jc_craft", "defaultRes", 33.0),
     -- Enchanting
-    DEFAULT_ENCH_SHATTER_RES   = 30,   -- Resourcefulness % for Enchanting shattering
-    DEFAULT_ENCH_CRAFT_MULTI   = 25,   -- Multicraft % for Enchanting oil/edge crafting
-    DEFAULT_ENCH_CRAFT_RES     = 16,   -- Resourcefulness % for Enchanting oil/edge crafting
+    DEFAULT_ENCH_SHATTER_RES   = ProfileDefault("ench_shatter", "defaultRes", 7.8),
+    DEFAULT_ENCH_CRAFT_MULTI   = ProfileDefault("ench_craft", "defaultMulti", 24.5),
+    DEFAULT_ENCH_CRAFT_RES     = ProfileDefault("ench_craft", "defaultRes", 16),
     -- Alchemy
-    DEFAULT_ALCH_MULTI         = 30,   -- Multicraft % for Alchemy
-    DEFAULT_ALCH_RES           = 15,   -- Resourcefulness % for Alchemy
+    DEFAULT_ALCH_MULTI         = ProfileDefault("alchemy", "defaultMulti", 30),
+    DEFAULT_ALCH_RES           = ProfileDefault("alchemy", "defaultRes", 15),
     -- Tailoring
-    DEFAULT_TAIL_MULTI         = 25,   -- Multicraft % for Tailoring
-    DEFAULT_TAIL_RES           = 15,   -- Resourcefulness % for Tailoring
+    DEFAULT_TAIL_MULTI         = ProfileDefault("tailoring", "defaultMulti", 21.4),
+    DEFAULT_TAIL_RES           = ProfileDefault("tailoring", "defaultRes", 12.1),
     -- Blacksmithing
-    DEFAULT_BS_MULTI           = 28,   -- Multicraft % for Blacksmithing
-    DEFAULT_BS_RES             = 19,   -- Resourcefulness % for Blacksmithing
+    DEFAULT_BS_MULTI           = ProfileDefault("blacksmithing", "defaultMulti", 27.9),
+    DEFAULT_BS_RES             = ProfileDefault("blacksmithing", "defaultRes", 18.7),
     -- Leatherworking
-    DEFAULT_LW_MULTI           = 29,   -- Multicraft % for Leatherworking
-    DEFAULT_LW_RES             = 17,   -- Resourcefulness % for Leatherworking
+    DEFAULT_LW_MULTI           = ProfileDefault("leatherworking", "defaultMulti", 28.2),
+    DEFAULT_LW_RES             = ProfileDefault("leatherworking", "defaultRes", 14.9),
     -- Engineering
-    DEFAULT_ENG_MULTI          = 0,    -- * Multicraft % for Engineering (baseline: 0%)
-    DEFAULT_ENG_RES            = 38,   -- Resourcefulness % for Engineering
+    DEFAULT_ENG_MULTI          = ProfileDefault("engineering", "defaultMulti", 0),
+    DEFAULT_ENG_RES            = ProfileDefault("engineering", "defaultRes", 38),
 
     -- UI scale
     DEFAULT_UI_SCALE     = 1.0,    -- frame scale applied to non-settings addon windows/popups
@@ -82,12 +95,13 @@ GAM.C = {
     TRIM_PCT                 = 2,
 
     -- ── New UI (MainWindowV2) layout constants ────────────────────────────
-    MAIN_WIN_W              = 960,   -- total frame width
-    MAIN_WIN_H              = 580,   -- total frame height
+    MAIN_WIN_W              = 1080,  -- total frame width
+    MAIN_WIN_H              = 680,   -- total frame height (increased to fit profession dropdown + ticker)
     LEFT_PANEL_W            = 190,   -- left panel (tools/scan)
-    RIGHT_PANEL_W           = 340,   -- right panel (inline detail); center = remainder
+    RIGHT_PANEL_W           = 420,   -- right panel (inline detail); center = remainder
     HEADER_H                = 34,    -- title bar height
     STATUS_BAR_H            = 22,    -- bottom status bar height
+    TICKER_H                = 18,    -- community info scrolling ticker height
 
     -- Best Strategy scoring thresholds
     BEST_STRAT_MIN_PROFIT   = 50000, -- 5g minimum profit to qualify (copper)

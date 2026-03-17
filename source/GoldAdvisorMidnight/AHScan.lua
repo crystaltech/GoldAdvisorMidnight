@@ -44,6 +44,9 @@ function AHScan.SetProgressCallback(fn)
 end
 
 local function FireProgress(isComplete)
+    if not isComplete and not scanning then
+        return
+    end
     if progressCallback then
         -- During retry pass doneCount can exceed totalEver; clamp for display
         progressCallback(math.min(doneCount, totalEver), totalEver, isComplete or false)
@@ -309,8 +312,9 @@ local function ProcessNextInQueue()
         if ticker then ticker:Cancel(); ticker = nil end
         GAM.Log.Info(GAM.L["SCAN_COMPLETE"], scanSuccessCount, scanFailCount)
         FireProgress(true)
-        if GAM.UI and GAM.UI.MainWindow then
-            GAM.UI.MainWindow.OnScanComplete()
+        local win = GAM.GetActiveMainWindow and GAM:GetActiveMainWindow() or (GAM.UI and GAM.UI.MainWindow)
+        if win and win.OnScanComplete then
+            win.OnScanComplete()
         end
         return
     end
@@ -696,7 +700,7 @@ function AHScan.OnBrowseResults()
                     if not exists then
                         table.insert(pdb.rankGroups[entry.name], id)
                     end
-                    foundIDs[id] = result.isCommodity
+                    foundIDs[id] = true
                 end
             end
             table.sort(pdb.rankGroups[entry.name])
