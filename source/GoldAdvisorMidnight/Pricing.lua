@@ -133,22 +133,26 @@ local CRAFTED_REAGENT_MAP = {
         },
         yield = 0.942977,
     },
-    -- Refulgent Copper Ingot Q1/Q2
+    -- Refulgent Copper Ingot Q1: 5×R1 ore + 2×flux → 1 ingot (base)
+    -- Normalised to 1 R1 ore unit: flux qty = 2/5 = 0.4, yield = 1/5
     [238197] = {
         optionKey = "ingotCostSource",
         modeValue = "craft",
         ingredients = {
-            { itemIDs = { 237359, 237361 }, qty = 1.000000 }, -- Refulgent Copper Ore
-            { itemIDs = { 243060 },         qty = 0.400000 }, -- Luminant Flux
+            { itemIDs = { 237359 }, qty = 1.000000 }, -- Refulgent Copper Ore R1
+            { itemIDs = { 243060 }, qty = 0.400000 }, -- Luminant Flux
         },
         yield = 0.199624,
     },
+    -- Refulgent Copper Ingot Q2: 3×R1 ore + 2×R2 ore + 2×flux → 1 ingot (base)
+    -- Normalised to 1 R1 ore unit: R2 qty = 2/3, flux qty = 2/3, yield = 1/3
     [238198] = {
         optionKey = "ingotCostSource",
         modeValue = "craft",
         ingredients = {
-            { itemIDs = { 237359, 237361 }, qty = 1.000000 },
-            { itemIDs = { 243060 },         qty = 0.666667 },
+            { itemIDs = { 237359 }, qty = 1.000000 }, -- Refulgent Copper Ore R1
+            { itemIDs = { 237361 }, qty = 0.666667 }, -- Refulgent Copper Ore R2
+            { itemIDs = { 243060 }, qty = 0.666667 }, -- Luminant Flux
         },
         yield = 0.332707,
     },
@@ -379,7 +383,7 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
                 break
             end
             if CRAFTED_REAGENT_MAP[id] then
-                local craftCost, craftStale = GetCraftDerivedReagentCost(id, patchTag, qty)
+                local craftCost, craftStale = GetCraftDerivedReagentCost(id, patchTag)
                 if craftCost then return craftCost, craftStale end
                 break
             end
