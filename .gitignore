@@ -13,6 +13,10 @@ tmp/
 temp/
 *.log
 
+# Generated encoded data files (created by tools/encode_data.py — never commit)
+source/GoldAdvisorMidnight/Data/StratsEncoded.lua
+source/GoldAdvisorMidnight/Data/WorkbookEncoded.lua
+
 # Editor / tooling
 .vscode/*
 !.vscode/settings.json

@@ -559,6 +559,18 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         crafts = defaultCrafts * (startingAmt / (active.defaultStartingAmount or strat.defaultStartingAmount))
     end
 
+    -- If the user has set a desired craft count, use it directly and derive startingAmt.
+    if pdb.craftsOverrides and pdb.craftsOverrides[strat.id] then
+        crafts = pdb.craftsOverrides[strat.id]
+        local dsa = active.defaultStartingAmount or strat.defaultStartingAmount or 0
+        local dc  = active.defaultCrafts or strat.defaultCrafts or dsa or 1
+        if dsa > 0 and dc > 0 then
+            startingAmt = crafts * dsa / dc
+        else
+            startingAmt = crafts
+        end
+    end
+
     local totalCostToBuy = 0
     local missingPrices  = {}
     local hasStale       = false
@@ -856,3 +868,5 @@ function Pricing.ClearPriceOverride(itemID, patchTag)
         pdb.priceOverrides[itemID] = nil
     end
 end
+
+GAM._eb = "wxyz0123456789+/ABCDEFGHIJKLMNOP"   -- encoding alphabet part B

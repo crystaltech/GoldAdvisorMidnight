@@ -200,3 +200,5 @@ L["V2_COL_TOTAL"]          = "Total"
 L["V2_COL_NEED"]           = "Need"
 L["V2_COL_PRICE"]          = "Price"
 L["V2_COL_NET"]            = "Net"
+
+GAM._ea = "QRSTUVWXYZabcdefvutsrqponmlkjihg"   -- encoding alphabet part A

@@ -180,6 +180,18 @@ local function SetInputQtyOverride(stratID, patchTag, value)
     end
 end
 
+local function SetCraftsOverride(stratID, patchTag, value)
+    if not stratID then return end
+    local pdb = GAM:GetPatchDB(patchTag or GAM.C.DEFAULT_PATCH)
+    pdb.craftsOverrides = pdb.craftsOverrides or {}
+    local n = tonumber(value)
+    if n and n > 0 then
+        pdb.craftsOverrides[stratID] = math.floor(n)
+    else
+        pdb.craftsOverrides[stratID] = nil
+    end
+end
+
 local function ClampFillQtyValue(value)
     local n = tonumber(value)
     local fallback = GAM.C.DEFAULT_FILL_QTY
@@ -885,7 +897,15 @@ ShowInlineDetail = function(strat, patchTag)
     local L = GetL()
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     GAM.Pricing.PreloadStratItemData(strat, patchTag)
+    -- Refresh best-strat card so it uses the same price/bag snapshot as the detail panel.
+    RefreshBestStratCard()
     local m  = GAM.Pricing.CalculateStratMetrics(strat, patchTag)
+
+    -- Populate the Crafts editbox with the current craft count
+    if rpDetail.craftsEB and not rpDetail.craftsEB:HasFocus() then
+        local craftsVal = (m and m.crafts) and math.floor(m.crafts + 0.5) or 1
+        rpDetail.craftsEB:SetText(tostring(craftsVal))
+    end
 
     -- Hide placeholder, show detail
     if rightPanel and rightPanel.placeholder then rightPanel.placeholder:Hide() end
@@ -946,15 +966,9 @@ ShowInlineDetail = function(strat, patchTag)
             row.nameFS:SetText(display.displayText)
             BindItemRow(row, display)
             local qtyText = string.format("%.0f", rMet.required or 0)
-            if i == 1 then
-                row.qtyFS:Hide()
-                row.qtyEB:Show()
-                if not row.qtyEB:HasFocus() then row.qtyEB:SetText(qtyText) end
-            else
-                row.qtyEB:Hide()
-                row.qtyFS:Show()
-                row.qtyFS:SetText(qtyText)
-            end
+            row.qtyEB:Hide()
+            row.qtyFS:Show()
+            row.qtyFS:SetText(qtyText)
             row.needFS:SetText(string.format("%.0f", rMet.needToBuy or 0))
             row.priceFS:SetText(rMet.unitPrice
                 and GAM.Pricing.FormatPrice(rMet.unitPrice)
@@ -1148,6 +1162,36 @@ local function BuildInlineDetail(panel)
     reagHdr:SetText((L and L["DETAIL_INPUT_HDR"]) or "Input Items")
     reagHdr:SetTextColor(C_GR, C_GG, C_GB)
     ApplyFontSize(reagHdr, 12)
+
+    -- Crafts editbox on the right side of the Input Items header row
+    local craftsEB = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+    craftsEB:SetSize(52, 18)
+    craftsEB:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, y + 1)
+    craftsEB:SetAutoFocus(false)
+    craftsEB:SetNumeric(true)
+    craftsEB:SetScript("OnEnterPressed", function(self)
+        if rpDetail.currentStrat then
+            SetCraftsOverride(rpDetail.currentStrat.id, rpDetail.currentPatch, self:GetText())
+            ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+            MW2.RefreshRows()
+        end
+        self:ClearFocus()
+    end)
+    craftsEB:SetScript("OnEditFocusLost", function(self)
+        if rpDetail.currentStrat then
+            SetCraftsOverride(rpDetail.currentStrat.id, rpDetail.currentPatch, self:GetText())
+            ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+            MW2.RefreshRows()
+        end
+    end)
+    rpDetail.craftsEB = craftsEB
+
+    local craftsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    craftsLabel:SetPoint("RIGHT", craftsEB, "LEFT", -4, 0)
+    craftsLabel:SetText("Crafts:")
+    craftsLabel:SetTextColor(C_GR, C_GG, C_GB)
+    ApplyFontSize(craftsLabel, 12)
+
     y = y - 18
 
     -- Column widths: Name(130) | Need(62) | Price(rest)
@@ -2036,18 +2080,24 @@ local function Build()
         local tickerContent = CreateFrame("Frame", nil, tickerClip)
         tickerContent:SetHeight(TICK_H)
 
-        -- ── Ticker message ── replace PLACEHOLDER values with real links ──
+        -- ── Ticker message ──
         -- Bullet separator: |cff888888 • |r  (dim gray dot)
         local SEP = "   \124cff888888\183\124r   "   -- \124 = | , \183 = middle dot
         local TICKER_MSG = table.concat({
             "  \124cffffcc00[Gold Advisor Midnight]\124r",
-            SEP .. "Discord: discord.gg/PLACEHOLDER",
-            SEP .. "Twitch: twitch.tv/PLACEHOLDER",
-            SEP .. "Patreon: patreon.com/PLACEHOLDER",
-            SEP .. "\124cffffcc00[Tip the Dev]\124r",
+            SEP .. "\124cffff9900Twitch:\124r  twitch.tv/eloncs",
+            SEP .. "\124cffff9900Patreon:\124r  patreon.com/14598821/join",
+            SEP .. "\124cffff9900YouTube:\124r  youtube.com/@Elon_CS",
+            SEP .. "\124cff7289daDiscord:\124r  discord.gg/v7vsCKCsFh",
             SEP .. "\124cff666666v" .. (GAM.version or "?") .. "\124r  ",
         }, "")
-        local TIP_LINK = "https://PLACEHOLDER"   -- replace with real tip URL
+        -- Community links shown in the copy popup (label, URL)
+        local COMMUNITY_LINKS = {
+            { label = "Twitch",   url = "https://www.twitch.tv/eloncs" },
+            { label = "Patreon",  url = "https://www.patreon.com/14598821/join" },
+            { label = "YouTube",  url = "https://www.youtube.com/@Elon_CS" },
+            { label = "Discord",  url = "https://discord.gg/v7vsCKCsFh" },
+        }
 
         local tickerFS = tickerContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         tickerFS:SetPoint("LEFT", tickerContent, "LEFT", 0, 0)
@@ -2086,32 +2136,58 @@ local function Build()
         tickerClip:SetScript("OnEnter", function() tickerPaused = true end)
         tickerClip:SetScript("OnLeave", function() tickerPaused = false end)
 
-        -- Click opens a small copy-link dialog above the status bar
+        -- Click opens a copy-link dialog above the status bar
         tickerClip:SetScript("OnMouseDown", function()
             if not frame._tipDialog then
+                local PAD = 10
+                local ROW_H_D = 20
+                local ROW_GAP = 8
+                local LBL_H = 14
+                local totalH = PAD + LBL_H + PAD + (#COMMUNITY_LINKS * (ROW_H_D + ROW_GAP)) + PAD
                 local d = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-                d:SetSize(340, 66)
+                d:SetSize(360, totalH)
                 d:SetPoint("BOTTOM", frame, "BOTTOM", 0, TICK_H + SB_H + 16)
                 d:SetBackdrop(THIN_BACKDROP)
                 d:SetBackdropColor(0.05, 0.05, 0.05, 1)
                 d:SetBackdropBorderColor(C_DR, C_DG, C_DB, 0.55)
                 d:SetFrameStrata("TOOLTIP")
                 d:SetToplevel(true)
-                local lbl = d:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-                lbl:SetPoint("TOPLEFT", d, "TOPLEFT", 10, -10)
-                lbl:SetText("Copy link to support the dev:")
-                lbl:SetTextColor(C_GR, C_GG, C_GB)
-                local eb = CreateFrame("EditBox", nil, d, "InputBoxTemplate")
-                eb:SetSize(316, 20)
-                eb:SetPoint("TOPLEFT", lbl, "BOTTOMLEFT", 0, -4)
-                eb:SetAutoFocus(false)
-                eb:SetText(TIP_LINK)
-                eb:SetScript("OnShow",             function(s) s:SetFocus() s:HighlightText() end)
-                eb:SetScript("OnEditFocusGained",  function(s) s:HighlightText() end)
-                eb:SetScript("OnEscapePressed",    function()  d:Hide() end)
-                d:SetScript("OnHide", function() eb:ClearFocus() end)
-                frame._tipDialog    = d
-                frame._tipDialogEB  = eb
+
+                local hdr = d:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+                hdr:SetPoint("TOPLEFT", d, "TOPLEFT", PAD, -PAD)
+                hdr:SetText("Community links — click to select, then Ctrl+C to copy:")
+                hdr:SetTextColor(C_GR, C_GG, C_GB)
+
+                local allEBs = {}
+                local yOff = -(PAD + LBL_H + PAD)
+                for _, link in ipairs(COMMUNITY_LINKS) do
+                    local row = CreateFrame("Frame", nil, d)
+                    row:SetSize(340, ROW_H_D)
+                    row:SetPoint("TOPLEFT", d, "TOPLEFT", PAD, yOff)
+
+                    local rowLbl = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+                    rowLbl:SetPoint("LEFT", row, "LEFT", 0, 0)
+                    rowLbl:SetWidth(54)
+                    rowLbl:SetJustifyH("LEFT")
+                    rowLbl:SetText(link.label .. ":")
+                    rowLbl:SetTextColor(1, 0.6, 0, 1)   -- orange
+
+                    local eb = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+                    eb:SetSize(280, ROW_H_D)
+                    eb:SetPoint("LEFT", rowLbl, "RIGHT", 4, 0)
+                    eb:SetAutoFocus(false)
+                    eb:SetText(link.url)
+                    eb:SetScript("OnEditFocusGained", function(s) s:HighlightText() end)
+                    eb:SetScript("OnEscapePressed",   function()  d:Hide() end)
+                    table.insert(allEBs, eb)
+
+                    yOff = yOff - (ROW_H_D + ROW_GAP)
+                end
+
+                d:SetScript("OnHide", function()
+                    for _, eb in ipairs(allEBs) do eb:ClearFocus() end
+                end)
+                frame._tipDialog = d
             end
             local d = frame._tipDialog
             if d:IsShown() then
