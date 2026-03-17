@@ -236,6 +236,7 @@ GAM.quickBuyState = {
     currentSearchString = nil,
     pendingItemID = nil,
     pendingQty = nil,
+    confirmSent = false,   -- prevents double-buy from THROTTLED_SYSTEM_READY firing multiple times
 }
 
 local function ResetQuickBuy(silent)
@@ -247,6 +248,7 @@ local function ResetQuickBuy(silent)
     qb.currentSearchString = nil
     qb.pendingItemID = nil
     qb.pendingQty = nil
+    qb.confirmSent = false
     if not silent then
         print("|cffff8800[GAM]|r Auctionator quick buy stopped.")
     end
@@ -371,6 +373,7 @@ AdvanceQuickBuy = function()
     qb.currentSearchString = nextEntry.searchString
     qb.pendingItemID = row.itemKey.itemID
     qb.pendingQty = row.purchaseQuantity
+    qb.confirmSent = false
     C_AuctionHouse.StartCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
 end
 
@@ -527,7 +530,8 @@ end
 
 handlers["AUCTION_HOUSE_THROTTLED_SYSTEM_READY"] = function(self)
     local qb = self.quickBuyState
-    if qb and qb.active and qb.pendingItemID and qb.pendingQty then
+    if qb and qb.active and qb.pendingItemID and qb.pendingQty and not qb.confirmSent then
+        qb.confirmSent = true
         C_AuctionHouse.ConfirmCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
     end
 end

@@ -391,6 +391,14 @@ local function BuildPanel()
     cbMillOwn:SetChecked((opts.pigmentCostSource or "ah") == "mill")
     y = y - 32
 
+    local cbCraftBolts = MakeCheckbox(content, "Craft own bolts (Tailoring)", y - 4)
+    cbCraftBolts:SetChecked((opts.boltCostSource or "ah") == "craft")
+    y = y - 32
+
+    local cbCraftIngots = MakeCheckbox(content, "Craft own ingots (Blacksmithing/LW)", y - 4)
+    cbCraftIngots:SetChecked((opts.ingotCostSource or "ah") == "craft")
+    y = y - 32
+
     -- ── Crafting Stats ─────────────────────────────────────────────────────
     y = MakeSectionHeader(content, "Crafting Stats", y)
 
@@ -625,7 +633,9 @@ local function BuildPanel()
         opts.debugVerbosity = slVerbosity:GetValue()
         opts.minimapHidden  = not cbMinimap:GetChecked()
         opts.rankPolicy         = ddRank.GetValue() or "lowest"
-        opts.pigmentCostSource  = cbMillOwn:GetChecked() and "mill" or "ah"
+        opts.pigmentCostSource  = cbMillOwn:GetChecked()    and "mill"  or "ah"
+        opts.boltCostSource     = cbCraftBolts:GetChecked() and "craft" or "ah"
+        opts.ingotCostSource    = cbCraftIngots:GetChecked() and "craft" or "ah"
 
         local function clampStat(eb, default)
             return math.max(0, math.min(100, tonumber(eb:GetText()) or default))
@@ -695,8 +705,27 @@ local function BuildPanel()
             GAM.UI.StratDetail.Refresh()
         end
 
+        -- Sync cost-source checkboxes back to the V2 left panel
+        if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.SyncSourceCheckboxes then
+            GAM.UI.MainWindowV2.SyncSourceCheckboxes()
+        end
+
         GAM.Log.Info("Settings saved.")
     end
+
+    -- Re-sync checkboxes from opts whenever the panel is shown
+    -- (covers changes made via the V2 left panel since settings was last opened)
+    panel:SetScript("OnShow", function()
+        local o = GAM.db and GAM.db.options
+        if not o then return end
+        cbMinimap:SetChecked(not o.minimapHidden)
+        cbNewUI:SetChecked(o.useNewUI == true)
+        cbMillOwn:SetChecked((o.pigmentCostSource or "ah") == "mill")
+        cbCraftBolts:SetChecked((o.boltCostSource or "ah") == "craft")
+        cbCraftIngots:SetChecked((o.ingotCostSource or "ah") == "craft")
+        slScale:SetValue(o.uiScale or GAM.C.DEFAULT_UI_SCALE)
+        ebFillQty:SetText(tostring(o.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
+    end)
 
     -- Blizzard Settings ok/cancel callbacks
     panel.name   = L["SETTINGS_NAME"]

@@ -94,6 +94,7 @@ local shoppingSync = {
     pending = false,
 }
 local shoppingSyncFrame
+local leftPanelChecks = {}  -- refs for external sync (millOwn, craftBolts, craftIngots)
 
 -- ===== Helpers =====
 local function IsFavorite(id)
@@ -1457,15 +1458,9 @@ local function BuildLeftPanelContent(L, C, LP)
     -- ── Profession sub-filter dropdown ──
     -- Sits between the Mine/All toggle and the Fill Qty controls.
     -- Lets players with multiple professions narrow the list to one.
-    local profDDLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    profDDLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -136)
-    profDDLbl:SetText((L and L["FILTER_PROFESSION"]) or "Profession")
-    profDDLbl:SetTextColor(C_GR, C_GG, C_GB)
-    ApplyFontSize(profDDLbl, 11)
-
     local ddProf = CreateFrame("Frame", "GAMMainV2ProfDD", leftPanel, "UIDropDownMenuTemplate")
-    ddProf:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 16, -152)
-    UIDropDownMenu_SetWidth(ddProf, C.LEFT_PANEL_W - LP * 2)
+    ddProf:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 16, -136)
+    UIDropDownMenu_SetWidth(ddProf, C.LEFT_PANEL_W - LP * 2 - 20)
 
     local function InitProfDD()
         UIDropDownMenu_Initialize(ddProf, function()
@@ -1492,20 +1487,19 @@ local function BuildLeftPanelContent(L, C, LP)
         end)
         UIDropDownMenu_SetText(ddProf, filterProfSingle)
     end
+    leftPanel.ddProf     = ddProf
     leftPanel.initProfDD = InitProfDD
     InitProfDD()
 
-    -- All elements below shifted -44 to make room for the profession dropdown
-
     local fillLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    fillLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -188)
+    fillLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -172)
     fillLbl:SetText((L and L["V2_FILL_QTY"]) or "Fill Qty")
     fillLbl:SetTextColor(C_GR, C_GG, C_GB)
     ApplyFontSize(fillLbl, 11)
 
     local fillQtyBox = CreateFrame("EditBox", nil, leftPanel, "InputBoxTemplate")
     fillQtyBox:SetSize(56, 20)
-    fillQtyBox:SetPoint("TOPRIGHT", leftPanel, "TOPRIGHT", -LP, -184)
+    fillQtyBox:SetPoint("TOPRIGHT", leftPanel, "TOPRIGHT", -LP, -168)
     fillQtyBox:SetAutoFocus(false)
     fillQtyBox:SetNumeric(true)
     fillQtyBox:SetText(tostring((GAM.db and GAM.db.options and GAM.db.options.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY))
@@ -1519,7 +1513,7 @@ local function BuildLeftPanelContent(L, C, LP)
     ApplyFontSize(fillRangeFS, 9)
 
     local millOwn = CreateFrame("CheckButton", nil, leftPanel, "UICheckButtonTemplate")
-    millOwn:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 4, -226)
+    millOwn:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 4, -210)
     millOwn:SetChecked(((GAM.db and GAM.db.options and GAM.db.options.pigmentCostSource) or GAM.C.DEFAULT_PIGMENT_COST_SOURCE) == "mill")
 
     local millLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -1531,7 +1525,7 @@ local function BuildLeftPanelContent(L, C, LP)
     ApplyFontSize(millLbl, 10)
 
     local craftBolts = CreateFrame("CheckButton", nil, leftPanel, "UICheckButtonTemplate")
-    craftBolts:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 4, -250)
+    craftBolts:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 4, -234)
     craftBolts:SetChecked(((GAM.db and GAM.db.options and GAM.db.options.boltCostSource) or GAM.C.DEFAULT_BOLT_COST_SOURCE) == "craft")
 
     local craftBoltsLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -1543,7 +1537,7 @@ local function BuildLeftPanelContent(L, C, LP)
     ApplyFontSize(craftBoltsLbl, 10)
 
     local craftIngots = CreateFrame("CheckButton", nil, leftPanel, "UICheckButtonTemplate")
-    craftIngots:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 4, -274)
+    craftIngots:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 4, -258)
     craftIngots:SetChecked(((GAM.db and GAM.db.options and GAM.db.options.ingotCostSource) or GAM.C.DEFAULT_INGOT_COST_SOURCE) == "craft")
 
     local craftIngotsLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -1555,7 +1549,7 @@ local function BuildLeftPanelContent(L, C, LP)
     ApplyFontSize(craftIngotsLbl, 10)
 
     local statSectionLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    statSectionLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -302)
+    statSectionLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -286)
     statSectionLbl:SetText((L and L["V2_CRAFT_STATS"]) or "Craft Stats")
     statSectionLbl:SetTextColor(C_GR, C_GG, C_GB)
     ApplyFontSize(statSectionLbl, 11)
@@ -1568,25 +1562,25 @@ local function BuildLeftPanelContent(L, C, LP)
     ApplyFontSize(statProfileFS, 9)
 
     local statResLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statResLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -332)
+    statResLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -316)
     statResLbl:SetText("Res%")
     statResLbl:SetTextColor(0.9, 0.9, 0.9, 1)
     ApplyFontSize(statResLbl, 10)
 
     local statResBox = CreateFrame("EditBox", nil, leftPanel, "InputBoxTemplate")
     statResBox:SetSize(56, 20)
-    statResBox:SetPoint("TOPRIGHT", leftPanel, "TOPRIGHT", -LP, -328)
+    statResBox:SetPoint("TOPRIGHT", leftPanel, "TOPRIGHT", -LP, -312)
     statResBox:SetAutoFocus(false)
 
     local statMultiLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statMultiLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -356)
+    statMultiLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -340)
     statMultiLbl:SetText("Multi%")
     statMultiLbl:SetTextColor(0.9, 0.9, 0.9, 1)
     ApplyFontSize(statMultiLbl, 10)
 
     local statMultiBox = CreateFrame("EditBox", nil, leftPanel, "InputBoxTemplate")
     statMultiBox:SetSize(56, 20)
-    statMultiBox:SetPoint("TOPRIGHT", leftPanel, "TOPRIGHT", -LP, -352)
+    statMultiBox:SetPoint("TOPRIGHT", leftPanel, "TOPRIGHT", -LP, -336)
     statMultiBox:SetAutoFocus(false)
 
     local rankLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -1778,6 +1772,10 @@ local function BuildLeftPanelContent(L, C, LP)
     statMultiBox:SetScript("OnEnterPressed", CommitStatEditors)
     statMultiBox:SetScript("OnEditFocusLost", CommitStatEditors)
 
+    leftPanelChecks.millOwn    = millOwn
+    leftPanelChecks.craftBolts = craftBolts
+    leftPanelChecks.craftIngots = craftIngots
+
     millOwn:SetScript("OnClick", function(self)
         local opts = GAM.db and GAM.db.options
         if not opts then return end
@@ -1818,7 +1816,7 @@ local function BuildLeftPanelContent(L, C, LP)
         filterProf = "All"
         filterProfSet = nil
         filterProfSingle = "All"
-        if leftPanel.initProfDD then leftPanel.initProfDD() end
+        if leftPanel.ddProf then UIDropDownMenu_SetText(leftPanel.ddProf, "All") end
         activeColConfig = GetActiveColumnConfig()
         UpdateSegBtnColors()
         RebuildList()
@@ -1834,7 +1832,7 @@ local function BuildLeftPanelContent(L, C, LP)
             filterProfSet = nil
         end
         filterProfSingle = "All"
-        if leftPanel.initProfDD then leftPanel.initProfDD() end
+        if leftPanel.ddProf then UIDropDownMenu_SetText(leftPanel.ddProf, "All") end
         activeColConfig = GetActiveColumnConfig()
         UpdateSegBtnColors()
         RebuildList()
@@ -1946,10 +1944,16 @@ local function Build()
 
     -- ── Header ──
     local titleFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    titleFS:SetPoint("TOP", frame, "TOP", 0, -8)
+    titleFS:SetPoint("TOP", frame, "TOP", 0, -6)
     titleFS:SetText(L["MAIN_TITLE"])
     titleFS:SetTextColor(C_GR, C_GG, C_GB)
     ApplyFontSize(titleFS, 14)
+
+    local verFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    verFS:SetPoint("TOP", titleFS, "BOTTOM", 0, -1)
+    verFS:SetText("v" .. (GAM.C.ADDON_VERSION or "?"))
+    verFS:SetTextColor(0.55, 0.45, 0.0, 1)
+    ApplyFontSize(verFS, 9)
 
     local titleRule = frame:CreateTexture(nil, "ARTWORK")
     titleRule:SetHeight(1)
@@ -2462,6 +2466,14 @@ end
 
 function MW2.RefreshProfessionDropdown()
     -- V2 uses segmented buttons; no dropdown to refresh
+end
+
+function MW2.SyncSourceCheckboxes()
+    local opts = GAM.db and GAM.db.options
+    if not opts then return end
+    if leftPanelChecks.millOwn    then leftPanelChecks.millOwn:SetChecked((opts.pigmentCostSource or "ah") == "mill") end
+    if leftPanelChecks.craftBolts then leftPanelChecks.craftBolts:SetChecked((opts.boltCostSource or "ah") == "craft") end
+    if leftPanelChecks.craftIngots then leftPanelChecks.craftIngots:SetChecked((opts.ingotCostSource or "ah") == "craft") end
 end
 
 function MW2.OnScanProgress(done, total, isComplete)
