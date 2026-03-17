@@ -1,5 +1,17 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.3.1] — 2026-03-17
+
+### Bug Fixes
+- **Quick buy double-purchase** — `/gam quickbuy` was buying double the required quantity and spamming chat. Root cause: `AUCTION_HOUSE_THROTTLED_SYSTEM_READY` fires multiple times per purchase session; each fire called `ConfirmCommoditiesPurchase` while `pendingItemID`/`pendingQty` were still set, triggering duplicate purchases. Fixed with a `confirmSent` guard: the first throttle event confirms and sets the flag; subsequent fires are no-ops until the next item in the list starts.
+
+### New Features
+- **Settings: Craft own bolts / Craft own ingots checkboxes** — The Pricing section in Settings now has dedicated checkboxes for bolt and ingot cost source (previously only accessible via the V2 left panel). Both sync bidirectionally: changes made in V2 are reflected when Settings opens; saving Settings updates the V2 checkboxes immediately.
+- **V2: Version label** — The addon version is now shown centered below the "Gold Advisor Midnight" title in the V2 header.
+
+### UI Polish
+- **V2: Profession dropdown** — Removed the redundant "Profession" label above the dropdown; the dropdown sits directly below the Mine/All toggle without a label, saving vertical space.
+
 ## [1.3.0] — 2026-03-17
 
 ### Bug Fixes
