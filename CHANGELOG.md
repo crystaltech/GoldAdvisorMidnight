@@ -1,5 +1,17 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.3.2] — 2026-03-17
+
+### New Features
+- **Crafts scaler** — Strategy detail panel now has a "Crafts" editbox on the right side of the Input Items header. Changing the value scales all reagent quantities, output quantities, costs, and revenue proportionally. Value persists per strategy per patch.
+
+### Bug Fixes
+- **Detail panel ROI mismatch** — Best Strategy card and detail panel could show different ROI values for the same strategy if bag contents changed between the scan and the click. Fixed by synchronising both calculations to the same moment.
+
+### Internal
+- Protected build infrastructure: `Importer.lua` now includes XOR + custom-base64 decoder functions; key/alphabet fragments distributed across Core, Log, Minimap, Locale, and Pricing files. No-op in dev/plain builds.
+- Community ticker links updated with real Twitch, Patreon, YouTube, and Discord URLs. Click popup redesigned to show all four as individually copyable rows.
+
 ## [1.3.1] — 2026-03-17
 
 ### Bug Fixes
