@@ -774,6 +774,14 @@ function AHScan.QueueStratListItems(stratList, patchTag)
         if strat.outputs then
             for _, o in ipairs(strat.outputs) do tryQueueItem(o) end
         end
+        -- Also queue items that only appear in non-default rank variants
+        -- (e.g. R2-only reagents in the "highest" variant won't be in strat.reagents)
+        if strat.rankVariants then
+            for _, variant in pairs(strat.rankVariants) do
+                for _, r in ipairs(variant.reagents or {}) do tryQueueItem(r) end
+                for _, o in ipairs(variant.outputs  or {}) do tryQueueItem(o) end
+            end
+        end
     end
 
     GAM.Log.Info("AHScan: queued %d items for %d strats", totalEver, #(stratList or {}))
@@ -808,6 +816,13 @@ function AHScan.QueueAllStratItems(patchTag)
         for _, r in ipairs(strat.reagents or {}) do tryQueueItem(r) end
         if strat.outputs then
             for _, o in ipairs(strat.outputs) do tryQueueItem(o) end
+        end
+        -- Also queue items that only appear in non-default rank variants
+        if strat.rankVariants then
+            for _, variant in pairs(strat.rankVariants) do
+                for _, r in ipairs(variant.reagents or {}) do tryQueueItem(r) end
+                for _, o in ipairs(variant.outputs  or {}) do tryQueueItem(o) end
+            end
         end
     end
 
