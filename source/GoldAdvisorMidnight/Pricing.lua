@@ -492,7 +492,7 @@ local function GetDesiredOutputQuality(item, patchTag, preferredQuality)
     return GetRankPolicyDesiredQuality(ids, patchTag)
 end
 
-local function GetOutputPriceForItem(item, patchTag, preferredQuality)
+local function GetOutputPriceForItem(item, patchTag, preferredQuality, qty)
     if not item then return nil, false end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local ids = GetResolvedItemIDs(item, patchTag)
@@ -501,19 +501,19 @@ local function GetOutputPriceForItem(item, patchTag, preferredQuality)
     local desiredQuality = GetDesiredOutputQuality(item, patchTag, preferredQuality)
     local exactID = FindItemIDByQuality(ids, desiredQuality)
     if exactID then
-        local p, s = Pricing.GetEffectivePrice(exactID, patchTag)
+        local p, s = Pricing.GetEffectivePrice(exactID, patchTag, qty)
         if p then return p, s end
     end
 
     local policyID = PickItemID(ids, patchTag)
     if policyID then
-        local p, s = Pricing.GetEffectivePrice(policyID, patchTag)
+        local p, s = Pricing.GetEffectivePrice(policyID, patchTag, qty)
         if p then return p, s end
     end
 
     for _, id in ipairs(ids) do
         if id ~= exactID and id ~= policyID then
-            local p, s = Pricing.GetEffectivePrice(id, patchTag)
+            local p, s = Pricing.GetEffectivePrice(id, patchTag, qty)
             if p then return p, s end
         end
     end
@@ -772,7 +772,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
 
         -- Price uses fillQty so the Fill Qty box immediately affects displayed prices.
         local itemProxy = { itemIDs = entryIDs, name = entry.name }
-        local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, patchTag, fillQty)
+        local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, patchTag)
         if stale then hasStale = true end
 
         local totalCost     = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
@@ -839,7 +839,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     end
 
     local outputPreferredQuality = (strat.outputQualityMode == "match_input") and primaryQuality or nil
-    local outPrice, outStale = GetOutputPriceForItem(primaryOut, patchTag, outputPreferredQuality)
+    local outPrice, outStale = GetOutputPriceForItem(primaryOut, patchTag, outputPreferredQuality, fillQty)
     if outStale then hasStale = true end
     local outMissingPrice = not outPrice
 
@@ -866,7 +866,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
                 oQtyRaw = ApplyYieldFormula(oB, startingAmt)                       -- float for revenue
             end
             local oQty    = math.floor(oQtyRaw + 0.5)                               -- integer for display
-            local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag, outputPreferredQuality)
+            local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag, outputPreferredQuality, fillQty)
             if oStale2 then hasStale = true end
             local oNetRev = oPrice and math.floor(oQtyRaw * oPrice * (1 - ahCut)) or nil
             if not oPrice then
@@ -903,9 +903,9 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local breakEven = nil
 
     if netRevenue and #missingPrices == 0 then
-        profit = netRevenue - totalCostToBuy
+        profit = netRevenue - totalCostToBuy   -- display: what you actually spend
         if totalCostRequired > 0 then
-            roi = (profit / totalCostRequired) * 100
+            roi = ((netRevenue - totalCostRequired) / totalCostRequired) * 100
         end
     end
 
