@@ -424,8 +424,9 @@ end
 -- GetEffectivePriceForItem(item, patchTag, qty) → price, isStale
 -- item = { name, itemIDs = {}, ... }
 -- qty (optional): actual units to buy; threads through to qty-aware AH fill.
--- Used for REAGENT pricing: tries the rank-policy preferred itemID first, then
--- falls back through remaining variants (you'd buy the cheapest available rank).
+-- Used for REAGENT pricing: selects the rank-policy preferred itemID via
+-- PickItemID BEFORE checking mill/craft derivation, so R2 Mats correctly
+-- uses R2 ingot/pigment recipes rather than defaulting to the first array entry.
 function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
     if not item then return nil, false end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
@@ -436,43 +437,40 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
     if (not ids or #ids == 0) and item.name then
         ids = pdb.rankGroups[item.name] or {}
     end
-
     if not ids or #ids == 0 then return nil, false end
 
-    -- Derived reagent pricing modes. Manual price overrides still win.
+    -- Manual price overrides win over all derivation. Check every ID.
     local pdb2 = GetPatchDB(patchTag)
     for _, id in ipairs(ids) do
-        if not (pdb2.priceOverrides and pdb2.priceOverrides[id] ~= nil) then
-            if GetOpts().pigmentCostSource == "mill" and PIGMENT_MILL_MAP[id] then
-                local millCost, millStale = GetMillDerivedPigmentCost(id, patchTag, qty)
-                if millCost then return millCost, millStale end
-                break
-            end
-            if CRAFTED_REAGENT_MAP[id] then
-                local craftCost, craftStale = GetCraftDerivedReagentCost(id, patchTag)
-                if craftCost then return craftCost, craftStale end
-                break
-            end
-        elseif PIGMENT_MILL_MAP[id] or CRAFTED_REAGENT_MAP[id] then
-            break
+        if pdb2.priceOverrides and pdb2.priceOverrides[id] ~= nil then
+            return pdb2.priceOverrides[id], false
         end
     end
 
+    -- Pick rank-policy ID FIRST so mill/craft derivation honours R1/R2 selection.
+    -- (Previously the loop checked ids in array order and could pick R1 even when
+    -- R2 Mats was selected because R1's entry appeared first in the array.)
     local picked = PickItemID(ids, patchTag)
     if not picked then return nil, false end
 
-    -- Try preferred itemID first
+    if GetOpts().pigmentCostSource == "mill" and PIGMENT_MILL_MAP[picked] then
+        local millCost, millStale = GetMillDerivedPigmentCost(picked, patchTag, qty)
+        if millCost then return millCost, millStale end
+    end
+    if CRAFTED_REAGENT_MAP[picked] then
+        local craftCost, craftStale = GetCraftDerivedReagentCost(picked, patchTag)
+        if craftCost then return craftCost, craftStale end
+    end
+
+    -- AH price: preferred rank first, then remaining variants as fallback
     local price, isStale = Pricing.GetEffectivePrice(picked, patchTag, qty)
     if price then return price, isStale end
-
-    -- Fallback: check remaining quality variants in array order
     for _, id in ipairs(ids) do
         if id ~= picked then
             local p, s = Pricing.GetEffectivePrice(id, patchTag, qty)
             if p then return p, s end
         end
     end
-
     return nil, false
 end
 
@@ -982,33 +980,20 @@ end
 function Pricing.StorePrice(itemID, price)
     if not itemID or not price then return end
     local cache = GAM:GetRealmCache()
-    local existing = cache[itemID]
+    -- Store only price + timestamp; raw order-book arrays are no longer persisted
+    -- to SavedVariables (they caused progressive lag after multiple scans).
     cache[itemID] = {
         price = price,
         ts    = time(),
-        raw   = existing and existing.raw or nil,  -- preserve raw if already stored
     }
     GAM.Log.Debug("Stored price: itemID=%d price=%d", itemID, price)
 end
 
--- StoreRaw(itemID, sortedRaw) — persist raw AH listings alongside the avg price
--- so ComputePriceForQty can give qty-aware prices between sessions.
-function Pricing.StoreRaw(itemID, sortedRaw)
-    if not itemID or not sortedRaw then return end
-    local cache = GAM:GetRealmCache()
-    local entry = cache[itemID]
-    if entry then
-        entry.raw = sortedRaw
-    end
-end
-
--- GetRawCache(itemID) — return persisted raw listings, or nil.
-function Pricing.GetRawCache(itemID)
-    if not itemID then return nil end
-    local cache = GAM:GetRealmCache()
-    local entry = cache[itemID]
-    return entry and entry.raw or nil
-end
+-- StoreRaw / GetRawCache — no-ops. Raw AH listings are kept in session-only
+-- commodityCache/itemCache in AHScan.lua; they are no longer written to the
+-- persistent DB to prevent SavedVariables bloat across scans.
+function Pricing.StoreRaw(itemID, sortedRaw)   end
+function Pricing.GetRawCache(itemID) return nil end
 
 -- SetPriceOverride(itemID, price, patchTag)
 function Pricing.SetPriceOverride(itemID, price, patchTag)

@@ -397,11 +397,6 @@ function AHScan.OnCommodityResults(itemID)
             local avg, minP, maxP, count = ReadCommodityResults(entry.itemID)
             if avg then
                 GAM.Pricing.StorePrice(entry.itemID, avg)
-                -- Also persist raw listings so qty-aware pricing works between sessions
-                local rawEntry = commodityCache[entry.itemID]
-                if rawEntry and rawEntry.prices then
-                    GAM.Pricing.StoreRaw(entry.itemID, rawEntry.prices)
-                end
                 if entry.callback then
                     pcall(entry.callback, entry.itemID, avg, minP, maxP, count)
                 end
@@ -559,7 +554,6 @@ function AHScan.OnItemResults(itemKey)
         local targetQty = (opts and opts.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
 
         itemCache[entry.itemID] = { prices = raw, ts = time() }
-        GAM.Pricing.StoreRaw(entry.itemID, raw)
 
         local avg, minP, maxP, count = ComputeStatsFromResults(raw, targetQty)
         if avg then
@@ -896,4 +890,7 @@ function AHScan.ResetQueue()
     nameScanQueued  = {}
     totalEver       = 0
     doneCount       = 0
+    -- Clear session caches so old raw arrays are GC'd before the next scan
+    wipe(commodityCache)
+    wipe(itemCache)
 end

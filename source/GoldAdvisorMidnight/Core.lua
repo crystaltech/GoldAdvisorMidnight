@@ -158,6 +158,25 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        dataVersion = 8,
+        migrate = function(db)
+            -- Wipe stored raw order-book arrays (.raw fields) from all price cache entries.
+            -- These were persisted by StoreRaw() and caused progressive SavedVariables bloat.
+            -- Stored avg prices (.price / .ts) are preserved.
+            if type(db.priceCache) == "table" then
+                for _, realmTable in pairs(db.priceCache) do
+                    if type(realmTable) == "table" then
+                        for _, entry in pairs(realmTable) do
+                            if type(entry) == "table" then
+                                entry.raw = nil
+                            end
+                        end
+                    end
+                end
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)

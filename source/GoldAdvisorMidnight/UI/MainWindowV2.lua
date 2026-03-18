@@ -2118,19 +2118,22 @@ local function Build()
 
         local tickerX      = 0
         local tickerPaused = false
+        local tickerTimer  = nil
 
-        tickerClip:SetScript("OnUpdate", function(self, elapsed)
+        local function TickerTick()
+            if not frame:IsShown() then return end
             if tickerPaused then return end
-            local clipW = self:GetWidth()
+            local clipW = tickerClip:GetWidth()
             if tickerW == 0 then
                 tickerW = tickerContent:GetWidth()
                 if tickerW == 0 then return end
             end
-            tickerX = tickerX - TICK_SP * elapsed
+            tickerX = tickerX - TICK_SP / 30  -- pixels per tick at ~30fps
             if tickerX < -tickerW then tickerX = clipW end
             tickerContent:ClearAllPoints()
-            tickerContent:SetPoint("LEFT", self, "LEFT", tickerX, 0)
-        end)
+            tickerContent:SetPoint("LEFT", tickerClip, "LEFT", tickerX, 0)
+        end
+        tickerTimer = C_Timer.NewTicker(0.033, TickerTick)
 
         tickerClip:EnableMouse(true)
         tickerClip:SetScript("OnEnter", function() tickerPaused = true end)
