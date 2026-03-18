@@ -156,6 +156,54 @@ local CRAFTED_REAGENT_MAP = {
         },
         yield = 0.332707,
     },
+    -- Sienna Ink Q1: 20×PP + 10×Argentleaf Pigment + 5×Mana Lily Pigment + 30×Songwater → 2 inks (base)
+    -- Normalized per 1 PP unit: AP=0.5, MLP=0.25, TS=1.5; yield includes MC/RS stats from workbook
+    -- Activates automatically when pigmentCostSource == "mill" (no separate "craft own inks" checkbox needed)
+    [245805] = {
+        optionKey  = "pigmentCostSource",
+        modeValue  = "mill",
+        ingredients = {
+            { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
+            { itemIDs = { 245803, 245804 }, qty = 0.500000 }, -- Argentleaf Pigment
+            { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
+            { itemIDs = { 245882 },         qty = 1.500000 }, -- Thalassian Songwater
+        },
+        yield = 0.178077,
+    },
+    [245806] = { -- Sienna Ink Q2 — same recipe
+        optionKey  = "pigmentCostSource",
+        modeValue  = "mill",
+        ingredients = {
+            { itemIDs = { 245807, 245808 }, qty = 1.000000 },
+            { itemIDs = { 245803, 245804 }, qty = 0.500000 },
+            { itemIDs = { 245867, 245866 }, qty = 0.250000 },
+            { itemIDs = { 245882 },         qty = 1.500000 },
+        },
+        yield = 0.178077,
+    },
+    -- Munsell Ink Q1: 20×PP + 10×Sanguithorn Pigment + 5×Mana Lily Pigment + 30×Songwater → 2 inks (base)
+    [245801] = {
+        optionKey  = "pigmentCostSource",
+        modeValue  = "mill",
+        ingredients = {
+            { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
+            { itemIDs = { 245865, 245864 }, qty = 0.500000 }, -- Sanguithorn Pigment
+            { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
+            { itemIDs = { 245882 },         qty = 1.500000 }, -- Thalassian Songwater
+        },
+        yield = 0.178077,
+    },
+    [245802] = { -- Munsell Ink Q2 — same recipe
+        optionKey  = "pigmentCostSource",
+        modeValue  = "mill",
+        ingredients = {
+            { itemIDs = { 245807, 245808 }, qty = 1.000000 },
+            { itemIDs = { 245865, 245864 }, qty = 0.500000 },
+            { itemIDs = { 245867, 245866 }, qty = 0.250000 },
+            { itemIDs = { 245882 },         qty = 1.500000 },
+        },
+        yield = 0.178077,
+    },
 }
 
 -- Pick best itemID from a list according to rankPolicy.
@@ -304,11 +352,17 @@ local function GetMillDerivedPigmentCost(itemID, patchTag, pigmentQty)
     local herbQty = (pigmentQty and pigmentQty > 0 and info.yieldPerHerb and info.yieldPerHerb > 0)
                     and math.ceil(pigmentQty / info.yieldPerHerb) or nil
     local bestPrice, isStale = nil, false
-    for _, hid in ipairs(info.herbIDs) do
-        local p, s = Pricing.GetEffectivePrice(hid, patchTag, herbQty)
-        if p and (not bestPrice or p < bestPrice) then
-            bestPrice = p
-            isStale   = isStale or s
+    local hid = PickItemID(info.herbIDs, patchTag)
+    if hid then
+        bestPrice, isStale = Pricing.GetEffectivePrice(hid, patchTag, herbQty)
+    end
+    if not bestPrice then
+        -- fallback: try remaining herb IDs if the chosen one has no price
+        for _, fid in ipairs(info.herbIDs) do
+            if fid ~= hid then
+                local p, s = Pricing.GetEffectivePrice(fid, patchTag, herbQty)
+                if p then bestPrice = p; isStale = isStale or (s or false); break end
+            end
         end
     end
     if not bestPrice then return nil, false end
@@ -316,11 +370,23 @@ local function GetMillDerivedPigmentCost(itemID, patchTag, pigmentQty)
 end
 
 -- GetPreferredIngredientPrice(itemIDs, patchTag, qty) → price, isStale
--- qty (optional): passed through to GetEffectivePrice for qty-aware fill.
+-- Checks mill/craft derivation chains before falling back to AH price.
+-- This ensures the full chain works: e.g. inks inside a recipe pick up
+-- herb-derived pigment cost, and ingots inside alloy recipes pick up ore cost.
 local function GetPreferredIngredientPrice(itemIDs, patchTag, qty)
     if not itemIDs or #itemIDs == 0 then return nil, false end
     local picked = PickItemID(itemIDs, patchTag)
     if picked then
+        -- Respect mill derivation (pigments → herbs when Mill own herbs is on)
+        if GetOpts().pigmentCostSource == "mill" and PIGMENT_MILL_MAP[picked] then
+            local p, s = GetMillDerivedPigmentCost(picked, patchTag, qty)
+            if p then return p, s end
+        end
+        -- Respect craft derivation (inks when pigmentCostSource=mill, ingots/bolts per their options)
+        if CRAFTED_REAGENT_MAP[picked] then
+            local p, s = GetCraftDerivedReagentCost(picked, patchTag)
+            if p then return p, s end
+        end
         local price, isStale = Pricing.GetEffectivePrice(picked, patchTag, qty)
         if price then return price, isStale end
     end
@@ -492,6 +558,50 @@ local function GetFormulaProfiles()
     return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
 end
 
+-- ===== Chain expansion for shopping list =====
+
+-- ExpandReagentThroughChain(itemIDs, qty, patchTag, depth) → list of {itemIDs, qty}
+-- Recursively expands a reagent through active derivation chains so the caller
+-- receives the actual items to *buy* (herbs/ores/linens) rather than intermediate
+-- products (inks/ingots/bolts).  Returns a flat list; callers must merge by key.
+-- Safety depth limit prevents infinite loops (the chain always terminates at raw
+-- materials that appear in neither CRAFTED_REAGENT_MAP nor PIGMENT_MILL_MAP).
+local function ExpandReagentThroughChain(itemIDs, qty, patchTag, depth)
+    depth = depth or 0
+    if depth > 5 or not itemIDs or #itemIDs == 0 then
+        return {{ itemIDs = itemIDs, qty = qty }}
+    end
+
+    local picked = PickItemID(itemIDs, patchTag)
+    if not picked then return {{ itemIDs = itemIDs, qty = qty }} end
+
+    -- Craft derivation (inks → pigments, ingots → ores, bolts → linens)
+    local craftInfo = CRAFTED_REAGENT_MAP[picked]
+    if craftInfo and (GetOpts()[craftInfo.optionKey] or "ah") == craftInfo.modeValue then
+        -- qty items ÷ yield = primary-ingredient units needed
+        local primaryQty = qty / craftInfo.yield
+        local result = {}
+        for _, ing in ipairs(craftInfo.ingredients) do
+            local ingQty = primaryQty * ing.qty
+            local sub = ExpandReagentThroughChain(ing.itemIDs, ingQty, patchTag, depth + 1)
+            for _, e in ipairs(sub) do
+                tinsert(result, e)
+            end
+        end
+        return result
+    end
+
+    -- Mill derivation (pigments → herbs)
+    local millInfo = PIGMENT_MILL_MAP[picked]
+    if millInfo and GetOpts().pigmentCostSource == "mill" then
+        local herbQty = qty / millInfo.yieldPerHerb
+        return {{ itemIDs = millInfo.herbIDs, qty = herbQty }}
+    end
+
+    -- Not expandable — return as-is (raw material or chain not active)
+    return {{ itemIDs = itemIDs, qty = qty }}
+end
+
 -- ===== Core calculation =====
 
 -- CalculateStratMetrics(strat, patchTag, craftQty) → metrics table or nil
@@ -580,6 +690,21 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local hasStale       = false
     local reagentResults = {}
 
+    -- Fill Qty: use the configured simulation qty for all price lookups so that
+    -- changing the Fill Qty box immediately updates displayed prices without rescanning.
+    local fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+
+    -- Chain expansion: when any "craft/mill own X" option is active, expand each
+    -- reagent to the raw materials the player actually buys (herbs, ores, linens).
+    -- Multiple reagents that expand to the same raw material are merged (summed).
+    local chainActive = (opts.pigmentCostSource == "mill") or
+                        (opts.ingotCostSource   == "craft") or
+                        (opts.boltCostSource    == "craft")
+
+    -- mergedMap: key (first itemID of expanded entry) → {itemIDs, qty, name}
+    local mergedMap   = {}
+    local mergedOrder = {}  -- insertion-order keys
+
     -- ── Reagents ──
     for _, r in ipairs(active.reagents or {}) do
         -- Use nearest-integer rounding to avoid float precision issues
@@ -594,46 +719,76 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         end
         local required = math.floor(requiredRaw + 0.5)
 
-        -- Resolve how many the player currently has (bags + bank)
-        local userHave = 0
         local rIds = r.itemIDs
         if (not rIds or #rIds == 0) and r.name then
             rIds = pdb.rankGroups[r.name] or {}
         end
-        if rIds and #rIds > 0 then
-            for _, rid in ipairs(rIds) do
+
+        if chainActive then
+            -- Expand through derivation chain; merge duplicate raw materials
+            local expanded = ExpandReagentThroughChain(rIds, required, patchTag)
+            for _, exp in ipairs(expanded) do
+                local key = exp.itemIDs[1]
+                if mergedMap[key] then
+                    mergedMap[key].qty = mergedMap[key].qty + exp.qty
+                else
+                    -- Use strat reagent name for direct (unexpanded) items,
+                    -- resolve via GetItemInfo for expanded raw materials.
+                    local entryName = r.name
+                    if exp.itemIDs ~= rIds then
+                        local expID = PickItemID(exp.itemIDs, patchTag)
+                        entryName = expID and (select(1, GetItemInfo(expID))) or tostring(key)
+                    end
+                    mergedMap[key]   = { itemIDs = exp.itemIDs, qty = exp.qty, name = entryName }
+                    tinsert(mergedOrder, key)
+                end
+            end
+        else
+            -- No chain: add reagent directly with its own key
+            local key = PickItemID(rIds, patchTag) or (rIds and rIds[1]) or r.name
+            if mergedMap[key] then
+                mergedMap[key].qty = mergedMap[key].qty + required
+            else
+                mergedMap[key] = { itemIDs = rIds, qty = required, name = r.name }
+                tinsert(mergedOrder, key)
+            end
+        end
+    end
+
+    -- Build reagentResults from merged map (handles both chain-expanded and direct)
+    for _, key in ipairs(mergedOrder) do
+        local entry    = mergedMap[key]
+        local entryIDs = entry.itemIDs
+        local required = math.floor(entry.qty + 0.5)
+
+        -- Bags + bank count for the (possibly expanded) item
+        local userHave = 0
+        if entryIDs and #entryIDs > 0 then
+            for _, rid in ipairs(entryIDs) do
                 userHave = userHave + (GetItemCount(rid, true) or 0)
             end
         end
 
         local needToBuy = math.max(0, required - userHave)
 
-        -- Price: only required if there is something left to buy.
-        -- If the player already owns all copies (needToBuy == 0), cost is 0
-        -- and a missing AH price should NOT block profit/ROI display.
-        -- Pass needToBuy so the AH fill is computed for the actual purchase
-        -- volume, not just the shallowFillQty (default 50) cached average.
-        local price, stale = Pricing.GetEffectivePriceForItem(r, patchTag, needToBuy)
+        -- Price uses fillQty so the Fill Qty box immediately affects displayed prices.
+        local itemProxy = { itemIDs = entryIDs, name = entry.name }
+        local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, patchTag, fillQty)
         if stale then hasStale = true end
 
         local totalCost    = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
         local missingPrice = (needToBuy > 0) and not price
 
         if missingPrice then
-            missingPrices[#missingPrices + 1] = r.name
+            missingPrices[#missingPrices + 1] = entry.name
         else
-            totalCostToBuy = totalCostToBuy + totalCost
+            totalCostToBuy = totalCostToBuy + (totalCost or 0)
         end
 
-        -- Resolve itemID for display
-        local ids    = r.itemIDs
-        if (not ids or #ids == 0) and r.name then
-            ids = pdb.rankGroups[r.name] or {}
-        end
-        local itemID = PickItemID(ids, patchTag)
+        local itemID = PickItemID(entryIDs, patchTag)
 
         reagentResults[#reagentResults + 1] = {
-            name         = r.name,
+            name         = entry.name,
             itemID       = itemID,
             unitPrice    = price,
             required     = required,

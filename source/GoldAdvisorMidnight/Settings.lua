@@ -389,6 +389,16 @@ local function BuildPanel()
 
     local cbMillOwn = MakeCheckbox(content, "Mill own herbs for Inscription", y - 4)
     cbMillOwn:SetChecked((opts.pigmentCostSource or "ah") == "mill")
+    cbMillOwn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Mill Own Herbs", 1, 1, 1)
+        GameTooltip:AddLine("Enables the full inscription cost chain:", 0.9, 0.9, 0.9)
+        GameTooltip:AddLine("  Herbs \xE2\x86\x92 Pigments \xE2\x86\x92 Inks \xE2\x86\x92 Soul Cipher", 1, 0.82, 0)
+        GameTooltip:AddLine("Shopping lists show herbs to buy,", 0.7, 0.7, 0.7)
+        GameTooltip:AddLine("not intermediate pigments or inks.", 0.7, 0.7, 0.7)
+        GameTooltip:Show()
+    end)
+    cbMillOwn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     y = y - 32
 
     local cbCraftBolts = MakeCheckbox(content, "Craft own bolts (Tailoring)", y - 4)
