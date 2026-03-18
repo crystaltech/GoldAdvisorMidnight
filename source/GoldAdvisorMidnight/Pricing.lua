@@ -770,9 +770,10 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
 
         local needToBuy = math.max(0, required - userHave)
 
-        -- Price uses fillQty so the Fill Qty box immediately affects displayed prices.
+        -- Simulate buying the actual required quantity from the AH order book so that
+        -- large craft runs (e.g. 6666 hides) reflect real market depth, not a flat average.
         local itemProxy = { itemIDs = entryIDs, name = entry.name }
-        local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, patchTag)
+        local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, patchTag, required)
         if stale then hasStale = true end
 
         local totalCost     = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
