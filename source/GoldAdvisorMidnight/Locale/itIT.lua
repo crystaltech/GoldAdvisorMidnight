@@ -14,8 +14,6 @@ local L = GAM.L  -- base table already created by Locale.lua; override keys belo
 L["LOADED_MSG"]            = "Gold Advisor Midnight v%s caricato. /gam per mostrare/nascondere."
 
 -- ── Main Window ──────────────────────────────────────────────────────────
--- L["MAIN_TITLE"]            = "Gold Advisor Midnight"  -- addon name, keep in English
-L["FILTER_PATCH"]          = "Patch:"
 L["FILTER_PROFESSION"]     = "Professione:"
 L["FILTER_SEARCH"]         = "Cerca..."
 L["COL_STRAT"]             = "Strategia"
@@ -25,9 +23,7 @@ L["COL_ROI"]               = "ROI%"
 L["COL_STATUS"]            = "Stato"
 L["BTN_SCAN_ALL"]          = "Scansiona tutto"
 L["BTN_SCAN_STOP"]         = "Ferma"
-L["BTN_SHOPPING"]          = "Lista acquisti"
 L["BTN_LOG"]               = "Log"
-L["BTN_CLOSE"]             = "Chiudi"
 L["NO_STRATS"]             = "Nessuna strategia corrisponde ai filtri."
 L["MISSING_PRICES"]        = "! Prezzi mancanti"
 L["STATUS_STALE"]          = "Non aggiornato"
@@ -68,12 +64,6 @@ L["RANK_BTN_R2"]           = "Mat. G2"
 L["NO_PRICE"]              = "—"
 L["CONFIRM_DELETE_BODY"]   = "Elimina strategia:\n\"|cffffffff%s|r\"\n\nQuesta azione non può essere annullata."
 
--- ── Shopping List ─────────────────────────────────────────────────────────
-L["SHOP_TITLE"]            = "Lista acquisti"
-L["SHOP_ITEM"]             = "Oggetto"
-L["SHOP_NEED"]             = "Da comprare"
-L["SHOP_HAVE"]             = "Disponibile"
-L["BTN_COPY_LIST"]         = "Copia"
 L["BTN_AUCTIONATOR"]       = "Lista Auctionator"
 L["SHOP_EMPTY"]            = "Nessun oggetto necessario."
 L["AUCTIONATOR_LIST_NAME"] = "GAM Shopping List"  -- internal ID, keep in English

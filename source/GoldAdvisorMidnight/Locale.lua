@@ -10,9 +10,7 @@ GAM.L = L
 L["ADDON_TITLE"]           = "Gold Advisor Midnight"
 L["LOADED_MSG"]            = "Gold Advisor Midnight v%s loaded. /gam to toggle."
 
--- Main Window
-L["MAIN_TITLE"]            = "Gold Advisor Midnight"
-L["FILTER_PATCH"]          = "Patch:"
+-- Main Window (V2)
 L["FILTER_PROFESSION"]     = "Profession:"
 L["FILTER_SEARCH"]         = "Search..."
 L["COL_STRAT"]             = "Strategy"
@@ -22,9 +20,7 @@ L["COL_ROI"]               = "ROI%"
 L["COL_STATUS"]            = "Status"
 L["BTN_SCAN_ALL"]          = "Scan All"
 L["BTN_SCAN_STOP"]         = "Stop Scan"
-L["BTN_SHOPPING"]          = "Shopping List"
 L["BTN_LOG"]               = "Debug Log"
-L["BTN_CLOSE"]             = "Close"
 L["NO_STRATS"]             = "No strategies match filters."
 L["MISSING_PRICES"]        = "! Missing prices"
 L["STATUS_STALE"]          = "Stale"
@@ -57,14 +53,8 @@ L["TT_CRAFTSIM_WARN"]      = "Warning: This will overwrite any existing manual p
 L["TT_SHOPPING_TITLE"]     = "Create Auctionator Shopping List"
 L["TT_SHOPPING_BODY"]      = "Creates an Auctionator shopping list for the selected strategy's missing input items and keeps it synced as your bag counts change."
 
--- Shopping List
-L["SHOP_TITLE"]            = "Shopping List"
-L["SHOP_ITEM"]             = "Item"
-L["SHOP_NEED"]             = "Need to Buy"
-L["SHOP_HAVE"]             = "Have"
-L["BTN_COPY_LIST"]         = "Copy"
+-- Auctionator integration
 L["BTN_AUCTIONATOR"]       = "Auctionator List"
-L["SHOP_EMPTY"]            = "No items needed."
 L["AUCTIONATOR_LIST_NAME"] = "GAM Shopping List"
 L["MSG_AUCTIONATOR_CREATED"]   = "Auctionator list '%s' created (%d items). Open the Shopping tab to buy."
 L["MSG_AUCTIONATOR_NO_ITEMS"]  = "Nothing needed — shopping list is empty."

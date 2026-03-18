@@ -85,8 +85,8 @@ function MM.Init()
     btn:SetScript("OnClick", function(self, button)
         if isDragging then return end
         if button == "LeftButton" then
-            if GAM.UI and GAM.UI.MainWindow then
-                GAM:GetActiveMainWindow().Toggle()
+            if GAM.UI and GAM.UI.MainWindowV2 then
+                GAM.UI.MainWindowV2.Toggle()
             end
         elseif button == "RightButton" then
             -- Open WoW Interface > AddOns settings tab to the GAM category

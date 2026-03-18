@@ -14,8 +14,6 @@ local L = GAM.L  -- base table already created by Locale.lua; override keys belo
 L["LOADED_MSG"]            = "Gold Advisor Midnight v%s 로드됨. /gam 으로 표시/숨기기."
 
 -- ── Main Window ──────────────────────────────────────────────────────────
--- L["MAIN_TITLE"]            = "Gold Advisor Midnight"  -- addon name, keep in English
-L["FILTER_PATCH"]          = "패치:"
 L["FILTER_PROFESSION"]     = "전문기술:"
 L["FILTER_SEARCH"]         = "검색..."
 L["COL_STRAT"]             = "전략"
@@ -25,9 +23,7 @@ L["COL_ROI"]               = "ROI%"
 L["COL_STATUS"]            = "상태"
 L["BTN_SCAN_ALL"]          = "전체 스캔"
 L["BTN_SCAN_STOP"]         = "스캔 중지"
-L["BTN_SHOPPING"]          = "구매 목록"
 L["BTN_LOG"]               = "디버그 로그"
-L["BTN_CLOSE"]             = "닫기"
 L["NO_STRATS"]             = "필터에 맞는 전략이 없습니다."
 L["MISSING_PRICES"]        = "! 가격 없음"
 L["STATUS_STALE"]          = "오래됨"
@@ -68,12 +64,6 @@ L["RANK_BTN_R2"]           = "R2 재료"
 L["NO_PRICE"]              = "—"
 L["CONFIRM_DELETE_BODY"]   = "전략 삭제:\n\"|cffffffff%s|r\"\n\n이 작업은 취소할 수 없습니다."
 
--- ── Shopping List ─────────────────────────────────────────────────────────
-L["SHOP_TITLE"]            = "구매 목록"
-L["SHOP_ITEM"]             = "아이템"
-L["SHOP_NEED"]             = "구매 필요"
-L["SHOP_HAVE"]             = "보유"
-L["BTN_COPY_LIST"]         = "복사"
 L["BTN_AUCTIONATOR"]       = "Auctionator 목록"
 L["SHOP_EMPTY"]            = "구매할 아이템이 없습니다."
 L["AUCTIONATOR_LIST_NAME"] = "GAM Shopping List"  -- internal ID, keep in English

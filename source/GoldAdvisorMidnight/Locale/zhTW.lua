@@ -14,8 +14,6 @@ local L = GAM.L  -- base table already created by Locale.lua; override keys belo
 L["LOADED_MSG"]            = "Gold Advisor Midnight v%s 已載入。/gam 切換顯示。"
 
 -- ── Main Window ──────────────────────────────────────────────────────────
--- L["MAIN_TITLE"]            = "Gold Advisor Midnight"  -- addon name, keep in English
-L["FILTER_PATCH"]          = "版本："
 L["FILTER_PROFESSION"]     = "專業："
 L["FILTER_SEARCH"]         = "搜尋..."
 L["COL_STRAT"]             = "策略"
@@ -25,9 +23,7 @@ L["COL_ROI"]               = "ROI%"
 L["COL_STATUS"]            = "狀態"
 L["BTN_SCAN_ALL"]          = "掃描全部"
 L["BTN_SCAN_STOP"]         = "停止掃描"
-L["BTN_SHOPPING"]          = "購物清單"
 L["BTN_LOG"]               = "除錯日誌"
-L["BTN_CLOSE"]             = "關閉"
 L["NO_STRATS"]             = "沒有符合篩選條件的策略。"
 L["MISSING_PRICES"]        = "! 缺少價格"
 L["STATUS_STALE"]          = "已過時"
@@ -68,12 +64,6 @@ L["RANK_BTN_R2"]           = "R2 材料"
 L["NO_PRICE"]              = "—"
 L["CONFIRM_DELETE_BODY"]   = "刪除策略：\n\"|cffffffff%s|r\"\n\n此操作無法撤銷。"
 
--- ── Shopping List ─────────────────────────────────────────────────────────
-L["SHOP_TITLE"]            = "購物清單"
-L["SHOP_ITEM"]             = "物品"
-L["SHOP_NEED"]             = "需購買"
-L["SHOP_HAVE"]             = "已有"
-L["BTN_COPY_LIST"]         = "複製"
 L["BTN_AUCTIONATOR"]       = "Auctionator清單"
 L["SHOP_EMPTY"]            = "無需購買物品。"
 L["AUCTIONATOR_LIST_NAME"] = "GAM Shopping List"  -- internal ID, keep in English

@@ -873,7 +873,7 @@ function SD.Show(strat, patchTag)
     if not frame then Build() end
     if not positioned then
         frame:ClearAllPoints()
-        local mwF = _G["GoldAdvisorMidnightMainWindow"]
+        local mwF = _G["GoldAdvisorMidnightMainWindowV2"]
         if mwF then
             local screenW = UIParent:GetWidth()
             local mwRight = mwF:GetRight() or (screenW / 2 + 360)

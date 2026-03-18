@@ -77,11 +77,10 @@ local DB_DEFAULTS = {
         engRsNode        = ProfileDefault("engineering", "defaultRsNode", 50),
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
-        -- New UI opt-in + per-session panel state
-        useNewUI            = false,   -- false = classic MainWindow; true = MainWindowV2
+        -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
-        leftPanelCollapsed  = false,   -- V2 left panel collapse state
-        rightPanelCollapsed = false,   -- V2 right panel collapse state
+        leftPanelCollapsed  = false,   -- left panel collapse state
+        rightPanelCollapsed = false,   -- right panel collapse state
     },
     patch      = {},
     priceCache = {},
@@ -452,8 +451,8 @@ handlers["ADDON_LOADED"] = function(self, _, name)
     -- not the compiled constant (AHScan captures the constant at load time).
     if self.AHScan then
         self.AHScan.SetScanDelay(opts.scanDelay)
-        -- Centralized scan progress callback: routes to whichever window is active
-        -- at call time. Prevents V1/V2 Build() from overwriting each other's callback.
+        -- Centralized scan progress callback: routed through GetActiveMainWindow so all
+        -- progress events reach MainWindowV2 without individual files registering separately.
         self.AHScan.SetProgressCallback(function(done, total, isComplete)
             local win = self:GetActiveMainWindow()
             if win and win.OnScanProgress then
@@ -503,9 +502,8 @@ end
 handlers["AUCTION_HOUSE_SHOW"] = function(self)
     self.ahOpen = true
     self.Log.Debug("AH opened.")
-    -- Open the main window automatically (routes to V2 if useNewUI is set)
-    if self.UI and self.UI.MainWindow then
-        self:GetActiveMainWindow().Show()
+    if self.UI and self.UI.MainWindowV2 then
+        self.UI.MainWindowV2.Show()
     end
     -- Pre-warm itemKey cache from persisted DB (skips slow browse on subsequent scans)
     if self.AHScan and self.AHScan.PreWarmCache then
@@ -675,9 +673,8 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             AdvanceQuickBuy()
         end
     else
-        -- Default: toggle main window (routes to V2 if useNewUI is set)
-        if GAM.UI and GAM.UI.MainWindow then
-            GAM:GetActiveMainWindow().Toggle()
+        if GAM.UI and GAM.UI.MainWindowV2 then
+            GAM.UI.MainWindowV2.Toggle()
         end
     end
 end
@@ -685,13 +682,8 @@ end
 -- ===== UI namespace =====
 GAM.UI = GAM.UI or {}
 
--- ===== Active main window router =====
--- Returns GAM.UI.MainWindowV2 if the new UI is enabled and loaded, else GAM.UI.MainWindow.
 function GAM:GetActiveMainWindow()
-    if self.db and self.db.options.useNewUI and self.UI.MainWindowV2 then
-        return self.UI.MainWindowV2
-    end
-    return self.UI.MainWindow
+    return self.UI.MainWindowV2
 end
 
 GAM._vt = "Midnight"   -- internal version tag
