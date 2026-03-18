@@ -357,15 +357,18 @@ AdvanceQuickBuy = function()
         ctx.listsContainer:ExpandList(ctx.list)
     end
 
-    if not qb.searchPending then
-        qb.searchPending = true
-        qb.searchRetries = 0
-        AuctionatorShoppingFrame:DoSearch(ctx.searchStrings)
-    end
-
+    -- Try to use existing Auctionator results before triggering a new search.
+    -- If results for all remaining items are still in the pane, buy immediately.
     local allMatched
     qb.resultRows, allMatched = MapQuickBuyResultRows(ctx.entries, ctx.resultsList)
+
     if not allMatched then
+        -- Results unavailable — search only if not already pending
+        if not qb.searchPending then
+            qb.searchPending = true
+            qb.searchRetries = 0
+            AuctionatorShoppingFrame:DoSearch(ctx.searchStrings)
+        end
         if qb.searchRetries >= 20 then
             ResetQuickBuy(true)
             print("|cffff8800[GAM]|r Quick buy timed out waiting for Auctionator search results.")

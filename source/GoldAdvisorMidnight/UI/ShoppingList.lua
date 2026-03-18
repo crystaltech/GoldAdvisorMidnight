@@ -94,7 +94,7 @@ local function Aggregate(strats, patchTag)
                 if not totals[key] then
                     totals[key] = { name = key, needed = 0, have = 0, itemID = rm.itemID }
                 end
-                totals[key].needed = totals[key].needed + rm.needToBuy
+                totals[key].needed = totals[key].needed + rm.required
                 totals[key].have   = totals[key].have   + rm.have
             end
         end

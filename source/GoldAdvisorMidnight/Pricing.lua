@@ -683,9 +683,10 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         end
     end
 
-    local totalCostToBuy = 0
-    local missingPrices  = {}
-    local hasStale       = false
+    local totalCostToBuy     = 0
+    local totalCostRequired  = 0   -- full material cost ignoring bag inventory (used for ROI)
+    local missingPrices      = {}
+    local hasStale           = false
     local reagentResults = {}
 
     -- Fill Qty: use the configured simulation qty for all price lookups so that
@@ -774,13 +775,15 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, patchTag, fillQty)
         if stale then hasStale = true end
 
-        local totalCost    = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
-        local missingPrice = (needToBuy > 0) and not price
+        local totalCost     = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
+        local totalCostFull = price and (required * price) or nil
+        local missingPrice  = (needToBuy > 0) and not price
 
         if missingPrice then
             missingPrices[#missingPrices + 1] = entry.name
         else
-            totalCostToBuy = totalCostToBuy + (totalCost or 0)
+            totalCostToBuy    = totalCostToBuy    + (totalCost     or 0)
+            totalCostRequired = totalCostRequired + (totalCostFull or 0)
         end
 
         local itemID = PickItemID(entryIDs, patchTag)
@@ -901,8 +904,8 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
 
     if netRevenue and #missingPrices == 0 then
         profit = netRevenue - totalCostToBuy
-        if totalCostToBuy > 0 then
-            roi = (profit / totalCostToBuy) * 100
+        if totalCostRequired > 0 then
+            roi = (profit / totalCostRequired) * 100
         end
     end
 
@@ -910,8 +913,8 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     -- sell price per output unit needed to cover all input costs.  For multi-output
     -- strats (JC prospecting, Enchanting shatters) there is no single output unit
     -- to price, so we leave breakEven nil and the UI shows "—".
-        if totalCostToBuy > 0 and outputQtyRaw > 0 and not (active.outputs and #active.outputs > 1) then
-            breakEven = totalCostToBuy / (outputQtyRaw * (1 - ahCut))
+        if totalCostRequired > 0 and outputQtyRaw > 0 and not (active.outputs and #active.outputs > 1) then
+            breakEven = totalCostRequired / (outputQtyRaw * (1 - ahCut))
         end
 
     return {
@@ -928,7 +931,8 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
             missingPrice = outMissingPrice,
         },
         outputs        = outResults,   -- list; non-nil for multi-output (JC) strats
-        totalCostToBuy = totalCostToBuy,
+        totalCostToBuy  = totalCostToBuy,
+        totalCostFull   = totalCostRequired,
         netRevenue     = netRevenue,
         profit         = profit,
         roi            = roi,

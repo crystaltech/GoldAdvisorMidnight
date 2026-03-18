@@ -15,7 +15,7 @@ local function ProfileDefault(profileKey, field, fallback)
 end
 
 GAM.C = {
-    ADDON_VERSION        = "1.3.6",
+    ADDON_VERSION        = "1.3.7",
     DATA_VERSION         = 8,
     DEFAULT_PATCH        = "midnight-1",
 
