@@ -1,6 +1,6 @@
 # Gold Advisor Midnight — User Guide
 
-**Version 1.2.1 · WoW Midnight (12.0.1)**
+**Version 1.4.3 · WoW Midnight (12.0.x / TOC 120001)**
 
 ---
 
@@ -13,13 +13,14 @@
 5. [Main Window](#main-window)
 6. [Strategy Detail Panel](#strategy-detail-panel)
 7. [Shopping List](#shopping-list)
-8. [Settings](#settings)
-9. [Debug Log](#debug-log)
-10. [CraftSim Integration](#craftsim-integration)
-11. [Slash Commands](#slash-commands)
-12. [Recommended Workflow](#recommended-workflow)
-13. [Tips & FAQ](#tips--faq)
-14. [Known Limitations](#known-limitations)
+8. [Quick Buy](#quick-buy)
+9. [Settings](#settings)
+10. [Debug Log](#debug-log)
+11. [CraftSim Integration](#craftsim-integration)
+12. [Slash Commands](#slash-commands)
+13. [Recommended Workflow](#recommended-workflow)
+14. [Tips & FAQ](#tips--faq)
+15. [Known Limitations](#known-limitations)
 
 ---
 
@@ -28,11 +29,11 @@
 Gold Advisor Midnight helps you find profitable crafting opportunities by:
 
 - Scanning the **Auction House** for live prices on materials and crafted items
-- Calculating **profit, ROI, cost to buy, and break-even sell price** for 63 pre-built crafting strategies across 8 professions
+- Calculating **profit, ROI, cost-to-buy, and break-even sell price** for 64 pre-built crafting strategies across 8 professions
 - Showing you exactly **what to buy and how much** to maximize each strategy
-- Generating a **shopping list** of everything you need to purchase
+- Generating a **shopping list** and optionally buying items directly from the AH via a macro
 
-The strategies come from a curated spreadsheet covering Alchemy, Blacksmithing, Enchanting, Engineering, Inscription, Jewelcrafting, Leatherworking, and Tailoring.
+The strategies come from the Midnight community crafting spreadsheet, covering Alchemy, Blacksmithing, Enchanting, Engineering, Inscription, Jewelcrafting, Leatherworking, and Tailoring.
 
 ---
 
@@ -51,225 +52,217 @@ The strategies come from a curated spreadsheet covering Alchemy, Blacksmithing, 
 
 ## First-Time Setup
 
-The first time you use the addon you will need to **scan prices**. Until you do, profit and ROI columns show `—` because no market data exists.
-
-**Steps:**
+The first time you use the addon you will need to **scan prices**. Until you do, profit and ROI columns show `—`.
 
 1. Log in and travel to a city with an Auction House
 2. Open the Auction House
-3. The Gold Advisor window opens automatically
-4. Click **Scan All** — the addon will query the AH for every item across all strategies
-5. Wait for the scan to complete (the progress bar will disappear when done)
-6. Profit and ROI values will populate — green = profitable, red = a loss
+3. Click **Scan All** in the left panel of the Gold Advisor window
+4. Wait for the scan to complete (progress shown in the status bar)
+5. Profit and ROI values populate — green = profitable, red = a loss
 
-Scanning 63 strategies takes a few minutes due to AH throttling. You only need to do a full scan when you want fresh prices; cached prices are reused for 10 minutes.
+Cached prices are reused for 10 minutes. You only need a full rescan when you want fresh market data.
 
 ---
 
 ## Minimap Button
 
-A small coin icon appears on the edge of your minimap.
-
 | Action | Result |
 |--------|--------|
-| **Left-click** | Toggle the main strategy window |
-| **Right-click** | Open the Settings panel |
-| **Drag** | Reposition the button around the minimap edge |
-
-The button position is saved and restored after each login.
-
-If you accidentally hide the minimap button, you can restore it via **Settings → Show Minimap Button**.
+| **Left-click** | Toggle the main window |
+| **Right-click** | Open Settings |
+| **Drag** | Reposition around the minimap edge (position saved) |
 
 ---
 
 ## Main Window
 
-Opens automatically when you open the Auction House, or via `/gam` or the minimap button.
+The window opens automatically when you open the Auction House, or via `/gam` or the minimap button. It has three panels.
 
-### Layout
+### Left Panel — Controls
 
-```
-┌──────────────────────────────────────────────────┐
-│  Gold Advisor Midnight              [X]           │
-│  Profession: [All ▾]                              │
-│──────────────────────────────────────────────────│
-│  ★ Strategy         Profession   Profit    ROI%  │
-│  ──────────────────────────────────────────────  │
-│  ★ Composite Flora  Alchemy      45g 20s   12.3% │
-│  ☆ Goblin Grenade   Engineering  -8g 00s   -2.1% │
-│  ...                                             │
-│──────────────────────────────────────────────────│
-│  63 strategies   [Debug Log] [Scan All] [Close]  │
-└──────────────────────────────────────────────────┘
-```
+| Control | Description |
+|---------|-------------|
+| **Mine / All** toggle | Show only strategies for your professions, or all 64 |
+| **Profession** dropdown | Sub-filter to a single profession |
+| **Fill Qty** | Units to simulate purchasing from the AH order book when pricing reagents. Lower = small-batch cost; higher = reflects true volume depth. Range 10–10,000 |
+| **AH Cut %** | Auction House fee applied to output revenue (default 5%) |
+| **Mill Own Herbs** | When checked, Inscription ink strategies derive pigment costs from herb prices instead of buying pigments from the AH |
+| **Craft Own Ingots** | When checked, Blacksmithing ingot costs are derived from ore + flux instead of AH ingot prices |
+| **Craft Own Bolts** | When checked, Tailoring bolt costs are derived from cloth + thread instead of AH bolt prices |
+| **Scan All** | Queue every visible strategy item for AH scanning (AH must be open) |
+| **Shopping List** | Open the aggregated buy list for all visible strategies |
 
-### Controls
+### Center Panel — Strategy List
 
-**Profession filter dropdown** — filters the list to one profession. Select "All" to see everything.
+Displays all strategies matching the current filter.
 
-**Column headers** — click any header to sort by that column. Click again to reverse the sort order.
-- ★ Strategy — alphabetical by strategy name
-- Profession — alphabetical by profession
-- Profit — highest profit first (default)
-- ROI% — best return on investment first
+| Column | Description |
+|--------|-------------|
+| ★ | Favourite flag. Favourited strategies sort to the top. Click to toggle |
+| **Strategy** | Strategy name |
+| **Profession** | Profession |
+| **Profit** | Total profit for one full run (gold) |
+| **ROI%** | Return on investment. Best ROI sorted first by default |
 
-**Rows**
-- **Single-click** a row → opens the Strategy Detail panel for that strategy
-- **Double-click** a row → toggles the ★ favourite flag. Favourited strategies always sort to the top of the list.
+- **Click a column header** to sort by that column. Click again to reverse.
+- **Click a row** to open Strategy Detail in the right panel.
+- Rows with `! Missing prices` have one or more un-priced items — open detail and click Scan.
 
-**Missing prices indicator** — `! Missing prices` appears on rows where one or more items have no cached price. Click that strategy and use its Scan buttons to fetch the missing data.
+### Right Panel — Best Strategy Card
 
-**Scan All button** — queues every item visible in the current filtered list for AH scanning. The AH must be open. A progress bar appears while scanning.
-
-**Stop Scan button** — replaces Scan All while a scan is running. Clicking it halts the current scan immediately.
-
-**Spreadsheet Export button** — opens the export popup with pricing data in AverageReagentPrice (ARP) addon format:
-```
-ItemName, Rank 1, X.XX, Rank 2, X.XX, Rank 3, X.XX
-```
-One line per item, covering every reagent and output across all strategies. Select all and copy (Ctrl+A, Ctrl+C) to paste into your comparison spreadsheet.
-
-**Debug Log button** — opens the debug log window.
-
-**Close button** — hides the window. The window also closes when you close the Auction House.
+When no row is selected, the right panel shows the **Best Strategy** — the highest-ROI strategy that exceeds minimum profit and ROI thresholds. Click it to open its detail.
 
 ---
 
 ## Strategy Detail Panel
 
-Opens to the right of the main window when you click a strategy row.
+Opens in the right panel when you click a strategy row.
 
-### Header
+### Output
 
-Shows the strategy name, profession, and any notes (e.g. "15% Res, 30% Multi" — these are the expected chance stats from the spreadsheet).
+Shows the crafted output item, its AH price, and the expected quantity for the current batch size.
 
-### Output Section
+For multi-output strategies (JC prospecting, Enchanting shatters), each output is listed with its individual quantity and net revenue contribution.
 
-Shows the crafted item you will produce:
-- **Item name**
-- **Current AH price** (from price cache)
-- **Expected quantity** — how many you'll get from one run at the current batch size
-- **Scan button** — scans AH price for the output item only
+### Crafts Editbox
 
-For Jewelcrafting prospecting strategies, the output section shows the primary yield (ore → gems). All gem outputs contribute to the profit calculation even if only the primary is shown here.
+Located in the header of the reagent section. Enter a number and press Enter to scale the entire batch — all quantities, costs, and metrics update immediately. Clear and press Enter to reset to the spreadsheet default.
 
 ### Reagent Table
 
 | Column | Description |
 |--------|-------------|
 | **Item** | Reagent name |
-| **Qty/Craft** | How many you need for this batch size. **Editable** — type a number and press Enter to override |
-| **In Bags** | How many you currently have across bags + bank (live read, not saved) |
-| **Need to Buy** | Max(0, Qty/Craft − In Bags). What you actually need to purchase |
-| **Unit Price** | Current AH price per item |
+| **Required** | Total quantity needed for this batch |
+| **Have** | Current bag + bank count (live read) |
+| **Need to Buy** | max(0, Required − Have) |
+| **Unit Price** | AH price per item |
 | **Total Cost** | Need to Buy × Unit Price |
-| **Scan** | Scan AH price for this specific item |
+| **Scan** | Scan this specific item's AH price |
 
-**Editing Qty/Craft:** Type a new quantity and press Enter (or click away). The batch size will be inferred from your override and all other columns update automatically — including the output quantity and all metrics. To reset to the spreadsheet default, clear the field and press Enter.
-
-### Metrics Section
+### Metrics
 
 | Metric | Meaning |
 |--------|---------|
 | **Total Cost** | Sum of all reagent purchase costs |
-| **Net Revenue** | Expected sell price × output quantity × 0.95 (AH cut applied) |
-| **Profit** | Net Revenue − Total Cost. Green = profit, red = loss |
-| **ROI** | (Profit / Total Cost) × 100%. Higher is better |
-| **Break-Even Sell** | The minimum sell price needed to break even after the AH cut |
+| **Net Revenue** | Output qty × AH price × (1 − AH cut) |
+| **Profit** | Net Revenue − Total Cost |
+| **ROI** | (Net Revenue − Total Cost) / Total Cost × 100% |
+| **Break-Even Sell** | Minimum sell price to cover all input costs after AH cut. Not shown for multi-output strategies. |
 
-### Bottom Buttons
+### Buttons
 
-**Shopping List** — opens the Shopping List panel showing only this strategy's buy requirements.
-
-**→ CraftSim** — pushes all scanned prices for this strategy's items into CraftSim's global price override database. Useful if you use CraftSim for crafting decisions and want it to use the same prices GAM scanned. Requires CraftSim to be installed and loaded.
-
-**Scan All Items** — scans every reagent and output item for this strategy in one click. The AH must be open.
+| Button | Action |
+|--------|--------|
+| **Shopping List** | Open buy list scoped to this strategy |
+| **Scan All Items** | Scan every reagent and output for this strategy |
+| **→ CraftSim** | Push scanned prices into CraftSim's price database |
 
 ---
 
 ## Shopping List
 
-Opens from the **Shopping List** button in the Strategy Detail panel.
+Opens from **Shopping List** in the left panel (all visible strategies) or in Strategy Detail (single strategy).
 
-Shows every reagent you need to purchase for the selected strategy:
+Shows every item you need to buy, with current bag counts and quantities to purchase.
 
-| Column | Description |
-|--------|-------------|
-| **Item** | Reagent name |
-| **Have** | Current bag + bank count |
-| **Need to Buy** | Highlighted red if > 0 |
-
-Items with nothing to buy (Have ≥ Qty/Craft) are shown in green with a 0 in the Need column.
-
-**Copy button** — opens a small text popup with the shopping list pre-formatted:
+**ARP Export** — copies all item prices in AverageReagentPrice addon format:
 ```
--- Gold Advisor Midnight Shopping List --
-Item | Have | Need
-Tranquility Bloom | 240 | 5760
-Argentleaf | 0 | 4000
-...
+Tranquility Bloom, Rank 1, 6.70, Rank 2, 16.85, Rank 3, 0.00
 ```
-Select all and copy (Ctrl+A, Ctrl+C) to paste into a note, Auctionator search list, etc.
+Select all and copy (Ctrl+A, Ctrl+C) to paste into your comparison spreadsheet.
+
+---
+
+## Quick Buy
+
+Quick Buy lets you purchase each item in your shopping list from the AH using a macro — one hardware event (keypress) per item, satisfying WoW's commodity purchase requirement.
+
+**One-time setup:**
+1. Create a macro: `/click GAMQuickBuyBtn`
+2. Bind it to a convenient key
+
+**Usage:**
+1. Build a shopping list for any strategy
+2. Open the Auction House
+3. Press your macro key → the addon auto-arms and starts the purchase for the first item
+4. Press again when the purchase completes → moves to the next item
+5. Repeat until the list empties, or `/gam quickbuy` to stop early
+
+Each keypress = one hardware event = one purchase. The addon does not loop automatically.
 
 ---
 
 ## Settings
 
-Open via **right-click** on the minimap button, or via the Blizzard Settings UI (Escape → Options → AddOns → Gold Advisor Midnight).
+Open via **right-click** on the minimap button, or Escape → Options → AddOns → Gold Advisor Midnight.
+
+### General
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| **Active Patch** | Which patch tag to use for strategy data | midnight-1 |
-| **Scan Delay (sec)** | Seconds between AH queries. Increase if you get throttle warnings. Decrease for faster scans (may cause throttling) | 1.0 |
-| **Debug Verbosity** | 0 = off, 1 = info, 2 = debug, 3 = verbose. Use 0 for normal play, 2–3 only when troubleshooting | 1 |
-| **Show Minimap Button** | Toggle the minimap coin button on/off | On |
-| **Rank Selection Policy** | How to pick between quality tiers when an item has multiple ranks. **Lowest Rank** = cheapest tier (Q1), **Highest Rank** = best tier (Q2+), **Manual** = use highest as fallback | Lowest Rank |
-| **Fill Qty** | Units to simulate purchasing from the AH order book when pricing reagents. Lower = small-batch cost; higher = larger-volume average. Range: 10–10,000 | 50 |
+| **Scan Delay** | Seconds between AH queries | 1.0 |
+| **Debug Verbosity** | 0=off, 1=info, 2=debug, 3=verbose | 1 |
+| **Show Minimap Button** | Toggle the minimap button | On |
+| **UI Scale** | Scale of addon windows (0.7–1.5) | 1.0 |
+| **Rank Policy** | Quality tier preference: Lowest Rank (R1) or Highest Rank (R2+) | Lowest |
+| **Fill Qty** | AH order-book simulation depth | 50 |
+| **AH Cut %** | AH fee applied to sell revenue | 5% |
 
-**Reload Data** — re-reads the strategy tables from SavedVars. Use this if you edited `StratsManual.lua` and want the changes to take effect without a full `/reload`.
+### Pricing Sources
 
-**Clear Price Cache** — wipes all cached AH prices for your realm. Useful if prices look obviously wrong. You'll need to run Scan All again after clearing.
+| Setting | Options | Description |
+|---------|---------|-------------|
+| **Pigment Cost Source** | AH / Mill Own Herbs | Price Inscription pigments from AH, or derive from herb costs |
+| **Bolt Cost Source** | AH / Craft Own | Price Tailoring bolts from AH, or derive from cloth + thread |
+| **Ingot Cost Source** | AH / Craft Own | Price Blacksmithing ingots from AH, or derive from ore + flux |
 
-**Open Debug Log** — opens the debug log window.
+### Crafting Stats
 
-Apply your changes by clicking **Apply & Close**. Changes are also applied when you close the panel.
+Per-profession Resourcefulness %, Multicraft %, and spec node bonus fields. These match the columns in the community spreadsheet. Click **Sync from CraftSim** to import your actual in-game stats automatically.
+
+| Profession | Stat fields |
+|------------|-------------|
+| Inscription (Milling) | Resourcefulness %, Res Node Bonus |
+| Inscription (Ink) | Multicraft %, Resourcefulness %, MC Node, Res Node |
+| Jewelcrafting | Prospect Res %, Crush Res %, Craft Multi %, Craft Res %, MC Node, Res Node |
+| Enchanting | Shatter Res %, Craft Multi %, Craft Res %, MC Node, Res Node |
+| Alchemy | Multicraft %, Resourcefulness %, MC Node, Res Node |
+| Tailoring | Multicraft %, Resourcefulness %, MC Node, Res Node |
+| Blacksmithing | Multicraft %, Resourcefulness %, MC Node, Res Node |
+| Leatherworking | Multicraft %, Resourcefulness %, MC Node, Res Node |
+| Engineering | Resourcefulness %, Res Node |
+
+### Buttons
+
+| Button | Action |
+|--------|--------|
+| **Sync from CraftSim** | Import all profession stats from CraftSim |
+| **Clear Price Cache** | Wipe all cached AH prices for your realm |
+| **Reload Data** | Re-read strategy tables without a full /reload |
+| **Open Debug Log** | Open the debug log window |
 
 ---
 
 ## Debug Log
 
-Open via `/gam log`, the **Debug Log** button in the main window, or Settings.
+Open via `/gam log`, the Debug Log button in the main window, or Settings.
 
-A scrollable window showing all log entries from the current session. Useful for diagnosing scan failures or unexpected behaviour.
-
-**Clear** — wipes all log entries.
-
-**Copy All** — selects all log text so you can Ctrl+C to copy and paste it elsewhere (e.g. a bug report).
-
-**Pause / Resume** — pauses the live feed so the log stops scrolling while you read it. New entries are still recorded in the buffer; they appear when you click Resume.
-
-**Dump IDs** — dumps all tracked item IDs and their resolved names to the log.
+- **Clear** — wipe all entries
+- **Copy All** — select all log text for Ctrl+C
+- **ARP Export** — export all current item prices in ARP format
 
 ---
 
 ## CraftSim Integration
 
-If **CraftSim** is installed and loaded, Gold Advisor Midnight automatically detects it at login and logs:
-```
-CraftSimBridge: CraftSim detected — integration active.
-```
+If CraftSim is installed, the addon detects it automatically at login.
 
-**What integrates:**
-- The **→ CraftSim** button in Strategy Detail pushes all scanned prices for that strategy's items into CraftSim's price override database. CraftSim will then use those prices for its own profit calculations.
+**Stat sync**: Click **Sync from CraftSim** in Settings to import your current Multicraft %, Resourcefulness %, and spec node bonuses into all profession stat fields at once.
 
-**What does NOT auto-sync:**
-- Prices are not pushed automatically — you must click the button per strategy
+**Price push**: The **→ CraftSim** button in Strategy Detail pushes scanned prices for that strategy's items into CraftSim's price override database, so CraftSim uses the same market data as Gold Advisor.
 
-If CraftSim is not installed, the button still appears but pressing it prints:
-```
-[GAM] CraftSim push failed: CraftSim not loaded
-```
-No errors will occur; the button is always safe to use.
+If CraftSim is not installed, both features are silently unavailable — no errors occur.
 
 ---
 
@@ -277,11 +270,14 @@ No errors will occur; the button is always safe to use.
 
 | Command | Action |
 |---------|--------|
-| `/gam` | Toggle the main strategy window |
-| `/gam log` | Toggle the debug log window |
-| `/gam scan` | Queue all strategy items for AH scanning (AH must be open) |
-| `/gam clearcache` | Wipe the price cache for the current realm |
-| `/gam reload` | Reload strategy data (use after editing StratsManual.lua) |
+| `/gam` | Toggle main window |
+| `/gam log` | Toggle debug log |
+| `/gam scan` | Queue all items for AH scan (AH must be open) |
+| `/gam clearcache` | Wipe price cache for current realm |
+| `/gam reload` | Reload strategy data |
+| `/gam quickbuy` | Stop / disarm Quick Buy queue |
+| `/gam create` | Open Strategy Creator |
+| `/gam ids` | Dump tracked item IDs to debug log |
 | `/goldadvisor` | Same as `/gam` |
 
 ---
@@ -290,91 +286,70 @@ No errors will occur; the button is always safe to use.
 
 ### Daily scan routine
 
-1. Log in and open the **Auction House**
-2. The Gold Advisor window opens automatically
-3. If your prices are older than ~10 minutes (stale), click **Scan All**
-4. Wait for the scan bar to disappear — all items are now priced
-5. Sort by **Profit** or **ROI%** to find today's best opportunities
-6. Filter by your crafting profession using the **Profession** dropdown
+1. Log in and open the Auction House
+2. Click **Scan All** in the left panel
+3. Wait for the scan to finish (status bar clears)
+4. Sort by **ROI%** or **Profit** to find today's best opportunities
+5. Use the **Mine** toggle and **Profession** dropdown to narrow the list
 
 ### Evaluating a strategy
 
-1. Click a strategy row to open the **Strategy Detail** panel
-2. Review the **In Bags** column — it shows what you already have
-3. Check the **Need to Buy** column — this is your shopping list
-4. If any items show `—` in the price column, click their **Scan** button (AH must be open)
-5. Verify the **Profit** and **ROI** make sense for the batch size
-6. If you want to scale up or down, edit the **Qty/Craft** field for any one reagent — all other quantities and outputs scale automatically
+1. Click a row to open Strategy Detail
+2. Check the **Have** column — live bag + bank read
+3. Review **Need to Buy** and **Total Cost**
+4. If any prices show `—`, click **Scan All Items**
+5. Adjust **Crafts** to scale up or down — all metrics update immediately
 
-### Shopping for materials
+### Buying materials
 
-1. In Strategy Detail, click **Shopping List**
-2. Use the **Copy** button to grab the list as text
-3. Paste into Auctionator, TradeSkillMaster, or a note
+1. Click **Shopping List** in Strategy Detail or the left panel
+2. Use **ARP Export** to copy prices for your spreadsheet
+3. Optionally use **Quick Buy** to purchase items directly from the AH via macro
 
-### Pushing prices to CraftSim
+### Using Mill Own Herbs (Inscription)
 
-1. Run a scan (either Scan All Items in the detail panel, or Scan All from the main window)
-2. Once prices are populated, click **→ CraftSim**
-3. A confirmation message prints: `[GAM] Pushed N price(s) to CraftSim`
-4. Switch to CraftSim — its profit calculations now use your freshly scanned prices
+Enable **Mill Own Herbs** in the left panel when herbs are cheaper than pigments on the AH. Ink strategies will derive pigment cost from herb prices, which can swing Sienna Ink and Munsell Ink from losses to strong profits depending on the market.
 
-### Setting your batch size
+### Setting your crafting stats
 
-The **Qty/Craft** column defaults to the spreadsheet's recommended starting amount (typically 2,000–5,000 units). To customise:
-
-1. Open Strategy Detail for any strategy
-2. Click into the **Qty/Craft** cell of any reagent
-3. Type the amount you want to craft/process, then press Enter
-4. All other reagent quantities and the output quantity update to match
-
-Your custom quantities are saved per strategy per character session and persist across `/reload`.
-
-### Finding items with no prices
-
-Items that have never been scanned show `—` in the price column and `! Missing prices` in the main list. To fix:
-
-1. Open Strategy Detail for the affected strategy
-2. Click **Scan All Items** (AH must be open)
-3. Once complete, all prices will appear
-
-If an item still shows `—` after a scan, it may not be listed on the AH on your realm, or it may need a name scan to discover its itemID first. The scan will attempt both automatically.
+1. Open Settings (right-click minimap button)
+2. Click **Sync from CraftSim** (if installed), or enter your Res%/Multi%/node values manually
+3. Click **Apply & Close** — all strategy metrics recalculate immediately
 
 ---
 
 ## Tips & FAQ
 
-**Q: Why is profit showing as a loss when I know I can sell it for more?**
-A: Check the output item's price in the detail panel. If it's `—` or lower than your actual sell price, either scan the output item or set a price override in Settings (or edit `StratsManual.lua`).
+**Q: Why is profit showing a loss when I know I can sell for more?**
+A: Check that the output item has a price. If it shows `—`, open Strategy Detail and click **Scan All Items**.
 
-**Q: Why is "In Bags" showing 0 when I have the item in my bank?**
-A: The count includes both bags and bank but requires the bank to have been opened this session. Visit your bank and reopen the detail panel to refresh.
+**Q: "Have" shows 0 but I have the item in my bank.**
+A: Visit your bank this session. The bank count updates when you open the bank window.
 
-**Q: The scan seems stuck / the progress bar isn't moving.**
-A: The AH throttles queries. The addon waits up to 10 seconds between queries. If it's truly stuck, click **Stop Scan** and try again. Check `/gam log` for timeout or throttle messages.
+**Q: The scan seems stuck.**
+A: The AH throttles queries — the addon waits between requests. If genuinely stuck, check `/gam log` for timeout messages and try Scan All again.
 
-**Q: I closed the main window and now I can't find it.**
-A: Left-click the minimap coin button, or type `/gam`. The window only opens automatically when the AH is open.
-
-**Q: Profits look wildly different from the community spreadsheet.**
-A: Older copies of the spreadsheet had a Jewelcrafting AH-cut formula bug. The March 10, 2026 workbook fixes that, and the addon is aligned to the corrected sheet values.
+**Q: Profits look different from the community spreadsheet.**
+A: Verify your crafting stats in Settings match the spreadsheet assumptions (the defaults match the spreadsheet baseline). Also check whether **Mill Own Herbs** is on — it significantly changes ink strategy ROI.
 
 **Q: How do I reset everything and start fresh?**
-A: `/gam clearcache` wipes prices. To also wipe your qty overrides and favorites, delete the `GoldAdvisorMidnightDB` entry from your SavedVariables file (in `WTF/Account/...`) and `/reload`.
+A: `/gam clearcache` wipes prices. To also wipe qty overrides and favourites, delete the `GoldAdvisorMidnightDB` entry from your SavedVariables file (`WTF/Account/.../SavedVariables/`) and `/reload`.
 
 **Q: Can I use this without CraftSim?**
-A: Yes. CraftSim is completely optional. Every feature works without it. The only CraftSim-specific feature is the **→ CraftSim** button.
+A: Yes — CraftSim is fully optional. Every feature works without it.
+
+**Q: What is Quick Buy and do I need it?**
+A: Quick Buy is optional. It lets you purchase shopping list items from the AH via a macro key. Create a macro with `/click GAMQuickBuyBtn`, bind it to a key, build a shopping list, then press the key once per item — it auto-arms on first press.
 
 ---
 
 ## Known Limitations
 
-- **Item IDs**: Most raw materials are pre-mapped. If a crafted item or gem shows no price, it likely needs a name scan (clicking Scan will attempt this automatically).
-- **JC prospecting display**: The output section shows the primary output item only. Revenue is calculated correctly from all gem yields; it's just not shown line-by-line in the panel.
-- **Spreadsheet version matters**: Older community spreadsheet copies had Jewelcrafting formula issues. Gold Advisor Midnight is aligned to the corrected March 10, 2026 workbook.
-- **Price freshness**: Cached prices expire after 10 minutes. Run Scan All at the start of each AH session for best accuracy.
-- **Single realm**: Price cache is scoped to your realm+faction. If you play multiple realms, each has its own cache.
+- **Price freshness**: Cached prices expire after 10 minutes. Rescan at the start of each AH session for best accuracy.
+- **Single realm**: Price cache is scoped to your realm+faction. Multiple realms each have independent caches.
+- **Mill Own Herbs yield constant**: The herb → pigment conversion uses a baked yield constant (1.53 pigments/herb at the addon's baseline stat level). If your stats differ significantly, derived pigment costs may be slightly off.
+- **JC multi-output**: Break-Even Sell is not shown for prospecting/shattering strategies since there is no single output unit to price.
 
 ---
 
-*Gold Advisor Midnight v1.2.1 — WoW Midnight (Interface 120001)*
+*Gold Advisor Midnight v1.4.3 — WoW Midnight (Interface 120001)*

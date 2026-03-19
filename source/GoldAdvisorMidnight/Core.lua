@@ -480,9 +480,15 @@ handlers["PLAYER_LOGIN"] = function(self)
     qbBtn:SetAlpha(0)
     qbBtn:SetPoint("CENTER", UIParent, "CENTER", 9999, 9999)
     qbBtn:SetScript("OnClick", function()
-        if GAM.quickBuyState.active then
-            AdvanceQuickBuy()
+        if not GAM.quickBuyState.active then
+            -- Auto-arm on first press if a shopping list is ready
+            if not GAM.quickBuyList or not GAM.quickBuyList.entries or #GAM.quickBuyList.entries == 0 then
+                print("|cffff8800[GAM]|r No shopping list loaded. Open a strategy and click Shopping List first.")
+                return
+            end
+            GAM.quickBuyState.active = true
         end
+        AdvanceQuickBuy()
     end)
     -- Pre-warm WoW item cache for all strat itemIDs so crafting quality API
     -- calls (used by ARP Export) return correct data on first use.
@@ -680,12 +686,7 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
         if GAM.quickBuyState.active then
             ResetQuickBuy()
         else
-            if not GAM.quickBuyList or not GAM.quickBuyList.entries or #GAM.quickBuyList.entries == 0 then
-                print("|cffff8800[GAM]|r Create a shopping list first (Shopping button in Gold Advisor).")
-            else
-                GAM.quickBuyState.active = true
-                print(string.format("|cffff8800[GAM]|r Quick buy armed (%d item(s)). Press your macro (/click GAMQuickBuyBtn) to buy each item.", #GAM.quickBuyList.entries))
-            end
+            print("|cffff8800[GAM]|r Quick buy is not active. Press your /click GAMQuickBuyBtn macro to begin.")
         end
     else
         if GAM.UI and GAM.UI.MainWindowV2 then
