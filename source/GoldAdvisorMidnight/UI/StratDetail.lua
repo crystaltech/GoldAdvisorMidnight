@@ -379,6 +379,13 @@ local function MakeReagentRow(parent, idx)
             GAM.AHScan.StartScan()
         end
     end)
+    scanBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_SCAN_ITEM_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_SCAN_ITEM_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    scanBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     row.scanBtn = scanBtn
 
     return row
@@ -474,6 +481,13 @@ local function MakeOutputRow(parent, idx)
         end
         GAM.AHScan.StartScan()
     end)
+    scanBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_SCAN_ITEM_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_SCAN_ITEM_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    scanBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     row.scanBtn = scanBtn
 
     return row
@@ -636,10 +650,10 @@ local function Build()
     outHdr:SetTextColor(GR, GG, GB)
 
     local outColDefs = {
-        { L["COL_ITEM"],       0,   200 },
-        { L["COL_QTY_CRAFT"], 200,   90 },
-        { L["COL_UNIT_PRICE"],290,  130 },
-        { L["COL_REVENUE"],   420,  130 },
+        { L["COL_ITEM"],          0,   200 },
+        { L["COL_QTY_CRAFT"],   200,    90 },
+        { L["COL_AH_SELL_PRICE"],290,  130 },
+        { L["COL_REVENUE"],     420,   130 },
     }
     for _, cd in ipairs(outColDefs) do
         local fs = outputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -707,11 +721,34 @@ local function Build()
         return val
     end
 
+    -- Invisible button overlay for FontString labels (FontStrings can't have OnEnter).
+    -- Positioned over the label+value area so hovering shows a tooltip.
+    local function MakeTooltipAnchor(x, y, w, titleKey, bodyKey)
+        local anchor = CreateFrame("Button", nil, frame)
+        anchor:SetSize(w, 18)
+        anchor:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, y - 2)
+        anchor:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(GAM.L[titleKey], 1, 1, 1)
+            GameTooltip:AddLine(GAM.L[bodyKey], 1, 0.82, 0, true)
+            GameTooltip:Show()
+        end)
+        anchor:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+
     frame.metCost      = MakeMetricPair(L["LBL_COST"],       14,  95, 200)
     frame.metRevenue   = MakeMetricPair(L["LBL_REVENUE"],    14,  75, 200)
     frame.metROI       = MakeMetricPair(L["LBL_ROI"],       364,  95, 180)
     frame.metBreakeven = MakeMetricPair(L["LBL_BREAKEVEN"], 364,  75, 180)
     frame.metProfit    = MakeCenteredMetric(L["LBL_PROFIT"],      PROFIT_BASE_Y)
+
+    -- Tooltip anchors over metric label pairs
+    MakeTooltipAnchor( 14,  95, 310, "TT_LBL_COST_TITLE",      "TT_LBL_COST_BODY")
+    MakeTooltipAnchor( 14,  75, 310, "TT_LBL_REVENUE_TITLE",   "TT_LBL_REVENUE_BODY")
+    MakeTooltipAnchor(364,  95, 310, "TT_LBL_ROI_TITLE",       "TT_LBL_ROI_BODY")
+    MakeTooltipAnchor(364,  75, 310, "TT_LBL_BREAKEVEN_TITLE", "TT_LBL_BREAKEVEN_BODY")
+    -- Profit is centred; anchor spans the middle region
+    MakeTooltipAnchor(WIN_W / 2 - 155, PROFIT_BASE_Y, 310, "TT_LBL_PROFIT_TITLE", "TT_LBL_PROFIT_BODY")
 
     -- Shallow fill notice — orange bar above button row.
     local expNotice = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -767,6 +804,14 @@ local function Build()
         GameTooltip:Hide()
     end)
 
+    btnAuctionator:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_SHOPPING_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_SHOPPING_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    btnAuctionator:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     -- Scan All button
     local scanAllBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     scanAllBtn:SetSize(110, 22)
@@ -796,6 +841,13 @@ local function Build()
         for _, r in ipairs(currentStrat.reagents or {}) do queueItem(r) end
         GAM.AHScan.StartScan()
     end)
+    scanAllBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_SCAN_ALL_ITEMS_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_SCAN_ALL_ITEMS_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    scanAllBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     local function RelayoutBottomButtons()
         rankToggleBtn:SetWidth(MeasureButtonWidth(frame, rankToggleBtn:GetText(), 80, 180, 24))

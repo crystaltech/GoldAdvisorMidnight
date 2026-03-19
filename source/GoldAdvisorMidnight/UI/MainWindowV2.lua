@@ -1152,13 +1152,41 @@ local function BuildInlineDetail(panel)
         return val, yOff - 18
     end
 
+    -- Invisible button overlay for FontString metric labels (FontStrings can't receive OnEnter).
+    local function MakeMetricTooltip(yOff, titleKey, bodyKey)
+        local anchor = CreateFrame("Button", nil, content)
+        anchor:SetSize(UW, 18)
+        anchor:SetPoint("TOPLEFT", content, "TOPLEFT", 0, yOff)
+        anchor:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText((L and L[titleKey]) or titleKey, 1, 1, 1)
+            GameTooltip:AddLine((L and L[bodyKey]) or bodyKey, 1, 0.82, 0, true)
+            GameTooltip:Show()
+        end)
+        anchor:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+
+    local yCost = y
     rpDetail.metCostFS,      y = MakeMetricRow(L and L["LBL_COST"]      or "Cost:",       y)
+    MakeMetricTooltip(yCost, "TT_LBL_COST_TITLE", "TT_LBL_COST_BODY")
+
+    local yRevenue = y
     rpDetail.metRevenueFS,   y = MakeMetricRow(L and L["LBL_REVENUE"]   or "Revenue:",    y)
+    MakeMetricTooltip(yRevenue, "TT_LBL_REVENUE_TITLE", "TT_LBL_REVENUE_BODY")
     MakeRule(y, 0.4)
     y = y - 4
+
+    local yProfit = y
     rpDetail.metProfitFS,    y = MakeMetricRow(L and L["LBL_PROFIT"]    or "Profit:",     y)
+    MakeMetricTooltip(yProfit, "TT_LBL_PROFIT_TITLE", "TT_LBL_PROFIT_BODY")
+
+    local yROI = y
     rpDetail.metROIFS,       y = MakeMetricRow(L and L["LBL_ROI"]       or "ROI:",        y)
+    MakeMetricTooltip(yROI, "TT_LBL_ROI_TITLE", "TT_LBL_ROI_BODY")
+
+    local yBreakeven = y
     rpDetail.metBreakevenFS, y = MakeMetricRow(L and L["LBL_BREAKEVEN"] or "Break-even:", y)
+    MakeMetricTooltip(yBreakeven, "TT_LBL_BREAKEVEN_TITLE", "TT_LBL_BREAKEVEN_BODY")
 
     -- Fill qty notice
     local fillFS = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1438,6 +1466,8 @@ local function BuildInlineDetail(panel)
         local s, pt = rpDetail.currentStrat, rpDetail.currentPatch
         ScanSingleStrategy(s, pt, function() ShowInlineDetail(s, pt) end)
     end)
+    AttachButtonTooltip(btnScanStrat, (L and L["TT_SCAN_ALL_ITEMS_TITLE"]) or "Scan All Strategy Items",
+        (L and L["TT_SCAN_ALL_ITEMS_BODY"]) or "Queue all reagents and output items in this strategy for AH price lookups.")
     btnScanStrat:Disable()
     btnScanStrat:SetAlpha(0.45)
     rpDetail.btnScanStrat = btnScanStrat
@@ -1453,12 +1483,16 @@ local function BuildInlineDetail(panel)
             print(string.format("|cffff8800[GAM]|r Pushed %d price(s) to CraftSim.", pushed or 0))
         end
     end)
+    AttachButtonTooltip(btnCraftSim, (L and L["TT_CRAFTSIM_TITLE"]) or "Push Price Overrides to CraftSim",
+        (L and L["TT_CRAFTSIM_WARN"]) or "Warning: This will overwrite any existing manual price overrides in CraftSim for all reagents in this strategy.")
     btnCraftSim:Hide()
 
     local btnShop = MakeRPBtn((L and L["BTN_SHOPPING_SHORT"]) or "Shopping", 70, 166, BY1)
     btnShop:SetScript("OnClick", function()
         ToggleShoppingSync(rpDetail.currentStrat, rpDetail.currentPatch)
     end)
+    AttachButtonTooltip(btnShop, (L and L["TT_SHOPPING_TITLE"]) or "Create Auctionator Shopping List",
+        (L and L["TT_SHOPPING_BODY"]) or "Creates an Auctionator shopping list for the selected strategy's missing input items.")
     btnShop:Hide()
 
     -- Edit / Delete — user strats only; second row
@@ -1523,6 +1557,11 @@ local function BuildLeftPanelContent(L, C, LP)
     leftPanel.btnFilterAll  = btnFilterAll
     leftPanel.btnFilterMine = btnFilterMine
 
+    AttachButtonTooltip(btnFilterMine, (L and L["TT_MINE_TITLE"]) or "My Professions Filter",
+        (L and L["TT_MINE_BODY"]) or "Show only strategies for professions you have learned.")
+    AttachButtonTooltip(btnFilterAll,  (L and L["TT_ALL_TITLE"])  or "Show All Strategies",
+        (L and L["TT_ALL_BODY"])  or "Show all crafting strategies regardless of profession.")
+
     -- ── Profession sub-filter dropdown ──
     -- Sits between the Mine/All toggle and the Fill Qty controls.
     -- Lets players with multiple professions narrow the list to one.
@@ -1571,6 +1610,13 @@ local function BuildLeftPanelContent(L, C, LP)
     fillQtyBox:SetAutoFocus(false)
     fillQtyBox:SetNumeric(true)
     fillQtyBox:SetText(tostring((GAM.db and GAM.db.options and GAM.db.options.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY))
+    fillQtyBox:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText((L and L["TT_FILL_QTY_TITLE"]) or "Fill Quantity", 1, 1, 1)
+        GameTooltip:AddLine((L and L["TT_FILL_QTY_BODY"]) or "Simulates buying this many units from the AH order book when pricing reagents.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    fillQtyBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     local fillRangeFS = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fillRangeFS:SetPoint("TOPLEFT", fillLbl, "BOTTOMLEFT", 0, -4)
@@ -1591,6 +1637,8 @@ local function BuildLeftPanelContent(L, C, LP)
     millLbl:SetText((L and L["V2_MILL_OWN_HERBS"]) or "Mill own herbs")
     millLbl:SetTextColor(0.9, 0.9, 0.9, 1)
     ApplyFontSize(millLbl, 10)
+    AttachButtonTooltip(millOwn, (L and L["TT_MILL_HERBS_TITLE"]) or "Mill Own Herbs",
+        (L and L["TT_MILL_HERBS_BODY"]) or "Use herb costs instead of AH pigment prices for Inscription strategies.")
 
     local craftBolts = CreateFrame("CheckButton", nil, leftPanel, "UICheckButtonTemplate")
     craftBolts:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 4, -234)
@@ -1603,6 +1651,8 @@ local function BuildLeftPanelContent(L, C, LP)
     craftBoltsLbl:SetText((L and L["V2_CRAFT_OWN_BOLTS"]) or "Craft own bolts")
     craftBoltsLbl:SetTextColor(0.9, 0.9, 0.9, 1)
     ApplyFontSize(craftBoltsLbl, 10)
+    AttachButtonTooltip(craftBolts, (L and L["TT_CRAFT_BOLTS_TITLE"]) or "Craft Own Bolts",
+        (L and L["TT_CRAFT_BOLTS_BODY"]) or "Derive bolt prices from raw linen costs instead of buying bolts from the AH.")
 
     local craftIngots = CreateFrame("CheckButton", nil, leftPanel, "UICheckButtonTemplate")
     craftIngots:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP - 4, -258)
@@ -1615,6 +1665,8 @@ local function BuildLeftPanelContent(L, C, LP)
     craftIngotsLbl:SetText((L and L["V2_CRAFT_OWN_INGOTS"]) or "Craft own ingots")
     craftIngotsLbl:SetTextColor(0.9, 0.9, 0.9, 1)
     ApplyFontSize(craftIngotsLbl, 10)
+    AttachButtonTooltip(craftIngots, (L and L["TT_CRAFT_INGOTS_TITLE"]) or "Craft Own Ingots",
+        (L and L["TT_CRAFT_INGOTS_BODY"]) or "Derive ingot prices from raw ore costs instead of buying ingots from the AH.")
 
     local statSectionLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     statSectionLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -286)
@@ -1639,6 +1691,13 @@ local function BuildLeftPanelContent(L, C, LP)
     statResBox:SetSize(56, 20)
     statResBox:SetPoint("TOPRIGHT", leftPanel, "TOPRIGHT", -LP, -312)
     statResBox:SetAutoFocus(false)
+    statResBox:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText((L and L["TT_STAT_RES_TITLE"]) or "Resourcefulness %", 1, 1, 1)
+        GameTooltip:AddLine((L and L["TT_STAT_RES_BODY"]) or "Your Resourcefulness stat from the profession window (%). Higher values reduce average reagent consumption.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    statResBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     local statMultiLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     statMultiLbl:SetPoint("TOPLEFT", leftPanel, "TOPLEFT", LP, -340)
@@ -1650,6 +1709,13 @@ local function BuildLeftPanelContent(L, C, LP)
     statMultiBox:SetSize(56, 20)
     statMultiBox:SetPoint("TOPRIGHT", leftPanel, "TOPRIGHT", -LP, -336)
     statMultiBox:SetAutoFocus(false)
+    statMultiBox:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText((L and L["TT_STAT_MULTI_TITLE"]) or "Multicraft %", 1, 1, 1)
+        GameTooltip:AddLine((L and L["TT_STAT_MULTI_BODY"]) or "Your Multicraft stat from the profession window (%). Higher values increase expected output quantity.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    statMultiBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     local rankLbl = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     rankLbl:SetText((L and L["V2_MATERIAL_RANK"]) or "Material Rank")
@@ -1929,6 +1995,8 @@ local function BuildLeftPanelContent(L, C, LP)
     scanBtnLeft:SetPoint("BOTTOMRIGHT", leftPanel, "BOTTOMRIGHT", -LP, LP)
     scanBtnLeft:SetText(L["BTN_SCAN_ALL"])
     scanBtnLeft:SetScript("OnClick", DoScan)
+    AttachButtonTooltip(scanBtnLeft, (L and L["TT_SCAN_ALL_TITLE"]) or "Scan All Items",
+        (L and L["TT_SCAN_ALL_BODY"]) or "Queue all strategy items for AH price queries. The Auction House must be open.")
 
     local btnARP = CreateFrame("Button", nil, leftPanel, "UIPanelButtonTemplate")
     btnARP:SetHeight(BOTTOM_BTN_H)

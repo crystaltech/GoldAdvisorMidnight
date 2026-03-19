@@ -392,10 +392,24 @@ local function BuildPanel()
 
     local cbCraftBolts = MakeCheckbox(content, "Craft own bolts (Tailoring)", y - 4)
     cbCraftBolts:SetChecked((opts.boltCostSource or "ah") == "craft")
+    cbCraftBolts:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(GAM.L["TT_OPT_BOLTS_TITLE"] or "Craft Own Bolts", 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_OPT_BOLTS_BODY"] or "When enabled, bolt prices are derived from raw linen using the Tailoring recipe instead of the AH bolt price.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    cbCraftBolts:SetScript("OnLeave", function() GameTooltip:Hide() end)
     y = y - 32
 
     local cbCraftIngots = MakeCheckbox(content, "Craft own ingots (Blacksmithing/LW)", y - 4)
     cbCraftIngots:SetChecked((opts.ingotCostSource or "ah") == "craft")
+    cbCraftIngots:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(GAM.L["TT_OPT_INGOTS_TITLE"] or "Craft Own Ingots", 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_OPT_INGOTS_BODY"] or "When enabled, ingot prices are derived from raw ore using the smelting recipe instead of the AH ingot price.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    cbCraftIngots:SetScript("OnLeave", function() GameTooltip:Hide() end)
     y = y - 32
 
     -- ── Crafting Stats ─────────────────────────────────────────────────────
@@ -428,6 +442,13 @@ local function BuildPanel()
             ebMulti:SetMaxLetters(6)
             ebMulti:SetPoint("TOPLEFT", content, "TOPLEFT", 250, y)
             ebMulti:SetText(tostring(multiDefault))
+            ebMulti:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetText(GAM.L["TT_STAT_MULTI_TITLE"] or "Multicraft %", 1, 1, 1)
+                GameTooltip:AddLine(GAM.L["TT_STAT_MULTI_BODY"] or "Your Multicraft stat from the profession window (%). Higher values increase expected output quantity.", 1, 0.82, 0, true)
+                GameTooltip:Show()
+            end)
+            ebMulti:SetScript("OnLeave", function() GameTooltip:Hide() end)
         end
 
         local ebRes = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
@@ -436,6 +457,13 @@ local function BuildPanel()
         ebRes:SetMaxLetters(6)
         ebRes:SetPoint("TOPLEFT", content, "TOPLEFT", 345, y)
         ebRes:SetText(tostring(resDefault))
+        ebRes:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(GAM.L["TT_STAT_RES_TITLE"] or "Resourcefulness %", 1, 1, 1)
+            GameTooltip:AddLine(GAM.L["TT_STAT_RES_BODY"] or "Your Resourcefulness stat from the profession window (%). Higher values reduce average reagent consumption.", 1, 0.82, 0, true)
+            GameTooltip:Show()
+        end)
+        ebRes:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
         y = y - 26
         return ebMulti, ebRes
