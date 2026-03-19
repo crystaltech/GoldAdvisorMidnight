@@ -1,5 +1,18 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.4.3] — 2026-03-19
+
+### Performance
+- **Scan FPS regression fixed** — Second scan (after switching profession filter and re-scanning) was dropping FPS from 100+ to 14fps with ~84% CPU from the addon. Root cause: the sort comparator was calling `CalculateStratMetrics` once per comparison pair (O(n log n) calls), which became expensive after the first scan populated the AH price cache and triggered full order-book simulation per call. Fixed by pre-computing metrics for all strategies exactly once before sorting (O(n)). Additionally, `RebuildList` is no longer called during mid-scan progress updates — the list re-sorts once at scan completion instead.
+
+### Bug Fixes
+- **Blank addon title in main window header** — The title bar showed no text because `L["MAIN_TITLE"]` was removed in v1.4.0 during UI cleanup but `MainWindowV2.lua` still referenced it. Fixed to use `L["ADDON_TITLE"]`.
+
+### New Features
+- **Quick Buy macro support** — Quick Buy now requires one hardware event (keypress/click) per purchase, satisfying WoW's AH commodity purchase restriction. A hidden 1×1px named button `GAMQuickBuyBtn` is registered on login. Use `/gam quickbuy` to arm, then assign `/click GAMQuickBuyBtn` to a keybind or macro — each press buys the next item in the shopping list. Previously the addon looped purchases automatically without hardware events, which would fail silently in-game.
+
+---
+
 ## [1.3.2] — 2026-03-17
 
 ### New Features

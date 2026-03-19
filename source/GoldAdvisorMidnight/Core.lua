@@ -471,6 +471,19 @@ end
 handlers["PLAYER_LOGIN"] = function(self)
     self:GetRealmKey()
     self.Log.Debug("Realm key: %s", self.realmKey)
+
+    -- Hidden button for QuickBuy macro support.
+    -- Users create an in-game macro with:  /click GAMQuickBuyBtn
+    -- Each keypress provides a hardware event, satisfying the AH purchase requirement.
+    local qbBtn = CreateFrame("Button", "GAMQuickBuyBtn", UIParent)
+    qbBtn:SetSize(1, 1)
+    qbBtn:SetAlpha(0)
+    qbBtn:SetPoint("CENTER", UIParent, "CENTER", 9999, 9999)
+    qbBtn:SetScript("OnClick", function()
+        if GAM.quickBuyState.active then
+            AdvanceQuickBuy()
+        end
+    end)
     -- Pre-warm WoW item cache for all strat itemIDs so crafting quality API
     -- calls (used by ARP Export) return correct data on first use.
     if self.Importer and self.Importer.GetAllStrats then
@@ -603,9 +616,8 @@ handlers["COMMODITY_PURCHASE_SUCCEEDED"] = function(self)
         end
     end
 
-    C_Timer.After(0.25, function()
-        AdvanceQuickBuy()
-    end)
+    -- Do NOT auto-advance: each purchase requires a hardware event.
+    -- User presses their macro (/click GAMQuickBuyBtn) for each item.
 end
 
 handlers["COMMODITY_PURCHASE_FAILED"] = function(self)
@@ -668,9 +680,12 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
         if GAM.quickBuyState.active then
             ResetQuickBuy()
         else
-            GAM.quickBuyState.active = true
-            print("|cffff8800[GAM]|r Auctionator quick buy started.")
-            AdvanceQuickBuy()
+            if not GAM.quickBuyList or not GAM.quickBuyList.entries or #GAM.quickBuyList.entries == 0 then
+                print("|cffff8800[GAM]|r Create a shopping list first (Shopping button in Gold Advisor).")
+            else
+                GAM.quickBuyState.active = true
+                print(string.format("|cffff8800[GAM]|r Quick buy armed (%d item(s)). Press your macro (/click GAMQuickBuyBtn) to buy each item.", #GAM.quickBuyList.entries))
+            end
         end
     else
         if GAM.UI and GAM.UI.MainWindowV2 then

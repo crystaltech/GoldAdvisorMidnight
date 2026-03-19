@@ -519,7 +519,31 @@ local function RebuildList()
             out[#out + 1] = s
         end
     end
-    local fn = SORT_FNS[sortKey] or SORT_FNS.roi
+
+    -- Pre-compute metrics for expensive sort keys so each strategy is evaluated
+    -- exactly once (O(n)) rather than once per comparison pair (O(n log n)).
+    -- Fixes severe FPS drop on second scan when the price cache is populated
+    -- and ComputePriceForQty runs the full order-book simulation per call.
+    local fn = SORT_FNS[sortKey]
+    if sortKey == "profit" or sortKey == "roi" then
+        local cache = {}
+        for _, s in ipairs(out) do
+            cache[s.id] = GAM.Pricing.CalculateStratMetrics(s, filterPatch)
+        end
+        if sortKey == "profit" then
+            fn = function(a, b)
+                local ma, mb = cache[a.id], cache[b.id]
+                return ((ma and ma.profit) or -math.huge) > ((mb and mb.profit) or -math.huge)
+            end
+        else
+            fn = function(a, b)
+                local ma, mb = cache[a.id], cache[b.id]
+                return ((ma and ma.roi) or -math.huge) > ((mb and mb.roi) or -math.huge)
+            end
+        end
+    end
+    fn = fn or SORT_FNS.roi
+
     table.sort(out, function(a, b)
         local af, bf = IsFavorite(a.id), IsFavorite(b.id)
         if af and not bf then return true end
@@ -1989,7 +2013,7 @@ local function Build()
     -- ── Header ──
     local titleFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     titleFS:SetPoint("TOP", frame, "TOP", 0, -6)
-    titleFS:SetText(L["MAIN_TITLE"])
+    titleFS:SetText(L["ADDON_TITLE"])
     titleFS:SetTextColor(C_GR, C_GG, C_GB)
     ApplyFontSize(titleFS, 14)
 
@@ -2575,7 +2599,9 @@ function MW2.OnScanProgress(done, total, isComplete)
             local now = GetTime()
             if (now - lastScanRefreshAt) >= 0.75 then
                 lastScanRefreshAt = now
-                RebuildList()
+                -- Skip RebuildList during scan: prices update per-item so the sort
+                -- order is unstable mid-scan, and the sort itself is expensive when
+                -- the price cache is warm. Full re-sort happens at OnScanComplete.
                 MW2.RefreshRows()
                 RefreshBestStratCard()
                 if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
