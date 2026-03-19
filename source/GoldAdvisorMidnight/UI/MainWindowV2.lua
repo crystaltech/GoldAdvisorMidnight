@@ -2175,12 +2175,20 @@ local function Build()
         -- ── Ticker message ──
         -- Bullet separator: |cff888888 • |r  (dim gray dot)
         local SEP = "   \124cff888888\183\124r   "   -- \124 = | , \183 = middle dot
+        -- Easter egg: 1-in-5 chance one Pepsi message sneaks into the ticker
+        local pepsiEggs = {
+            SEP .. "\124cff0033ccP\124cffcc0000e\124cffffffff p\124cff0033ccs\124cffcc0000i\124r  \124cffaaddffPepsi Break soon\124r",
+            SEP .. "\124cff0066ffPEPSI\124r \124cffff3333RULES\124r \124cffffffff~*~\124r",
+        }
+        local pepsiInsert = math.random(5) == 1 and pepsiEggs[math.random(#pepsiEggs)] or ""
+
         local TICKER_MSG = table.concat({
             "  \124cffffcc00[Gold Advisor Midnight]\124r",
             SEP .. "\124cffff9900Twitch:\124r  twitch.tv/eloncs",
             SEP .. "\124cffff9900Patreon:\124r  patreon.com/14598821/join",
             SEP .. "\124cffff9900YouTube:\124r  youtube.com/@Elon_CS",
             SEP .. "\124cff7289daDiscord:\124r  discord.gg/v7vsCKCsFh",
+            pepsiInsert,
             SEP .. "\124cff666666v" .. (GAM.version or "?") .. "\124r  ",
         }, "")
         -- Community links shown in the copy popup (label, URL)
