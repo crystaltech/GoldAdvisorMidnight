@@ -2175,12 +2175,14 @@ local function Build()
         -- ── Ticker message ──
         -- Bullet separator: |cff888888 • |r  (dim gray dot)
         local SEP = "   \124cff888888\183\124r   "   -- \124 = | , \183 = middle dot
-        -- Easter egg: 1-in-5 chance one Pepsi message sneaks into the ticker
-        local pepsiEggs = {
+        -- Easter egg: 1-in-5 chance one soda message sneaks into the ticker
+        local sodaEggs = {
             SEP .. "\124cff0033ccP\124cffcc0000e\124cffffffff p\124cff0033ccs\124cffcc0000i\124r  \124cffaaddffPepsi Break soon\124r",
             SEP .. "\124cff0066ffPEPSI\124r \124cffff3333RULES\124r \124cffffffff~*~\124r",
+            SEP .. "\124cffcc0000C\124cffffffff o\124cffcc0000c\124cffffffff a\124cffcc0000-\124cffffffff C\124cffcc0000o\124cffffffff l\124cffcc0000a\124r  \124cffff6666Coca-Cola Break soon\124r",
+            SEP .. "\124cffdd0000COCA-COLA\124r \124cffff4444RULES\124r \124cffffffff~*~\124r",
         }
-        local pepsiInsert = math.random(5) == 1 and pepsiEggs[math.random(#pepsiEggs)] or ""
+        local pepsiInsert = math.random(5) == 1 and sodaEggs[math.random(#sodaEggs)] or ""
 
         local TICKER_MSG = table.concat({
             "  \124cffffcc00[Gold Advisor Midnight]\124r",
