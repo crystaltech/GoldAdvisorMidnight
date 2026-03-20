@@ -5,6 +5,8 @@
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled
+## X-License: All Rights Reserved
+## X-Curse-Project-ID: (fill in after CurseForge project is created)
 
 Data\WorkbookGenerated.lua
 Constants.lua
