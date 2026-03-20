@@ -2182,17 +2182,27 @@ local function Build()
             SEP .. "\124cffcc0000C\124cffffffff o\124cffcc0000c\124cffffffff a\124cffcc0000-\124cffffffff C\124cffcc0000o\124cffffffff l\124cffcc0000a\124r  \124cffff6666Coca-Cola Break soon\124r",
             SEP .. "\124cffdd0000COCA-COLA\124r \124cffff4444RULES\124r \124cffffffff~*~\124r",
         }
-        local pepsiInsert = math.random(5) == 1 and sodaEggs[math.random(#sodaEggs)] or ""
+        local eggQueued = false
 
-        local TICKER_MSG = table.concat({
-            "  \124cffffcc00[Gold Advisor Midnight]\124r",
-            SEP .. "\124cffff9900Twitch:\124r  twitch.tv/eloncs",
-            SEP .. "\124cffff9900Patreon:\124r  patreon.com/14598821/join",
-            SEP .. "\124cffff9900YouTube:\124r  youtube.com/@Elon_CS",
-            SEP .. "\124cff7289daDiscord:\124r  discord.gg/v7vsCKCsFh",
-            pepsiInsert,
-            SEP .. "\124cff666666v" .. (GAM.version or "?") .. "\124r  ",
-        }, "")
+        local function BuildTickerMsg(forceEgg)
+            local insert
+            if forceEgg then
+                insert = sodaEggs[math.random(#sodaEggs)]
+            else
+                insert = math.random(5) == 1 and sodaEggs[math.random(#sodaEggs)] or ""
+            end
+            return table.concat({
+                "  \124cffffcc00[Gold Advisor Midnight]\124r",
+                SEP .. "\124cffff9900Twitch:\124r  twitch.tv/eloncs",
+                SEP .. "\124cffff9900Patreon:\124r  patreon.com/14598821/join",
+                SEP .. "\124cffff9900YouTube:\124r  youtube.com/@Elon_CS",
+                SEP .. "\124cff7289daDiscord:\124r  discord.gg/v7vsCKCsFh",
+                insert,
+                SEP .. "\124cff666666v" .. (GAM.version or "?") .. "\124r  ",
+            }, "")
+        end
+
+        local TICKER_MSG = BuildTickerMsg(false)
         -- Community links shown in the copy popup (label, URL)
         local COMMUNITY_LINKS = {
             { label = "Twitch",   url = "https://www.twitch.tv/eloncs" },
@@ -2231,7 +2241,18 @@ local function Build()
                 if tickerW == 0 then return end
             end
             tickerX = tickerX - TICK_SP / 30  -- pixels per tick at ~30fps
-            if tickerX < -tickerW then tickerX = clipW end
+            if tickerX < -tickerW then
+                tickerX = clipW
+                if eggQueued then
+                    eggQueued = false
+                    tickerFS:SetText(BuildTickerMsg(true))
+                    C_Timer.After(0, function()
+                        local tw = tickerFS:GetStringWidth() + 20
+                        tickerContent:SetWidth(math.max(tw, 10))
+                        tickerW = tickerContent:GetWidth()
+                    end)
+                end
+            end
             tickerContent:ClearAllPoints()
             tickerContent:SetPoint("LEFT", tickerClip, "LEFT", tickerX, 0)
         end
@@ -2241,8 +2262,14 @@ local function Build()
         tickerClip:SetScript("OnEnter", function() tickerPaused = true end)
         tickerClip:SetScript("OnLeave", function() tickerPaused = false end)
 
-        -- Click opens a copy-link dialog above the status bar
-        tickerClip:SetScript("OnMouseDown", function()
+        tickerClip:RegisterForClicks("LeftButtonDown", "RightButtonDown")
+
+        -- Click opens a copy-link dialog above the status bar; right-click queues easter egg
+        tickerClip:SetScript("OnMouseDown", function(_, btn)
+            if btn == "RightButton" then
+                eggQueued = true
+                return
+            end
             if not frame._tipDialog then
                 local PAD = 10
                 local ROW_H_D = 20
