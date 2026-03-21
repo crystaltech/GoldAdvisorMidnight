@@ -95,6 +95,7 @@ local shoppingSync = {
 }
 local shoppingSyncFrame
 local leftPanelChecks = {}  -- refs for external sync (millOwn, craftBolts, craftIngots)
+local compactBtn      = nil -- compact mode toggle button ref
 
 -- ===== Helpers =====
 local function IsFavorite(id)
@@ -859,17 +860,47 @@ end
 -- ===== RelayoutPanels =====
 local function RelayoutPanels()
     if not dividerContainer then return end
-    local opts  = GAM.db and GAM.db.options
+    local opts    = GAM.db and GAM.db.options
+    local C       = GAM.C
+    local compact = opts and opts.compactMode or false
+
+    if compact then
+        -- Compact mode: show only the right (detail) panel, hide left + center
+        if leftPanel   then leftPanel:Hide() end
+        if centerPanel then centerPanel:Hide() end
+        if frame and frame.scrollBar then frame.scrollBar:Hide() end
+        if rightPanel then
+            rightPanel:Show()
+            rightPanel:ClearAllPoints()
+            rightPanel:SetPoint("TOPLEFT",     dividerContainer, "TOPLEFT",     0, 0)
+            rightPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
+        end
+        if frame then frame:SetWidth(C.RIGHT_PANEL_W + 28) end
+        if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText("\xE2\x8A\x9E") end  -- ⊞
+        return
+    end
+
+    -- Normal mode: restore full three-panel layout
+    if frame then frame:SetWidth(C.MAIN_WIN_W) end
+    if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText("\xE2\x8A\x9F") end  -- ⊟
+    if frame and frame.scrollBar then frame.scrollBar:Show() end
+
     local lc    = opts and opts.leftPanelCollapsed  or false
     local rc    = opts and opts.rightPanelCollapsed or false
-    local C     = GAM.C
     local leftW = lc and 0 or C.LEFT_PANEL_W
     local rightW= rc and 0 or C.RIGHT_PANEL_W
 
     if leftPanel  then leftPanel:SetShown(not lc) end
-    if rightPanel then rightPanel:SetShown(not rc) end
+    if rightPanel then
+        rightPanel:SetShown(not rc)
+        rightPanel:ClearAllPoints()
+        rightPanel:SetWidth(C.RIGHT_PANEL_W)
+        rightPanel:SetPoint("TOPRIGHT",    dividerContainer, "TOPRIGHT",    0, 0)
+        rightPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
+    end
 
     if centerPanel then
+        centerPanel:Show()
         centerPanel:ClearAllPoints()
         centerPanel:SetPoint("TOPLEFT",     dividerContainer, "TOPLEFT",     leftW,   0)
         centerPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", -rightW, 0)
@@ -2100,6 +2131,26 @@ local function Build()
     local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
     closeBtn:SetScript("OnClick", function() MW2.Hide() end)
+
+    -- ── Compact mode toggle ──
+    compactBtn = CreateFrame("Button", nil, frame)
+    compactBtn:SetSize(22, 22)
+    compactBtn:SetPoint("TOPRIGHT", closeBtn, "TOPLEFT", 4, 0)
+    local cBtnLbl = compactBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    cBtnLbl:SetAllPoints()
+    cBtnLbl:SetJustifyH("CENTER")
+    local _initCompact = (GAM.db and GAM.db.options and GAM.db.options.compactMode) or false
+    cBtnLbl:SetText(_initCompact and "\xE2\x8A\x9E" or "\xE2\x8A\x9F")  -- ⊞ or ⊟
+    cBtnLbl:SetTextColor(C_GR, C_GG, C_GB)
+    compactBtn.labelFS = cBtnLbl
+    compactBtn:SetScript("OnClick", function()
+        local opts = GAM.db and GAM.db.options
+        if opts then opts.compactMode = not opts.compactMode end
+        RelayoutPanels()
+    end)
+    AttachButtonTooltip(compactBtn,
+        (L and L["TT_BTN_COMPACT_TITLE"]) or "Compact Mode",
+        (L and L["TT_BTN_COMPACT_BODY"])  or "Show only the strategy detail panel.")
 
     -- ── Status bar (above ticker) ──
     statusBarFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
