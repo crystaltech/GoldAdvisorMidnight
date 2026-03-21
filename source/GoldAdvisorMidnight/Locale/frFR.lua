@@ -212,3 +212,13 @@ L["TT_STAT_MULTI_TITLE"]     = "Multicréation %"
 L["TT_STAT_MULTI_BODY"]      = "Votre statistique de Multicréation dans la fenêtre de profession (%). Des valeurs élevées augmentent la quantité produite."
 L["TT_STAT_RES_TITLE"]       = "Économie de ressources %"
 L["TT_STAT_RES_BODY"]        = "Votre statistique d'Économie de ressources dans la fenêtre de profession (%). Des valeurs élevées réduisent la consommation de réactifs."
+
+-- Comportement de l'AV (v1.5.0)
+L["OPT_AUTO_OPEN_AH"]           = "Ouverture auto avec l'Hôtel des Ventes"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]  = "Ouverture auto avec l'Hôtel des Ventes"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]   = "Quand activé, Gold Advisor s'ouvre automatiquement à chaque ouverture de l'Hôtel des Ventes."
+L["OPT_CLOSE_WITH_AH"]          = "Fermer avec l'Hôtel des Ventes"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"] = "Fermer avec l'Hôtel des Ventes"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]  = "Quand activé, Gold Advisor se ferme automatiquement à la fermeture de l'Hôtel des Ventes."
+L["TT_BTN_COMPACT_TITLE"]       = "Mode compact"
+L["TT_BTN_COMPACT_BODY"]        = "Masque le panneau d'outils et la liste des stratégies, affichant uniquement le panneau de détail. Cliquez à nouveau pour restaurer la disposition complète."

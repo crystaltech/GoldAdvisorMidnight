@@ -212,3 +212,13 @@ L["TT_STAT_MULTI_TITLE"]     = "Multicreazione %"
 L["TT_STAT_MULTI_BODY"]      = "La tua statistica di Multicreazione nella finestra della professione (%). Valori più alti aumentano la quantità prodotta attesa."
 L["TT_STAT_RES_TITLE"]       = "Risparmio risorse %"
 L["TT_STAT_RES_BODY"]        = "La tua statistica di Risparmio risorse nella finestra della professione (%). Valori più alti riducono il consumo di reagenti."
+
+-- Comportamento della Casa d'Aste (v1.5.0)
+L["OPT_AUTO_OPEN_AH"]           = "Apri automaticamente con la Casa d'Aste"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]  = "Apri automaticamente con la Casa d'Aste"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]   = "Se attivato, Gold Advisor si apre automaticamente ogni volta che apri la Casa d'Aste."
+L["OPT_CLOSE_WITH_AH"]          = "Chiudi con la Casa d'Aste"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"] = "Chiudi con la Casa d'Aste"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]  = "Se attivato, Gold Advisor si chiude automaticamente quando chiudi la Casa d'Aste."
+L["TT_BTN_COMPACT_TITLE"]       = "Modalità compatta"
+L["TT_BTN_COMPACT_BODY"]        = "Nasconde il pannello degli strumenti e l'elenco delle strategie, mostrando solo il pannello dei dettagli. Clicca di nuovo per ripristinare il layout completo."

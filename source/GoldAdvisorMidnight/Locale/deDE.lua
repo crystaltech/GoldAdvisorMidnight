@@ -212,3 +212,13 @@ L["TT_STAT_MULTI_TITLE"]     = "Mehrfachherstellung %"
 L["TT_STAT_MULTI_BODY"]      = "Dein Mehrfachherstellungs-Wert aus dem Berufsfenster (%). Höhere Werte erhöhen die Ausgabemenge."
 L["TT_STAT_RES_TITLE"]       = "Ressourcenschonung %"
 L["TT_STAT_RES_BODY"]        = "Dein Ressourcenschonungs-Wert aus dem Berufsfenster (%). Höhere Werte verringern den Reagenzienverbrauch."
+
+-- AH-Verhalten (v1.5.0)
+L["OPT_AUTO_OPEN_AH"]           = "Automatisch mit Auktionshaus öffnen"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]  = "Automatisch mit Auktionshaus öffnen"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]   = "Wenn aktiviert, öffnet sich Gold Advisor automatisch, sobald du das Auktionshaus öffnest."
+L["OPT_CLOSE_WITH_AH"]          = "Mit Auktionshaus schließen"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"] = "Mit Auktionshaus schließen"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]  = "Wenn aktiviert, schließt sich Gold Advisor automatisch, wenn du das Auktionshaus schließt."
+L["TT_BTN_COMPACT_TITLE"]       = "Kompaktmodus"
+L["TT_BTN_COMPACT_BODY"]        = "Versteckt das Werkzeuge-Panel und die Strategieliste und zeigt nur das Strategie-Detailpanel. Erneut klicken, um das vollständige Layout wiederherzustellen."
