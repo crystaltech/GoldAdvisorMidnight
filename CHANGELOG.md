@@ -1,5 +1,16 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.4.5] — 2026-03-20
+
+### Bug Fixes
+- **Vertical integration ingredient quantities** — When "Craft own ingots" or "Craft own bolts" was ticked, ingredient costs were calculated without considering the actual batch size. `GetCraftDerivedReagentCost` was missing the `qty` parameter, so AH fill prices were computed as if buying 1 craft's worth of ore/fiber at a time rather than the full batch. Now correctly passes batch size so fill-price lookups match actual purchase depth.
+- **Dazzling Thorium Prospecting now outputs Q1-only** — Per updated spreadsheet, all 7 output gems are now priced at Q1 (unticked quality) rather than showing an average of Q1/Q2 prices.
+
+### Data
+- Regenerated from 3-20-26.xlsx spreadsheet — ingredient quantities updated for Blacksmithing, Alchemy, JC, and other professions.
+
+---
+
 ## [1.4.3] — 2026-03-19
 
 ### Performance

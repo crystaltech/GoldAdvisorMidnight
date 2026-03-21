@@ -458,7 +458,7 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
         if millCost then return millCost, millStale end
     end
     if CRAFTED_REAGENT_MAP[picked] then
-        local craftCost, craftStale = GetCraftDerivedReagentCost(picked, patchTag)
+        local craftCost, craftStale = GetCraftDerivedReagentCost(picked, patchTag, qty)
         if craftCost then return craftCost, craftStale end
     end
 
