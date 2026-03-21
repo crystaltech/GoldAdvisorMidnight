@@ -96,6 +96,7 @@ local shoppingSync = {
 local shoppingSyncFrame
 local leftPanelChecks = {}  -- refs for external sync (millOwn, craftBolts, craftIngots)
 local compactBtn      = nil -- compact mode toggle button ref
+local compactActive   = false -- tracks whether compact mode layout is currently applied
 
 -- ===== Helpers =====
 local function IsFavorite(id)
@@ -875,13 +876,21 @@ local function RelayoutPanels()
             rightPanel:SetPoint("TOPLEFT",     dividerContainer, "TOPLEFT",     0, 0)
             rightPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
         end
-        if frame then frame:SetWidth(C.RIGHT_PANEL_W + 28) end
+        -- Only resize the frame when actually entering compact mode
+        if not compactActive and frame then
+            frame:SetWidth(C.RIGHT_PANEL_W + 28)
+        end
+        compactActive = true
         if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText("\xE2\x8A\x9E") end  -- ⊞
         return
     end
 
     -- Normal mode: restore full three-panel layout
-    if frame then frame:SetWidth(C.MAIN_WIN_W) end
+    -- Only restore frame width when actually leaving compact mode
+    if compactActive and frame then
+        frame:SetWidth(C.MAIN_WIN_W)
+    end
+    compactActive = false
     if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText("\xE2\x8A\x9F") end  -- ⊟
     if frame and frame.scrollBar then frame.scrollBar:Show() end
 
@@ -893,6 +902,7 @@ local function RelayoutPanels()
     if leftPanel  then leftPanel:SetShown(not lc) end
     if rightPanel then
         rightPanel:SetShown(not rc)
+        -- Re-anchor rightPanel (needed when returning from compact mode)
         rightPanel:ClearAllPoints()
         rightPanel:SetWidth(C.RIGHT_PANEL_W)
         rightPanel:SetPoint("TOPRIGHT",    dividerContainer, "TOPRIGHT",    0, 0)
@@ -2135,7 +2145,7 @@ local function Build()
     -- ── Compact mode toggle ──
     compactBtn = CreateFrame("Button", nil, frame)
     compactBtn:SetSize(22, 22)
-    compactBtn:SetPoint("TOPRIGHT", closeBtn, "TOPLEFT", 4, 0)
+    compactBtn:SetPoint("TOPRIGHT", closeBtn, "TOPLEFT", -4, 0)
     local cBtnLbl = compactBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     cBtnLbl:SetAllPoints()
     cBtnLbl:SetJustifyH("CENTER")
