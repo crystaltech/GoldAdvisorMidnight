@@ -180,6 +180,17 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        dataVersion = 9,
+        migrate = function(db)
+            -- Reset compact mode: the v1.5.0 compact button had a wrong offset that caused
+            -- accidental activation. Force it off so the layout is not stuck in compact on
+            -- first load after upgrade.
+            if type(db.options) == "table" then
+                db.options.compactMode = false
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)

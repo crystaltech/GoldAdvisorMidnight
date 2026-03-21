@@ -881,14 +881,14 @@ local function RelayoutPanels()
             frame:SetWidth(C.RIGHT_PANEL_W + 28)
         end
         compactActive = true
-        if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText("\xE2\x8A\x9E") end  -- ⊞
+        if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText(">>") end
         return
     end
 
     -- Normal mode
     local wasCompact = compactActive
     compactActive = false
-    if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText("\xE2\x8A\x9F") end  -- ⊟
+    if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText("<<") end
 
     if wasCompact then
         -- Returning from compact: restore frame size, scrollbar, rightPanel anchors, centerPanel
@@ -2152,7 +2152,7 @@ local function Build()
     cBtnLbl:SetAllPoints()
     cBtnLbl:SetJustifyH("CENTER")
     local _initCompact = (GAM.db and GAM.db.options and GAM.db.options.compactMode) or false
-    cBtnLbl:SetText(_initCompact and "\xE2\x8A\x9E" or "\xE2\x8A\x9F")  -- ⊞ or ⊟
+    cBtnLbl:SetText(_initCompact and ">>" or "<<")
     cBtnLbl:SetTextColor(C_GR, C_GG, C_GB)
     compactBtn.labelFS = cBtnLbl
     compactBtn:SetScript("OnClick", function()
