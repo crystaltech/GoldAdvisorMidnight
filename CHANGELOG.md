@@ -1,5 +1,13 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.5.1] — 2026-03-21
+
+### Bug Fixes
+- **Blank frame on open** — `RelayoutPanels` was calling `frame:SetWidth()` unconditionally on every call, including during `OnShow`, causing WoW to trigger an unnecessary layout recalculation while the frame was being shown. Changed to only resize the frame when actually transitioning between compact and normal modes.
+- **Compact mode button unclickable** — The compact button's `SetPoint` offset was `+4` (placing it 4 px inside the close button), so clicks were intercepted by the close button. Fixed to `-4` so the compact button sits cleanly left of the close button with a small gap.
+
+---
+
 ## [1.5.0] — 2026-03-21
 
 ### New Features
