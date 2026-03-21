@@ -885,32 +885,34 @@ local function RelayoutPanels()
         return
     end
 
-    -- Normal mode: restore full three-panel layout
-    -- Only restore frame width when actually leaving compact mode
-    if compactActive and frame then
-        frame:SetWidth(C.MAIN_WIN_W)
-    end
+    -- Normal mode
+    local wasCompact = compactActive
     compactActive = false
     if compactBtn and compactBtn.labelFS then compactBtn.labelFS:SetText("\xE2\x8A\x9F") end  -- ⊟
-    if frame and frame.scrollBar then frame.scrollBar:Show() end
 
+    if wasCompact then
+        -- Returning from compact: restore frame size, scrollbar, rightPanel anchors, centerPanel
+        if frame then frame:SetWidth(C.MAIN_WIN_W) end
+        if frame and frame.scrollBar then frame.scrollBar:Show() end
+        if rightPanel then
+            rightPanel:ClearAllPoints()
+            rightPanel:SetWidth(C.RIGHT_PANEL_W)
+            rightPanel:SetPoint("TOPRIGHT",    dividerContainer, "TOPRIGHT",    0, 0)
+            rightPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
+        end
+        if centerPanel then centerPanel:Show() end
+    end
+
+    -- Original v1.4.5 layout logic (unchanged)
     local lc    = opts and opts.leftPanelCollapsed  or false
     local rc    = opts and opts.rightPanelCollapsed or false
     local leftW = lc and 0 or C.LEFT_PANEL_W
     local rightW= rc and 0 or C.RIGHT_PANEL_W
 
     if leftPanel  then leftPanel:SetShown(not lc) end
-    if rightPanel then
-        rightPanel:SetShown(not rc)
-        -- Re-anchor rightPanel (needed when returning from compact mode)
-        rightPanel:ClearAllPoints()
-        rightPanel:SetWidth(C.RIGHT_PANEL_W)
-        rightPanel:SetPoint("TOPRIGHT",    dividerContainer, "TOPRIGHT",    0, 0)
-        rightPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
-    end
+    if rightPanel then rightPanel:SetShown(not rc) end
 
     if centerPanel then
-        centerPanel:Show()
         centerPanel:ClearAllPoints()
         centerPanel:SetPoint("TOPLEFT",     dividerContainer, "TOPLEFT",     leftW,   0)
         centerPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", -rightW, 0)
