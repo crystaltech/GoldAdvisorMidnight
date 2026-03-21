@@ -1,5 +1,14 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.5.0] — 2026-03-21
+
+### New Features
+- **AH auto-open toggle** — New setting: "Auto-open with Auction House". When disabled, Gold Advisor will no longer open automatically when you open the Auction House (toggle it manually with `/gam`).
+- **Close with AH toggle** — New setting: "Close with Auction House". When enabled, Gold Advisor closes automatically when you close the Auction House.
+- **Compact mode button** — A `⊟` button in the top-right of the main window (left of the close button) collapses the window to show only the strategy detail panel at ~450px wide. Click `⊞` to restore the full three-panel layout. State persists across sessions.
+
+---
+
 ## [1.4.5] — 2026-03-20
 
 ### Bug Fixes
