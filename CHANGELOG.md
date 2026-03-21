@@ -3,8 +3,8 @@
 ## [1.5.1] — 2026-03-21
 
 ### Bug Fixes
-- **Blank frame on open** — `RelayoutPanels` was calling `frame:SetWidth()` unconditionally on every call, including during `OnShow`, causing WoW to trigger an unnecessary layout recalculation while the frame was being shown. Changed to only resize the frame when actually transitioning between compact and normal modes.
-- **Compact mode button unclickable** — The compact button's `SetPoint` offset was `+4` (placing it 4 px inside the close button), so clicks were intercepted by the close button. Fixed to `-4` so the compact button sits cleanly left of the close button with a small gap.
+- **Blank frame on open** — The new `RelayoutPanels` added in v1.5.0 unconditionally called `rightPanel:ClearAllPoints()` and re-anchored it on every call, including the initial `OnShow`. This differed from the original behavior (which never re-anchored rightPanel) and caused WoW's layout engine to blank out the right panel and its children. Fixed with a `wasCompact` flag so ClearAllPoints is only called when actually transitioning from compact mode back to normal. Frame resize logic is also gated the same way.
+- **Compact mode button unclickable** — The compact button's `SetPoint` x-offset was `+4` (placing its right edge 4 px inside the close button), so most clicks were intercepted by the close button. Fixed to `-4` so the compact button sits cleanly to the left of the close button with a small gap.
 
 ---
 
