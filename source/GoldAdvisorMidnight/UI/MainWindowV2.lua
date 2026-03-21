@@ -858,6 +858,13 @@ local function RefreshBestStratCard()
     end
 end
 
+local function ToggleCompactMode()
+    local opts = GAM.db and GAM.db.options
+    if not opts then return end
+    opts.compactMode = not opts.compactMode
+    RelayoutPanels()
+end
+
 -- ===== RelayoutPanels =====
 local function RelayoutPanels()
     if not dividerContainer then return end
@@ -2148,6 +2155,8 @@ local function Build()
     compactBtn = CreateFrame("Button", nil, frame)
     compactBtn:SetSize(22, 22)
     compactBtn:SetPoint("TOPRIGHT", closeBtn, "TOPLEFT", -4, 0)
+    compactBtn:EnableMouse(true)
+    compactBtn:RegisterForClicks("LeftButtonUp")
     local cBtnLbl = compactBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     cBtnLbl:SetAllPoints()
     cBtnLbl:SetJustifyH("CENTER")
@@ -2155,11 +2164,7 @@ local function Build()
     cBtnLbl:SetText(_initCompact and ">>" or "<<")
     cBtnLbl:SetTextColor(C_GR, C_GG, C_GB)
     compactBtn.labelFS = cBtnLbl
-    compactBtn:SetScript("OnClick", function()
-        local opts = GAM.db and GAM.db.options
-        if opts then opts.compactMode = not opts.compactMode end
-        RelayoutPanels()
-    end)
+    compactBtn:SetScript("OnClick", ToggleCompactMode)
     AttachButtonTooltip(compactBtn,
         (L and L["TT_BTN_COMPACT_TITLE"]) or "Compact Mode",
         (L and L["TT_BTN_COMPACT_BODY"])  or "Show only the strategy detail panel.")
