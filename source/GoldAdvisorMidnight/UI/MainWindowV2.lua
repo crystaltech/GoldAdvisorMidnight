@@ -858,13 +858,6 @@ local function RefreshBestStratCard()
     end
 end
 
-local function ToggleCompactMode()
-    local opts = GAM.db and GAM.db.options
-    if not opts then return end
-    opts.compactMode = not opts.compactMode
-    RelayoutPanels()
-end
-
 -- ===== RelayoutPanels =====
 local function RelayoutPanels()
     if not dividerContainer then return end
@@ -938,6 +931,13 @@ local function RelayoutPanels()
 
     RefreshBestStratCard()
     MW2.RefreshRows()
+end
+
+local function ToggleCompactMode()
+    local opts = GAM.db and GAM.db.options
+    if not opts then return end
+    opts.compactMode = not opts.compactMode
+    RelayoutPanels()
 end
 
 -- ===== Onboarding =====
