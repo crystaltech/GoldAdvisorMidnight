@@ -1,5 +1,12 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.5.3] — 2026-03-21
+
+### Bug Fixes
+- **Blank frame (root cause)** — `tickerClip:RegisterForClicks()` was called on a plain `Frame`. `RegisterForClicks` is a `Button`-only method; calling it on a `Frame` throws a runtime error that — because `Build()` runs inside `pcall` — was silently swallowed, aborting `Build()` before the left/center/right panels were ever created. Removed the invalid call; click detection on the ticker is handled entirely by `OnMouseDown` which works on any mouse-enabled frame.
+
+---
+
 ## [1.5.2] — 2026-03-21
 
 ### Bug Fixes
