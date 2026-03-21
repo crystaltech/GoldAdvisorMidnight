@@ -1,5 +1,13 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.5.2] — 2026-03-21
+
+### Bug Fixes
+- **Blank frame (persistent compact mode)** — `opts.compactMode = true` could be saved by v1.5.0 when the mis-positioned compact button intercepted close-button clicks, locking the layout in compact mode on all subsequent loads. A DATA_VERSION 9 migration now resets `compactMode` to `false` on first load after upgrade.
+- **Compact button text garbled** — The button label used `\xNN` hex escape sequences (WoW Lua 5.1 does not guarantee correct behavior for these). Replaced with plain ASCII `<<` / `>>`.
+
+---
+
 ## [1.5.1] — 2026-03-21
 
 ### Bug Fixes
