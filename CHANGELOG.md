@@ -1,5 +1,16 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.5.4] — 2026-03-21
+
+### Data
+- Regenerated from 3-21-26.xlsx — Engineering reorganized (10 recycling strategies removed, 5 retained with updated sourceBlocks, 7 crafting strategies updated); Inscription Codified Azeroot strategy added; Inscription milling quantities updated.
+
+### Bug Fixes
+- **Panel snap button jump** — Collapse toggle buttons (`btnCollapseLeft` / `btnCollapseRight`) jumped between vertically centered (after click) and 12px from top (after `OnShow`) because the `OnShow` handler used `TOPLEFT`/`TOPRIGHT` anchors while creation and click used `LEFT`/`RIGHT` at Y=0. Unified all three code paths to `LEFT`/`RIGHT` at Y=0 so buttons stay centered.
+- **Dazzling Thorium always priced as rank 1** — `qualityPolicy = "force_q1_inputs"` is now enforced in `CalculateStratMetrics`. Dazzling Thorium Prospecting has been tagged with this policy so it always prices as Q1 regardless of the user's R1/R2 setting. Existing `force_q2_inputs` Blacksmithing strategies also now receive enforcement.
+
+---
+
 ## [1.5.3] — 2026-03-21
 
 ### Bug Fixes
