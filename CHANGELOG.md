@@ -3,7 +3,14 @@
 ## [1.5.3] — 2026-03-21
 
 ### Bug Fixes
-- **Blank frame (root cause)** — `tickerClip:RegisterForClicks()` was called on a plain `Frame`. `RegisterForClicks` is a `Button`-only method; calling it on a `Frame` throws a runtime error that — because `Build()` runs inside `pcall` — was silently swallowed, aborting `Build()` before the left/center/right panels were ever created. Removed the invalid call; click detection on the ticker is handled entirely by `OnMouseDown` which works on any mouse-enabled frame.
+- **Blank frame (root cause)** — `tickerClip:RegisterForClicks()` was called on a plain `Frame`. `RegisterForClicks` is a `Button`-only method; calling it on a `Frame` throws a runtime error that — because `Build()` runs inside `pcall` — was silently swallowed, aborting `Build()` before the left/center/right panels were ever created. Removed the invalid call; click detection is handled entirely by `OnMouseDown`.
+- **Compact button nil call** — `ToggleCompactMode` was defined before `local function RelayoutPanels`, so Lua resolved `RelayoutPanels` as a global (nil), causing `attempt to call a nil value` on every click. Moved definition after `RelayoutPanels`.
+- **Compact button not firing** — Added explicit `EnableMouse(true)` and `RegisterForClicks("LeftButtonUp")` on the compact `Button` frame to guarantee click events are delivered.
+
+### New Features
+- **Compact mode self-heal** — If `opts.compactMode` was persisted but no strategy is selected on load, compact mode now auto-resets to full layout instead of showing an empty detail shell.
+- **Compact button state** — Button now shows `DETAIL` (normal mode) or `FULL` (compact mode). Disabled and dimmed until a strategy is selected; always enabled in compact mode so the user can always exit.
+- **Collapse handle improvements** — Left/right panel seam handles are now larger (16×60), vertically centered, styled with a visible backdrop and border, glow on hover, and show a tooltip. They are hidden automatically while compact mode is active. A 10px seam gap was added so handles sit in visible buffer space rather than directly on panel borders.
 
 ---
 
