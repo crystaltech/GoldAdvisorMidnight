@@ -335,6 +335,28 @@ local function BuildPanel()
     slScaleRange:SetTextColor(0.55, 0.55, 0.55)
     y = y - 48
 
+    local cbAutoOpenAH = MakeCheckbox(content, L["OPT_AUTO_OPEN_AH"], y - 4)
+    cbAutoOpenAH:SetChecked(opts.autoOpenWithAH ~= false)
+    cbAutoOpenAH:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["TT_OPT_AUTO_OPEN_AH_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(L["TT_OPT_AUTO_OPEN_AH_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    cbAutoOpenAH:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    y = y - 32
+
+    local cbCloseWithAH = MakeCheckbox(content, L["OPT_CLOSE_WITH_AH"], y - 4)
+    cbCloseWithAH:SetChecked(opts.closeWithAH == true)
+    cbCloseWithAH:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["TT_OPT_CLOSE_WITH_AH_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(L["TT_OPT_CLOSE_WITH_AH_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    cbCloseWithAH:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    y = y - 32
+
     -- ── Pricing ────────────────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"], y)
 
@@ -659,6 +681,8 @@ local function BuildPanel()
         opts.scanDelay      = slScanDelay:GetValue()
         opts.debugVerbosity = slVerbosity:GetValue()
         opts.minimapHidden  = not cbMinimap:GetChecked()
+        opts.autoOpenWithAH = cbAutoOpenAH:GetChecked()
+        opts.closeWithAH    = cbCloseWithAH:GetChecked()
         opts.rankPolicy         = ddRank.GetValue() or "lowest"
         opts.pigmentCostSource  = cbMillOwn:GetChecked()    and "mill"  or "ah"
         opts.boltCostSource     = cbCraftBolts:GetChecked() and "craft" or "ah"
@@ -736,7 +760,8 @@ local function BuildPanel()
         local o = GAM.db and GAM.db.options
         if not o then return end
         cbMinimap:SetChecked(not o.minimapHidden)
-        cbNewUI:SetChecked(o.useNewUI == true)
+        cbAutoOpenAH:SetChecked(o.autoOpenWithAH ~= false)
+        cbCloseWithAH:SetChecked(o.closeWithAH == true)
         cbMillOwn:SetChecked((o.pigmentCostSource or "ah") == "mill")
         cbCraftBolts:SetChecked((o.boltCostSource or "ah") == "craft")
         cbCraftIngots:SetChecked((o.ingotCostSource or "ah") == "craft")

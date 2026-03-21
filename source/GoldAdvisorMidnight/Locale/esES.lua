@@ -212,3 +212,13 @@ L["TT_STAT_MULTI_TITLE"]     = "Multicreación %"
 L["TT_STAT_MULTI_BODY"]      = "Tu estadística de Multicreación en la ventana de profesión (%). Valores mayores aumentan la cantidad producida."
 L["TT_STAT_RES_TITLE"]       = "Ahorro de recursos %"
 L["TT_STAT_RES_BODY"]        = "Tu estadística de Ahorro de recursos en la ventana de profesión (%). Valores mayores reducen el consumo de reagentes."
+
+-- Comportamiento de la Casa de Subastas (v1.5.0)
+L["OPT_AUTO_OPEN_AH"]           = "Abrir automáticamente con la Casa de Subastas"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]  = "Abrir automáticamente con la Casa de Subastas"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]   = "Cuando está activado, Gold Advisor se abre automáticamente al abrir la Casa de Subastas."
+L["OPT_CLOSE_WITH_AH"]          = "Cerrar con la Casa de Subastas"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"] = "Cerrar con la Casa de Subastas"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]  = "Cuando está activado, Gold Advisor se cierra automáticamente al cerrar la Casa de Subastas."
+L["TT_BTN_COMPACT_TITLE"]       = "Modo compacto"
+L["TT_BTN_COMPACT_BODY"]        = "Oculta el panel de herramientas y la lista de estrategias, mostrando solo el panel de detalles. Haz clic de nuevo para restaurar el diseño completo."

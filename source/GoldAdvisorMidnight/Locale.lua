@@ -239,4 +239,16 @@ L["V2_COL_NEED"]           = "Need"
 L["V2_COL_PRICE"]          = "Price"
 L["V2_COL_NET"]            = "Net"
 
+-- AH behavior settings
+L["OPT_AUTO_OPEN_AH"]            = "Auto-open with Auction House"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]   = "Auto-open with Auction House"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]    = "When enabled, Gold Advisor opens automatically whenever you open the Auction House."
+L["OPT_CLOSE_WITH_AH"]           = "Close with Auction House"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"]  = "Close with Auction House"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]   = "When enabled, Gold Advisor closes automatically when you close the Auction House."
+
+-- Compact mode
+L["TT_BTN_COMPACT_TITLE"]        = "Compact Mode"
+L["TT_BTN_COMPACT_BODY"]         = "Hides the tools panel and strategy list, showing only the strategy detail panel. Click again to restore the full layout."
+
 GAM._ea = "QRSTUVWXYZabcdefvutsrqponmlkjihg"   -- encoding alphabet part A

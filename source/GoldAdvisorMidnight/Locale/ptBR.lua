@@ -212,3 +212,13 @@ L["TT_STAT_MULTI_TITLE"]     = "Multicriação %"
 L["TT_STAT_MULTI_BODY"]      = "Sua estatística de Multicriação na janela de profissão (%). Valores maiores aumentam a quantidade produzida esperada."
 L["TT_STAT_RES_TITLE"]       = "Economia de recursos %"
 L["TT_STAT_RES_BODY"]        = "Sua estatística de Economia de recursos na janela de profissão (%). Valores maiores reduzem o consumo de reagentes."
+
+-- Comportamento da Casa de Leilões (v1.5.0)
+L["OPT_AUTO_OPEN_AH"]           = "Abrir automaticamente com a Casa de Leilões"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]  = "Abrir automaticamente com a Casa de Leilões"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]   = "Quando ativado, o Gold Advisor abre automaticamente sempre que você abre a Casa de Leilões."
+L["OPT_CLOSE_WITH_AH"]          = "Fechar com a Casa de Leilões"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"] = "Fechar com a Casa de Leilões"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]  = "Quando ativado, o Gold Advisor fecha automaticamente quando você fecha a Casa de Leilões."
+L["TT_BTN_COMPACT_TITLE"]       = "Modo compacto"
+L["TT_BTN_COMPACT_BODY"]        = "Oculta o painel de ferramentas e a lista de estratégias, exibindo apenas o painel de detalhes. Clique novamente para restaurar o layout completo."

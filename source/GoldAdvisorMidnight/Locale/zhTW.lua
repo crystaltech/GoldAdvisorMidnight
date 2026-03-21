@@ -212,3 +212,13 @@ L["TT_STAT_MULTI_TITLE"]     = "多重製造 %"
 L["TT_STAT_MULTI_BODY"]      = "專業視窗中的多重製造數值（%）。較高的值增加預期產出數量。"
 L["TT_STAT_RES_TITLE"]       = "資源節省 %"
 L["TT_STAT_RES_BODY"]        = "專業視窗中的資源節省數值（%）。較高的值減少材料消耗。"
+
+-- 拍賣場行為 (v1.5.0)
+L["OPT_AUTO_OPEN_AH"]           = "隨拍賣場自動開啟"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]  = "隨拍賣場自動開啟"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]   = "啟用後，每次開啟拍賣場時，Gold Advisor 將自動開啟。"
+L["OPT_CLOSE_WITH_AH"]          = "隨拍賣場關閉"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"] = "隨拍賣場關閉"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]  = "啟用後，關閉拍賣場時，Gold Advisor 將自動關閉。"
+L["TT_BTN_COMPACT_TITLE"]       = "緊湊模式"
+L["TT_BTN_COMPACT_BODY"]        = "隱藏工具面板和策略清單，僅顯示策略詳情面板。再次點擊可恢復完整版面。"
