@@ -212,3 +212,13 @@ L["TT_STAT_MULTI_TITLE"]     = "多重制造 %"
 L["TT_STAT_MULTI_BODY"]      = "专业窗口中的多重制造数值（%）。较高的值增加预期产出数量。"
 L["TT_STAT_RES_TITLE"]       = "资源节省 %"
 L["TT_STAT_RES_BODY"]        = "专业窗口中的资源节省数值（%）。较高的值减少材料消耗。"
+
+-- 拍卖行行为 (v1.5.0)
+L["OPT_AUTO_OPEN_AH"]           = "随拍卖行自动开启"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]  = "随拍卖行自动开启"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]   = "启用后，每次打开拍卖行时，Gold Advisor 将自动开启。"
+L["OPT_CLOSE_WITH_AH"]          = "随拍卖行关闭"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"] = "随拍卖行关闭"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]  = "启用后，关闭拍卖行时，Gold Advisor 将自动关闭。"
+L["TT_BTN_COMPACT_TITLE"]       = "紧凑模式"
+L["TT_BTN_COMPACT_BODY"]        = "隐藏工具面板和策略列表，仅显示策略详情面板。再次点击可恢复完整布局。"

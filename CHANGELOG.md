@@ -1,5 +1,44 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.5.3] — 2026-03-21
+
+### Bug Fixes
+- **Blank frame (root cause)** — `tickerClip:RegisterForClicks()` was called on a plain `Frame`. `RegisterForClicks` is a `Button`-only method; calling it on a `Frame` throws a runtime error that — because `Build()` runs inside `pcall` — was silently swallowed, aborting `Build()` before the left/center/right panels were ever created. Removed the invalid call; click detection is handled entirely by `OnMouseDown`.
+- **Compact button nil call** — `ToggleCompactMode` was defined before `local function RelayoutPanels`, so Lua resolved `RelayoutPanels` as a global (nil), causing `attempt to call a nil value` on every click. Moved definition after `RelayoutPanels`.
+- **Compact button not firing** — Added explicit `EnableMouse(true)` and `RegisterForClicks("LeftButtonUp")` on the compact `Button` frame to guarantee click events are delivered.
+
+### New Features
+- **Compact mode self-heal** — If `opts.compactMode` was persisted but no strategy is selected on load, compact mode now auto-resets to full layout instead of showing an empty detail shell.
+- **Compact button state** — Button now shows `DETAIL` (normal mode) or `FULL` (compact mode). Disabled and dimmed until a strategy is selected; always enabled in compact mode so the user can always exit.
+- **Collapse handle improvements** — Left/right panel seam handles are now larger (16×60), vertically centered, styled with a visible backdrop and border, glow on hover, and show a tooltip. They are hidden automatically while compact mode is active. A 10px seam gap was added so handles sit in visible buffer space rather than directly on panel borders.
+
+---
+
+## [1.5.2] — 2026-03-21
+
+### Bug Fixes
+- **Blank frame (persistent compact mode)** — `opts.compactMode = true` could be saved by v1.5.0 when the mis-positioned compact button intercepted close-button clicks, locking the layout in compact mode on all subsequent loads. A DATA_VERSION 9 migration now resets `compactMode` to `false` on first load after upgrade.
+- **Compact button text garbled** — The button label used `\xNN` hex escape sequences (WoW Lua 5.1 does not guarantee correct behavior for these). Replaced with plain ASCII `<<` / `>>`.
+
+---
+
+## [1.5.1] — 2026-03-21
+
+### Bug Fixes
+- **Blank frame on open** — The new `RelayoutPanels` added in v1.5.0 unconditionally called `rightPanel:ClearAllPoints()` and re-anchored it on every call, including the initial `OnShow`. This differed from the original behavior (which never re-anchored rightPanel) and caused WoW's layout engine to blank out the right panel and its children. Fixed with a `wasCompact` flag so ClearAllPoints is only called when actually transitioning from compact mode back to normal. Frame resize logic is also gated the same way.
+- **Compact mode button unclickable** — The compact button's `SetPoint` x-offset was `+4` (placing its right edge 4 px inside the close button), so most clicks were intercepted by the close button. Fixed to `-4` so the compact button sits cleanly to the left of the close button with a small gap.
+
+---
+
+## [1.5.0] — 2026-03-21
+
+### New Features
+- **AH auto-open toggle** — New setting: "Auto-open with Auction House". When disabled, Gold Advisor will no longer open automatically when you open the Auction House (toggle it manually with `/gam`).
+- **Close with AH toggle** — New setting: "Close with Auction House". When enabled, Gold Advisor closes automatically when you close the Auction House.
+- **Compact mode button** — A `⊟` button in the top-right of the main window (left of the close button) collapses the window to show only the strategy detail panel at ~450px wide. Click `⊞` to restore the full three-panel layout. State persists across sessions.
+
+---
+
 ## [1.4.5] — 2026-03-20
 
 ### Bug Fixes

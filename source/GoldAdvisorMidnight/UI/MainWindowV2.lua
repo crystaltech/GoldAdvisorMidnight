@@ -16,6 +16,7 @@ local CARD_H       = 108
 local LIST_SECTION_H = 22
 local HDR_H        = 20
 local LIST_TOP_PAD = CARD_H + LIST_SECTION_H + HDR_H + 16   -- offset from center top to listHost
+local PANEL_TOGGLE_GAP = 10   -- px gap between left/right panels and center for collapse handles
 
 -- Color constants (module-local)
 local C_BG_PANEL = { 0.06, 0.06, 0.06, 1.0 }
@@ -95,6 +96,8 @@ local shoppingSync = {
 }
 local shoppingSyncFrame
 local leftPanelChecks = {}  -- refs for external sync (millOwn, craftBolts, craftIngots)
+local compactBtn      = nil -- compact mode toggle button ref
+local compactActive   = false -- tracks whether compact mode layout is currently applied
 
 -- ===== Helpers =====
 local function IsFavorite(id)
@@ -856,38 +859,141 @@ local function RefreshBestStratCard()
     end
 end
 
+-- Returns the current inline detail strategy if one exists, or nil.
+local function ResolveCompactDetailTarget()
+    if selectedStratID then
+        local strat = GAM.Importer and GAM.Importer.GetStratByID(selectedStratID)
+        if strat then return strat end
+    end
+    return nil
+end
+
+-- Enable/disable the compact button based on whether a detail target exists.
+-- Always enabled in compact mode so the user can always return to full layout.
+local function RefreshCompactButtonEnabledState()
+    if not compactBtn then return end
+    if compactActive then
+        compactBtn:Enable()
+        if compactBtn.labelFS then
+            compactBtn.labelFS:SetText("FULL")
+            compactBtn.labelFS:SetTextColor(C_GR, C_GG, C_GB)
+        end
+    else
+        local hasTarget = ResolveCompactDetailTarget() ~= nil
+        if hasTarget then
+            compactBtn:Enable()
+            if compactBtn.labelFS then
+                compactBtn.labelFS:SetText("DETAIL")
+                compactBtn.labelFS:SetTextColor(C_GR, C_GG, C_GB)
+            end
+        else
+            compactBtn:Disable()
+            if compactBtn.labelFS then
+                compactBtn.labelFS:SetText("DETAIL")
+                compactBtn.labelFS:SetTextColor(C_GR * 0.4, C_GG * 0.4, C_GB * 0.4)
+            end
+        end
+    end
+end
+
+-- Show or hide the panel collapse handles depending on compact state.
+local function UpdateCollapseTogglePositions(isCompact)
+    if frame then
+        if frame.btnCollapseLeft  then frame.btnCollapseLeft:SetShown(not isCompact) end
+        if frame.btnCollapseRight then frame.btnCollapseRight:SetShown(not isCompact) end
+    end
+end
+
 -- ===== RelayoutPanels =====
 local function RelayoutPanels()
     if not dividerContainer then return end
-    local opts  = GAM.db and GAM.db.options
+    local opts    = GAM.db and GAM.db.options
+    local C       = GAM.C
+    local compact = opts and opts.compactMode or false
+
+    -- Self-heal: if compact is persisted but there is no valid detail target, fall back.
+    if compact and not ResolveCompactDetailTarget() then
+        compact = false
+        if opts then opts.compactMode = false end
+    end
+
+    if compact then
+        -- Compact mode: show only the right (detail) panel, hide left + center
+        if leftPanel   then leftPanel:Hide() end
+        if centerPanel then centerPanel:Hide() end
+        if frame and frame.scrollBar then frame.scrollBar:Hide() end
+        if rightPanel then
+            rightPanel:Show()
+            rightPanel:ClearAllPoints()
+            rightPanel:SetPoint("TOPLEFT",     dividerContainer, "TOPLEFT",     0, 0)
+            rightPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
+        end
+        -- Only resize the frame when actually entering compact mode
+        if not compactActive and frame then
+            frame:SetWidth(C.RIGHT_PANEL_W + 28)
+        end
+        compactActive = true
+        UpdateCollapseTogglePositions(true)
+        RefreshCompactButtonEnabledState()
+        return
+    end
+
+    -- Normal mode
+    local wasCompact = compactActive
+    compactActive = false
+
+    if wasCompact then
+        -- Returning from compact: restore frame size, scrollbar, rightPanel anchors, centerPanel
+        if frame then frame:SetWidth(C.MAIN_WIN_W) end
+        if frame and frame.scrollBar then frame.scrollBar:Show() end
+        if rightPanel then
+            rightPanel:ClearAllPoints()
+            rightPanel:SetWidth(C.RIGHT_PANEL_W)
+            rightPanel:SetPoint("TOPRIGHT",    dividerContainer, "TOPRIGHT",    0, 0)
+            rightPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
+        end
+        if centerPanel then centerPanel:Show() end
+    end
+
     local lc    = opts and opts.leftPanelCollapsed  or false
     local rc    = opts and opts.rightPanelCollapsed or false
-    local C     = GAM.C
     local leftW = lc and 0 or C.LEFT_PANEL_W
     local rightW= rc and 0 or C.RIGHT_PANEL_W
 
     if leftPanel  then leftPanel:SetShown(not lc) end
     if rightPanel then rightPanel:SetShown(not rc) end
 
+    -- Inset center panel by PANEL_TOGGLE_GAP on each visible seam so collapse handles
+    -- sit in the gap rather than directly on the panel borders.
+    local leftOff  = leftW  + (lc and 0 or PANEL_TOGGLE_GAP)
+    local rightOff = rightW + (rc and 0 or PANEL_TOGGLE_GAP)
+
     if centerPanel then
         centerPanel:ClearAllPoints()
-        centerPanel:SetPoint("TOPLEFT",     dividerContainer, "TOPLEFT",     leftW,   0)
-        centerPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", -rightW, 0)
+        centerPanel:SetPoint("TOPLEFT",     dividerContainer, "TOPLEFT",     leftOff,   0)
+        centerPanel:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", -rightOff, 0)
     end
 
-    -- Recompute row width now that center panel has been resized
-    -- GetWidth may return stale value until next frame; use arithmetic instead
-    local totalW  = C.MAIN_WIN_W - 28  -- frame insets
-    local centerW = totalW - leftW - rightW
-    local rowW    = centerW - 20       -- scrollbar gutter
+    local totalW  = C.MAIN_WIN_W - 28
+    local centerW = totalW - leftW - rightW - (lc and 0 or PANEL_TOGGLE_GAP) - (rc and 0 or PANEL_TOGGLE_GAP)
+    local rowW    = centerW - 20
 
     for _, r in ipairs(rowFrames) do r:SetWidth(rowW) end
 
     activeColConfig = GetActiveColumnConfig()
     ApplyColumnLayout(activeColConfig, rowW)
 
+    UpdateCollapseTogglePositions(false)
+    RefreshCompactButtonEnabledState()
     RefreshBestStratCard()
     MW2.RefreshRows()
+end
+
+local function ToggleCompactMode()
+    local opts = GAM.db and GAM.db.options
+    if not opts then return end
+    opts.compactMode = not opts.compactMode
+    RelayoutPanels()
 end
 
 -- ===== Onboarding =====
@@ -920,6 +1026,7 @@ ShowInlineDetail = function(strat, patchTag)
     if not rpDetail.root then return end
     local L = GetL()
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    RefreshCompactButtonEnabledState()
     GAM.Pricing.PreloadStratItemData(strat, patchTag)
     -- Refresh best-strat card so it uses the same price/bag snapshot as the detail panel.
     RefreshBestStratCard()
@@ -2101,6 +2208,25 @@ local function Build()
     closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
     closeBtn:SetScript("OnClick", function() MW2.Hide() end)
 
+    -- ── Compact mode toggle ──
+    compactBtn = CreateFrame("Button", nil, frame)
+    compactBtn:SetSize(52, 20)
+    compactBtn:SetPoint("TOPRIGHT", closeBtn, "TOPLEFT", -6, -1)
+    compactBtn:EnableMouse(true)
+    compactBtn:RegisterForClicks("LeftButtonUp")
+    local cBtnLbl = compactBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    cBtnLbl:SetAllPoints()
+    cBtnLbl:SetJustifyH("CENTER")
+    cBtnLbl:SetText("DETAIL")
+    cBtnLbl:SetTextColor(C_GR * 0.4, C_GG * 0.4, C_GB * 0.4)  -- dimmed until a target exists
+    compactBtn.labelFS = cBtnLbl
+    compactBtn:Disable()
+    compactBtn:SetScript("OnClick", ToggleCompactMode)
+    AttachButtonTooltip(compactBtn,
+        (L and L["TT_BTN_COMPACT_TITLE"]) or "Compact Mode",
+        (L and L["TT_BTN_COMPACT_BODY"])  or "Show only the strategy detail panel.")
+    RefreshCompactButtonEnabledState()
+
     -- ── Status bar (above ticker) ──
     statusBarFrame = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     statusBarFrame:SetHeight(SB_H)
@@ -2262,8 +2388,6 @@ local function Build()
         tickerClip:SetScript("OnEnter", function() tickerPaused = true end)
         tickerClip:SetScript("OnLeave", function() tickerPaused = false end)
 
-        tickerClip:RegisterForClicks("LeftButtonDown", "RightButtonDown")
-
         -- Click opens a copy-link dialog above the status bar; right-click queues easter egg
         tickerClip:SetScript("OnMouseDown", function(_, btn)
             if btn == "RightButton" then
@@ -2383,20 +2507,43 @@ local function Build()
     BuildLeftPanelContent(L, C, LP)
 
     -- ── Collapse toggles (children of dividerContainer so visible when panel hidden) ──
-    local function MakeCollapseToggle(anchorSide, anchorX, labelDefault, panelRef, isLeft)
-        local btn = CreateFrame("Button", nil, dividerContainer)
-        btn:SetSize(14, 40)
+    local function MakeCollapseToggle(anchorSide, anchorX, labelDefault, isLeft)
+        local btn = CreateFrame("Button", nil, dividerContainer, "BackdropTemplate")
+        btn:SetSize(16, 60)
         if anchorSide == "LEFT" then
-            btn:SetPoint("TOPLEFT", dividerContainer, "TOPLEFT", anchorX, 12)
+            btn:SetPoint("LEFT", dividerContainer, "LEFT", anchorX, 0)
         else
-            btn:SetPoint("TOPRIGHT", dividerContainer, "TOPRIGHT", anchorX, 12)
+            btn:SetPoint("RIGHT", dividerContainer, "RIGHT", anchorX, 0)
         end
+        btn:SetBackdrop(THIN_BACKDROP)
+        btn:SetBackdropColor(0.08, 0.08, 0.08, 0.85)
+        btn:SetBackdropBorderColor(C_DR, C_DG, C_DB, C_DA)
+
         local lbl = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         lbl:SetAllPoints()
         lbl:SetJustifyH("CENTER")
         lbl:SetText(labelDefault)
         lbl:SetTextColor(C_GR, C_GG, C_GB)
         btn.labelFS = lbl
+
+        local tipTitle = isLeft and "Collapse Left Panel" or "Collapse Right Panel"
+        local tipBody  = isLeft
+            and "Hide or show the tools and scan panel."
+            or  "Hide or show the strategy detail panel."
+
+        btn:SetScript("OnEnter", function(self)
+            self:SetBackdropBorderColor(C_GR, C_GG, C_GB, 1.0)
+            self.labelFS:SetTextColor(1, 1, 1)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(tipTitle, 1, 1, 1)
+            GameTooltip:AddLine(tipBody, 1, 0.82, 0, true)
+            GameTooltip:Show()
+        end)
+        btn:SetScript("OnLeave", function(self)
+            self:SetBackdropBorderColor(C_DR, C_DG, C_DB, C_DA)
+            self.labelFS:SetTextColor(C_GR, C_GG, C_GB)
+            GameTooltip:Hide()
+        end)
 
         btn:SetScript("OnClick", function(self)
             local opts = GAM.db.options
@@ -2405,21 +2552,21 @@ local function Build()
                 self.labelFS:SetText(opts.leftPanelCollapsed and ">" or "<")
                 self:ClearAllPoints()
                 local lw = opts.leftPanelCollapsed and 0 or C.LEFT_PANEL_W
-                self:SetPoint("TOPLEFT", dividerContainer, "TOPLEFT", lw, 12)
+                self:SetPoint("LEFT", dividerContainer, "LEFT", lw, 0)
             else
                 opts.rightPanelCollapsed = not opts.rightPanelCollapsed
                 self.labelFS:SetText(opts.rightPanelCollapsed and "<" or ">")
                 self:ClearAllPoints()
                 local rw = opts.rightPanelCollapsed and 0 or C.RIGHT_PANEL_W
-                self:SetPoint("TOPRIGHT", dividerContainer, "TOPRIGHT", -rw, 12)
+                self:SetPoint("RIGHT", dividerContainer, "RIGHT", -rw, 0)
             end
             RelayoutPanels()
         end)
         return btn
     end
 
-    frame.btnCollapseLeft  = MakeCollapseToggle("LEFT",  C.LEFT_PANEL_W,  "<", leftPanel,  true)
-    frame.btnCollapseRight = MakeCollapseToggle("RIGHT", -C.RIGHT_PANEL_W, ">", rightPanel, false)
+    frame.btnCollapseLeft  = MakeCollapseToggle("LEFT",  C.LEFT_PANEL_W,  "<", true)
+    frame.btnCollapseRight = MakeCollapseToggle("RIGHT", -C.RIGHT_PANEL_W, ">", false)
 
     -- ── BestStratCard ──
     bestStratCard = CreateFrame("Button", nil, centerPanel, "BackdropTemplate")

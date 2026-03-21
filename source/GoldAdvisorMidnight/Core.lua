@@ -81,6 +81,10 @@ local DB_DEFAULTS = {
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
         leftPanelCollapsed  = false,   -- left panel collapse state
         rightPanelCollapsed = false,   -- right panel collapse state
+        compactMode         = false,   -- show only strategy detail panel
+        -- AH window behavior
+        autoOpenWithAH      = true,    -- open addon window when AH opens
+        closeWithAH         = false,   -- close addon window when AH closes
     },
     patch      = {},
     priceCache = {},
@@ -173,6 +177,17 @@ local MIGRATIONS = {
                         end
                     end
                 end
+            end
+        end,
+    },
+    {
+        dataVersion = 9,
+        migrate = function(db)
+            -- Reset compact mode: the v1.5.0 compact button had a wrong offset that caused
+            -- accidental activation. Force it off so the layout is not stuck in compact on
+            -- first load after upgrade.
+            if type(db.options) == "table" then
+                db.options.compactMode = false
             end
         end,
     },
@@ -521,7 +536,8 @@ end
 handlers["AUCTION_HOUSE_SHOW"] = function(self)
     self.ahOpen = true
     self.Log.Debug("AH opened.")
-    if self.UI and self.UI.MainWindowV2 then
+    local opts = self.db and self.db.options
+    if self.UI and self.UI.MainWindowV2 and (opts == nil or opts.autoOpenWithAH ~= false) then
         self.UI.MainWindowV2.Show()
     end
     -- Pre-warm itemKey cache from persisted DB (skips slow browse on subsequent scans)
@@ -542,6 +558,10 @@ handlers["AUCTION_HOUSE_CLOSED"] = function(self)
     ResetQuickBuy(true)
     if self.AHScan then
         self.AHScan.OnAHClosed()
+    end
+    local opts = self.db and self.db.options
+    if opts and opts.closeWithAH and self.UI and self.UI.MainWindowV2 then
+        self.UI.MainWindowV2.Hide()
     end
 end
 

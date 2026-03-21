@@ -15,8 +15,8 @@ local function ProfileDefault(profileKey, field, fallback)
 end
 
 GAM.C = {
-    ADDON_VERSION        = "1.4.5",
-    DATA_VERSION         = 8,
+    ADDON_VERSION        = "1.5.3",
+    DATA_VERSION         = 9,
     DEFAULT_PATCH        = "midnight-1",
 
     -- Base crafting-stat multipliers (game-level, before talent/spec node bonuses)

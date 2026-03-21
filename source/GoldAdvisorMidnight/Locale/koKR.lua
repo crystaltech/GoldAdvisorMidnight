@@ -212,3 +212,13 @@ L["TT_STAT_MULTI_TITLE"]     = "다중 제작 %"
 L["TT_STAT_MULTI_BODY"]      = "전문기술 창의 다중 제작 수치 (%). 높을수록 예상 생산량이 증가합니다."
 L["TT_STAT_RES_TITLE"]       = "자원 절약 %"
 L["TT_STAT_RES_BODY"]        = "전문기술 창의 자원 절약 수치 (%). 높을수록 재료 소모가 감소합니다."
+
+-- 경매장 동작 (v1.5.0)
+L["OPT_AUTO_OPEN_AH"]           = "경매장과 함께 자동으로 열기"
+L["TT_OPT_AUTO_OPEN_AH_TITLE"]  = "경매장과 함께 자동으로 열기"
+L["TT_OPT_AUTO_OPEN_AH_BODY"]   = "활성화되면 경매장을 열 때마다 Gold Advisor가 자동으로 열립니다."
+L["OPT_CLOSE_WITH_AH"]          = "경매장과 함께 닫기"
+L["TT_OPT_CLOSE_WITH_AH_TITLE"] = "경매장과 함께 닫기"
+L["TT_OPT_CLOSE_WITH_AH_BODY"]  = "활성화되면 경매장을 닫을 때 Gold Advisor도 자동으로 닫힙니다."
+L["TT_BTN_COMPACT_TITLE"]       = "컴팩트 모드"
+L["TT_BTN_COMPACT_BODY"]        = "도구 패널과 전략 목록을 숨기고 전략 세부 패널만 표시합니다. 다시 클릭하면 전체 레이아웃이 복원됩니다."
