@@ -2325,8 +2325,6 @@ local function Build()
         tickerClip:SetScript("OnEnter", function() tickerPaused = true end)
         tickerClip:SetScript("OnLeave", function() tickerPaused = false end)
 
-        tickerClip:RegisterForClicks("LeftButtonDown", "RightButtonDown")
-
         -- Click opens a copy-link dialog above the status bar; right-click queues easter egg
         tickerClip:SetScript("OnMouseDown", function(_, btn)
             if btn == "RightButton" then
