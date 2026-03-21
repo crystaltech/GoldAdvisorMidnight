@@ -2776,23 +2776,15 @@ local function Build()
         if opts then
             if frame.btnCollapseLeft  then
                 frame.btnCollapseLeft.labelFS:SetText(opts.leftPanelCollapsed  and ">" or "<")
-                if opts.leftPanelCollapsed then
-                    frame.btnCollapseLeft:ClearAllPoints()
-                    frame.btnCollapseLeft:SetPoint("TOPLEFT", dividerContainer, "TOPLEFT", 0, 12)
-                else
-                    frame.btnCollapseLeft:ClearAllPoints()
-                    frame.btnCollapseLeft:SetPoint("TOPLEFT", dividerContainer, "TOPLEFT", C.LEFT_PANEL_W, 12)
-                end
+                frame.btnCollapseLeft:ClearAllPoints()
+                frame.btnCollapseLeft:SetPoint("LEFT", dividerContainer, "LEFT",
+                    opts.leftPanelCollapsed and 0 or C.LEFT_PANEL_W, 0)
             end
             if frame.btnCollapseRight then
                 frame.btnCollapseRight.labelFS:SetText(opts.rightPanelCollapsed and "<" or ">")
-                if opts.rightPanelCollapsed then
-                    frame.btnCollapseRight:ClearAllPoints()
-                    frame.btnCollapseRight:SetPoint("TOPRIGHT", dividerContainer, "TOPRIGHT", 0, 12)
-                else
-                    frame.btnCollapseRight:ClearAllPoints()
-                    frame.btnCollapseRight:SetPoint("TOPRIGHT", dividerContainer, "TOPRIGHT", -C.RIGHT_PANEL_W, 12)
-                end
+                frame.btnCollapseRight:ClearAllPoints()
+                frame.btnCollapseRight:SetPoint("RIGHT", dividerContainer, "RIGHT",
+                    opts.rightPanelCollapsed and 0 or -C.RIGHT_PANEL_W, 0)
             end
         end
 
