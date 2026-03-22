@@ -3,6 +3,13 @@
 local ADDON_NAME, GAM = ...
 GAM_WORKBOOK_GENERATED = {
   itemCatalog = {
+    ["Lexicologist's Vellum"] = { 245881 },
+    ["Thalassian Missive of the Aurora"] = { 245781 },
+    ["Thalassian Missive of the Feverflare"] = { 245783 },
+    ["Thalassian Missive of the Fireflash"] = { 245785 },
+    ["Thalassian Missive of the Harmonious"] = { 245787 },
+    ["Thalassian Missive of the Peerless"] = { 245789 },
+    ["Thalassian Missive of the Quickblade"] = { 245791 },
     ["Light's Potential"] = { 241308, 241309 },
     ["Sin'dorei Lens"] = { 240972, 240973 },
     ["Scalewoven Hide"] = { 244631, 244632 },
