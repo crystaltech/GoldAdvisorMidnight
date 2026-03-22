@@ -1,5 +1,20 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.6.0] — 2026-03-21
+
+### New Features
+- **Thalassian Missive inscription strats** — Added full set of Thalassian Missive strategies with Herb Milling VI support.
+
+### Data
+- Regenerated from 3-21-26 spreadsheet — Engineering reorganized (10 recycling strategies removed, 5 retained with updated sourceBlocks, 7 crafting strategies updated); Inscription Codified Azeroot strategy added; Inscription milling quantities updated.
+
+### Bug Fixes
+- **Vertical integration bolt quantity overcounted** — `CRAFTED_REAGENT_MAP` stored `yield = 0.942977` for Bright Linen Bolt Q1/Q2, but the base recipe yield is 1.0 bolt per linen craft. This caused ~12.5% too many linens to be shown in the shopping list and overstated derived bolt cost by the same factor. Fixed to `yield = 1.000000`.
+- **Panel snap button jump** — Collapse toggle buttons jumped between vertically centered (after click) and 12px from top (after `OnShow`) due to mismatched anchors. Unified all code paths to `LEFT`/`RIGHT` at Y=0.
+- **Dazzling Thorium always priced as rank 1** — `qualityPolicy = "force_q1_inputs"` is now enforced in `CalculateStratMetrics`. Dazzling Thorium Prospecting tagged with this policy so it always prices as Q1 regardless of the user's R1/R2 setting.
+
+---
+
 ## [1.5.5] — 2026-03-21
 
 ### Bug Fixes
