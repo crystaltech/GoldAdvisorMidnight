@@ -62,8 +62,10 @@ In a **protected release**, these two files are encoded to `Data/*Encoded.lua` b
 ```
 tools/
 ├── generate_workbook_data.py   Reads .xlsx spreadsheet → writes WorkbookGenerated.lua + StratsGenerated.lua
-├── encode_data.py              XOR + custom-base64 encode for protected builds (called by Release_Protected.command)
+├── compare_strats.py           Verifies StratsGenerated.lua matches spreadsheet source (must show 0 mismatches before release)
+├── encode_data.py              XOR + custom-base64 encode for protected builds (called by release scripts)
 ├── decode_data.py              Decode for debugging encoded builds
+├── verify_stat_scaling.py      Verify crafting stat scaling calculations against expected values
 └── ENCODING_HOWTO.md           Notes on the encoding scheme
 ```
 
