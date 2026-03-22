@@ -19,6 +19,7 @@ import os
 import re
 import math
 import glob as glob_mod
+import json
 import openpyxl
 from collections import OrderedDict
 
@@ -29,6 +30,7 @@ from collections import OrderedDict
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STRATS_LUA = os.path.join(REPO_ROOT, "source/GoldAdvisorMidnight/Data/StratsGenerated.lua")
 WORKBOOK_LUA = os.path.join(REPO_ROOT, "source/GoldAdvisorMidnight/Data/WorkbookGenerated.lua")
+MANUAL_STRATS_JSON = os.path.join(REPO_ROOT, "tools/manual_strats.json")
 
 PATCH_TAG = "midnight-1"
 
@@ -777,6 +779,66 @@ def process_dazzling_thorium(ws, strat, wb_sheet):
 
 
 # ---------------------------------------------------------------------------
+# Manual strat support
+# ---------------------------------------------------------------------------
+
+def render_ids(ids):
+    """Render a list of item IDs as a Lua array literal."""
+    return "{ " + ", ".join(str(i) for i in ids) + " }"
+
+
+def render_manual_strat_lua(entry):
+    """Convert a manual_strats.json entry dict to a Lua GAM_RECIPES_GENERATED block."""
+    lines = []
+    lines.append(f'-- MANUAL: {entry["stratName"]} (not in spreadsheet; migrate when data is available)')
+    lines.append('GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {')
+    lines.append(f'  id = "{entry["id"]}",')
+    lines.append(f'  patchTag = "{entry.get("patchTag", PATCH_TAG)}",')
+    lines.append(f'  profession = "{entry["profession"]}",')
+    lines.append(f'  stratName = "{entry["stratName"]}",')
+    lines.append(f'  sourceTab = "Manual",')
+    lines.append(f'  sourceBlock = nil,')
+    lines.append(f'  defaultStartingAmount = {entry.get("defaultStartingAmount", 1.0):.6f},')
+    lines.append(f'  defaultCrafts = {entry.get("defaultCrafts", 1.0):.6f},')
+    lines.append(f'  formulaProfile = "{entry["formulaProfile"]}",')
+    lines.append(f'  calcMode = "{entry.get("calcMode", "formula")}",')
+    lines.append(f'  qualityPolicy = "{entry.get("qualityPolicy", "normal")}",')
+    lines.append(f'  outputQualityMode = "{entry.get("outputQualityMode", "rank_policy")}",')
+    notes = entry.get("notes", "").replace('"', '\\"')
+    lines.append(f'  notes = "{notes}",')
+    lines.append('  outputs = {')
+    for out in entry.get("outputs", []):
+        lines.append('    {')
+        lines.append(f'      itemRef = "{out["itemRef"]}",')
+        lines.append(f'      itemIDs = {render_ids(out["itemIDs"])},')
+        lines.append(f'      baseYieldPerCraft = {out.get("baseYieldPerCraft", 1.0):.6f},')
+        lines.append(f'      baseYield = {out.get("baseYield", 1.0):.6f},')
+        lines.append(f'      workbookExpectedQty = {out.get("workbookExpectedQty", 1.0):.6f},')
+        lines.append('    },')
+    lines.append('  },')
+    lines.append('  reagents = {')
+    for r in entry.get("reagents", []):
+        lines.append('    {')
+        lines.append(f'      itemRef = "{r["itemRef"]}",')
+        lines.append(f'      itemIDs = {render_ids(r["itemIDs"])},')
+        lines.append(f'      qtyPerCraft = {r.get("qtyPerCraft", 1.0):.6f},')
+        lines.append(f'      qtyPerStart = {r.get("qtyPerStart", 1.0):.6f},')
+        lines.append(f'      workbookTotalQty = {r.get("workbookTotalQty", 1.0):.6f},')
+        lines.append('    },')
+    lines.append('  },')
+    lines.append('}')
+    return "\n".join(lines) + "\n"
+
+
+def load_manual_strats():
+    """Load tools/manual_strats.json if it exists; return list of entries."""
+    if not os.path.exists(MANUAL_STRATS_JSON):
+        return []
+    with open(MANUAL_STRATS_JSON, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -838,9 +900,23 @@ def main():
             traceback.print_exc()
             updated_blocks.append(strat["raw"])
 
+    # Append manual strats from tools/manual_strats.json
+    manual_entries = load_manual_strats()
+    manual_blocks = []
+    if manual_entries:
+        print(f"\nAppending {len(manual_entries)} manual strat(s) from {MANUAL_STRATS_JSON}")
+        for entry in manual_entries:
+            name = entry.get("stratName", entry.get("id", "?"))
+            print(f"  + {name}")
+            manual_blocks.append(render_manual_strat_lua(entry))
+
     # Write output
     print(f"\nWriting updated Lua to {STRATS_LUA}")
     output = header + "".join(updated_blocks)
+    if manual_blocks:
+        output = output.rstrip('\n') + '\n\n'
+        output += "-- ===== MANUAL STRATS (from tools/manual_strats.json) =====\n"
+        output += "\n".join(manual_blocks)
     # Ensure single newline at end
     output = output.rstrip('\n') + '\n'
 

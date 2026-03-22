@@ -122,7 +122,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 236963, 236965 }, qty = 1.000000 }, -- Bright Linen
             { itemIDs = { 251665 },         qty = 4.000000 }, -- Silverleaf Thread
         },
-        yield = 0.942977,
+        yield = 1.000000,
     },
     [239701] = {
         optionKey = "boltCostSource",
@@ -131,7 +131,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 236963, 236965 }, qty = 1.000000 },
             { itemIDs = { 251665 },         qty = 4.000000 },
         },
-        yield = 0.942977,
+        yield = 1.000000,
     },
     -- Refulgent Copper Ingot Q1: 5×R1 ore + 2×flux → 1 ingot (base)
     -- Normalised to 1 R1 ore unit: flux qty = 2/5 = 0.4, yield = 1/5
@@ -822,8 +822,14 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
 
     -- Determine the crafting quality of the primary reagent so output pricing can
     -- match the same rank (R1 herb → R1 pigment, R2 herb → R2 pigment).
+    -- qualityPolicy overrides: "force_q1_inputs" or "force_q2_inputs" lock quality
+    -- regardless of the user's R1/R2 rankPolicy setting.
     local primaryQuality = nil
-    if active.reagents and #active.reagents > 0 then
+    if strat.qualityPolicy == "force_q1_inputs" then
+        primaryQuality = 1
+    elseif strat.qualityPolicy == "force_q2_inputs" then
+        primaryQuality = 2
+    elseif active.reagents and #active.reagents > 0 then
         local r0   = active.reagents[1]
         local rIds = r0.itemIDs
         if (not rIds or #rIds == 0) and r0.name then
