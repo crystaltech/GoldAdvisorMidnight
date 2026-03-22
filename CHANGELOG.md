@@ -1,5 +1,12 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.5.5] — 2026-03-21
+
+### Bug Fixes
+- **Vertical integration bolt quantity overcounted** — `CRAFTED_REAGENT_MAP` stored `yield = 0.942977` for Bright Linen Bolt Q1/Q2, but the base recipe yield is 1.0 bolt per linen craft (no stat combination can produce a yield below 1.0). This caused `ExpandReagentThroughChain` to show ~12.5% too many linens (2121 instead of 2000 for 1000 Imbued Bright Linen Bolt crafts) and `GetCraftDerivedReagentCost` to overstate derived bolt cost by the same factor. Fixed to `yield = 1.000000`.
+
+---
+
 ## [1.5.4] — 2026-03-21
 
 ### Data

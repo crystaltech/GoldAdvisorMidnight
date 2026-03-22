@@ -122,7 +122,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 236963, 236965 }, qty = 1.000000 }, -- Bright Linen
             { itemIDs = { 251665 },         qty = 4.000000 }, -- Silverleaf Thread
         },
-        yield = 0.942977,
+        yield = 1.000000,
     },
     [239701] = {
         optionKey = "boltCostSource",
@@ -131,7 +131,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 236963, 236965 }, qty = 1.000000 },
             { itemIDs = { 251665 },         qty = 4.000000 },
         },
-        yield = 0.942977,
+        yield = 1.000000,
     },
     -- Refulgent Copper Ingot Q1: 5×R1 ore + 2×flux → 1 ingot (base)
     -- Normalised to 1 R1 ore unit: flux qty = 2/5 = 0.4, yield = 1/5
