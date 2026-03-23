@@ -1,5 +1,12 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.0] — 2026-03-23
+
+### New Features
+- **Flask of the Magisters (Alchemy)** — Added missing Alchemy flask strategy: 1 Nocturnal Lotus, 6 Mana Lily, 2 Mote of Pure Void, 2 Sunglass Vial, 8 Sanguithorn per craft; same formula profile and expected output (~3036 flasks per 1000 crafts) as all other alchemy flask strats.
+
+---
+
 ## [1.6.1] — 2026-03-23
 
 ### Bug Fixes

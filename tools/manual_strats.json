@@ -140,6 +140,35 @@
     ]
   },
   {
+    "id": "alchemy__flask_of_the_magisters__midnight_1",
+    "patchTag": "midnight-1",
+    "profession": "Alchemy",
+    "stratName": "Flask of the Magisters",
+    "defaultStartingAmount": 1000.0,
+    "defaultCrafts": 1000.0,
+    "formulaProfile": "alchemy",
+    "calcMode": "formula",
+    "qualityPolicy": "normal",
+    "outputQualityMode": "rank_policy",
+    "notes": "",
+    "outputs": [
+      {
+        "itemRef": "Flask of the Magisters",
+        "itemIDs": [241323, 241322],
+        "baseYieldPerCraft": 2.0,
+        "baseYield": 2.0,
+        "workbookExpectedQty": 3036.649215
+      }
+    ],
+    "reagents": [
+      { "itemRef": "Nocturnal Lotus",  "itemIDs": [236780],          "qtyPerCraft": 1.0, "qtyPerStart": 1.0, "workbookTotalQty": 1000.0 },
+      { "itemRef": "Mana Lily",        "itemIDs": [236778, 236779],  "qtyPerCraft": 6.0, "qtyPerStart": 6.0, "workbookTotalQty": 6000.0 },
+      { "itemRef": "Mote of Pure Void","itemIDs": [236952],          "qtyPerCraft": 2.0, "qtyPerStart": 2.0, "workbookTotalQty": 2000.0 },
+      { "itemRef": "Sunglass Vial",    "itemIDs": [240990, 240991],  "qtyPerCraft": 2.0, "qtyPerStart": 2.0, "workbookTotalQty": 2000.0 },
+      { "itemRef": "Sanguithorn",      "itemIDs": [236770, 236771],  "qtyPerCraft": 8.0, "qtyPerStart": 8.0, "workbookTotalQty": 8000.0 }
+    ]
+  },
+  {
     "id": "inscription__quickblade_missive_r1__midnight_1",
     "patchTag": "midnight-1",
     "profession": "Inscription",
