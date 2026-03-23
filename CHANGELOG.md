@@ -1,5 +1,12 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.6.1] — 2026-03-23
+
+### Bug Fixes
+- **Vertical integration ore qty mismatch (ingots)** — `CRAFTED_REAGENT_MAP` stored the base yield for Refulgent Copper Ingot (0.2 ingots/ore) without applying crafting stats, so `ExpandReagentThroughChain` showed ~1503 ore for 300 ingots while the direct strategy view correctly showed ~1050. Added `GetEffectiveCraftYield()` which applies the same MC/RS formula as `CalculateStratMetrics`, and tagged both ingot entries with `formulaProfile = "blacksmithing"` so chain expansion and cost derivation now use the stat-adjusted yield.
+
+---
+
 ## [1.6.0] — 2026-03-21
 
 ### New Features
