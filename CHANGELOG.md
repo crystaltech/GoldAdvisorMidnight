@@ -1,5 +1,18 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.5] — 2026-03-23
+
+### New Features
+- **AH toggle button** — When "Auto-open with AH" is unchecked, a small Gold Advisor button appears in the top-right of the Auction House frame. Click to show/hide the GAM window without needing the minimap button.
+- **Natural frame layering** — Main window now uses `HIGH` strata instead of `DIALOG`, so bags, inventory, and the AH frame can come to the front when clicked. Clicking the GAM frame brings it back to the top.
+
+### Changes
+- **Settings rank policy** — Replaced the UIDropDownMenu rank dropdown (which clipped outside the settings panel in Midnight 12.x) with a cycle button. Click to toggle between Lowest and Highest; setting is saved and restored correctly on re-open.
+- **Disabled Create Custom Strategy / Import Strategy** — Buttons removed from the Settings Actions panel until the feature is fully ready.
+- **Export button hidden in strategy detail** — The per-strategy export button is now always hidden.
+
+---
+
 ## [1.7.0] — 2026-03-23
 
 ### New Features
