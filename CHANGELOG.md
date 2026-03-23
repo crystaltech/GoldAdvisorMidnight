@@ -1,5 +1,13 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.6] — 2026-03-23
+
+### Bug Fixes
+- **Frame layering** — Main window strata lowered from HIGH to MEDIUM so bag addons (e.g. Baganator) render above GAM by default; clicking GAM still raises it to the top of MEDIUM via SetToplevel.
+- **AH toggle button** — Button now always shows when the AH is open regardless of auto-open setting; locale strings extracted to Locale.lua.
+
+---
+
 ## [1.7.5] — 2026-03-23
 
 ### New Features
