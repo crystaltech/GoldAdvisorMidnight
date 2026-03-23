@@ -135,6 +135,8 @@ local CRAFTED_REAGENT_MAP = {
     },
     -- Refulgent Copper Ingot Q1: 5×R1 ore + 2×flux → 1 ingot (base)
     -- Normalised to 1 R1 ore unit: flux qty = 2/5 = 0.4, yield = 1/5
+    -- formulaProfile = "blacksmithing" so GetEffectiveCraftYield applies MC/RS bonuses,
+    -- keeping shopping-list ore qty consistent with the direct Refulgent Copper Ingot view.
     [238197] = {
         optionKey = "ingotCostSource",
         modeValue = "craft",
@@ -142,7 +144,8 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 237359 }, qty = 1.000000 }, -- Refulgent Copper Ore R1
             { itemIDs = { 243060 }, qty = 0.400000 }, -- Luminant Flux
         },
-        yield = 0.199624,
+        yield = 0.200000,
+        formulaProfile = "blacksmithing",
     },
     -- Refulgent Copper Ingot Q2: 3×R1 ore + 2×R2 ore + 2×flux → 1 ingot (base)
     -- Normalised to 1 R1 ore unit: R2 qty = 2/3, flux qty = 2/3, yield = 1/3
@@ -154,7 +157,8 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 237361 }, qty = 0.666667 }, -- Refulgent Copper Ore R2
             { itemIDs = { 243060 }, qty = 0.666667 }, -- Luminant Flux
         },
-        yield = 0.332707,
+        yield = 0.333333,
+        formulaProfile = "blacksmithing",
     },
     -- Sienna Ink Q1: 20×PP + 10×Argentleaf Pigment + 5×Mana Lily Pigment + 30×Songwater → 2 inks (base)
     -- Normalized per 1 PP unit: AP=0.5, MLP=0.25, TS=1.5; yield includes MC/RS stats from workbook
@@ -399,6 +403,25 @@ local function GetPreferredIngredientPrice(itemIDs, patchTag, qty)
     return nil, false
 end
 
+-- GetEffectiveCraftYield(craftInfo) → stat-adjusted yield (float)
+-- If craftInfo has a formulaProfile, applies the same MC/RS formula as
+-- CalculateStratMetrics so chain expansion and cost derivation match the
+-- direct strategy view.  Falls back to craftInfo.yield when no profile is set.
+local function GetEffectiveCraftYield(craftInfo)
+    local baseYield = craftInfo.yield
+    if not craftInfo.formulaProfile then return baseYield end
+    local profileDef = GetFormulaProfiles()[craftInfo.formulaProfile]
+    if not profileDef then return baseYield end
+    local opts = GetOpts()
+    local statMCp     = profileDef.multiKey and ((opts[profileDef.multiKey] or 0) / 100) or 0
+    local statRp      = profileDef.resKey   and ((opts[profileDef.resKey]   or 0) / 100) or 0
+    local statMCm_tot = profileDef.multiKey and (GAM.C.BASE_MCM * (1 + ((profileDef.mcNodeKey and (opts[profileDef.mcNodeKey] or 0) or 0) / 100))) or 0
+    local statRs_tot  = GAM.C.BASE_RS * (1 + ((profileDef.rsNodeKey and (opts[profileDef.rsNodeKey] or 0) or 0) / 100))
+    local statDenom   = 1 - statRp * statRs_tot
+    if statDenom <= 0 then statDenom = 1 end
+    return baseYield * (1 + statMCp * statMCm_tot) / statDenom
+end
+
 -- GetCraftDerivedReagentCost(itemID, patchTag, outputQty) → cost per output unit (copper), isStale
 -- outputQty (optional): when provided the ingredient price lookups use the
 --   actual per-ingredient volume needed for a qty-aware fill price.
@@ -407,18 +430,20 @@ local function GetCraftDerivedReagentCost(itemID, patchTag, outputQty)
     if not info then return nil, false end
     if (GetOpts()[info.optionKey] or "ah") ~= info.modeValue then return nil, false end
 
+    local effectiveYield = GetEffectiveCraftYield(info)
+    if effectiveYield <= 0 then return nil, false end
+
     local totalCost, anyStale = 0, false
     for _, ingredient in ipairs(info.ingredients) do
-        local ingQty = (outputQty and outputQty > 0 and info.yield and info.yield > 0)
-                       and math.ceil(ingredient.qty * outputQty / info.yield) or nil
+        local ingQty = (outputQty and outputQty > 0)
+                       and math.ceil(ingredient.qty * outputQty / effectiveYield) or nil
         local unitPrice, isStale = GetPreferredIngredientPrice(ingredient.itemIDs, patchTag, ingQty)
         if not unitPrice then return nil, false end
         totalCost = totalCost + (unitPrice * ingredient.qty)
         anyStale = anyStale or isStale
     end
 
-    if not info.yield or info.yield <= 0 then return nil, false end
-    return math.floor(totalCost / info.yield + 0.5), anyStale
+    return math.floor(totalCost / effectiveYield + 0.5), anyStale
 end
 
 -- GetEffectivePriceForItem(item, patchTag, qty) → price, isStale
@@ -576,8 +601,10 @@ local function ExpandReagentThroughChain(itemIDs, qty, patchTag, depth)
     -- Craft derivation (inks → pigments, ingots → ores, bolts → linens)
     local craftInfo = CRAFTED_REAGENT_MAP[picked]
     if craftInfo and (GetOpts()[craftInfo.optionKey] or "ah") == craftInfo.modeValue then
-        -- qty items ÷ yield = primary-ingredient units needed
-        local primaryQty = qty / craftInfo.yield
+        -- qty items ÷ effective yield = primary-ingredient units needed.
+        -- GetEffectiveCraftYield applies MC/RS bonuses when a formulaProfile is set,
+        -- so the ore quantity matches the direct strategy view.
+        local primaryQty = qty / GetEffectiveCraftYield(craftInfo)
         local result = {}
         for _, ing in ipairs(craftInfo.ingredients) do
             local ingQty = primaryQty * ing.qty
