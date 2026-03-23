@@ -43,7 +43,9 @@ Files loaded later can depend on files loaded earlier. Files loaded earlier cann
 - **Bug fixes** → branch from `main` (`fix/<name>`) → merge to `main`, then also to `discord`
 - **Commit style:** `feat(scope): description` / `fix(scope): description` / `chore(data): description`
 - Bump `ADDON_VERSION` in `Constants.lua` **and** `## Version:` in the TOC together — never one without the other
-- Feature releases: minor bump (1.4.x → 1.5.0). Patch fixes: patch bump (1.4.5 → 1.4.6).
+- Bug fixes: increment Z only (1.6.0 → 1.6.1). Z has no digit cap.
+- Feature releases: increment Y, reset Z to 0 (1.6.x → 1.7.0). Y max is 2 digits (99).
+- Major (X) bump: only when explicitly requested.
 
 ## DB Migration
 - Increment `DATA_VERSION` in `Constants.lua` when the SavedVariables schema changes (new fields, renamed keys, removed keys)
