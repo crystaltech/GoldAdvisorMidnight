@@ -1,5 +1,23 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.7] — 2026-03-23
+
+### Bug Fixes
+- **Vertical integration consistency** — Unified rank-policy recipe resolution for pricing-adjacent helpers so `Scan Strat`, CraftSim push, floating detail scan-all, and ARP export now use the same active strategy view as the UI.
+- **Craft own ingots backend path** — Fixed the blacksmithing-specific ingot derivation path so `Sterling Alloy` and `Gloaming Alloy` can correctly expand `Refulgent Copper Ingot` into ore and flux using the same expected-yield math as the spreadsheet.
+- **Nested crafted reagent pricing** — `GetPreferredIngredientPrice()` now forwards quantity into nested craft-derived pricing so ingots, bolts, and herb-milling chains use the correct fill-sensitive material cost.
+- **Expanded reagent UI rows** — Both strategy detail panels now render from metric rows instead of the base recipe rows, so vertical integration shows raw mats instead of leaving ingots, bolts, or pigments on screen.
+- **Strategy switching and row editing** — Removed focus-loss refresh paths that could swallow row clicks and prevent switching strategies while an edit box was active.
+- **Favorite toggle UX** — Favorites can now be toggled directly from the row star gutter, including removing an existing favorite after the list reorders.
+- **Settings apply/cancel behavior** — Native Blizzard settings now refresh visible strategy views when cost-source toggles change, while cancel/close no longer silently saves edits.
+- **Main list refresh performance** — The main strategy list now caches metrics per rebuild instead of recalculating every row repeatedly during sorting and redraw.
+- **Best strategy scoring** — The hero card now uses the same strategy score selection as the pricing module, avoiding inconsistent “best” picks.
+- **ARP export rank coverage** — Export now includes rank-variant-only item IDs so higher-rank columns are not incorrectly emitted as zero.
+
+### Verification
+- `luac -p` passes across addon Lua files.
+- Spreadsheet comparisons against `3-21-26.xlsx` remained aligned after the fixes.
+
 ## [1.7.6] — 2026-03-23
 
 ### Bug Fixes

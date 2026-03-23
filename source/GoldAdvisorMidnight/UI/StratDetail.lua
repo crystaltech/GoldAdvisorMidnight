@@ -337,8 +337,10 @@ local function MakeReagentRow(parent, idx)
         end
         self:ClearFocus()
     end
+    -- Only commit on explicit Enter; OnEditFocusLost fires before row-click events
+    -- propagate, so calling SD.Refresh() there can eat the click and prevent switching strategies.
     qtyEB:SetScript("OnEnterPressed", SaveInputQty)
-    qtyEB:SetScript("OnEditFocusLost", SaveInputQty)
+    qtyEB:SetScript("OnEditFocusLost", function(self) self:ClearFocus() end)
     qtyFS:Hide()
     qtyEB:Hide()
     row.qtyText = qtyFS   -- alias kept for non-primary path
@@ -391,9 +393,10 @@ local function MakeReagentRow(parent, idx)
     return row
 end
 
-local function PopulateReagentRow(row, reagentMetric, reagentDef, isPrimary)
-    row.reagentData = reagentDef
-    local display = GAM.Pricing.GetItemDisplayData(reagentMetric.itemID, reagentDef.name)
+local function PopulateReagentRow(row, reagentMetric, isPrimary)
+    -- Store a scannable reference derived from the metric (expanded item, not original strat def)
+    row.reagentData = { itemIDs = reagentMetric.itemID and {reagentMetric.itemID} or {}, name = reagentMetric.name }
+    local display = GAM.Pricing.GetItemDisplayData(reagentMetric.itemID, reagentMetric.name)
     row.nameText:SetText(display.displayText)
     BindItemRow(row, display)
 
@@ -822,23 +825,43 @@ local function Build()
         GAM.AHScan.StopScan()
         GAM.AHScan.ResetQueue()
         local pdb = GetPDB()
+        local active = (GAM.Pricing and GAM.Pricing.GetActiveRecipeView and GAM.Pricing.GetActiveRecipeView(currentStrat)) or currentStrat
+        local seenIDs = {}
+        local seenNames = {}
         local function queueItem(item)
             if not item or not item.name then return end
             local ids = item.itemIDs
             if (not ids or #ids == 0) then ids = pdb.rankGroups[item.name] or {} end
             if ids and #ids > 0 then
                 for _, id in ipairs(ids) do
-                    GAM.AHScan.QueueItemScan(id, function() SD.Refresh() end)
+                    if not seenIDs[id] then
+                        seenIDs[id] = true
+                        GAM.AHScan.QueueItemScan(id, function() SD.Refresh() end)
+                    end
                 end
             else
-                GAM.AHScan.QueueNameScan(item.name, currentPatch, function() SD.Refresh() end)
+                local nameKey = item.name .. "@" .. tostring(currentPatch or GAM.C.DEFAULT_PATCH)
+                if not seenNames[nameKey] then
+                    seenNames[nameKey] = true
+                    GAM.AHScan.QueueNameScan(item.name, currentPatch, function() SD.Refresh() end)
+                end
             end
         end
-        queueItem(currentStrat.output)
-        if currentStrat.outputs then
-            for _, o in ipairs(currentStrat.outputs) do queueItem(o) end
+        queueItem(active.output)
+        if active.outputs then
+            for _, o in ipairs(active.outputs) do queueItem(o) end
         end
-        for _, r in ipairs(currentStrat.reagents or {}) do queueItem(r) end
+        -- Use the expanded reagent list from the last metrics computation so that
+        -- Scan All queues raw materials (ores, herbs) when vertical integration is on,
+        -- not the intermediate crafted items (ingots, pigments) from the base recipe.
+        local activeReagents = metricsCache and metricsCache.reagents
+        if activeReagents and #activeReagents > 0 then
+            for _, r in ipairs(activeReagents) do
+                queueItem({ itemIDs = r.itemID and {r.itemID} or {}, name = r.name })
+            end
+        else
+            for _, r in ipairs(active.reagents or {}) do queueItem(r) end
+        end
         GAM.AHScan.StartScan()
     end)
     scanAllBtn:SetScript("OnEnter", function(self)
@@ -985,11 +1008,24 @@ function SD.Refresh()
     -- Only the topmost input row is editable so the field remains stable while browsing.
     local reagentMetrics = m and m.reagents or {}
 
+    -- Guard: only show the editable primary field on row 1 when chain expansion has NOT
+    -- changed the first reagent (i.e. the displayed item still matches the base strat's
+    -- first reagent).  If the first base reagent expanded to something else (e.g. pigments
+    -- to herbs when Mill own herbs is on), the editbox would write the herb qty into
+    -- inputQtyOverrides, which expects the strategy's own startingAmount scale.
+    local firstMetID  = reagentMetrics[1] and reagentMetrics[1].itemID
+    local baseR1IDs   = currentStrat.reagents and currentStrat.reagents[1] and currentStrat.reagents[1].itemIDs or {}
+    local firstUnchanged = false
+    for _, id in ipairs(baseR1IDs) do
+        if id == firstMetID then firstUnchanged = true; break end
+    end
+
+    -- Render from m.reagents (expanded/merged metrics) as the source of truth so that
+    -- chain-expanded rows (e.g. ore when craft-ingots is on) display correctly.
     for i, row in ipairs(reagentRows) do
-        local rDef = currentStrat.reagents and currentStrat.reagents[i]
         local rMet = reagentMetrics[i]
-        if rDef and rMet then
-            PopulateReagentRow(row, rMet, rDef, i == 1)
+        if rMet then
+            PopulateReagentRow(row, rMet, i == 1 and firstUnchanged)
         else
             BindItemRow(row, nil)
             row:Hide()
@@ -997,10 +1033,9 @@ function SD.Refresh()
         end
     end
 
-    -- Resize input scroll child
-    local nReagents = currentStrat.reagents and #currentStrat.reagents or 0
+    -- Resize input scroll child to match actual expanded reagent count
     if inputListHost then
-        inputListHost:SetHeight(math.max(1, nReagents * ROW_H))
+        inputListHost:SetHeight(math.max(1, #reagentMetrics * ROW_H))
     end
 
     -- Output section

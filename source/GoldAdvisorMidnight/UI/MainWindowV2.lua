@@ -98,6 +98,9 @@ local shoppingSyncFrame
 local leftPanelChecks = {}  -- refs for external sync (millOwn, craftBolts, craftIngots)
 local compactBtn      = nil -- compact mode toggle button ref
 local compactActive   = false -- tracks whether compact mode layout is currently applied
+local listMetricCache = {}
+local listMetricPatch = nil
+local STRAT_ICON_W    = 20   -- left gutter for star icon
 
 -- ===== Helpers =====
 local function IsFavorite(id)
@@ -112,6 +115,34 @@ local function ToggleFavorite(id)
 end
 
 local function GetL() return GAM.L end
+
+local function IsClickInFavoriteGutter(frameObj)
+    if not frameObj or not frameObj.GetLeft then return false end
+    local left = frameObj:GetLeft()
+    if not left then return false end
+    local cursorX = GetCursorPosition and GetCursorPosition() or nil
+    local scale = frameObj.GetEffectiveScale and frameObj:GetEffectiveScale() or 1
+    if not cursorX or not scale or scale == 0 then return false end
+    local localX = (cursorX / scale) - left
+    return localX >= 0 and localX <= STRAT_ICON_W
+end
+
+local function ClearListMetricCache()
+    listMetricCache = {}
+    listMetricPatch = filterPatch
+end
+
+local function GetListMetric(strat)
+    if not strat then return nil end
+    if listMetricPatch ~= filterPatch then
+        ClearListMetricCache()
+    end
+    local id = strat.id
+    if id and listMetricCache[id] == nil then
+        listMetricCache[id] = GAM.Pricing.CalculateStratMetrics(strat, filterPatch)
+    end
+    return id and listMetricCache[id] or GAM.Pricing.CalculateStratMetrics(strat, filterPatch)
+end
 
 local function GetFormulaProfiles()
     return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
@@ -418,6 +449,10 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     GAM.AHScan.StopScan()
     GAM.AHScan.ResetQueue()
 
+    local displayed = (GAM.Pricing and GAM.Pricing.GetDisplayedItemSet and GAM.Pricing.GetDisplayedItemSet(strat, pt)) or strat
+    local seenIDs = {}
+    local seenNames = {}
+
     local function queueItem(item)
         if not item or not item.name then return end
         local ids = item.itemIDs
@@ -426,16 +461,23 @@ local function ScanSingleStrategy(strat, patchTag, callback)
         end
         if ids and #ids > 0 then
             for _, id in ipairs(ids) do
-                GAM.AHScan.QueueItemScan(id, callback)
+                if not seenIDs[id] then
+                    seenIDs[id] = true
+                    GAM.AHScan.QueueItemScan(id, callback)
+                end
             end
         else
-            GAM.AHScan.QueueNameScan(item.name, pt, callback)
+            local nameKey = item.name .. "@" .. pt
+            if not seenNames[nameKey] then
+                seenNames[nameKey] = true
+                GAM.AHScan.QueueNameScan(item.name, pt, callback)
+            end
         end
     end
 
-    queueItem(strat.output)
-    for _, o in ipairs(strat.outputs or {}) do queueItem(o) end
-    for _, r in ipairs(strat.reagents or {}) do queueItem(r) end
+    queueItem(displayed.output)
+    for _, o in ipairs(displayed.outputs or {}) do queueItem(o) end
+    for _, r in ipairs(displayed.reagents or {}) do queueItem(r) end
     GAM.AHScan.StartScan()
 end
 
@@ -517,6 +559,7 @@ local SORT_FNS = {
 local function RebuildList()
     local all = GAM.Importer.GetAllStrats(filterPatch)
     local out = {}
+    ClearListMetricCache()
     for _, s in ipairs(all) do
         if StratMatchesFilter(s) then
             out[#out + 1] = s
@@ -529,18 +572,14 @@ local function RebuildList()
     -- and ComputePriceForQty runs the full order-book simulation per call.
     local fn = SORT_FNS[sortKey]
     if sortKey == "profit" or sortKey == "roi" then
-        local cache = {}
-        for _, s in ipairs(out) do
-            cache[s.id] = GAM.Pricing.CalculateStratMetrics(s, filterPatch)
-        end
         if sortKey == "profit" then
             fn = function(a, b)
-                local ma, mb = cache[a.id], cache[b.id]
+                local ma, mb = GetListMetric(a), GetListMetric(b)
                 return ((ma and ma.profit) or -math.huge) > ((mb and mb.profit) or -math.huge)
             end
         else
             fn = function(a, b)
-                local ma, mb = cache[a.id], cache[b.id]
+                local ma, mb = GetListMetric(a), GetListMetric(b)
                 return ((ma and ma.roi) or -math.huge) > ((mb and mb.roi) or -math.huge)
             end
         end
@@ -554,6 +593,9 @@ local function RebuildList()
         if sortAsc then return fn(a, b) else return fn(b, a) end
     end)
     filteredList = out
+    for _, s in ipairs(filteredList) do
+        GetListMetric(s)
+    end
     scrollOffset = 0
 end
 
@@ -593,8 +635,6 @@ end
 local ShowInlineDetail   -- defined after BuildInlineDetail; captured by row closures
 
 -- ===== Row frames (30-slot virtual scroll pool) =====
-local STRAT_ICON_W = 20   -- left gutter for star icon
-
 local function MakeRowFrame(parent, idx)
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(ROW_H)
@@ -606,6 +646,28 @@ local function MakeRowFrame(parent, idx)
     star:SetPoint("LEFT", row, "LEFT", 4, 0)
     star:SetAtlas("Professions-ChatIcon-Quality-Tier3", false)
     row.star = star
+
+    local starBtn = CreateFrame("Button", nil, row)
+    starBtn:SetSize(STRAT_ICON_W, ROW_H)
+    starBtn:SetPoint("LEFT", row, "LEFT", 0, 0)
+    starBtn:RegisterForClicks("LeftButtonUp")
+    starBtn:SetScript("OnClick", function(self)
+        local parentRow = self:GetParent()
+        if not parentRow or not parentRow.stratID then return end
+        ToggleFavorite(parentRow.stratID)
+        RebuildList()
+        MW2.RefreshRows()
+    end)
+    starBtn:SetScript("OnEnter", function(self)
+        local parentRow = self:GetParent()
+        if not parentRow or not parentRow.stratID then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(IsFavorite(parentRow.stratID) and "Remove Favorite" or "Add Favorite", 1, 1, 1)
+        GameTooltip:AddLine("Click the star to toggle favorite without reordering issues.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    starBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    row.starBtn = starBtn
 
     -- All text cells — anchored by ApplyColumnLayout
     local nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -650,6 +712,12 @@ local function MakeRowFrame(parent, idx)
 
     row:SetScript("OnClick", function(self, btn)
         if btn ~= "LeftButton" or not self.stratID then return end
+        if IsClickInFavoriteGutter(self) then
+            ToggleFavorite(self.stratID)
+            RebuildList()
+            MW2.RefreshRows()
+            return
+        end
         selectedStratID = self.stratID
         local s = GAM.Importer.GetStratByID(self.stratID)
         if s then
@@ -667,6 +735,7 @@ local function MakeRowFrame(parent, idx)
 
     row:SetScript("OnDoubleClick", function(self)
         if not self.stratID then return end
+        if IsClickInFavoriteGutter(self) then return end
         ToggleFavorite(self.stratID)
         RebuildList()
         MW2.RefreshRows()
@@ -761,7 +830,7 @@ local function PopulateRow(row, strat)
     row.profText:SetText(strat.profession)
     row.profSubText:SetText("")
 
-    local m = GAM.Pricing.CalculateStratMetrics(strat, filterPatch)
+    local m = GetListMetric(strat)
     local noPrice = "|cff888888" .. (L and L["NO_PRICE"] or "—") .. "|r"
     if m then
         row.profitText:SetText(m.profit
@@ -819,14 +888,19 @@ end
 -- ===== BestStratCard =====
 local function RefreshBestStratCard()
     if not bestStratCard then return end
-    local best, profit, roi
+    local best, profit, roi, bestScore, bestCost
     local minProfit = (GAM.C and GAM.C.BEST_STRAT_MIN_PROFIT) or 0
     local minROI = (GAM.C and GAM.C.BEST_STRAT_MIN_ROI) or 0
     for _, strat in ipairs(filteredList) do
-        local m = GAM.Pricing.CalculateStratMetrics(strat, filterPatch)
+        local m = GetListMetric(strat)
         if m and m.profit and m.roi and m.profit >= minProfit and m.roi >= minROI then
-            if (not best) or m.profit > profit then
+            local score, cost = GAM.Pricing.GetStrategyScore(m)
+            local better = not best
+                or score > bestScore
+                or (score == bestScore and (cost or math.huge) < (bestCost or math.huge))
+            if better then
                 best, profit, roi = strat, m.profit, m.roi
+                bestScore, bestCost = score, cost
             end
         end
     end
@@ -1031,6 +1105,7 @@ ShowInlineDetail = function(strat, patchTag)
     -- Refresh best-strat card so it uses the same price/bag snapshot as the detail panel.
     RefreshBestStratCard()
     local m  = GAM.Pricing.CalculateStratMetrics(strat, patchTag)
+    rpDetail.metrics = m
 
     -- Populate the Crafts editbox with the current craft count
     if rpDetail.craftsEB and not rpDetail.craftsEB:HasFocus() then
@@ -1088,12 +1163,14 @@ ShowInlineDetail = function(strat, patchTag)
     end
 
     -- Reagent rows (Name | Qty | Need to Buy | Unit Price)
+    -- Render from m.reagents (the expanded/merged metrics list) as the source of truth.
+    -- This ensures chain-expanded rows (e.g. ore when craft-ingots is on) display correctly
+    -- instead of always showing the original strat reagent definitions.
     local reagentMetrics = m and m.reagents or {}
     for i, row in ipairs(rpDetail.reagentRows) do
-        local rDef = strat.reagents and strat.reagents[i]
         local rMet = reagentMetrics[i]
-        if rDef and rMet then
-            local display = GAM.Pricing.GetItemDisplayData(rMet.itemID, rDef.name)
+        if rMet then
+            local display = GAM.Pricing.GetItemDisplayData(rMet.itemID, rMet.name)
             row.nameFS:SetText(display.displayText)
             BindItemRow(row, display)
             local qtyText = string.format("%.0f", rMet.required or 0)
@@ -1336,13 +1413,9 @@ local function BuildInlineDetail(panel)
         end
         self:ClearFocus()
     end)
-    craftsEB:SetScript("OnEditFocusLost", function(self)
-        if rpDetail.currentStrat then
-            SetCraftsOverride(rpDetail.currentStrat.id, rpDetail.currentPatch, self:GetText())
-            ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
-            MW2.RefreshRows()
-        end
-    end)
+    -- Only commit on explicit Enter; OnEditFocusLost fires before row-click events
+    -- propagate and can swallow the click, preventing strategy switching.
+    craftsEB:SetScript("OnEditFocusLost", function(self) self:ClearFocus() end)
     rpDetail.craftsEB = craftsEB
 
     local craftsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -1442,13 +1515,7 @@ local function BuildInlineDetail(panel)
             end
             self:ClearFocus()
         end)
-        qEB:SetScript("OnEditFocusLost", function(self)
-            if rpDetail.currentStrat then
-                SetInputQtyOverride(rpDetail.currentStrat.id, rpDetail.currentPatch, self:GetText())
-                ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
-                MW2.RefreshRows()
-            end
-        end)
+        qEB:SetScript("OnEditFocusLost", function(self) self:ClearFocus() end)
         local pFS = rRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         pFS:SetPoint("LEFT", rRow, "LEFT", RN + RQ + RNB + 4, 0)
         pFS:SetWidth(RP - 6)
@@ -1571,6 +1638,42 @@ local function BuildInlineDetail(panel)
     btnScanStrat:SetScript("OnClick", function()
         if not rpDetail.currentStrat then return end
         local s, pt = rpDetail.currentStrat, rpDetail.currentPatch
+        local displayedMetrics = rpDetail.metrics
+        if displayedMetrics and displayedMetrics.reagents and #displayedMetrics.reagents > 0 then
+            if not GAM.ahOpen then
+                local L2 = GetL()
+                print("|cffff8800[GAM]|r " .. (L2 and L2["ERR_NO_AH"] or "Open the Auction House first."))
+                return
+            end
+            GAM.AHScan.StopScan()
+            GAM.AHScan.ResetQueue()
+            local seenIDs = {}
+            local seenNames = {}
+            local function queueDisplayed(item)
+                if not item or not item.name then return end
+                local ids = item.itemIDs
+                if ids and #ids > 0 then
+                    for _, id in ipairs(ids) do
+                        if not seenIDs[id] then
+                            seenIDs[id] = true
+                            GAM.AHScan.QueueItemScan(id, function() ShowInlineDetail(s, pt) end)
+                        end
+                    end
+                else
+                    local nameKey = item.name .. "@" .. tostring(pt or GAM.C.DEFAULT_PATCH)
+                    if not seenNames[nameKey] then
+                        seenNames[nameKey] = true
+                        GAM.AHScan.QueueNameScan(item.name, pt, function() ShowInlineDetail(s, pt) end)
+                    end
+                end
+            end
+            local displayed = (GAM.Pricing and GAM.Pricing.GetDisplayedItemSet and GAM.Pricing.GetDisplayedItemSet(s, pt, displayedMetrics)) or s
+            queueDisplayed(displayed.output)
+            for _, o in ipairs(displayed.outputs or {}) do queueDisplayed(o) end
+            for _, r in ipairs(displayed.reagents or {}) do queueDisplayed(r) end
+            GAM.AHScan.StartScan()
+            return
+        end
         ScanSingleStrategy(s, pt, function() ShowInlineDetail(s, pt) end)
     end)
     AttachButtonTooltip(btnScanStrat, (L and L["TT_SCAN_ALL_ITEMS_TITLE"]) or "Scan All Strategy Items",
@@ -2017,25 +2120,46 @@ local function BuildLeftPanelContent(L, C, LP)
     leftPanelChecks.craftBolts = craftBolts
     leftPanelChecks.craftIngots = craftIngots
 
-    millOwn:SetScript("OnClick", function(self)
+    local function CommitSourceToggle(button, optKey, enabledValue)
         local opts = GAM.db and GAM.db.options
         if not opts then return end
-        opts.pigmentCostSource = self:GetChecked() and "mill" or "ah"
-        RefreshVisiblePanels()
+        local wasEnabled = (opts[optKey] or "ah") == enabledValue
+        local applyState = function()
+            local checked = button:GetChecked() and true or false
+            local newEnabled
+            if checked == wasEnabled then
+                -- UICheckButtonTemplate can invoke OnClick before or after the visual
+                -- checked state changes depending on interaction path. If the button
+                -- still reports the previous persisted state here, treat the click as
+                -- an intent to toggle instead of re-saving the old value.
+                newEnabled = not wasEnabled
+            else
+                newEnabled = checked
+            end
+            opts[optKey] = newEnabled and enabledValue or "ah"
+            button:SetChecked(newEnabled)
+            RefreshVisiblePanels()
+        end
+        if C_Timer and C_Timer.After then
+            -- UICheckButtonTemplate updates its visual checked state slightly later than
+            -- the click script in some cases. Defer one tick so the option value matches
+            -- the final visible checkbox state.
+            C_Timer.After(0, applyState)
+        else
+            applyState()
+        end
+    end
+
+    millOwn:SetScript("OnClick", function(self)
+        CommitSourceToggle(self, "pigmentCostSource", "mill")
     end)
 
     craftBolts:SetScript("OnClick", function(self)
-        local opts = GAM.db and GAM.db.options
-        if not opts then return end
-        opts.boltCostSource = self:GetChecked() and "craft" or "ah"
-        RefreshVisiblePanels()
+        CommitSourceToggle(self, "boltCostSource", "craft")
     end)
 
     craftIngots:SetScript("OnClick", function(self)
-        local opts = GAM.db and GAM.db.options
-        if not opts then return end
-        opts.ingotCostSource = self:GetChecked() and "craft" or "ah"
-        RefreshVisiblePanels()
+        CommitSourceToggle(self, "ingotCostSource", "craft")
     end)
 
     local function UpdateSegBtnColors()
@@ -2843,6 +2967,7 @@ function MW2.OnScanProgress(done, total, isComplete)
             local now = GetTime()
             if (now - lastScanRefreshAt) >= 0.75 then
                 lastScanRefreshAt = now
+                ClearListMetricCache()
                 -- Skip RebuildList during scan: prices update per-item so the sort
                 -- order is unstable mid-scan, and the sort itself is expensive when
                 -- the price cache is warm. Full re-sort happens at OnScanComplete.

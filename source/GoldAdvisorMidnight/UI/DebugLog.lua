@@ -193,27 +193,46 @@ local function GenerateARPExport()
 
     local patchTag = GAM.C.DEFAULT_PATCH
 
-    -- Collect unique items by name → itemIDs array (first seen wins)
+    -- Collect unique items by name → itemIDs array, including rank-variant-only IDs.
     local nameToIDs = {}
     local nameOrder = {}
+    local nameToIDSet = {}
 
     local function addItem(name, itemIDs)
         if type(name) ~= "string" or name == "" then return end
         if not itemIDs or #itemIDs == 0 then return end
         if not nameToIDs[name] then
-            nameToIDs[name] = itemIDs
+            nameToIDs[name] = {}
+            nameToIDSet[name] = {}
             nameOrder[#nameOrder + 1] = name
+        end
+        for _, id in ipairs(itemIDs) do
+            if id and not nameToIDSet[name][id] then
+                nameToIDSet[name][id] = true
+                nameToIDs[name][#nameToIDs[name] + 1] = id
+            end
         end
     end
 
     for _, strat in ipairs(GAM.Importer.GetAllStrats()) do
-        local out = strat.output
+        local active = (GAM.Pricing and GAM.Pricing.GetActiveRecipeView and GAM.Pricing.GetActiveRecipeView(strat)) or strat
+        local out = active.output
         if out and out.name and out.itemIDs then addItem(out.name, out.itemIDs) end
-        for _, o2 in ipairs(strat.outputs or {}) do
+        for _, o2 in ipairs(active.outputs or {}) do
             if o2.name and o2.itemIDs then addItem(o2.name, o2.itemIDs) end
         end
-        for _, r in ipairs(strat.reagents or {}) do
+        for _, r in ipairs(active.reagents or {}) do
             if r.name and r.itemIDs then addItem(r.name, r.itemIDs) end
+        end
+        for _, variant in pairs(strat.rankVariants or {}) do
+            local vOut = variant.output
+            if vOut and vOut.name and vOut.itemIDs then addItem(vOut.name, vOut.itemIDs) end
+            for _, o2 in ipairs(variant.outputs or {}) do
+                if o2.name and o2.itemIDs then addItem(o2.name, o2.itemIDs) end
+            end
+            for _, r in ipairs(variant.reagents or {}) do
+                if r.name and r.itemIDs then addItem(r.name, r.itemIDs) end
+            end
         end
     end
 

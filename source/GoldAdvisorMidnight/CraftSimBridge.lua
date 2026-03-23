@@ -144,6 +144,7 @@ function Bridge.PushStratPrices(strat, patchTag)
 
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local pdb = GAM:GetPatchDB(patchTag)
+    local active = (GAM.Pricing and GAM.Pricing.GetActiveRecipeView and GAM.Pricing.GetActiveRecipeView(strat)) or strat
 
     -- Ensure DB structure exists
     CraftSimDB.priceOverrideDB            = CraftSimDB.priceOverrideDB or {}
@@ -152,6 +153,7 @@ function Bridge.PushStratPrices(strat, patchTag)
     CraftSimDB.priceOverrideDB.data.globalOverrides = overrides
 
     local pushed = 0
+    local pushedIDs = {}
 
     local function PushItem(item)
         if not item then return end
@@ -161,21 +163,27 @@ function Bridge.PushStratPrices(strat, patchTag)
         end
         if not ids then return end
         for _, id in ipairs(ids) do
-            local price = GAM.Pricing.GetUnitPrice(id)
-            if price and price > 0 then
-                overrides[id] = { itemID = id, price = price }
-                pushed = pushed + 1
+            if not pushedIDs[id] then
+                local price = GAM.Pricing.GetUnitPrice(id)
+                if price and price > 0 then
+                    pushedIDs[id] = true
+                    overrides[id] = { itemID = id, price = price }
+                    pushed = pushed + 1
+                end
             end
         end
     end
 
-    for _, r in ipairs(strat.reagents or {}) do
+    -- Push the active strat item set (respecting rank policy), not expanded raw-mat
+    -- metrics, so CraftSim overrides stay attached to the strat's actual reagent items.
+    for _, r in ipairs(active.reagents or {}) do
         PushItem(r)
     end
-    if strat.outputs and #strat.outputs > 0 then
-        for _, o in ipairs(strat.outputs) do PushItem(o) end
+    PushItem(active.output)
+    if active.outputs and #active.outputs > 0 then
+        for _, o in ipairs(active.outputs) do PushItem(o) end
     else
-        PushItem(strat.output)
+        PushItem(active.output)
     end
 
     return pushed, nil

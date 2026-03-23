@@ -655,7 +655,10 @@ local function BuildPanel()
 
     -- ── Apply logic ────────────────────────────────────────────────────────
     local function ApplySettings()
-        local prevQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+        local prevQty             = opts.shallowFillQty    or GAM.C.DEFAULT_FILL_QTY
+        local prevPigment         = opts.pigmentCostSource or "ah"
+        local prevBolt            = opts.boltCostSource    or "ah"
+        local prevIngot           = opts.ingotCostSource   or "ah"
 
         opts.scanDelay      = slScanDelay:GetValue()
         opts.debugVerbosity = slVerbosity:GetValue()
@@ -719,10 +722,20 @@ local function BuildPanel()
 
         GAM.Log.Info("Fill qty: %d", opts.shallowFillQty)
 
-        if qtyChanged and GAM.UI and GAM.UI.StratDetail and
-            GAM.UI.StratDetail.IsShown and GAM.UI.StratDetail.Refresh and
-            GAM.UI.StratDetail.IsShown() then
-            GAM.UI.StratDetail.Refresh()
+        local costSourceChanged = (opts.pigmentCostSource ~= prevPigment)
+                                or (opts.boltCostSource    ~= prevBolt)
+                                or (opts.ingotCostSource   ~= prevIngot)
+
+        -- Refresh visible strategy panels when fill qty or any cost source changed
+        if qtyChanged or costSourceChanged then
+            if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
+                GAM.UI.MainWindowV2.Refresh()
+            end
+            if GAM.UI and GAM.UI.StratDetail and
+                GAM.UI.StratDetail.IsShown and GAM.UI.StratDetail.Refresh and
+                GAM.UI.StratDetail.IsShown() then
+                GAM.UI.StratDetail.Refresh()
+            end
         end
 
         -- Sync cost-source checkboxes back to the V2 left panel
@@ -733,10 +746,7 @@ local function BuildPanel()
         GAM.Log.Info("Settings saved.")
     end
 
-    -- Re-sync checkboxes from opts whenever the panel is shown
-    -- (covers changes made via the V2 left panel since settings was last opened)
-    panel:SetScript("OnShow", function()
-        local o = GAM.db and GAM.db.options
+    local function SyncControlsFromOptions(o)
         if not o then return end
         cbMinimap:SetChecked(not o.minimapHidden)
         cbAutoOpenAH:SetChecked(o.autoOpenWithAH ~= false)
@@ -748,28 +758,42 @@ local function BuildPanel()
         ebFillQty:SetText(tostring(o.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
         rankCurrent = (o.rankPolicy == "highest") and "highest" or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
+    end
+
+    -- Re-sync checkboxes from opts whenever the panel is shown
+    -- (covers changes made via the V2 left panel since settings was last opened)
+    panel:SetScript("OnShow", function()
+        local o = GAM.db and GAM.db.options
+        if not o then return end
+        SyncControlsFromOptions(o)
     end)
 
     -- Blizzard Settings ok/cancel callbacks
     panel.name   = L["SETTINGS_NAME"]
-    panel.cancel = function() end
+    panel.cancel = function()
+        local o = GAM.db and GAM.db.options
+        if o then
+            SyncControlsFromOptions(o)
+        end
+    end
 
-    -- Guard prevents double-apply: panel.okay sets the flag so the OnHide
-    -- handler (which fires immediately after okay on native Settings close)
-    -- knows not to run ApplySettings a second time.
+    -- Guard prevents double-apply after native okay/apply.
     local applyCalledFromOkay = false
     panel.okay = function()
         applyCalledFromOkay = true
         ApplySettings()
     end
 
-    -- Apply on close for both native Blizzard settings and standalone fallback.
+    -- Native Blizzard settings should not auto-apply on hide/cancel.
+    -- Standalone fallback keeps the historical apply-on-close behavior.
     panel:SetScript("OnHide", function()
         if applyCalledFromOkay then
             applyCalledFromOkay = false
             return
         end
-        ApplySettings()
+        if not nativeMode then
+            ApplySettings()
+        end
     end)
 
     applyBtn:SetScript("OnClick", function()

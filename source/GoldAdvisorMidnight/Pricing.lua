@@ -11,6 +11,9 @@ GAM.Pricing = Pricing
 local function GetDB() return GAM.db end
 local function GetOpts() return GAM.db and GAM.db.options or {} end
 local function GetPatchDB(pt) return GAM:GetPatchDB(pt) end
+local function GetFormulaProfiles()
+    return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+end
 
 local function RequestItemData(itemID)
     if not itemID or itemID == 0 then return end
@@ -41,6 +44,47 @@ local function GetActiveRecipeView(strat)
         output = strat.output or (strat.outputs and strat.outputs[1]),
         reagents = strat.reagents,
     }
+end
+
+-- Public helper so non-pricing helpers (scan buttons, exports, CraftSim push)
+-- can use the same rank-policy-resolved reagent/output set as pricing.
+function Pricing.GetActiveRecipeView(strat)
+    return GetActiveRecipeView(strat)
+end
+
+-- Shared helper for non-pricing actions that should mirror the currently displayed
+-- strategy view. Outputs always come from the active rank-policy recipe view; reagents
+-- may come from the expanded metrics list when a caller passes one in.
+function Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
+    local active = GetActiveRecipeView(strat)
+    if not active then return nil end
+    local reagentItems = {}
+    if metrics and metrics.reagents and #metrics.reagents > 0 then
+        for _, r in ipairs(metrics.reagents) do
+            reagentItems[#reagentItems + 1] = {
+                itemIDs = r.itemID and { r.itemID } or {},
+                name = r.name,
+            }
+        end
+    else
+        reagentItems = active.reagents or {}
+    end
+    return {
+        output = active.output,
+        outputs = active.outputs or {},
+        reagents = reagentItems,
+    }
+end
+
+local function GetStrategyScoreFromMetrics(metrics)
+    if not metrics then return nil, nil end
+    local p, r, cost = metrics.profit, metrics.roi, metrics.totalCostToBuy
+    if not p or not r then return nil, cost end
+    return p * math.sqrt(r), cost
+end
+
+function Pricing.GetStrategyScore(metrics)
+    return GetStrategyScoreFromMetrics(metrics)
 end
 
 local function GetResolvedItemIDs(item, patchTag)
@@ -388,7 +432,7 @@ local function GetPreferredIngredientPrice(itemIDs, patchTag, qty)
         end
         -- Respect craft derivation (inks when pigmentCostSource=mill, ingots/bolts per their options)
         if CRAFTED_REAGENT_MAP[picked] then
-            local p, s = GetCraftDerivedReagentCost(picked, patchTag)
+            local p, s = GetCraftDerivedReagentCost(picked, patchTag, qty)
             if p then return p, s end
         end
         local price, isStale = Pricing.GetEffectivePrice(picked, patchTag, qty)
@@ -576,10 +620,6 @@ function Pricing.FormatPrice(copper)
 end
 
 -- ===== Stat scaling (Workbook-driven formula profiles) =====
-
-local function GetFormulaProfiles()
-    return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
-end
 
 -- ===== Chain expansion for shopping list =====
 
@@ -995,10 +1035,9 @@ function Pricing.GetBestStrategy(patchTag, profFilter)
         if profFilter == "All" or strat.profession == profFilter then
             local m = Pricing.CalculateStratMetrics(strat, patchTag)
             if m then
-                local p, r, cost = m.profit, m.roi, m.totalCostToBuy
+                local p, r = m.profit, m.roi
                 if p and p >= minProfit and r and r >= minROI then
-                    -- Composite score: profit × √ROI (balances magnitude vs capital efficiency)
-                    local score = p * math.sqrt(r)
+                    local score, cost = GetStrategyScoreFromMetrics(m)
                     local better = not bestStrat
                         or score > bestScore
                         or (score == bestScore
