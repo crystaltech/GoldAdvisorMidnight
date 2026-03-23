@@ -532,6 +532,42 @@ handlers["PLAYER_LOGIN"] = function(self)
     end
 end
 
+-- ===== AH mini-button =====
+-- Small circle button on AuctionHouseFrame. Shows only when auto-open is disabled.
+-- Lazy-created on first AH open so AuctionHouseFrame is guaranteed to exist.
+local ahBtn
+local function GetOrCreateAHButton()
+    if ahBtn then return ahBtn end
+    ahBtn = CreateFrame("Button", "GAMAHButton", AuctionHouseFrame)
+    ahBtn:SetSize(26, 26)
+    ahBtn:SetPoint("TOPRIGHT", AuctionHouseFrame, "TOPRIGHT", -52, -8)
+    ahBtn:SetFrameStrata("HIGH")
+    ahBtn:SetFrameLevel(AuctionHouseFrame:GetFrameLevel() + 5)
+    local bg = ahBtn:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+    local icon = ahBtn:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(18, 18)
+    icon:SetPoint("CENTER")
+    icon:SetTexture("Interface\\Icons\\inv_misc_coin_01")
+    local hl = ahBtn:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+    hl:SetAlpha(0.4)
+    ahBtn:SetScript("OnClick", function()
+        if GAM.UI and GAM.UI.MainWindowV2 then GAM.UI.MainWindowV2.Toggle() end
+    end)
+    ahBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:SetText("Gold Advisor", 1, 0.82, 0, 1)
+        GameTooltip:AddLine("Click to show/hide", 0.8, 0.8, 0.8, 1)
+        GameTooltip:Show()
+    end)
+    ahBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    ahBtn:Hide()
+    return ahBtn
+end
+
 -- ===== AUCTION_HOUSE_SHOW =====
 handlers["AUCTION_HOUSE_SHOW"] = function(self)
     self.ahOpen = true
@@ -540,6 +576,9 @@ handlers["AUCTION_HOUSE_SHOW"] = function(self)
     if self.UI and self.UI.MainWindowV2 and (opts == nil or opts.autoOpenWithAH ~= false) then
         self.UI.MainWindowV2.Show()
     end
+    -- Show AH button only when auto-open is disabled
+    local btn = GetOrCreateAHButton()
+    btn:SetShown(opts ~= nil and opts.autoOpenWithAH == false)
     -- Pre-warm itemKey cache from persisted DB (skips slow browse on subsequent scans)
     if self.AHScan and self.AHScan.PreWarmCache then
         self.AHScan.PreWarmCache()
@@ -559,6 +598,7 @@ handlers["AUCTION_HOUSE_CLOSED"] = function(self)
     if self.AHScan then
         self.AHScan.OnAHClosed()
     end
+    if ahBtn then ahBtn:Hide() end
     local opts = self.db and self.db.options
     if opts and opts.closeWithAH and self.UI and self.UI.MainWindowV2 then
         self.UI.MainWindowV2.Hide()

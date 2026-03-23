@@ -207,44 +207,8 @@ local function LayoutButtonsTop(parent, buttons, topY, cfg)
     }
 end
 
--- ===== Helper: dropdown =====
-local function MakeDropdown(parent, label, options, yOff)
-    local f = CreateFrame("Frame", nil, parent)
-    f:SetSize(300, 42)
-    f:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOff)
-
-    local lbl = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lbl:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
-    lbl:SetText(label)
-
-    local dd = CreateFrame("Frame", nil, f, "UIDropDownMenuTemplate")
-    dd:SetPoint("TOPLEFT", lbl, "BOTTOMLEFT", -15, -2)
-    UIDropDownMenu_SetWidth(dd, 200)
-
-    local currentVal
-    local function SetVal(val, text)
-        currentVal = val
-        UIDropDownMenu_SetSelectedValue(dd, val)
-        UIDropDownMenu_SetText(dd, text)
-    end
-    f.SetValue = SetVal
-    f.GetValue = function() return currentVal end
-
-    UIDropDownMenu_Initialize(dd, function(self, level)
-        for _, opt in ipairs(options) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text    = opt.text
-            info.value   = opt.value
-            info.checked = (opt.value == currentVal)
-            info.func    = function()
-                SetVal(opt.value, opt.text)
-            end
-            UIDropDownMenu_AddButton(info, level)
-        end
-    end)
-
-    return f
-end
+-- (MakeDropdown removed: UIDropDownMenuTemplate pops outside ScrollFrame in Midnight 12.x.
+--  Rank policy now uses a cycle button; see ddRank below.)
 
 -- Formats an integer with thousands-separator commas: 50000 → "50,000"
 local function FmtQty(n)
@@ -313,13 +277,26 @@ local function BuildPanel()
     cbMinimap:SetChecked(not opts.minimapHidden)
     y = y - 32
 
-    local ddRank = MakeDropdown(content, L["OPT_RANK_POLICY"], {
-        { text = L["OPT_RANK_HIGHEST"], value = "highest" },
-        { text = L["OPT_RANK_LOWEST"],  value = "lowest"  },
-    }, y)
-    ddRank.SetValue(opts.rankPolicy == "highest" and "highest" or "lowest",
-        opts.rankPolicy == "highest" and L["OPT_RANK_HIGHEST"] or L["OPT_RANK_LOWEST"])
-    y = y - 50
+    -- Rank policy: cycle button (Lowest ↔ Highest) — avoids UIDropDownMenu pop-out bug
+    local rankLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    rankLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
+    rankLabel:SetText(L["OPT_RANK_POLICY"])
+
+    local rankTexts = { lowest = L["OPT_RANK_LOWEST"], highest = L["OPT_RANK_HIGHEST"] }
+    local rankCurrent = (opts.rankPolicy == "highest") and "highest" or "lowest"
+
+    local rankBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+    rankBtn:SetSize(110, 22)
+    rankBtn:SetPoint("LEFT", rankLabel, "RIGHT", 12, 0)
+    rankBtn:SetText(rankTexts[rankCurrent])
+    rankBtn:SetScript("OnClick", function()
+        rankCurrent = (rankCurrent == "lowest") and "highest" or "lowest"
+        rankBtn:SetText(rankTexts[rankCurrent])
+    end)
+
+    -- Shim so ApplySettings can call ddRank.GetValue() unchanged
+    local ddRank = { GetValue = function() return rankCurrent end }
+    y = y - 30
 
     local slScale, slScaleVal = MakeSlider(content, L["OPT_UI_SCALE"], L["OPT_UI_SCALE_TIP"],
         GAM.C.MIN_UI_SCALE, GAM.C.MAX_UI_SCALE, 0.05, y)
@@ -593,6 +570,7 @@ local function BuildPanel()
     })
     y = y - actionsRow1.usedHeight - 10
 
+    --[[ DISABLED: Create Custom Strategy / Import Strategy
     -- Row 2: strategy actions (auto-sized, centered, wrapped if needed)
     local btnCreate = MakeButton(content, L["BTN_CREATE_STRAT"], 150)
     btnCreate:SetScript("OnClick", function()
@@ -612,6 +590,7 @@ local function BuildPanel()
         left = 14, right = 546, gap = 8, rowGap = 4, align = "center",
     })
     y = y - actionsRow2.usedHeight - 14
+    -- END DISABLED ]]
 
     -- ── Credits & Thanks ───────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_CREDITS"], y)
@@ -767,6 +746,8 @@ local function BuildPanel()
         cbCraftIngots:SetChecked((o.ingotCostSource or "ah") == "craft")
         slScale:SetValue(o.uiScale or GAM.C.DEFAULT_UI_SCALE)
         ebFillQty:SetText(tostring(o.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
+        rankCurrent = (o.rankPolicy == "highest") and "highest" or "lowest"
+        rankBtn:SetText(rankTexts[rankCurrent])
     end)
 
     -- Blizzard Settings ok/cancel callbacks

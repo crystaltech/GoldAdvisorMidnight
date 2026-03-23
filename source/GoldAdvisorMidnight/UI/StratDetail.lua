@@ -971,7 +971,7 @@ function SD.Refresh()
     local isUser = currentStrat._isUser == true
     if frame.btnDelete then frame.btnDelete:SetShown(isUser) end
     if frame.btnEdit   then frame.btnEdit:SetShown(isUser)   end
-    if frame.btnExport then frame.btnExport:SetShown(isUser) end
+    if frame.btnExport then frame.btnExport:Hide() end
 
     -- Fill qty notice (always shown — displays the configured fill qty)
     if frame.expNotice then

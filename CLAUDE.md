@@ -22,7 +22,7 @@ WoW addon (Lua) for WoW Midnight (Interface 120001). All shipped code lives in `
 | `UI/StratCreator.lua` | Custom strategy creation UI |
 | `UI/DebugLog.lua` | Scrollable debug log frame + ARP price export |
 | `Data/WorkbookGenerated.lua` | AUTO-GENERATED — item catalog + formula profiles per profession |
-| `Data/StratsGenerated.lua` | AUTO-GENERATED — all 64 strategy definitions |
+| `Data/StratsGenerated.lua` | AUTO-GENERATED — all 68 strategy definitions |
 
 ## Load Order
 Constants → Locale → Log → Core → Minimap → Settings → Pricing → AHScan → Importer → Data/* → CraftSimBridge → UI/*
@@ -83,6 +83,7 @@ Files loaded later can depend on files loaded earlier. Files loaded earlier cann
 - `references/Spreadsheet/*.xlsx` are the source of truth for item data. Do not attempt to read them directly.
 - `tools/compare_strats.py` — verifies `StratsGenerated.lua` matches the spreadsheet. Must show 0 mismatches before any release.
 - `tools/verify_stat_scaling.py` — verifies crafting stat scaling calculations against expected values.
+- `tools/manual_strats.json` — supplemental strategy entries not yet in the spreadsheet; regenerated and appended to `StratsGenerated.lua` by the generator with a `-- MANUAL:` marker.
 - Encoding scheme documented in `tools/ENCODING_HOWTO.md`.
 
 ## Release Workflow
