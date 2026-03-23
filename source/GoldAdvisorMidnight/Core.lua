@@ -581,9 +581,7 @@ handlers["AUCTION_HOUSE_SHOW"] = function(self)
     if self.UI and self.UI.MainWindowV2 and (opts == nil or opts.autoOpenWithAH ~= false) then
         self.UI.MainWindowV2.Show()
     end
-    -- Show AH button only when auto-open is disabled
-    local btn = GetOrCreateAHButton()
-    btn:SetShown(opts ~= nil and opts.autoOpenWithAH == false)
+    GetOrCreateAHButton():Show()
     -- Pre-warm itemKey cache from persisted DB (skips slow browse on subsequent scans)
     if self.AHScan and self.AHScan.PreWarmCache then
         self.AHScan.PreWarmCache()
