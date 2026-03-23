@@ -540,7 +540,12 @@ local function GetOrCreateAHButton()
     if ahBtn then return ahBtn end
     ahBtn = CreateFrame("Button", "GAMAHButton", AuctionHouseFrame)
     ahBtn:SetSize(26, 26)
-    ahBtn:SetPoint("TOPRIGHT", AuctionHouseFrame, "TOPRIGHT", -52, -8)
+    local closeBtn = AuctionHouseFrame.CloseButton or _G["AuctionHouseFrameCloseButton"]
+    if closeBtn then
+        ahBtn:SetPoint("RIGHT", closeBtn, "LEFT", -4, 0)
+    else
+        ahBtn:SetPoint("TOPRIGHT", AuctionHouseFrame, "TOPRIGHT", -30, -4)
+    end
     ahBtn:SetFrameStrata("HIGH")
     ahBtn:SetFrameLevel(AuctionHouseFrame:GetFrameLevel() + 5)
     local bg = ahBtn:CreateTexture(nil, "BACKGROUND")
