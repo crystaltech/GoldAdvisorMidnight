@@ -149,7 +149,9 @@ def parse_blacksmithing_block(ws, sb_col, sb_row):
     q2_crafts = fval(ws.cell(q2_crafts_row, data_col).value)
     q2_ingredients_q1_col = []
     q2_ingredients_q2_col = []
-    for r_off in range(3, 12):
+    # Same workbook layout as generate_workbook_data.py: the first Q2 reagent row
+    # is two rows below the crafts row, immediately after the Q1/Q2 header row.
+    for r_off in range(2, 12):
         r = q2_crafts_row + r_off
         v_q1 = fval(ws.cell(r, q2_col_q1).value)
         v_q2 = fval(ws.cell(r, q2_col_q2).value)

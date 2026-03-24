@@ -2154,14 +2154,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
         {
           itemRef = "Refulgent Copper Ore",
           itemIDs = { 237359 },
-          qtyPerCraft = 2.000000,
-          workbookTotalQty = 2000.000000,
+          qtyPerCraft = 3.000000,
+          workbookTotalQty = 3000.000000,
         },
         {
           itemRef = "Refulgent Copper Ore",
           itemIDs = { 237361 },
-          qtyPerCraft = 5.000000,
-          workbookTotalQty = 5000.000000,
+          qtyPerCraft = 2.000000,
+          workbookTotalQty = 2000.000000,
         },
         {
           itemRef = "Luminant Flux",
@@ -2261,8 +2261,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
         {
           itemRef = "Umbral Tin Ore",
           itemIDs = { 237362 },
-          qtyPerCraft = 4.000000,
-          workbookTotalQty = 4000.000000,
+          qtyPerCraft = 3.000000,
+          workbookTotalQty = 3000.000000,
         },
         {
           itemRef = "Umbral Tin Ore",
@@ -2273,14 +2273,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
-          qtyPerCraft = 6.000000,
-          workbookTotalQty = 6000.000000,
+          qtyPerCraft = 4.000000,
+          workbookTotalQty = 4000.000000,
         },
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238198 },
-          qtyPerCraft = 4.000000,
-          workbookTotalQty = 4000.000000,
+          qtyPerCraft = 3.000000,
+          workbookTotalQty = 3000.000000,
         },
       },
     },
@@ -2298,9 +2298,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Umbral Tin Ore",
       itemIDs = { 237362 },
-      qtyPerCraft = 3.000000,
+      qtyPerCraft = 6.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 3000.000000,
+      workbookTotalQty = 6000.000000,
     },
     {
       itemRef = "Luminant Flux",
@@ -2381,8 +2381,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
         {
           itemRef = "Brilliant Silver Ore",
           itemIDs = { 237364 },
-          qtyPerCraft = 4.000000,
-          workbookTotalQty = 4000.000000,
+          qtyPerCraft = 3.000000,
+          workbookTotalQty = 3000.000000,
         },
         {
           itemRef = "Brilliant Silver Ore",
@@ -2393,14 +2393,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
-          qtyPerCraft = 6.000000,
-          workbookTotalQty = 6000.000000,
+          qtyPerCraft = 4.000000,
+          workbookTotalQty = 4000.000000,
         },
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238198 },
-          qtyPerCraft = 4.000000,
-          workbookTotalQty = 4000.000000,
+          qtyPerCraft = 3.000000,
+          workbookTotalQty = 3000.000000,
         },
       },
     },
@@ -2418,9 +2418,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Brilliant Silver Ore",
       itemIDs = { 237364 },
-      qtyPerCraft = 3.000000,
+      qtyPerCraft = 6.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 3000.000000,
+      workbookTotalQty = 6000.000000,
     },
     {
       itemRef = "Luminant Flux",
