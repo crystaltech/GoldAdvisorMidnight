@@ -1,20 +1,20 @@
 [
   {
-    "id": "inscription__aurora_missive_r1__midnight_1",
+    "id": "inscription__aurora_missive__midnight_1",
     "patchTag": "midnight-1",
     "profession": "Inscription",
-    "stratName": "Thalassian Missive of the Aurora R1",
+    "stratName": "Thalassian Missive of the Aurora",
     "defaultStartingAmount": 1.0,
     "defaultCrafts": 1.0,
     "formulaProfile": "insc_ink",
     "calcMode": "formula",
     "qualityPolicy": "normal",
     "outputQualityMode": "rank_policy",
-    "notes": "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+    "notes": "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
     "outputs": [
       {
         "itemRef": "Thalassian Missive of the Aurora",
-        "itemIDs": [245781],
+        "itemIDs": [245781, 245782],
         "baseYieldPerCraft": 1.0,
         "baseYield": 1.0,
         "workbookExpectedQty": 1.0
@@ -28,21 +28,21 @@
     ]
   },
   {
-    "id": "inscription__feverflare_missive_r1__midnight_1",
+    "id": "inscription__feverflare_missive__midnight_1",
     "patchTag": "midnight-1",
     "profession": "Inscription",
-    "stratName": "Thalassian Missive of the Feverflare R1",
+    "stratName": "Thalassian Missive of the Feverflare",
     "defaultStartingAmount": 1.0,
     "defaultCrafts": 1.0,
     "formulaProfile": "insc_ink",
     "calcMode": "formula",
     "qualityPolicy": "normal",
     "outputQualityMode": "rank_policy",
-    "notes": "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+    "notes": "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
     "outputs": [
       {
         "itemRef": "Thalassian Missive of the Feverflare",
-        "itemIDs": [245783],
+        "itemIDs": [245783, 245784],
         "baseYieldPerCraft": 1.0,
         "baseYield": 1.0,
         "workbookExpectedQty": 1.0
@@ -56,21 +56,21 @@
     ]
   },
   {
-    "id": "inscription__fireflash_missive_r1__midnight_1",
+    "id": "inscription__fireflash_missive__midnight_1",
     "patchTag": "midnight-1",
     "profession": "Inscription",
-    "stratName": "Thalassian Missive of the Fireflash R1",
+    "stratName": "Thalassian Missive of the Fireflash",
     "defaultStartingAmount": 1.0,
     "defaultCrafts": 1.0,
     "formulaProfile": "insc_ink",
     "calcMode": "formula",
     "qualityPolicy": "normal",
     "outputQualityMode": "rank_policy",
-    "notes": "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+    "notes": "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
     "outputs": [
       {
         "itemRef": "Thalassian Missive of the Fireflash",
-        "itemIDs": [245785],
+        "itemIDs": [245785, 245786],
         "baseYieldPerCraft": 1.0,
         "baseYield": 1.0,
         "workbookExpectedQty": 1.0
@@ -84,21 +84,21 @@
     ]
   },
   {
-    "id": "inscription__harmonious_missive_r1__midnight_1",
+    "id": "inscription__harmonious_missive__midnight_1",
     "patchTag": "midnight-1",
     "profession": "Inscription",
-    "stratName": "Thalassian Missive of the Harmonious R1",
+    "stratName": "Thalassian Missive of the Harmonious",
     "defaultStartingAmount": 1.0,
     "defaultCrafts": 1.0,
     "formulaProfile": "insc_ink",
     "calcMode": "formula",
     "qualityPolicy": "normal",
     "outputQualityMode": "rank_policy",
-    "notes": "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+    "notes": "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
     "outputs": [
       {
         "itemRef": "Thalassian Missive of the Harmonious",
-        "itemIDs": [245787],
+        "itemIDs": [245787, 245788],
         "baseYieldPerCraft": 1.0,
         "baseYield": 1.0,
         "workbookExpectedQty": 1.0
@@ -112,21 +112,21 @@
     ]
   },
   {
-    "id": "inscription__peerless_missive_r1__midnight_1",
+    "id": "inscription__peerless_missive__midnight_1",
     "patchTag": "midnight-1",
     "profession": "Inscription",
-    "stratName": "Thalassian Missive of the Peerless R1",
+    "stratName": "Thalassian Missive of the Peerless",
     "defaultStartingAmount": 1.0,
     "defaultCrafts": 1.0,
     "formulaProfile": "insc_ink",
     "calcMode": "formula",
     "qualityPolicy": "normal",
     "outputQualityMode": "rank_policy",
-    "notes": "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+    "notes": "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
     "outputs": [
       {
         "itemRef": "Thalassian Missive of the Peerless",
-        "itemIDs": [245789],
+        "itemIDs": [245789, 245790],
         "baseYieldPerCraft": 1.0,
         "baseYield": 1.0,
         "workbookExpectedQty": 1.0
@@ -169,21 +169,21 @@
     ]
   },
   {
-    "id": "inscription__quickblade_missive_r1__midnight_1",
+    "id": "inscription__quickblade_missive__midnight_1",
     "patchTag": "midnight-1",
     "profession": "Inscription",
-    "stratName": "Thalassian Missive of the Quickblade R1",
+    "stratName": "Thalassian Missive of the Quickblade",
     "defaultStartingAmount": 1.0,
     "defaultCrafts": 1.0,
     "formulaProfile": "insc_ink",
     "calcMode": "formula",
     "qualityPolicy": "normal",
     "outputQualityMode": "rank_policy",
-    "notes": "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+    "notes": "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
     "outputs": [
       {
         "itemRef": "Thalassian Missive of the Quickblade",
-        "itemIDs": [245791],
+        "itemIDs": [245791, 245792],
         "baseYieldPerCraft": 1.0,
         "baseYield": 1.0,
         "workbookExpectedQty": 1.0

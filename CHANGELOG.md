@@ -1,5 +1,12 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.11] — 2026-03-24
+
+### Bug Fixes
+- **Missive R2 support** — Added `R2` output item IDs for all six manual inscription missives so they now follow the global rank-policy setting instead of being `R1`-only.
+- **Missive naming cleanup** — Removed the `R1` suffix from manual missive strategy IDs and names now that those strategies support both `R1` and `R2`.
+- **Manual data dedupe** — Fixed generated-data regeneration so existing `Manual` entries are skipped before the manual JSON section is appended, removing the duplicate missive blocks that had accumulated in `StratsGenerated.lua`.
+
 ## [1.7.10] — 2026-03-24
 
 ### Bug Fixes

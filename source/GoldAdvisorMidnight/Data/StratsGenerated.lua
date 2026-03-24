@@ -159,7 +159,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 245805, 245806 },
       baseYieldPerCraft = 2.000000,
       baseYield = 0.100000,
-      workbookExpectedQty = 672.957360,
+      workbookExpectedQty = 672.957361,
     },
   },
   reagents = {
@@ -214,7 +214,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 245801, 245802 },
       baseYieldPerCraft = 2.000000,
       baseYield = 0.100000,
-      workbookExpectedQty = 672.957360,
+      workbookExpectedQty = 672.957361,
     },
   },
   reagents = {
@@ -2207,7 +2207,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Blacksmithing",
   sourceBlock = "F4",
   defaultStartingAmount = 6000.000000,
-  defaultCrafts = 1000.000000,
+  defaultCrafts = 100.000000,
   formulaProfile = "blacksmithing",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2222,7 +2222,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Gloaming Alloy",
           itemIDs = { 238202, 238203 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 1428.911961,
+          workbookExpectedQty = 142.891196,
         },
       },
       reagents = {
@@ -2230,19 +2230,19 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Umbral Tin Ore",
           itemIDs = { 237362 },
           qtyPerCraft = 6.000000,
-          workbookTotalQty = 6000.000000,
+          workbookTotalQty = 600.000000,
         },
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
           qtyPerCraft = 4.000000,
-          workbookTotalQty = 4000.000000,
+          workbookTotalQty = 400.000000,
         },
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238197 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 3000.000000,
+          workbookTotalQty = 300.000000,
         },
       },
     },
@@ -2254,7 +2254,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Gloaming Alloy",
           itemIDs = { 238202, 238203 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 1428.911961,
+          workbookExpectedQty = 142.891196,
         },
       },
       reagents = {
@@ -2262,25 +2262,25 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Umbral Tin Ore",
           itemIDs = { 237362 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 3000.000000,
+          workbookTotalQty = 300.000000,
         },
         {
           itemRef = "Umbral Tin Ore",
           itemIDs = { 237363 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 3000.000000,
+          workbookTotalQty = 300.000000,
         },
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
           qtyPerCraft = 4.000000,
-          workbookTotalQty = 4000.000000,
+          workbookTotalQty = 400.000000,
         },
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238198 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 3000.000000,
+          workbookTotalQty = 300.000000,
         },
       },
     },
@@ -2291,7 +2291,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 238202, 238203 },
       baseYieldPerCraft = 1.000000,
       baseYield = 0.166667,
-      workbookExpectedQty = 1428.911961,
+      workbookExpectedQty = 142.891196,
     },
   },
   reagents = {
@@ -2300,21 +2300,21 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 237362 },
       qtyPerCraft = 6.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 6000.000000,
+      workbookTotalQty = 600.000000,
     },
     {
       itemRef = "Luminant Flux",
       itemIDs = { 243060 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 0.666667,
-      workbookTotalQty = 4000.000000,
+      workbookTotalQty = 400.000000,
     },
     {
       itemRef = "Refulgent Copper Ingot",
       itemIDs = { 238197 },
       qtyPerCraft = 3.000000,
       qtyPerStart = 0.500000,
-      workbookTotalQty = 3000.000000,
+      workbookTotalQty = 300.000000,
     },
   },
 }
@@ -2327,7 +2327,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Blacksmithing",
   sourceBlock = "J4",
   defaultStartingAmount = 6000.000000,
-  defaultCrafts = 1000.000000,
+  defaultCrafts = 100.000000,
   formulaProfile = "blacksmithing",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2342,7 +2342,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Sterling Alloy",
           itemIDs = { 238204, 238205 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 1428.911961,
+          workbookExpectedQty = 142.891196,
         },
       },
       reagents = {
@@ -2350,19 +2350,19 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Brilliant Silver Ore",
           itemIDs = { 237364 },
           qtyPerCraft = 6.000000,
-          workbookTotalQty = 6000.000000,
+          workbookTotalQty = 600.000000,
         },
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
           qtyPerCraft = 4.000000,
-          workbookTotalQty = 4000.000000,
+          workbookTotalQty = 400.000000,
         },
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238197 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 3000.000000,
+          workbookTotalQty = 300.000000,
         },
       },
     },
@@ -2374,7 +2374,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Sterling Alloy",
           itemIDs = { 238204, 238205 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 1428.911961,
+          workbookExpectedQty = 142.891196,
         },
       },
       reagents = {
@@ -2382,25 +2382,25 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Brilliant Silver Ore",
           itemIDs = { 237364 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 3000.000000,
+          workbookTotalQty = 300.000000,
         },
         {
           itemRef = "Brilliant Silver Ore",
           itemIDs = { 237365 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 3000.000000,
+          workbookTotalQty = 300.000000,
         },
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
           qtyPerCraft = 4.000000,
-          workbookTotalQty = 4000.000000,
+          workbookTotalQty = 400.000000,
         },
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238198 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 3000.000000,
+          workbookTotalQty = 300.000000,
         },
       },
     },
@@ -2411,7 +2411,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 238204, 238205 },
       baseYieldPerCraft = 1.000000,
       baseYield = 0.166667,
-      workbookExpectedQty = 1428.911961,
+      workbookExpectedQty = 142.891196,
     },
   },
   reagents = {
@@ -2420,21 +2420,21 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 237364 },
       qtyPerCraft = 6.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 6000.000000,
+      workbookTotalQty = 600.000000,
     },
     {
       itemRef = "Luminant Flux",
       itemIDs = { 243060 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 0.666667,
-      workbookTotalQty = 4000.000000,
+      workbookTotalQty = 400.000000,
     },
     {
       itemRef = "Refulgent Copper Ingot",
       itemIDs = { 238197 },
       qtyPerCraft = 3.000000,
       qtyPerStart = 0.500000,
-      workbookTotalQty = 3000.000000,
+      workbookTotalQty = 300.000000,
     },
   },
 }
@@ -2966,343 +2966,13 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
 }
 
-GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__aurora_missive_r1__midnight_1",
-  patchTag = "midnight-1",
-  profession = "Inscription",
-  stratName = "Thalassian Missive of the Aurora R1",
-  sourceTab = "Manual",
-  sourceBlock = nil,
-  defaultStartingAmount = 1.000000,
-  defaultCrafts = 1.000000,
-  formulaProfile = "insc_ink",
-  calcMode = "formula",
-  qualityPolicy = "normal",
-  outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
-  outputs = {
-    {
-      itemRef = "Thalassian Missive of the Aurora",
-      itemIDs = { 245781 },
-      baseYieldPerCraft = 1.000000,
-      baseYield = 1.000000,
-      workbookExpectedQty = 1.000000,
-    },
-  },
-  reagents = {
-    {
-      itemRef = "Lexicologist's Vellum",
-      itemIDs = { 245881 },
-      qtyPerCraft = 5.000000,
-      qtyPerStart = 5.000000,
-      workbookTotalQty = 5.000000,
-    },
-    {
-      itemRef = "Mote of Primal Energy",
-      itemIDs = { 236950 },
-      qtyPerCraft = 3.000000,
-      qtyPerStart = 3.000000,
-      workbookTotalQty = 3.000000,
-    },
-    {
-      itemRef = "Munsell Ink",
-      itemIDs = { 245801, 245802 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-    {
-      itemRef = "Sienna Ink",
-      itemIDs = { 245805, 245806 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-  },
-}
-
-GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__feverflare_missive_r1__midnight_1",
-  patchTag = "midnight-1",
-  profession = "Inscription",
-  stratName = "Thalassian Missive of the Feverflare R1",
-  sourceTab = "Manual",
-  sourceBlock = nil,
-  defaultStartingAmount = 1.000000,
-  defaultCrafts = 1.000000,
-  formulaProfile = "insc_ink",
-  calcMode = "formula",
-  qualityPolicy = "normal",
-  outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
-  outputs = {
-    {
-      itemRef = "Thalassian Missive of the Feverflare",
-      itemIDs = { 245783 },
-      baseYieldPerCraft = 1.000000,
-      baseYield = 1.000000,
-      workbookExpectedQty = 1.000000,
-    },
-  },
-  reagents = {
-    {
-      itemRef = "Lexicologist's Vellum",
-      itemIDs = { 245881 },
-      qtyPerCraft = 5.000000,
-      qtyPerStart = 5.000000,
-      workbookTotalQty = 5.000000,
-    },
-    {
-      itemRef = "Mote of Primal Energy",
-      itemIDs = { 236950 },
-      qtyPerCraft = 3.000000,
-      qtyPerStart = 3.000000,
-      workbookTotalQty = 3.000000,
-    },
-    {
-      itemRef = "Munsell Ink",
-      itemIDs = { 245801, 245802 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-    {
-      itemRef = "Sienna Ink",
-      itemIDs = { 245805, 245806 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-  },
-}
-
-GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__fireflash_missive_r1__midnight_1",
-  patchTag = "midnight-1",
-  profession = "Inscription",
-  stratName = "Thalassian Missive of the Fireflash R1",
-  sourceTab = "Manual",
-  sourceBlock = nil,
-  defaultStartingAmount = 1.000000,
-  defaultCrafts = 1.000000,
-  formulaProfile = "insc_ink",
-  calcMode = "formula",
-  qualityPolicy = "normal",
-  outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
-  outputs = {
-    {
-      itemRef = "Thalassian Missive of the Fireflash",
-      itemIDs = { 245785 },
-      baseYieldPerCraft = 1.000000,
-      baseYield = 1.000000,
-      workbookExpectedQty = 1.000000,
-    },
-  },
-  reagents = {
-    {
-      itemRef = "Lexicologist's Vellum",
-      itemIDs = { 245881 },
-      qtyPerCraft = 5.000000,
-      qtyPerStart = 5.000000,
-      workbookTotalQty = 5.000000,
-    },
-    {
-      itemRef = "Mote of Primal Energy",
-      itemIDs = { 236950 },
-      qtyPerCraft = 3.000000,
-      qtyPerStart = 3.000000,
-      workbookTotalQty = 3.000000,
-    },
-    {
-      itemRef = "Munsell Ink",
-      itemIDs = { 245801, 245802 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-    {
-      itemRef = "Sienna Ink",
-      itemIDs = { 245805, 245806 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-  },
-}
-
-GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__harmonious_missive_r1__midnight_1",
-  patchTag = "midnight-1",
-  profession = "Inscription",
-  stratName = "Thalassian Missive of the Harmonious R1",
-  sourceTab = "Manual",
-  sourceBlock = nil,
-  defaultStartingAmount = 1.000000,
-  defaultCrafts = 1.000000,
-  formulaProfile = "insc_ink",
-  calcMode = "formula",
-  qualityPolicy = "normal",
-  outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
-  outputs = {
-    {
-      itemRef = "Thalassian Missive of the Harmonious",
-      itemIDs = { 245787 },
-      baseYieldPerCraft = 1.000000,
-      baseYield = 1.000000,
-      workbookExpectedQty = 1.000000,
-    },
-  },
-  reagents = {
-    {
-      itemRef = "Lexicologist's Vellum",
-      itemIDs = { 245881 },
-      qtyPerCraft = 5.000000,
-      qtyPerStart = 5.000000,
-      workbookTotalQty = 5.000000,
-    },
-    {
-      itemRef = "Mote of Pure Void",
-      itemIDs = { 236952 },
-      qtyPerCraft = 1.000000,
-      qtyPerStart = 1.000000,
-      workbookTotalQty = 1.000000,
-    },
-    {
-      itemRef = "Munsell Ink",
-      itemIDs = { 245801, 245802 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-    {
-      itemRef = "Sienna Ink",
-      itemIDs = { 245805, 245806 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-  },
-}
-
-GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__peerless_missive_r1__midnight_1",
-  patchTag = "midnight-1",
-  profession = "Inscription",
-  stratName = "Thalassian Missive of the Peerless R1",
-  sourceTab = "Manual",
-  sourceBlock = nil,
-  defaultStartingAmount = 1.000000,
-  defaultCrafts = 1.000000,
-  formulaProfile = "insc_ink",
-  calcMode = "formula",
-  qualityPolicy = "normal",
-  outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
-  outputs = {
-    {
-      itemRef = "Thalassian Missive of the Peerless",
-      itemIDs = { 245789 },
-      baseYieldPerCraft = 1.000000,
-      baseYield = 1.000000,
-      workbookExpectedQty = 1.000000,
-    },
-  },
-  reagents = {
-    {
-      itemRef = "Lexicologist's Vellum",
-      itemIDs = { 245881 },
-      qtyPerCraft = 5.000000,
-      qtyPerStart = 5.000000,
-      workbookTotalQty = 5.000000,
-    },
-    {
-      itemRef = "Mote of Pure Void",
-      itemIDs = { 236952 },
-      qtyPerCraft = 1.000000,
-      qtyPerStart = 1.000000,
-      workbookTotalQty = 1.000000,
-    },
-    {
-      itemRef = "Munsell Ink",
-      itemIDs = { 245801, 245802 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-    {
-      itemRef = "Sienna Ink",
-      itemIDs = { 245805, 245806 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-  },
-}
-
-GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__quickblade_missive_r1__midnight_1",
-  patchTag = "midnight-1",
-  profession = "Inscription",
-  stratName = "Thalassian Missive of the Quickblade R1",
-  sourceTab = "Manual",
-  sourceBlock = nil,
-  defaultStartingAmount = 1.000000,
-  defaultCrafts = 1.000000,
-  formulaProfile = "insc_ink",
-  calcMode = "formula",
-  qualityPolicy = "normal",
-  outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
-  outputs = {
-    {
-      itemRef = "Thalassian Missive of the Quickblade",
-      itemIDs = { 245791 },
-      baseYieldPerCraft = 1.000000,
-      baseYield = 1.000000,
-      workbookExpectedQty = 1.000000,
-    },
-  },
-  reagents = {
-    {
-      itemRef = "Lexicologist's Vellum",
-      itemIDs = { 245881 },
-      qtyPerCraft = 5.000000,
-      qtyPerStart = 5.000000,
-      workbookTotalQty = 5.000000,
-    },
-    {
-      itemRef = "Mote of Pure Void",
-      itemIDs = { 236952 },
-      qtyPerCraft = 1.000000,
-      qtyPerStart = 1.000000,
-      workbookTotalQty = 1.000000,
-    },
-    {
-      itemRef = "Munsell Ink",
-      itemIDs = { 245801, 245802 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-    {
-      itemRef = "Sienna Ink",
-      itemIDs = { 245805, 245806 },
-      qtyPerCraft = 2.000000,
-      qtyPerStart = 2.000000,
-      workbookTotalQty = 2.000000,
-    },
-  },
-}
-
 -- ===== MANUAL STRATS (from tools/manual_strats.json) =====
--- MANUAL: Thalassian Missive of the Aurora R1 (not in spreadsheet; migrate when data is available)
+-- MANUAL: Thalassian Missive of the Aurora (not in spreadsheet; migrate when data is available)
 GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__aurora_missive_r1__midnight_1",
+  id = "inscription__aurora_missive__midnight_1",
   patchTag = "midnight-1",
   profession = "Inscription",
-  stratName = "Thalassian Missive of the Aurora R1",
+  stratName = "Thalassian Missive of the Aurora",
   sourceTab = "Manual",
   sourceBlock = nil,
   defaultStartingAmount = 1.000000,
@@ -3311,11 +2981,11 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Aurora",
-      itemIDs = { 245781 },
+      itemIDs = { 245781, 245782 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1.000000,
@@ -3353,12 +3023,12 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
 }
 
--- MANUAL: Thalassian Missive of the Feverflare R1 (not in spreadsheet; migrate when data is available)
+-- MANUAL: Thalassian Missive of the Feverflare (not in spreadsheet; migrate when data is available)
 GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__feverflare_missive_r1__midnight_1",
+  id = "inscription__feverflare_missive__midnight_1",
   patchTag = "midnight-1",
   profession = "Inscription",
-  stratName = "Thalassian Missive of the Feverflare R1",
+  stratName = "Thalassian Missive of the Feverflare",
   sourceTab = "Manual",
   sourceBlock = nil,
   defaultStartingAmount = 1.000000,
@@ -3367,11 +3037,11 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Feverflare",
-      itemIDs = { 245783 },
+      itemIDs = { 245783, 245784 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1.000000,
@@ -3409,12 +3079,12 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
 }
 
--- MANUAL: Thalassian Missive of the Fireflash R1 (not in spreadsheet; migrate when data is available)
+-- MANUAL: Thalassian Missive of the Fireflash (not in spreadsheet; migrate when data is available)
 GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__fireflash_missive_r1__midnight_1",
+  id = "inscription__fireflash_missive__midnight_1",
   patchTag = "midnight-1",
   profession = "Inscription",
-  stratName = "Thalassian Missive of the Fireflash R1",
+  stratName = "Thalassian Missive of the Fireflash",
   sourceTab = "Manual",
   sourceBlock = nil,
   defaultStartingAmount = 1.000000,
@@ -3423,11 +3093,11 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Fireflash",
-      itemIDs = { 245785 },
+      itemIDs = { 245785, 245786 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1.000000,
@@ -3465,12 +3135,12 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
 }
 
--- MANUAL: Thalassian Missive of the Harmonious R1 (not in spreadsheet; migrate when data is available)
+-- MANUAL: Thalassian Missive of the Harmonious (not in spreadsheet; migrate when data is available)
 GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__harmonious_missive_r1__midnight_1",
+  id = "inscription__harmonious_missive__midnight_1",
   patchTag = "midnight-1",
   profession = "Inscription",
-  stratName = "Thalassian Missive of the Harmonious R1",
+  stratName = "Thalassian Missive of the Harmonious",
   sourceTab = "Manual",
   sourceBlock = nil,
   defaultStartingAmount = 1.000000,
@@ -3479,11 +3149,11 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Harmonious",
-      itemIDs = { 245787 },
+      itemIDs = { 245787, 245788 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1.000000,
@@ -3521,12 +3191,12 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
 }
 
--- MANUAL: Thalassian Missive of the Peerless R1 (not in spreadsheet; migrate when data is available)
+-- MANUAL: Thalassian Missive of the Peerless (not in spreadsheet; migrate when data is available)
 GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__peerless_missive_r1__midnight_1",
+  id = "inscription__peerless_missive__midnight_1",
   patchTag = "midnight-1",
   profession = "Inscription",
-  stratName = "Thalassian Missive of the Peerless R1",
+  stratName = "Thalassian Missive of the Peerless",
   sourceTab = "Manual",
   sourceBlock = nil,
   defaultStartingAmount = 1.000000,
@@ -3535,11 +3205,11 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Peerless",
-      itemIDs = { 245789 },
+      itemIDs = { 245789, 245790 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1.000000,
@@ -3640,12 +3310,12 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
 }
 
--- MANUAL: Thalassian Missive of the Quickblade R1 (not in spreadsheet; migrate when data is available)
+-- MANUAL: Thalassian Missive of the Quickblade (not in spreadsheet; migrate when data is available)
 GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
-  id = "inscription__quickblade_missive_r1__midnight_1",
+  id = "inscription__quickblade_missive__midnight_1",
   patchTag = "midnight-1",
   profession = "Inscription",
-  stratName = "Thalassian Missive of the Quickblade R1",
+  stratName = "Thalassian Missive of the Quickblade",
   sourceTab = "Manual",
   sourceBlock = nil,
   defaultStartingAmount = 1.000000,
@@ -3654,11 +3324,11 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "Rank 1 only; add R2/R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Quickblade",
-      itemIDs = { 245791 },
+      itemIDs = { 245791, 245792 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1.000000,

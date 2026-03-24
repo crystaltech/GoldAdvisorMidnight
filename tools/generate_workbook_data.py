@@ -889,6 +889,13 @@ def main():
         tab = parsed.get("sourceTab", "?")
         sb = parsed.get("sourceBlock", "?")
 
+        # Manual strategies are re-appended from tools/manual_strats.json below.
+        # Skip any existing Manual blocks from the generated file so they don't
+        # survive regeneration and then get duplicated.
+        if tab == "Manual":
+            print(f"  [SKIP] {name}: regenerated from manual_strats.json")
+            continue
+
         if tab not in wb.sheetnames:
             print(f"  [SKIP] {name}: sheet '{tab}' not found in workbook")
             updated_blocks.append(strat["raw"])
