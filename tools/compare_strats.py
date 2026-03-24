@@ -61,7 +61,7 @@ def fval(v):
 def is_price_string(v):
     return isinstance(v, str)
 
-_SKIP_LABELS = ('cost', 'profit', 'price', 'crafted price', 'per lens', 'per vial')
+_SKIP_LABELS = ('cost', 'profit', 'price', 'crafted price', 'value per', 'per lens', 'per vial')
 
 def scan_expected_output(ws, start_row, label_col, data_col, num_outputs=1, max_rows=25):
     results = []

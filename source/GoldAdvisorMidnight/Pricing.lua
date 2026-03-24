@@ -167,6 +167,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 251665 },         qty = 4.000000 }, -- Silverleaf Thread
         },
         yield = 1.000000,
+        formulaProfile = "tailoring",
     },
     [239701] = {
         optionKey = "boltCostSource",
@@ -176,6 +177,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 251665 },         qty = 4.000000 },
         },
         yield = 1.000000,
+        formulaProfile = "tailoring",
     },
     -- Refulgent Copper Ingot Q1: 5×R1 ore + 2×flux → 1 ingot (base)
     -- Normalised to 1 R1 ore unit: flux qty = 2/5 = 0.4, yield = 1/5
@@ -827,9 +829,15 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
         local entryIDs = entry.itemIDs
         local required = math.floor(entry.qty + 0.5)
 
-        -- Bags + bank count for the (possibly expanded) item
+        local itemID = PickItemID(entryIDs, patchTag)
+
+        -- Bags + bank count should respect the active rank selection when the
+        -- reagent row has resolved to a concrete itemID. Only fall back to
+        -- summing the rank group if the row could not resolve to one item.
         local userHave = 0
-        if entryIDs and #entryIDs > 0 then
+        if itemID then
+            userHave = GetItemCount(itemID, true) or 0
+        elseif entryIDs and #entryIDs > 0 then
             for _, rid in ipairs(entryIDs) do
                 userHave = userHave + (GetItemCount(rid, true) or 0)
             end
@@ -853,8 +861,6 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
             totalCostToBuy    = totalCostToBuy    + (totalCost     or 0)
             totalCostRequired = totalCostRequired + (totalCostFull or 0)
         end
-
-        local itemID = PickItemID(entryIDs, patchTag)
 
         reagentResults[#reagentResults + 1] = {
             name         = entry.name,

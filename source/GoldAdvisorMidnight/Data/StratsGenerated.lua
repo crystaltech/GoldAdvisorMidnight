@@ -159,7 +159,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 245805, 245806 },
       baseYieldPerCraft = 2.000000,
       baseYield = 0.100000,
-      workbookExpectedQty = 0.000000,
+      workbookExpectedQty = 672.957360,
     },
   },
   reagents = {
@@ -214,7 +214,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 245801, 245802 },
       baseYieldPerCraft = 2.000000,
       baseYield = 0.100000,
-      workbookExpectedQty = 0.000000,
+      workbookExpectedQty = 672.957360,
     },
   },
   reagents = {
@@ -331,7 +331,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 245764, 245765 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
-      workbookExpectedQty = 3.911117,
+      workbookExpectedQty = 6402.497609,
     },
   },
   reagents = {

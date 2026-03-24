@@ -109,7 +109,7 @@ def read_crafts_and_ingredients(ws, crafts_row, data_col, num_reagents,
         ingredients.append(v)
     return crafts, ingredients
 
-_SKIP_LABELS = ('cost', 'profit', 'price', 'crafted price', 'per lens', 'per vial')
+_SKIP_LABELS = ('cost', 'profit', 'price', 'crafted price', 'value per', 'per lens', 'per vial')
 
 def scan_expected_output(ws, start_row, label_col, data_col, num_outputs=1, max_rows=25):
     """
