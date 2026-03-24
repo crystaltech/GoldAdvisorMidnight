@@ -211,6 +211,7 @@ end
 local function ItemRowEnter(self)
     local display = self and self._itemDisplay
     local link = display and display.itemLink
+    local L = GAM.L
     if not link or link == "" then return end
     GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
     GameTooltip:SetHyperlink(link)
@@ -218,18 +219,18 @@ local function ItemRowEnter(self)
     if tt then
         GameTooltip:AddLine(" ")
         if tt.kind == "reagent" then
-            GameTooltip:AddLine("Unit Price: " .. (tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
-            GameTooltip:AddLine("Total Required: " .. string.format("%.0f", tt.required or 0), 1, 0.82, 0)
-            GameTooltip:AddLine("Need to Buy: " .. string.format("%.0f", tt.needToBuy or 0), 1, 0.82, 0)
-            GameTooltip:AddLine("Full Cost: " .. (tt.totalCostFull and GAM.Pricing.FormatPrice(tt.totalCostFull) or "|cff888888—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_PRICE"]) or "Unit Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_REQUIRED"]) or "Total Required: %s", string.format("%.0f", tt.required or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_NEED_TO_BUY"]) or "Need to Buy: %s", string.format("%.0f", tt.needToBuy or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_FULL_COST"]) or "Full Cost: %s", tt.totalCostFull and GAM.Pricing.FormatPrice(tt.totalCostFull) or "|cff888888—|r"), 1, 0.82, 0)
             if tt.totalCost and tt.totalCostFull and tt.totalCost ~= tt.totalCostFull then
-                GameTooltip:AddLine("Buy Now Cost: " .. GAM.Pricing.FormatPrice(tt.totalCost), 1, 0.82, 0)
+                GameTooltip:AddLine(string.format((L and L["TT_ROW_BUY_NOW_COST"]) or "Buy Now Cost: %s", GAM.Pricing.FormatPrice(tt.totalCost)), 1, 0.82, 0)
             end
         elseif tt.kind == "output" then
-            GameTooltip:AddLine("Unit Sell Price: " .. (tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
-            GameTooltip:AddLine("Expected Output: " .. string.format("%.0f", tt.expectedQty or 0), 1, 0.82, 0)
-            GameTooltip:AddLine("Total Net Revenue: " .. (tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
-            GameTooltip:AddLine("The visible Net column is craft-level net revenue, not a per-item price.", 1, 0.82, 0, true)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", string.format("%.0f", tt.expectedQty or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_NET_REVENUE"]) or "Total Net Revenue: %s", tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine((L and L["TT_ROW_NET_NOTE"]) or "The visible Net column is craft-level net revenue, not a per-item price.", 1, 0.82, 0, true)
         end
     end
     GameTooltip:Show()

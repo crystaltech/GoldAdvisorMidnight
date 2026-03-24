@@ -1,5 +1,17 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.9] — 2026-03-24
+
+### Bug Fixes
+- **Spreadsheet-aligned summary math** — `Total Cost`, `Profit`, `ROI`, and `Break-Even` now use the full required material cost basis so strategy economics match the workbook model even when you already own some mats.
+- **Buy Now Cost display** — Added a separate inventory-aware `Buy Now Cost` line in the detail views so the addon still shows out-of-pocket spend without inflating profitability.
+- **Detail panel cleanup** — Reorganized the inline detail summary so cost-related lines are grouped together and removed the redundant fill-quantity notice from the detail header.
+- **Tooltip clarity** — Reagent and output item hover tooltips now explain unit price, required quantity, buy-now cost, and craft-level net revenue more clearly.
+
+### Localization
+- Added missing translations for the new `Buy Now Cost` label/tooltips and the row-level tooltip strings in the shipped locale files.
+- Updated translated tooltip copy so `Profit` now describes the new full-cost calculation instead of the old buy-only behavior.
+
 ## [1.7.8] — 2026-03-23
 
 ### Bug Fixes
