@@ -214,6 +214,24 @@ local function ItemRowEnter(self)
     if not link or link == "" then return end
     GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
     GameTooltip:SetHyperlink(link)
+    local tt = self and self._metricTooltip
+    if tt then
+        GameTooltip:AddLine(" ")
+        if tt.kind == "reagent" then
+            GameTooltip:AddLine("Unit Price: " .. (tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine("Total Required: " .. string.format("%.0f", tt.required or 0), 1, 0.82, 0)
+            GameTooltip:AddLine("Need to Buy: " .. string.format("%.0f", tt.needToBuy or 0), 1, 0.82, 0)
+            GameTooltip:AddLine("Full Cost: " .. (tt.totalCostFull and GAM.Pricing.FormatPrice(tt.totalCostFull) or "|cff888888—|r"), 1, 0.82, 0)
+            if tt.totalCost and tt.totalCostFull and tt.totalCost ~= tt.totalCostFull then
+                GameTooltip:AddLine("Buy Now Cost: " .. GAM.Pricing.FormatPrice(tt.totalCost), 1, 0.82, 0)
+            end
+        elseif tt.kind == "output" then
+            GameTooltip:AddLine("Unit Sell Price: " .. (tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine("Expected Output: " .. string.format("%.0f", tt.expectedQty or 0), 1, 0.82, 0)
+            GameTooltip:AddLine("Total Net Revenue: " .. (tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine("The visible Net column is craft-level net revenue, not a per-item price.", 1, 0.82, 0, true)
+        end
+    end
     GameTooltip:Show()
 end
 
@@ -276,9 +294,8 @@ local function RefreshMetrics()
     local m = metricsCache   -- already computed by SD.Refresh()
     if not m then return end
 
-    frame.metCost:SetText(m.totalCostToBuy and GAM.Pricing.FormatPrice(m.totalCostToBuy) or GAM.L["NO_PRICE"])
+    frame.metCost:SetText(m.totalCostFull and GAM.Pricing.FormatPrice(m.totalCostFull) or GAM.L["NO_PRICE"])
     frame.metRevenue:SetText(m.netRevenue and GAM.Pricing.FormatPrice(m.netRevenue) or GAM.L["NO_PRICE"])
-
     if m.profit then
         local c = m.profit >= 0 and "|cff55ff55" or "|cffff5555"
         frame.metProfit:SetText(c .. GAM.Pricing.FormatPrice(m.profit) .. "|r")
@@ -294,6 +311,11 @@ local function RefreshMetrics()
     end
 
     frame.metBreakeven:SetText(m.breakEvenSell and GAM.Pricing.FormatPrice(m.breakEvenSell) or "|cff888888—|r")
+    if frame.expNotice then
+        local buyNow = m.totalCostToBuy and GAM.Pricing.FormatPrice(m.totalCostToBuy) or GAM.L["NO_PRICE"]
+        frame.expNotice:SetText((GAM.L["LBL_BUY_NOW_COST"] or "Buy Now Cost:") .. " " .. buyNow)
+        frame.expNotice:Show()
+    end
 end
 
 -- ===== Reagent rows =====
@@ -412,6 +434,14 @@ local function PopulateReagentRow(row, reagentMetric, isPrimary)
     end
     row.haveText:SetText(string.format("%.0f", reagentMetric.have or 0))
     row.needText:SetText(string.format("%.0f", reagentMetric.needToBuy or 0))
+    row._metricTooltip = {
+        kind = "reagent",
+        unitPrice = reagentMetric.unitPrice,
+        required = reagentMetric.required,
+        needToBuy = reagentMetric.needToBuy,
+        totalCost = reagentMetric.totalCost,
+        totalCostFull = reagentMetric.totalCostFull,
+    }
 
     if reagentMetric.unitPrice then
         row.priceText:SetText(GAM.Pricing.FormatPrice(reagentMetric.unitPrice))
@@ -498,6 +528,12 @@ end
 
 local function PopulateOutputRow(row, outputMetric, isPrimary)
     row.outputData = outputMetric
+    row._metricTooltip = {
+        kind = "output",
+        unitPrice = outputMetric.unitPrice,
+        expectedQty = outputMetric.expectedQty,
+        netRevenue = outputMetric.netRevenue,
+    }
     local display = GAM.Pricing.GetItemDisplayData(outputMetric.itemID, outputMetric.name)
     row.nameText:SetText(display.displayText)
     BindItemRow(row, display)
@@ -732,8 +768,8 @@ local function Build()
         anchor:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, y - 2)
         anchor:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
-            GameTooltip:SetText(GAM.L[titleKey], 1, 1, 1)
-            GameTooltip:AddLine(GAM.L[bodyKey], 1, 0.82, 0, true)
+            GameTooltip:SetText(GAM.L[titleKey] or titleKey, 1, 1, 1)
+            GameTooltip:AddLine(GAM.L[bodyKey] or bodyKey, 1, 0.82, 0, true)
             GameTooltip:Show()
         end)
         anchor:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -753,14 +789,23 @@ local function Build()
     -- Profit is centred; anchor spans the middle region
     MakeTooltipAnchor(WIN_W / 2 - 155, PROFIT_BASE_Y, 310, "TT_LBL_PROFIT_TITLE", "TT_LBL_PROFIT_BODY")
 
-    -- Shallow fill notice — orange bar above button row.
+    -- Orange notice line reused for Buy Now Cost.
     local expNotice = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     expNotice:SetWidth(WIN_W - 40)
     expNotice:SetJustifyH("CENTER")
     expNotice:SetTextColor(1.0, 0.65, 0.0, 1.0)
     expNotice:Hide()
     frame.expNotice = expNotice
-
+    local expNoticeAnchor = CreateFrame("Button", nil, frame)
+    expNoticeAnchor:SetSize(WIN_W - 40, 18)
+    expNoticeAnchor:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_LBL_BUY_NOW_COST_TITLE"] or "Buy Now Cost", 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_LBL_BUY_NOW_COST_BODY"] or "Only the cost of materials you still need to buy after subtracting items already in your bags and bank.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    expNoticeAnchor:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    frame.expNoticeAnchor = expNoticeAnchor
     -- ── Bottom buttons ──
     -- Rank toggle
     local rankToggleBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -889,8 +934,14 @@ local function Build()
         else
             noticeY = lowerBound
         end
-        expNotice:ClearAllPoints()
-        expNotice:SetPoint("BOTTOM", frame, "BOTTOM", 0, noticeY)
+        if frame.expNotice then
+            frame.expNotice:ClearAllPoints()
+            frame.expNotice:SetPoint("BOTTOM", frame, "BOTTOM", 0, noticeY)
+        end
+        if frame.expNoticeAnchor then
+            frame.expNoticeAnchor:ClearAllPoints()
+            frame.expNoticeAnchor:SetPoint("BOTTOM", frame, "BOTTOM", 0, noticeY - 2)
+        end
         GAM.Log.Verbose("StratDetail: warning layout bounds lower=%d upper=%d chosen=%d",
             lowerBound, upperBound, noticeY)
     end
@@ -996,14 +1047,6 @@ function SD.Refresh()
     if frame.btnEdit   then frame.btnEdit:SetShown(isUser)   end
     if frame.btnExport then frame.btnExport:Hide() end
 
-    -- Fill qty notice (always shown — displays the configured fill qty)
-    if frame.expNotice then
-        local opts = GAM.db and GAM.db.options
-        local qty = (opts and opts.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
-        frame.expNotice:SetFormattedText(GAM.L["FILL_QTY_ACTIVE"], FmtQty(qty))
-        frame.expNotice:Show()
-    end
-
     -- Reagents
     -- Only the topmost input row is editable so the field remains stable while browsing.
     local reagentMetrics = m and m.reagents or {}
@@ -1030,6 +1073,7 @@ function SD.Refresh()
             BindItemRow(row, nil)
             row:Hide()
             row.reagentData = nil
+            row._metricTooltip = nil
         end
     end
 
@@ -1056,6 +1100,7 @@ function SD.Refresh()
             PopulateOutputRow(row, oi.metric, oi.isPrimary)
         else
             BindItemRow(row, nil)
+            row._metricTooltip = nil
             row:Hide()
         end
     end

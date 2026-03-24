@@ -272,6 +272,24 @@ local function ItemRowEnter(self)
     if not link or link == "" then return end
     GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
     GameTooltip:SetHyperlink(link)
+    local tt = self and self._metricTooltip
+    if tt then
+        GameTooltip:AddLine(" ")
+        if tt.kind == "reagent" then
+            GameTooltip:AddLine("Unit Price: " .. (tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine("Total Required: " .. string.format("%.0f", tt.required or 0), 1, 0.82, 0)
+            GameTooltip:AddLine("Need to Buy: " .. string.format("%.0f", tt.needToBuy or 0), 1, 0.82, 0)
+            GameTooltip:AddLine("Full Cost: " .. (tt.totalCostFull and GAM.Pricing.FormatPrice(tt.totalCostFull) or "|cff888888—|r"), 1, 0.82, 0)
+            if tt.totalCost and tt.totalCostFull and tt.totalCost ~= tt.totalCostFull then
+                GameTooltip:AddLine("Buy Now Cost: " .. GAM.Pricing.FormatPrice(tt.totalCost), 1, 0.82, 0)
+            end
+        elseif tt.kind == "output" then
+            GameTooltip:AddLine("Unit Sell Price: " .. (tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine("Expected Output: " .. string.format("%.0f", tt.expectedQty or 0), 1, 0.82, 0)
+            GameTooltip:AddLine("Total Net Revenue: " .. (tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine("The visible Net column is craft-level net revenue, not a per-item price.", 1, 0.82, 0, true)
+        end
+    end
     GameTooltip:Show()
 end
 
@@ -1130,7 +1148,11 @@ ShowInlineDetail = function(strat, patchTag)
     -- Metrics
     local dash = "|cff888888—|r"
     rpDetail.metCostFS:SetText(
-        (m and m.totalCostToBuy) and GAM.Pricing.FormatPrice(m.totalCostToBuy) or dash)
+        (m and m.totalCostFull) and GAM.Pricing.FormatPrice(m.totalCostFull) or dash)
+    if rpDetail.metBuyNowFS then
+        rpDetail.metBuyNowFS:SetText(
+            (m and m.totalCostToBuy) and GAM.Pricing.FormatPrice(m.totalCostToBuy) or dash)
+    end
     rpDetail.metRevenueFS:SetText(
         (m and m.netRevenue) and GAM.Pricing.FormatPrice(m.netRevenue) or dash)
     if m and m.profit then
@@ -1147,12 +1169,6 @@ ShowInlineDetail = function(strat, patchTag)
     end
     rpDetail.metBreakevenFS:SetText(
         (m and m.breakEvenSell) and GAM.Pricing.FormatPrice(m.breakEvenSell) or dash)
-
-    -- Fill qty notice
-    local qty = (GAM.db and GAM.db.options and GAM.db.options.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
-    local qtyStr = tostring(math.floor(qty)):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-    rpDetail.fillNoticeFS:SetFormattedText(
-        L and L["FILL_QTY_ACTIVE"] or "Fill Qty: %s", qtyStr)
 
     if m and m.missingPrices and #m.missingPrices > 0 then
         rpDetail.missingFS:SetText((L and L["MISSING_PRICES"] or "Missing prices") .. ": " .. table.concat(m.missingPrices, ", "))
@@ -1181,10 +1197,19 @@ ShowInlineDetail = function(strat, patchTag)
             row.priceFS:SetText(rMet.unitPrice
                 and GAM.Pricing.FormatPrice(rMet.unitPrice)
                 or "|cffff8800—|r")
+            row._metricTooltip = {
+                kind = "reagent",
+                unitPrice = rMet.unitPrice,
+                required = rMet.required,
+                needToBuy = rMet.needToBuy,
+                totalCost = rMet.totalCost,
+                totalCostFull = rMet.totalCostFull,
+            }
             row:Show()
         else
             row:Hide()
             BindItemRow(row, nil)
+            row._metricTooltip = nil
             row.qtyEB:Hide()
         end
     end
@@ -1208,9 +1233,16 @@ ShowInlineDetail = function(strat, patchTag)
                 oi.netRevenue and GAM.Pricing.FormatPrice(oi.netRevenue)
                 or (oi.unitPrice and GAM.Pricing.FormatPrice(oi.unitPrice) or "|cffff8800—|r")
             )
+            row._metricTooltip = {
+                kind = "output",
+                unitPrice = oi.unitPrice,
+                expectedQty = oi.expectedQty,
+                netRevenue = oi.netRevenue,
+            }
             row:Show()
         else
             BindItemRow(row, nil)
+            row._metricTooltip = nil
             row:Hide()
         end
     end
@@ -1354,6 +1386,10 @@ local function BuildInlineDetail(panel)
     rpDetail.metCostFS,      y = MakeMetricRow(L and L["LBL_COST"]      or "Cost:",       y)
     MakeMetricTooltip(yCost, "TT_LBL_COST_TITLE", "TT_LBL_COST_BODY")
 
+    local yBuyNow = y
+    rpDetail.metBuyNowFS,    y = MakeMetricRow(L and L["LBL_BUY_NOW_COST"] or "Buy Now Cost:", y)
+    MakeMetricTooltip(yBuyNow, "TT_LBL_BUY_NOW_COST_TITLE", "TT_LBL_BUY_NOW_COST_BODY")
+
     local yRevenue = y
     rpDetail.metRevenueFS,   y = MakeMetricRow(L and L["LBL_REVENUE"]   or "Revenue:",    y)
     MakeMetricTooltip(yRevenue, "TT_LBL_REVENUE_TITLE", "TT_LBL_REVENUE_BODY")
@@ -1371,15 +1407,6 @@ local function BuildInlineDetail(panel)
     local yBreakeven = y
     rpDetail.metBreakevenFS, y = MakeMetricRow(L and L["LBL_BREAKEVEN"] or "Break-even:", y)
     MakeMetricTooltip(yBreakeven, "TT_LBL_BREAKEVEN_TITLE", "TT_LBL_BREAKEVEN_BODY")
-
-    -- Fill qty notice
-    local fillFS = content:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    fillFS:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
-    fillFS:SetWidth(UW)
-    fillFS:SetTextColor(1.0, 0.65, 0.0)
-    ApplyFontSize(fillFS, 10)
-    rpDetail.fillNoticeFS = fillFS
-    y = y - 16
 
     local missingFS = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     missingFS:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)

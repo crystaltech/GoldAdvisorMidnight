@@ -78,7 +78,7 @@ end
 
 local function GetStrategyScoreFromMetrics(metrics)
     if not metrics then return nil, nil end
-    local p, r, cost = metrics.profit, metrics.roi, metrics.totalCostToBuy
+    local p, r, cost = metrics.profit, metrics.roi, metrics.totalCostFull
     if not p or not r then return nil, cost end
     return p * math.sqrt(r), cost
 end
@@ -864,6 +864,7 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
             have         = userHave,
             needToBuy    = needToBuy,
             totalCost    = totalCost,
+            totalCostFull = totalCostFull,
             isStale      = stale,
             missingPrice = missingPrice,
         }
@@ -977,9 +978,9 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local breakEven = nil
 
     if netRevenue and #missingPrices == 0 then
-        profit = netRevenue - totalCostToBuy   -- display: what you actually spend
+        profit = netRevenue - totalCostRequired
         if totalCostRequired > 0 then
-            roi = ((netRevenue - totalCostRequired) / totalCostRequired) * 100
+            roi = (profit / totalCostRequired) * 100
         end
     end
 
@@ -1018,7 +1019,7 @@ end
 
 -- GetBestStrategy(patchTag, profFilter) — returns (strat, profit, roi) for the top
 -- scoring strategy that clears both minimum thresholds. Returns nil,nil,nil if none qualify.
--- Score = profit × √ROI; capital tie-break on totalCostToBuy.
+-- Score = profit × √ROI; capital tie-break on full craft cost.
 -- Called only on: scan complete, filter change, window open — never per-frame.
 function Pricing.GetBestStrategy(patchTag, profFilter)
     patchTag   = patchTag  or GAM.C.DEFAULT_PATCH
