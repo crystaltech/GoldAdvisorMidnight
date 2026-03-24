@@ -1,5 +1,15 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.8] — 2026-03-23
+
+### Bug Fixes
+- **Blacksmithing Q2 reagent corrections** — Fixed the generated blacksmithing Q2 data to match the workbook for `Refulgent Copper Ingot`, `Gloaming Alloy`, and `Sterling Alloy`. The Q2 ore and flux splits now use the intended `3/2` ingot recipe and `3/3/4/3` alloy recipe structure.
+- **Craft own ingots blacksmithing alignment** — `Craft own ingots` now expands blacksmithing alloy inputs using the corrected spreadsheet-aligned material quantities, so R2 blacksmithing paths no longer overcount ore, flux, or ingots.
+- **Workbook parser off-by-one** — Fixed the blacksmithing spreadsheet parser so Q2 imports no longer skip the first reagent row when reading workbook blocks. This prevented stale higher-rank reagent quantities from leaking into generated addon data.
+
+### Scope
+- This patch intentionally does **not** refresh the newer inscription workbook changes. Remaining spreadsheet drift outside blacksmithing is out of scope for `1.7.8`.
+
 ## [1.7.7] — 2026-03-23
 
 ### Bug Fixes
