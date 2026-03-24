@@ -1,5 +1,15 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.10] — 2026-03-24
+
+### Bug Fixes
+- **Rank-aware shopping counts** — Reagent inventory counting now respects the active resolved rank, so owning `R1` inks or mats no longer suppresses `R2` shopping lists and vice versa.
+- **Tailoring craft-own-bolts yield** — Added the tailoring formula profile to crafted bolt intermediates so vertical integration no longer overstates raw cloth/thread requirements.
+- **Inscription workbook references** — Corrected the stored workbook expected-output values for `Sienna Ink`, `Munsell Ink`, and `Codified Azeroot` so generated data lines up with the current sheet again.
+
+### Tooling
+- **Workbook parser expected-row filter** — Updated the spreadsheet parser/compare tools to skip `Expected crafted value per` rows when scanning expected outputs, preventing false mismatches on inscription blocks.
+
 ## [1.7.9] — 2026-03-24
 
 ### Bug Fixes
