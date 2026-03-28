@@ -1,5 +1,13 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.13] — 2026-03-28
+
+### Bug Fixes
+- **JC prospecting ROI corrected** — The generator was storing `baseYieldPerCraft` as `workbook_expected / crafts` for all four JC prospecting strategies (Refulgent Copper Ore, Brilliant Silver Ore, Umbral Tin Ore, Dazzling Thorium is fixed-mode and unaffected). That value already had the formula factor baked in, so the addon was double-applying it and inflating output quantities by ~17%. All three `calcMode = "formula"` prospecting strategies now store the correct raw per-craft yield; ROI at default settings will match the spreadsheet.
+
+### Internal
+- `tools/generate_workbook_data.py`: added full `mc_node`/`rs_node` defaults to `FORMULA_PROFILES`, added `compute_workbook_factor()` helper, and corrected both prospecting `base_yield` write paths to divide out the workbook factor.
+
 ## [1.7.12] — 2026-03-28
 
 ### Changes

@@ -34,21 +34,49 @@ MANUAL_STRATS_JSON = os.path.join(REPO_ROOT, "tools/manual_strats.json")
 
 PATCH_TAG = "midnight-1"
 
-# Formula profile defaults per profession (from WorkbookGenerated.lua)
+# Formula profile defaults per profession (from WorkbookGenerated.lua).
+# mc_node / rs_node are the spec-tree node bonuses at the workbook baseline.
+# These are needed to compute the workbook formula factor for normalising
+# baseYieldPerCraft so it stores the raw per-craft yield rather than the
+# already-factored workbook expected quantity divided by crafts.
+BASE_MCM = 1.25   # Multicraft multiplier base
+BASE_RS  = 0.30   # Resourcefulness saved fraction base
+
 FORMULA_PROFILES = {
-    "alchemy":        {"multi": 30.0, "res": 15.0},
-    "insc_milling":   {"multi": None, "res": 30.1},
-    "insc_ink":       {"multi": 25.9, "res": 16.1},
-    "jc_prospect":    {"multi": None, "res": 33.0},
-    "jc_crush":       {"multi": None, "res": 35.0},
-    "jc_craft":       {"multi": 29.5, "res": 33.0},
-    "ench_shatter":   {"multi": None, "res": 7.8},
-    "ench_craft":     {"multi": 24.5, "res": 7.8},
-    "tailoring":      {"multi": 21.4, "res": 12.1},
-    "blacksmithing":  {"multi": 27.9, "res": 18.7},
-    "leatherworking": {"multi": 28.2, "res": 14.9},
-    "engineering":    {"multi": None, "res": 36.0},
+    "alchemy":        {"multi": 30.0, "res": 15.0,  "mc_node": 20,  "rs_node": 0},
+    "insc_milling":   {"multi": None, "res": 30.1,  "mc_node": 0,   "rs_node": 55},
+    "insc_ink":       {"multi": 25.9, "res": 16.1,  "mc_node": 100, "rs_node": 55},
+    "jc_prospect":    {"multi": None, "res": 33.0,  "mc_node": 0,   "rs_node": 50},
+    "jc_crush":       {"multi": None, "res": 35.0,  "mc_node": 0,   "rs_node": 0},
+    "jc_craft":       {"multi": 29.5, "res": 33.0,  "mc_node": 50,  "rs_node": 50},
+    "ench_shatter":   {"multi": None, "res": 7.8,   "mc_node": 0,   "rs_node": 20},
+    "ench_craft":     {"multi": 24.5, "res": 7.8,   "mc_node": 100, "rs_node": 20},
+    "tailoring":      {"multi": 21.4, "res": 12.1,  "mc_node": 40,  "rs_node": 50},
+    "blacksmithing":  {"multi": 27.9, "res": 18.7,  "mc_node": 0,   "rs_node": 0},
+    "leatherworking": {"multi": 28.2, "res": 14.9,  "mc_node": 50,  "rs_node": 50},
+    "engineering":    {"multi": None, "res": 36.0,  "mc_node": 0,   "rs_node": 0},
 }
+
+
+def compute_workbook_factor(profile_key):
+    """Return the formula factor at the workbook's default stats for a profile.
+
+    The addon stores baseYieldPerCraft as the raw per-craft yield (before any
+    stat scaling).  The workbook spreadsheet already applies its default-stat
+    factor to the expected-output cells, so when the generator reads those
+    cells it must divide out the workbook factor to recover the raw rate.
+    """
+    p = FORMULA_PROFILES.get(profile_key, {})
+    mc_p     = (p.get("multi") or 0.0) / 100.0
+    r_p      = (p.get("res")   or 0.0) / 100.0
+    mc_node  = p.get("mc_node", 0) or 0.0
+    rs_node  = p.get("rs_node", 0) or 0.0
+    mc_m_tot = BASE_MCM * (1.0 + mc_node / 100.0) if p.get("multi") else 0.0
+    rs_tot   = BASE_RS  * (1.0 + rs_node / 100.0)
+    denom    = 1.0 - r_p * rs_tot
+    if denom <= 0:
+        denom = 1.0
+    return (1.0 + mc_p * mc_m_tot) / denom
 
 
 # ---------------------------------------------------------------------------
@@ -635,10 +663,15 @@ def process_standard_strategy(ws, strat, wb_sheet):
     new_block = update_qty_per_craft_in_block(new_block, qty_per_crafts)
     if expected_qtys:
         new_block = update_workbook_expected_in_block(new_block, expected_qtys)
-        # Also update baseYieldPerCraft for prospecting outputs
+        # Also update baseYieldPerCraft for prospecting outputs.
+        # The spreadsheet stores expected output at workbook-default stats, so
+        # we divide out the workbook formula factor to obtain the raw per-craft
+        # yield.  The addon then re-applies the player's factor correctly.
         if profession == "Jewelcrafting" and "Prospecting" in strat_name:
+            profile_key = parsed.get("formulaProfile", "jc_prospect")
+            wf = compute_workbook_factor(profile_key)
             base_yields = [
-                (e / crafts) if (e is not None and crafts) else None
+                (e / crafts / wf) if (e is not None and crafts) else None
                 for e in outputs
             ]
             new_block = update_base_yield_in_block(new_block, base_yields)
@@ -750,9 +783,15 @@ def process_dazzling_thorium(ws, strat, wb_sheet):
     ]
     block = update_workbook_expected_in_block(block, scaled_outputs)
 
-    # Update baseYieldPerCraft for outputs
+    # Update baseYieldPerCraft for outputs.
+    # For fixed calcMode the factor is always 1 so baseYieldPerCraft = output / crafts.
+    # For formula calcMode we divide out the workbook factor so the stored value is
+    # the raw per-craft yield; the addon re-applies the player's factor at runtime.
     if target_crafts:
-        base_yields = [(o / target_crafts) if o is not None else None for o in scaled_outputs]
+        calc_mode = parsed.get("calcMode", "formula")
+        wf = compute_workbook_factor(parsed.get("formulaProfile", "jc_prospect")) \
+            if calc_mode == "formula" else 1.0
+        base_yields = [(o / target_crafts / wf) if o is not None else None for o in scaled_outputs]
         block = update_base_yield_in_block(block, base_yields)
 
     # Fix to Q1-only outputs: change itemIDs from { x, y } to { x } for each output

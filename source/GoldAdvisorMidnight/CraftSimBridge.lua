@@ -440,7 +440,14 @@ function Bridge.PushStratPrices(strat, patchTag)
         if not ids then return end
         for _, id in ipairs(ids) do
             if not pushedIDs[id] then
-                local price = GAM.Pricing.GetUnitPrice(id)
+                -- Respect manual price overrides so CraftSim receives the same price
+                -- GAM used in its calculations, not just the raw AH cache value.
+                local price
+                if pdb.priceOverrides and pdb.priceOverrides[id] ~= nil then
+                    price = pdb.priceOverrides[id]
+                else
+                    price = GAM.Pricing.GetUnitPrice(id)
+                end
                 if price and price > 0 then
                     pushedIDs[id] = true
                     overrides[id] = { itemID = id, price = price }
