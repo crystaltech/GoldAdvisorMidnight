@@ -10,22 +10,28 @@ WoW addon (Lua) for WoW Midnight (Interface 120001). All shipped code lives in `
 | `Constants.lua` | `GAM.C` — all tunable values and defaults |
 | `Locale.lua` | `GAM.L` — English strings (fallback for all locales) |
 | `Core.lua` | Event backbone, SavedVars init, DB migration, slash commands, Quick Buy |
+| `State.lua` | Shared addon state (selected strat, patchTag, UI refs) |
 | `Pricing.lua` | Price engine: `GetEffectivePriceForItem`, `CalculateStratMetrics`, `FormatPrice` |
+| `PricingDerivation.lua` | Vertical integration derivation chains (mill/craft cost paths) |
 | `Importer.lua` | Loads `StratsGenerated`; XOR decoder for protected builds |
 | `AHScan.lua` | C_AuctionHouse scan queue, throttle, progress callbacks |
 | `CraftSimBridge.lua` | Optional CraftSim stat sync and price push |
 | `Minimap.lua` | Pure Blizzard minimap button |
 | `Settings.lua` | Blizzard Settings panel (crafting stat fields per profession) |
 | `Log.lua` | Ring-buffer debug log (500 entries) |
-| `UI/MainWindowV2.lua` | Three-panel main window (left controls / center list / right detail) |
-| `UI/StratDetail.lua` | Inline strategy detail panel (reagents, metrics, crafts scaler) |
+| `UI/MainWindowV2.lua` | Three-panel main window coordinator (layout, theme, refresh) |
+| `UI/MainWindowV2Common.lua` | Shared theme definitions and helper utilities |
+| `UI/MainWindowV2LeftPanel.lua` | Left panel: scan controls, filters, VI toggle, craft stats |
+| `UI/MainWindowV2Center.lua` | Center panel: sortable strategy list |
+| `UI/MainWindowV2Detail.lua` | Right panel: inline strategy detail (reagents, metrics, scaler) |
+| `UI/StratDetail.lua` | Standalone strategy detail panel |
 | `UI/StratCreator.lua` | Custom strategy creation UI |
 | `UI/DebugLog.lua` | Scrollable debug log frame + ARP price export |
 | `Data/WorkbookGenerated.lua` | AUTO-GENERATED — item catalog + formula profiles per profession |
-| `Data/StratsGenerated.lua` | AUTO-GENERATED — all 68 strategy definitions |
+| `Data/StratsGenerated.lua` | AUTO-GENERATED — 62 strategy definitions |
 
 ## Load Order
-Constants → Locale → Log → Core → Minimap → Settings → Pricing → AHScan → Importer → Data/* → CraftSimBridge → UI/*
+Constants → Locale → Log → Core → State → Minimap → Settings → PricingDerivation → Pricing → AHScan → Importer → Data/* → CraftSimBridge → UI/*
 
 Files loaded later can depend on files loaded earlier. Files loaded earlier cannot reference later files.
 
@@ -59,9 +65,9 @@ Files loaded later can depend on files loaded earlier. Files loaded earlier cann
 | AH scan stuck / slow / missing prices | `AHScan.lua` |
 | Strategy missing / not loading | `Data/StratsGenerated.lua`, `Core.lua` |
 | Wrong ingredient quantities | Run `python3 tools/compare_strats.py` first, then regenerate |
-| UI layout / button / panel | `UI/MainWindowV2.lua` |
-| Strategy detail panel | `UI/StratDetail.lua` |
-| Shopping list / Quick Buy | `UI/MainWindowV2.lua` |
+| UI layout / button / panel | `UI/MainWindowV2.lua`, `UI/MainWindowV2LeftPanel.lua`, `UI/MainWindowV2Center.lua` |
+| Strategy detail panel | `UI/MainWindowV2Detail.lua`, `UI/StratDetail.lua` |
+| Shopping list / Quick Buy | `UI/MainWindowV2.lua`, `UI/MainWindowV2Center.lua` |
 | ARP import / Importer | `Importer.lua` |
 | CraftSim integration | `CraftSimBridge.lua` |
 | Settings not saving | `Settings.lua`, `Core.lua` |

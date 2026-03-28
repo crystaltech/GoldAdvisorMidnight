@@ -14,6 +14,17 @@ local RESULT_RETRY_DELAY  = GAM.C.RESULT_RETRY_DELAY
 local MAX_RETRY           = GAM.C.MAX_RETRY
 local EVENT_PROCESS_DELAY = GAM.C.EVENT_PROCESS_DELAY
 
+local function GetOpts()
+    return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
+end
+
+local function GetItemKeyDB()
+    if GAM.State and GAM.State.GetItemKeyDB then
+        return GAM.State.GetItemKeyDB()
+    end
+    return (GoldAdvisorMidnightDB and GoldAdvisorMidnightDB.itemKeyDB) or {}
+end
+
 function AHScan.SetScanDelay(d)
     SCAN_DELAY = d or GAM.C.SCAN_DELAY
 end
@@ -60,9 +71,7 @@ local function GetCachedItemKey(itemID)
     if not itemID or itemID == 0 then return nil end
     if itemKeyCache[itemID] then return itemKeyCache[itemID] end
     -- Lazy-load from persisted DB (safety net; normally pre-warmed by PreWarmCache on AH open)
-    local saved = GoldAdvisorMidnightDB
-        and GoldAdvisorMidnightDB.itemKeyDB
-        and GoldAdvisorMidnightDB.itemKeyDB[itemID]
+    local saved = GetItemKeyDB()[itemID]
     if saved then
         local key = C_AuctionHouse.MakeItemKey(
             itemID, saved.itemLevel or 0, saved.itemSuffix or 0, saved.battlePetSpeciesID or 0)
@@ -78,7 +87,7 @@ end
 -- Called from Core.lua on AUCTION_HOUSE_SHOW. Ensures all known full itemKeys
 -- are in the fast session cache before scanning begins.
 function AHScan.PreWarmCache()
-    local ikdb = GoldAdvisorMidnightDB and GoldAdvisorMidnightDB.itemKeyDB
+    local ikdb = GetItemKeyDB()
     if not ikdb then return end
     local n = 0
     for id, saved in pairs(ikdb) do
@@ -148,6 +157,21 @@ local function ComputeStatsFromResults(results, targetQty)
     return sum / kept, minP, maxP, kept
 end
 
+function AHScan.RunSmokeChecks()
+    local ok, err = pcall(function()
+        local avg, minP, maxP, kept = ComputeStatsFromResults({
+            { unitPrice = 100, quantity = 3 },
+            { unitPrice = 125, quantity = 2 },
+            { unitPrice = 150, quantity = 1 },
+        }, 4)
+        assert(type(avg) == "number" and avg > 0, "avg unavailable")
+        assert(type(minP) == "number" and minP > 0, "min unavailable")
+        assert(type(maxP) == "number" and maxP > 0, "max unavailable")
+        assert(type(kept) == "number" and kept > 0, "kept unavailable")
+    end)
+    return ok, err
+end
+
 -- ComputePriceForQty: average unit price for `requiredQty` units using live
 -- session caches (commodity → item) then persisted raw as fallback.
 -- Returns avg in copper, or nil if no raw data is available.
@@ -179,8 +203,7 @@ local function ReadCommodityResults(itemID, targetQty)
     if targetQty == nil then
         -- Use configured fill qty.
         -- An explicit caller-supplied targetQty (non-nil) is always honoured unchanged.
-        local opts = GAM.db and GAM.db.options
-        targetQty = (opts and opts.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
+        targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
     end
     local numResults = C_AuctionHouse.GetNumCommoditySearchResults(itemID)
     if not numResults or numResults == 0 then return nil end
@@ -550,8 +573,7 @@ function AHScan.OnItemResults(itemKey)
         table.sort(raw, function(a, b) return a.unitPrice < b.unitPrice end)
 
         -- Use configured fill qty.
-        local opts = GAM.db and GAM.db.options
-        local targetQty = (opts and opts.shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
+        local targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
 
         itemCache[entry.itemID] = { prices = raw, ts = time() }
 
@@ -629,7 +651,7 @@ function AHScan.OnBrowseResults()
                         -- Persist full key to SavedVariables so future sessions skip browse
                         local ik = result.itemKey
                         if ik and (ik.itemLevel ~= 0 or ik.itemSuffix ~= 0 or ik.battlePetSpeciesID ~= 0) then
-                            local ikdb = GoldAdvisorMidnightDB and GoldAdvisorMidnightDB.itemKeyDB
+                            local ikdb = GetItemKeyDB()
                             if ikdb then
                                 ikdb[id] = {
                                     itemLevel          = ik.itemLevel or 0,

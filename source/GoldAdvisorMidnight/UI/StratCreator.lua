@@ -9,7 +9,42 @@ local SC = {}
 GAM.UI.StratCreator = SC
 
 local function GetUIScale()
-    return (GAM.db and GAM.db.options and GAM.db.options.uiScale) or 1.0
+    return (GAM.GetOption and GAM:GetOption("uiScale", 1.0)) or 1.0
+end
+
+local function GetUserStrats()
+    return (GAM.State and GAM.State.GetUserStrats and GAM.State.GetUserStrats()) or
+        ((GAM.db and GAM.db.userStrats) or {})
+end
+
+local function AddUserStrat(strat)
+    if GAM.State and GAM.State.AddUserStrat then
+        GAM.State.AddUserStrat(strat)
+        return
+    end
+    GAM.db.userStrats = GAM.db.userStrats or {}
+    GAM.db.userStrats[#GAM.db.userStrats + 1] = strat
+end
+
+local function ReplaceUserStrat(index, strat)
+    if GAM.State and GAM.State.ReplaceUserStrat then
+        return GAM.State.ReplaceUserStrat(index, strat)
+    end
+    if GAM.db and GAM.db.userStrats and index then
+        GAM.db.userStrats[index] = strat
+        return true
+    end
+    return false
+end
+
+local function DeleteUserStratAt(index)
+    if GAM.State and GAM.State.DeleteUserStratAt then
+        return GAM.State.DeleteUserStratAt(index)
+    end
+    if GAM.db and GAM.db.userStrats and GAM.db.userStrats[index] then
+        return table.remove(GAM.db.userStrats, index)
+    end
+    return nil
 end
 
 local function MeasureButtonWidth(parent, text, minW, maxW, padding)
@@ -422,8 +457,7 @@ local function BuildImportPopup()
             return
         end
         strat._isUser = true
-        GAM.db.userStrats = GAM.db.userStrats or {}
-        GAM.db.userStrats[#GAM.db.userStrats + 1] = strat
+        AddUserStrat(strat)
         GAM.Importer.Init()
         GAM:GetActiveMainWindow().Refresh()
         print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_IMPORTED"], strat.stratName))
@@ -806,11 +840,10 @@ local function Build()
         if #outputs > 1 then strat.outputs = outputs end
 
         -- Save to db
-        GAM.db.userStrats = GAM.db.userStrats or {}
         if editingIndex then
-            GAM.db.userStrats[editingIndex] = strat
+            ReplaceUserStrat(editingIndex, strat)
         else
-            GAM.db.userStrats[#GAM.db.userStrats + 1] = strat
+            AddUserStrat(strat)
         end
 
         -- Reload importer so strat appears immediately
@@ -830,9 +863,10 @@ local function Build()
     btnDelete:SetSize(80, 22)
     btnDelete:SetText(GAM.L["BTN_CREATOR_DELETE"])
     btnDelete:SetScript("OnClick", function()
-        if editingIndex and GAM.db.userStrats and GAM.db.userStrats[editingIndex] then
-            local name = GAM.db.userStrats[editingIndex].stratName or "?"
-            table.remove(GAM.db.userStrats, editingIndex)
+        local userStrats = GetUserStrats()
+        if editingIndex and userStrats[editingIndex] then
+            local name = userStrats[editingIndex].stratName or "?"
+            DeleteUserStratAt(editingIndex)
             GAM.Importer.Init()
             GAM:GetActiveMainWindow().Refresh()
             print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_DELETED"], name))
@@ -926,8 +960,10 @@ function SC.ShowEdit(strat)
 
     -- Find the index in db.userStrats
     editingIndex = nil
-    if GAM.db and GAM.db.userStrats then
-        for i, s in ipairs(GAM.db.userStrats) do
+    if GAM.State and GAM.State.FindUserStratIndex then
+        editingIndex = GAM.State.FindUserStratIndex(strat)
+    else
+        for i, s in ipairs(GetUserStrats()) do
             if s == strat or (s.stratName == strat.stratName and s.profession == strat.profession) then
                 editingIndex = i
                 break

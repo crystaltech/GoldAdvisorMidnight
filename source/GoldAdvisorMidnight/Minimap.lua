@@ -11,6 +11,19 @@ local isDragging = false
 local dragAngle  = 45  -- degrees, 0 = right, 90 = bottom
 
 local function AngleToRad(deg) return deg * (math.pi / 180) end
+local function GetOpts()
+    return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
+end
+
+local function SetOption(key, value)
+    if GAM.State and GAM.State.SetOption then
+        GAM.State.SetOption(key, value)
+        return
+    end
+    if GAM.db and GAM.db.options then
+        GAM.db.options[key] = value
+    end
+end
 
 local function UpdatePosition()
     local angle = AngleToRad(dragAngle)
@@ -32,9 +45,9 @@ local function OnMouseMove()
 end
 
 function MM.Init()
-    local db = GAM.db
-    if db.options.minimapAngle then
-        dragAngle = db.options.minimapAngle
+    local opts = GetOpts()
+    if opts.minimapAngle then
+        dragAngle = opts.minimapAngle
     end
 
     btn = CreateFrame("Button", "GoldAdvisorMidnightMinimapBtn", Minimap)
@@ -77,7 +90,7 @@ function MM.Init()
     btn:SetScript("OnDragStop", function()
         isDragging = false
         btn:SetScript("OnUpdate", nil)
-        db.options.minimapAngle = dragAngle
+        SetOption("minimapAngle", dragAngle)
     end)
 
     -- Clicks
@@ -98,7 +111,7 @@ function MM.Init()
 
     UpdatePosition()
 
-    if db.options.minimapHidden then
+    if opts.minimapHidden then
         btn:Hide()
     else
         btn:Show()
@@ -108,7 +121,7 @@ end
 function MM.SetShown(show)
     if not btn then return end
     if show then btn:Show() else btn:Hide() end
-    GAM.db.options.minimapHidden = not show
+    SetOption("minimapHidden", not show)
 end
 
 function MM.Toggle()

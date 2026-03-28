@@ -289,6 +289,17 @@ end
 local arpPopup
 local arpPopupEB
 local arpPopupSF
+local arpPopupSizer
+
+local function RefreshARPExportPopupLayout()
+    if not (arpPopupEB and arpPopupSF and arpPopupSizer) then return end
+    local width = math.max(40, (arpPopupSF:GetWidth() or 0) - 10)
+    arpPopupEB:SetWidth(width)
+    arpPopupSizer:SetWidth(width)
+    arpPopupSizer:SetText(arpPopupEB:GetText() or "")
+    local textHeight = arpPopupSizer:GetStringHeight() or 0
+    arpPopupEB:SetHeight(math.max((arpPopupSF:GetHeight() or 0), textHeight + 16))
+end
 
 local function BuildARPExportPopup()
     arpPopup = CreateFrame("Frame", "GAMARPExportPopup", UIParent, "BackdropTemplate")
@@ -314,7 +325,7 @@ local function BuildARPExportPopup()
     -- Title
     local title = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", arpPopup, "TOP", 0, -14)
-    title:SetText("ARP Export")
+    title:SetText((GAM.L and GAM.L["BTN_ARP_EXPORT"]) or "ARP Export")
 
     -- Close button (top-right X)
     local closeBtn = CreateFrame("Button", nil, arpPopup, "UIPanelCloseButton")
@@ -340,15 +351,29 @@ local function BuildARPExportPopup()
     eb:SetWidth(sf:GetWidth() - 10)
     eb:SetScript("OnEscapePressed", function() arpPopup:Hide() end)
     eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+    eb:SetScript("OnTextChanged", function()
+        RefreshARPExportPopupLayout()
+    end)
     sf:SetScrollChild(eb)
     arpPopupEB = eb
     arpPopupSF = sf
+
+    local sizer = sf:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    sizer:SetJustifyH("LEFT")
+    sizer:SetJustifyV("TOP")
+    sizer:Hide()
+    arpPopupSizer = sizer
+
+    sf:SetScript("OnSizeChanged", function()
+        RefreshARPExportPopupLayout()
+    end)
 end
 
 local function ShowARPExportPopup(text)
     if not arpPopup then BuildARPExportPopup() end
     arpPopupSF:SetVerticalScroll(0)
     arpPopupEB:SetText(text or "")
+    RefreshARPExportPopupLayout()
     arpPopup:Show()
     PresentTop(arpPopup)
     arpPopupEB:SetFocus()

@@ -35,18 +35,24 @@ source/GoldAdvisorMidnight/
 ├── Locale/                       10 community locale files (deDE frFR esES esMX ruRU zhCN zhTW koKR itIT ptBR)
 ├── Log.lua                       Ring-buffer debug log (500 entries)
 ├── Core.lua                      Event backbone, SavedVars init, DB migration, slash commands, Quick Buy
+├── State.lua                     Shared addon state (selected strat, patchTag, UI refs)
 ├── Minimap.lua                   Pure Blizzard minimap button
 ├── Settings.lua                  Blizzard Settings panel (crafting stat fields for all professions)
 ├── Pricing.lua                   Price engine: GetEffectivePriceForItem, CalculateStratMetrics, FormatPrice
+├── PricingDerivation.lua         Vertical integration derivation chains (mill/craft cost paths)
 ├── AHScan.lua                    C_AuctionHouse scan queue, throttle, progress callbacks
 ├── Importer.lua                  Loads StratsGenerated; XOR decoder for protected builds
 ├── CraftSimBridge.lua            Optional CraftSim stat sync and price push
 ├── Data/
 │   ├── WorkbookGenerated.lua     AUTO-GENERATED — item catalog + formula profiles per profession
-│   └── StratsGenerated.lua       AUTO-GENERATED — all 64 strategy definitions
+│   └── StratsGenerated.lua       AUTO-GENERATED — 62 strategy definitions
 └── UI/
-    ├── MainWindowV2.lua          Three-panel main window (left controls / center list / right detail)
-    ├── StratDetail.lua           Inline strategy detail panel (reagents, metrics, crafts scaler)
+    ├── MainWindowV2.lua          Three-panel main window coordinator (layout, theme, refresh)
+    ├── MainWindowV2Common.lua    Shared theme definitions and helper utilities
+    ├── MainWindowV2LeftPanel.lua Left panel: scan controls, filters, VI toggle, craft stats
+    ├── MainWindowV2Center.lua    Center panel: sortable strategy list
+    ├── MainWindowV2Detail.lua    Right panel: inline strategy detail (reagents, metrics, scaler)
+    ├── StratDetail.lua           Standalone strategy detail panel
     ├── StratCreator.lua          Custom strategy creation UI
     └── DebugLog.lua              Scrollable debug log frame + ARP price export
 ```
@@ -104,8 +110,11 @@ Zips are attached to GitHub releases via the release scripts.
 | Script | What it does |
 |--------|-------------|
 | `Sync_Addon.command` | rsync `source/GoldAdvisorMidnight/` into the local WoW AddOns directory for testing |
-| `Package_Addon.command` | Build a plain release zip into `releases/` (no git ops) |
-| `Release_Addon.command` | Package_Addon + `git add source/ CHANGELOG.md` + commit + tag + push + `gh release create` |
-| `Release_Protected.command` | Same as Release_Addon but encodes data files before zipping, restores TOC after |
+| `Package_Addon.command` | Plain unencoded zip only, no git ops, for local testing |
+| `Release_Discord.command` | Protected zip + GitHub pre-release tag `vX.X.X-discord`, pushes current branch |
+| `Release_CurseForge.command` | Protected zip + GitHub stable release + CurseForge upload, pushes `main` |
+| `Release_Patreon.command` | Protected zip only, no git ops, for direct client handoff |
+| `Release_Addon.command` | Legacy: plain zip + commit + tag + push + GitHub release |
+| `Release_Protected.command` | Legacy: same as Release_Addon but with encoded data files |
 
 All release scripts read the version from `## Version:` in the TOC file — bump that (and `ADDON_VERSION` in Constants.lua) before running.

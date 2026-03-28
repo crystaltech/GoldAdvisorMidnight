@@ -6,6 +6,19 @@ local ADDON_NAME, GAM = ...
 local Bridge = {}
 GAM.CraftSimBridge = Bridge
 
+local function GetOpts()
+    return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
+end
+
+local function RoundDecimal(value, places)
+    local n = tonumber(value)
+    if not n then return nil end
+    local mult = 10 ^ (places or 0)
+    return math.floor(n * mult + 0.5) / mult
+end
+
+local PROF_ID_TO_KEY
+
 -- ===== Detection =====
 local function CraftSimAvailable()
     return CraftSimAPI ~= nil
@@ -48,7 +61,7 @@ bridgeFrame:RegisterEvent("PLAYER_LOGIN")
 bridgeFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
         OnLoad()
-        GAM.Log.Debug("CraftSimBridge: workbook defaults remain authoritative; node bonuses are available for manual compare/import only.")
+        GAM.Log.Debug("CraftSimBridge: workbook defaults remain authoritative; cached CraftSim stats can be imported for compare/sync.")
         bridgeFrame:UnregisterAllEvents()
     end
 end)
@@ -62,10 +75,269 @@ local function CraftSimDBAvailable()
     return CraftSimDB ~= nil and type(CraftSimDB) == "table"
 end
 
+local function GetPlayerCrafterUID()
+    return (UnitName("player") or "Unknown") .. "-" .. (GetRealmName() or "Unknown")
+end
+
+local function GetPlayerCrafterData()
+    return {
+        name = UnitName("player"),
+        realm = GetRealmName(),
+        class = select(2, UnitClass("player")),
+    }
+end
+
+local function GetCachedCrafterData()
+    local uid = GetPlayerCrafterUID()
+    return CraftSimDB
+        and CraftSimDB.crafterDB
+        and CraftSimDB.crafterDB.data
+        and CraftSimDB.crafterDB.data[uid]
+end
+
+local function GetOpenRecipeData()
+    if not CraftSimAvailable() then return nil end
+    local ok, recipeData = pcall(function()
+        return CraftSimAPI:GetOpenRecipeData()
+    end)
+    if ok then
+        return recipeData
+    end
+    return nil
+end
+
+local function BuildCachedRecipeData(recipeID)
+    if not CraftSimAvailable() or not recipeID then return nil end
+    local crafterData = GetPlayerCrafterData()
+    if not crafterData.name or not crafterData.realm then
+        return nil
+    end
+
+    local ok, recipeData = pcall(function()
+        return CraftSimAPI:GetRecipeData({
+            recipeID = recipeID,
+            crafterData = crafterData,
+            forceCache = true,
+        })
+    end)
+    if ok and recipeData then
+        return recipeData
+    end
+    return nil
+end
+
+local function GetCachedRecipeIDsForProfession(professionID)
+    local crafterData = GetCachedCrafterData()
+    local cached = crafterData and crafterData.cachedRecipeIDs and crafterData.cachedRecipeIDs[professionID]
+    if type(cached) == "table" then
+        return cached
+    end
+    return {}
+end
+
+local PROF_KEY_TO_FIELDS = {
+    insc = {
+        multiFields = { "inscInkMulti" },
+        resFields = { "inscMillingRes", "inscInkRes" },
+        mcNodeField = "inscMcNode",
+        rsNodeField = "inscRsNode",
+    },
+    jc = {
+        multiFields = { "jcCraftMulti" },
+        resFields = { "jcProspectRes", "jcCrushRes", "jcCraftRes" },
+        mcNodeField = "jcMcNode",
+        rsNodeField = "jcRsNode",
+    },
+    ench = {
+        multiFields = { "enchCraftMulti" },
+        resFields = { "enchShatterRes", "enchCraftRes" },
+        mcNodeField = "enchMcNode",
+        rsNodeField = "enchRsNode",
+    },
+    alch = {
+        multiFields = { "alchMulti" },
+        resFields = { "alchRes" },
+        mcNodeField = "alchMcNode",
+        rsNodeField = "alchRsNode",
+    },
+    tail = {
+        multiFields = { "tailMulti" },
+        resFields = { "tailRes" },
+        mcNodeField = "tailMcNode",
+        rsNodeField = "tailRsNode",
+    },
+    bs = {
+        multiFields = { "bsMulti" },
+        resFields = { "bsRes" },
+        mcNodeField = "bsMcNode",
+        rsNodeField = "bsRsNode",
+    },
+    lw = {
+        multiFields = { "lwMulti" },
+        resFields = { "lwRes" },
+        mcNodeField = "lwMcNode",
+        rsNodeField = "lwRsNode",
+    },
+    eng = {
+        multiFields = { "engMulti" },
+        resFields = { "engRes" },
+        mcNodeField = "engMcNode",
+        rsNodeField = "engRsNode",
+    },
+}
+
+local function GetStatPercent(professionStat)
+    if not professionStat then return nil end
+
+    local ok, value = pcall(function()
+        if type(professionStat.GetPercent) == "function" then
+            return professionStat:GetPercent()
+        end
+        local raw = tonumber(professionStat.value)
+        local denom = tonumber(professionStat.percentDivisionFactor)
+        if raw and denom and denom > 0 then
+            return (raw / denom) * 100
+        end
+        return nil
+    end)
+
+    if ok and type(value) == "number" then
+        return math.max(0, value)
+    end
+    return nil
+end
+
+local function GetExtraValue(professionStat)
+    if not professionStat then return nil end
+
+    local ok, value = pcall(function()
+        if type(professionStat.GetExtraValue) == "function" then
+            return professionStat:GetExtraValue()
+        end
+        return professionStat.extraValues and professionStat.extraValues[1] or nil
+    end)
+
+    if ok and value ~= nil then
+        return tonumber(value)
+    end
+    return nil
+end
+
+local function GetExportProfessionStats(recipeData)
+    if not recipeData or not recipeData.professionStats then return nil end
+
+    local ok, exportStats = pcall(function()
+        if type(recipeData.professionStats.Copy) == "function" then
+            local copy = recipeData.professionStats:Copy()
+            if copy and type(copy.subtract) == "function"
+                    and recipeData.buffData
+                    and recipeData.buffData.professionStats then
+                copy:subtract(recipeData.buffData.professionStats)
+            end
+            return copy
+        end
+        return recipeData.professionStats
+    end)
+
+    if ok then
+        return exportStats
+    end
+    return recipeData.professionStats
+end
+
+local function ApplyProfessionSnapshot(snapshot, recipeData, wantsMulti)
+    if not snapshot or not recipeData then return end
+
+    local exportStats = GetExportProfessionStats(recipeData)
+    if exportStats then
+        if snapshot.resPercent == nil then
+            local supportsRes = recipeData.supportsResourcefulness
+            local resStat = exportStats.resourcefulness
+            local resValue = resStat and tonumber(resStat.value)
+            if supportsRes or resValue ~= nil then
+                snapshot.resPercent = RoundDecimal(GetStatPercent(resStat) or 0, 3)
+            end
+        end
+
+        if wantsMulti and snapshot.multiPercent == nil then
+            local supportsMulti = recipeData.supportsMulticraft
+            local mcStat = exportStats.multicraft
+            local mcValue = mcStat and tonumber(mcStat.value)
+            if supportsMulti or mcValue ~= nil then
+                snapshot.multiPercent = RoundDecimal(GetStatPercent(mcStat) or 0, 3)
+            end
+        end
+    end
+
+    local specStats = recipeData.specializationData and recipeData.specializationData.professionStats
+    if specStats then
+        if snapshot.rsNode == nil then
+            snapshot.rsNode = math.max(0, math.min(1, GetExtraValue(specStats.resourcefulness) or 0))
+        end
+        if wantsMulti and snapshot.mcNode == nil then
+            snapshot.mcNode = math.max(0, math.min(1, GetExtraValue(specStats.multicraft) or 0))
+        end
+    end
+end
+
+local function BuildProfessionSnapshot(professionID, wantsMulti)
+    local snapshot = {}
+    local seenRecipeIDs = {}
+    local openRecipeData = GetOpenRecipeData()
+
+    local function capture(recipeData)
+        if not recipeData then return false end
+        local info = recipeData.professionData and recipeData.professionData.professionInfo
+        if not info or info.profession ~= professionID then
+            return false
+        end
+
+        if recipeData.recipeID then
+            seenRecipeIDs[recipeData.recipeID] = true
+        end
+
+        ApplyProfessionSnapshot(snapshot, recipeData, wantsMulti)
+        return snapshot.resPercent ~= nil
+            and ((not wantsMulti) or snapshot.multiPercent ~= nil)
+            and snapshot.rsNode ~= nil
+            and ((not wantsMulti) or snapshot.mcNode ~= nil)
+    end
+
+    if capture(openRecipeData) then
+        return snapshot
+    end
+
+    for _, recipeID in ipairs(GetCachedRecipeIDsForProfession(professionID)) do
+        if not seenRecipeIDs[recipeID] then
+            local recipeData = BuildCachedRecipeData(recipeID)
+            if capture(recipeData) then
+                return snapshot
+            end
+        end
+    end
+
+    return next(snapshot) and snapshot or nil
+end
+
+local function GetProfessionSyncDataFromCraftSim()
+    if not CraftSimDBAvailable() then return {} end
+
+    local syncData = {}
+    for professionID, profKey in pairs(PROF_ID_TO_KEY) do
+        local fieldInfo = PROF_KEY_TO_FIELDS[profKey]
+        local wantsMulti = fieldInfo and fieldInfo.multiFields and #fieldInfo.multiFields > 0
+        local snapshot = BuildProfessionSnapshot(professionID, wantsMulti)
+        if snapshot then
+            syncData[profKey] = snapshot
+        end
+    end
+    return syncData
+end
+
 -- ===== Node bonus reader =====
 
 -- Maps WoW professionID → GAM profession key (used for DB node bonus fields).
-local PROF_ID_TO_KEY = {
+PROF_ID_TO_KEY = {
     [773] = "insc",  -- Inscription
     [755] = "jc",    -- Jewelcrafting
     [333] = "ench",  -- Enchanting
@@ -77,58 +349,62 @@ local PROF_ID_TO_KEY = {
 }
 
 -- GetAllProfessionNodeBonuses() → { profKey → { rsNode, mcNode } } or {}
--- Reads per-profession Rs/MC spec node bonuses from CraftSimDB for the current
--- character. Returns decimal 0–1 values clamped to [0,1].
--- Returns an empty table if CraftSimDB is unavailable or has no data for this char.
+-- Reconstructs per-profession spec extra values from CraftSim's cached recipe data.
 function Bridge.GetAllProfessionNodeBonuses()
-    if not CraftSimDBAvailable() then return {} end
-    local uid = UnitName("player") .. "-" .. GetRealmName()
-    local specData = CraftSimDB.crafterDB
-                     and CraftSimDB.crafterDB.data
-                     and CraftSimDB.crafterDB.data[uid]
-                     and CraftSimDB.crafterDB.data[uid].specializationData
-    if not specData then return {} end
-
     local result = {}
-    for recipeID, entry in pairs(specData) do
-        if entry and entry.professionStats then
-            local ok, info = pcall(C_TradeSkillUI.GetRecipeInfo, recipeID)
-            local profKey = ok and info and PROF_ID_TO_KEY[info.professionID]
-            if profKey and not result[profKey] then
-                local ps = entry.professionStats
-                local rsNode = ps.resourcefulness
-                               and ps.resourcefulness.extraValues
-                               and ps.resourcefulness.extraValues[1]
-                local mcNode = ps.multicraft
-                               and ps.multicraft.extraValues
-                               and ps.multicraft.extraValues[1]
-                result[profKey] = {
-                    rsNode = math.max(0, math.min(1, tonumber(rsNode) or 0)),
-                    mcNode = math.max(0, math.min(1, tonumber(mcNode) or 0)),
-                }
-            end
+    for professionID, profKey in pairs(PROF_ID_TO_KEY) do
+        local snapshot = BuildProfessionSnapshot(professionID, true)
+        if snapshot and (snapshot.rsNode ~= nil or snapshot.mcNode ~= nil) then
+            result[profKey] = {
+                rsNode = math.max(0, math.min(1, tonumber(snapshot.rsNode) or 0)),
+                mcNode = math.max(0, math.min(1, tonumber(snapshot.mcNode) or 0)),
+            }
         end
     end
     return result
+end
+
+-- SyncOptionsFromCraftSim() → count, updatedFields
+-- Syncs only node bonus fields from cached CraftSim data.
+function Bridge.SyncOptionsFromCraftSim()
+    local syncData = GetProfessionSyncDataFromCraftSim()
+    local opts = GetOpts()
+    local count = 0
+    local updatedFields = {}
+
+    for profKey, snapshot in pairs(syncData) do
+        local fieldInfo = PROF_KEY_TO_FIELDS[profKey]
+        if fieldInfo then
+            local updated = false
+
+            if fieldInfo.mcNodeField and snapshot.mcNode ~= nil then
+                local rounded = math.floor(snapshot.mcNode * 100 + 0.5)
+                opts[fieldInfo.mcNodeField] = rounded
+                updatedFields[fieldInfo.mcNodeField] = rounded
+                updated = true
+            end
+
+            if fieldInfo.rsNodeField and snapshot.rsNode ~= nil then
+                local rounded = math.floor(snapshot.rsNode * 100 + 0.5)
+                opts[fieldInfo.rsNodeField] = rounded
+                updatedFields[fieldInfo.rsNodeField] = rounded
+                updated = true
+            end
+
+            if updated then
+                count = count + 1
+            end
+        end
+    end
+
+    return count, updatedFields
 end
 
 -- SyncNodeBonusesFromCraftSim() → count (number of professions updated)
 -- Reads CraftSim spec data and updates per-profession node bonus DB fields.
 -- Returns 0 if CraftSim data is unavailable.
 function Bridge.SyncNodeBonusesFromCraftSim()
-    local bonuses = Bridge.GetAllProfessionNodeBonuses()
-    local count   = 0
-    local opts    = GAM.db and GAM.db.options
-    if not opts then return 0 end
-
-    for profKey, data in pairs(bonuses) do
-        local mcField = profKey .. "McNode"
-        local rsField = profKey .. "RsNode"
-        -- Store as integer percent (0–100) to match the existing DB convention
-        opts[mcField] = math.floor(data.mcNode * 100 + 0.5)
-        opts[rsField] = math.floor(data.rsNode * 100 + 0.5)
-        count = count + 1
-    end
+    local count = Bridge.SyncOptionsFromCraftSim()
     return count
 end
 

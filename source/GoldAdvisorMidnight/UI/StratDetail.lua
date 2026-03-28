@@ -27,8 +27,22 @@ local positioned    = false -- true once the initial frame position has been set
 local inputScrollFrame, inputListHost
 local outputScrollFrame, outputListHost
 
+local function GetOpts()
+    return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
+end
+
+local function SetOption(key, value)
+    if GAM.State and GAM.State.SetOption then
+        GAM.State.SetOption(key, value)
+        return
+    end
+    if GAM.db and GAM.db.options then
+        GAM.db.options[key] = value
+    end
+end
+
 local function GetUIScale()
-    return (GAM.db and GAM.db.options and GAM.db.options.uiScale) or 1.0
+    return GetOpts().uiScale or 1.0
 end
 
 local function MeasureButtonWidth(parent, text, minW, maxW, padding)
@@ -149,20 +163,34 @@ local function ShowDeleteConfirm(strat)
         GAM.L["CONFIRM_DELETE_BODY"]:format(strat.stratName or "?"))
     confirmFrame.btnOK:SetScript("OnClick", function()
         confirmFrame:Hide()
-        if GAM.db and GAM.db.userStrats then
+        local deleted = nil
+        if GAM.State and GAM.State.DeleteUserStrat then
+            deleted = GAM.State.DeleteUserStrat(strat)
+        elseif GAM.db and GAM.db.userStrats then
             for i, s in ipairs(GAM.db.userStrats) do
                 if s == strat or (s.stratName == strat.stratName and s.profession == strat.profession) then
-                    table.remove(GAM.db.userStrats, i)
+                    deleted = table.remove(GAM.db.userStrats, i)
                     break
                 end
             end
         end
+        if not deleted then
+            return
+        end
         GAM.Importer.Init()
-        GAM:GetActiveMainWindow().Refresh()
-        print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_DELETED"], strat.stratName or "?"))
+        local mainWindow = GAM:GetActiveMainWindow()
+        if mainWindow and mainWindow.Refresh then
+            mainWindow.Refresh()
+        end
+        print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_DELETED"], deleted.stratName or "?"))
         if frame then frame:Hide() end
     end)
     confirmFrame:Show()
+end
+
+function SD.ConfirmDeleteStrat(strat)
+    if not strat then return end
+    ShowDeleteConfirm(strat)
 end
 
 -- ===== Helpers =====
@@ -568,7 +596,7 @@ local function Build()
                         "BackdropTemplate")
     frame:SetSize(WIN_W, WIN_H)
     frame:SetPoint("CENTER", UIParent, "CENTER")  -- placeholder so child scroll frames get valid width at build time
-    frame:SetScale(GAM.db and GAM.db.options and GAM.db.options.uiScale or 1.0)
+    frame:SetScale(GetUIScale())
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:SetClampedToScreen(true)
@@ -813,9 +841,8 @@ local function Build()
     rankToggleBtn:SetSize(80, 22)
     rankToggleBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 20)
     rankToggleBtn:SetScript("OnClick", function()
-        if not GAM.db or not GAM.db.options then return end
-        local cur = GAM.db.options.rankPolicy or "lowest"
-        GAM.db.options.rankPolicy = (cur == "highest") and "lowest" or "highest"
+        local cur = GetOpts().rankPolicy or "lowest"
+        SetOption("rankPolicy", (cur == "highest") and "lowest" or "highest")
         SD.Refresh()
     end)
     frame.rankToggleBtn = rankToggleBtn
@@ -958,7 +985,7 @@ local function Build()
     btnDelete:SetWidth(MeasureButtonWidth(frame, btnDelete:GetText(), 80, 240, 24))
     btnDelete:SetScript("OnClick", function()
         if not currentStrat then return end
-        ShowDeleteConfirm(currentStrat)
+        SD.ConfirmDeleteStrat(currentStrat)
     end)
     btnDelete:Hide()
     frame.btnDelete = btnDelete
@@ -1036,7 +1063,7 @@ function SD.Refresh()
 
     -- Rank toggle label
     if frame.rankToggleBtn then
-        local policy = (GAM.db and GAM.db.options and GAM.db.options.rankPolicy) or "lowest"
+        local policy = GetOpts().rankPolicy or "lowest"
         -- Button shows what clicking will switch TO (action label, not current state)
         frame.rankToggleBtn:SetText(policy == "highest" and L["RANK_BTN_R1"] or L["RANK_BTN_R2"])
         if frame.RelayoutBottomButtons then frame.RelayoutBottomButtons() end

@@ -77,14 +77,15 @@ local DB_DEFAULTS = {
         engRsNode        = ProfileDefault("engineering", "defaultRsNode", 50),
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
+        v2Theme             = "classic",
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
         leftPanelCollapsed  = false,   -- left panel collapse state
         rightPanelCollapsed = false,   -- right panel collapse state
         compactMode         = false,   -- show only strategy detail panel
         -- AH window behavior
-        autoOpenWithAH      = true,    -- open addon window when AH opens
-        closeWithAH         = false,   -- close addon window when AH closes
+        rememberAHWindowState = true,  -- reopen on AH open if the window was last left open
+        lastAHWindowOpen    = true,    -- remembered main window state across AH sessions
     },
     patch      = {},
     priceCache = {},
@@ -96,10 +97,9 @@ local DB_DEFAULTS = {
 -- ===== Migrations =====
 -- Each entry: { dataVersion = N, migrate = function(db) ... end }
 local MIGRATIONS = {
-    -- v2: Spreadsheet data refresh (midnight_spreadsheet_extract_updated).
+    -- dataVersion 2: Spreadsheet data refresh.
     -- No schema changes; wipe price cache so stale entries for removed/renamed
-    -- items don't persist. All user data (favorites, startingAmounts, overrides)
-    -- is preserved.
+    -- items don't persist. Favorites, startingAmounts, and overrides are preserved.
     {
         dataVersion = 2,
         migrate = function(db)
@@ -108,7 +108,7 @@ local MIGRATIONS = {
             end
         end,
     },
-    -- v3: Remove legacy boolean field from the scrapped "experimentalFillQty" design.
+    -- dataVersion 3: Remove legacy experimentalFillQty field from scrapped fill-qty design.
     -- The new schema uses shallowFillQty (injected by ApplyDefaults).
     {
         dataVersion = 3,
@@ -118,8 +118,8 @@ local MIGRATIONS = {
             end
         end,
     },
-    -- v4: Unify fill qty — remove shallow/deep toggle. shallowFillQty is kept as
-    -- the SavedVar key for continuity. Remove shallowFillEnabled; reset qty to the
+    -- dataVersion 4: Unify fill qty — remove shallow/deep toggle. shallowFillQty kept
+    -- as the SavedVar key for continuity. Remove shallowFillEnabled; reset qty to the
     -- new default (50) so all users start fresh.
     {
         dataVersion = 4,
@@ -132,7 +132,7 @@ local MIGRATIONS = {
             end
         end,
     },
-    -- v5: New "Dynamic Stats" spreadsheet with per-profession baked MCm/Rs constants.
+    -- dataVersion 5: New Dynamic Stats spreadsheet with per-profession baked MCm/Rs constants.
     -- Wipe price cache so stale multipliers for changed strats don't persist.
     {
         dataVersion = 5,
@@ -142,9 +142,9 @@ local MIGRATIONS = {
             end
         end,
     },
-    -- v6: Formula redesign — output quantities now computed directly from baseYieldMultiplier
-    -- (B) instead of baked qtyMultiplier scaled from a baseline. Wipe price cache so any
-    -- cached net revenue values (which used the old multipliers) are recalculated.
+    -- dataVersion 6: Formula redesign — output qty now uses baseYieldMultiplier directly
+    -- instead of baked qtyMultiplier scaled from a baseline. Wipe price cache so cached
+    -- net revenue values are recalculated with the new multipliers.
     {
         dataVersion = 6,
         migrate = function(db)
@@ -154,6 +154,7 @@ local MIGRATIONS = {
         end,
     },
     {
+        -- dataVersion 7: Strat/formula data refresh. Wipe price cache for clean recalculation.
         dataVersion = 7,
         migrate = function(db)
             if type(db.priceCache) == "table" then
@@ -164,7 +165,7 @@ local MIGRATIONS = {
     {
         dataVersion = 8,
         migrate = function(db)
-            -- Wipe stored raw order-book arrays (.raw fields) from all price cache entries.
+            -- dataVersion 8: Wipe stored raw order-book arrays (.raw fields) from price cache.
             -- These were persisted by StoreRaw() and caused progressive SavedVariables bloat.
             -- Stored avg prices (.price / .ts) are preserved.
             if type(db.priceCache) == "table" then
@@ -183,11 +184,37 @@ local MIGRATIONS = {
     {
         dataVersion = 9,
         migrate = function(db)
-            -- Reset compact mode: the v1.5.0 compact button had a wrong offset that caused
-            -- accidental activation. Force it off so the layout is not stuck in compact on
+            -- dataVersion 9: Reset compact mode — the compact button had a wrong offset that
+            -- caused accidental activation. Force it off so layout is not stuck compact on
             -- first load after upgrade.
             if type(db.options) == "table" then
                 db.options.compactMode = false
+            end
+        end,
+    },
+    {
+        -- dataVersion 10: Replace autoOpenWithAH with rememberAHWindowState.
+        -- Migrate existing value so users keep their preference.
+        dataVersion = 10,
+        migrate = function(db)
+            if type(db.options) == "table" then
+                local opts = db.options
+                if opts.rememberAHWindowState == nil then
+                    opts.rememberAHWindowState = (opts.autoOpenWithAH ~= false)
+                end
+                if opts.lastAHWindowOpen == nil then
+                    opts.lastAHWindowOpen = (opts.autoOpenWithAH ~= false)
+                end
+                opts.autoOpenWithAH = nil
+            end
+        end,
+    },
+    {
+        -- dataVersion 11: Remove closeWithAH option (feature removed).
+        dataVersion = 11,
+        migrate = function(db)
+            if type(db.options) == "table" then
+                db.options.closeWithAH = nil
             end
         end,
     },
@@ -226,6 +253,9 @@ end
 
 -- ===== Patch scope helper =====
 function GAM:GetPatchDB(patchTag)
+    if self.State and self.State.GetPatchDB then
+        return self.State.GetPatchDB(patchTag)
+    end
     patchTag = patchTag or self.C.DEFAULT_PATCH
     local db  = self.db
     db.patch  = db.patch or {}
@@ -253,6 +283,9 @@ end
 
 -- ===== Price cache scoped to realm =====
 function GAM:GetRealmCache()
+    if self.State and self.State.GetRealmCache then
+        return self.State.GetRealmCache()
+    end
     local key = self:GetRealmKey()
     self.db.priceCache        = self.db.priceCache or {}
     self.db.priceCache[key]   = self.db.priceCache[key] or {}
@@ -270,7 +303,21 @@ GAM.quickBuyState = {
     pendingItemID = nil,
     pendingQty = nil,
     confirmSent = false,   -- prevents double-buy from THROTTLED_SYSTEM_READY firing multiple times
+    confirmReady = false,
+    statusNotice = nil,
+    readySignature = nil,
 }
+
+local function BuildQuickBuySignature(searchStrings)
+    local parts = {}
+    for _, searchString in ipairs(searchStrings or {}) do
+        if searchString and searchString ~= "" then
+            parts[#parts + 1] = searchString
+        end
+    end
+    table.sort(parts)
+    return table.concat(parts, "\031")
+end
 
 local function ResetQuickBuy(silent)
     local qb = GAM.quickBuyState
@@ -282,6 +329,9 @@ local function ResetQuickBuy(silent)
     qb.pendingItemID = nil
     qb.pendingQty = nil
     qb.confirmSent = false
+    qb.confirmReady = false
+    qb.statusNotice = nil
+    qb.readySignature = nil
     if not silent then
         print("|cffff8800[GAM]|r Auctionator quick buy stopped.")
     end
@@ -317,7 +367,19 @@ local function GetQuickBuyContext()
         resultsList = AuctionatorShoppingFrame.ResultsListing,
         searchStrings = list:GetAllItems() or {},
         entries = GAM.quickBuyList.entries,
+        signature = BuildQuickBuySignature(list:GetAllItems() or {}),
     }
+end
+
+local function RefreshQuickBuyListSignature()
+    if not GAM.quickBuyList then return end
+    local parts = {}
+    for _, entry in ipairs(GAM.quickBuyList.entries or {}) do
+        if entry and entry.searchString then
+            parts[#parts + 1] = entry.searchString
+        end
+    end
+    GAM.quickBuyList.signature = BuildQuickBuySignature(parts)
 end
 
 local function MapQuickBuyResultRows(entries, resultsList)
@@ -350,7 +412,7 @@ local function MapQuickBuyResultRows(entries, resultsList)
 end
 
 local AdvanceQuickBuy
-AdvanceQuickBuy = function()
+AdvanceQuickBuy = function(fromClick)
     local qb = GAM.quickBuyState
     if not qb.active then return end
 
@@ -371,32 +433,47 @@ AdvanceQuickBuy = function()
         ctx.listsContainer:ExpandList(ctx.list)
     end
 
-    -- Try to use existing Auctionator results before triggering a new search.
-    -- If results for all remaining items are still in the pane, buy immediately.
     local allMatched
-    qb.resultRows, allMatched = MapQuickBuyResultRows(ctx.entries, ctx.resultsList)
+    local canUseCurrentResults = qb.searchPending or qb.readySignature == ctx.signature
+    if canUseCurrentResults then
+        qb.resultRows, allMatched = MapQuickBuyResultRows(ctx.entries, ctx.resultsList)
+    else
+        qb.resultRows = {}
+        allMatched = false
+    end
 
     if not allMatched then
         -- Results unavailable — search only if not already pending
-        if not qb.searchPending then
+        if not qb.searchPending and fromClick then
             qb.searchPending = true
             qb.searchRetries = 0
+            qb.statusNotice = "searching"
+            qb.readySignature = nil
             AuctionatorShoppingFrame:DoSearch(ctx.searchStrings)
         end
-        if qb.searchRetries >= 20 then
+        if not qb.searchPending then
+            print("|cffff8800[GAM]|r Quick buy is waiting for a fresh Auctionator search. Press your macro again to search.")
+            return
+        end
+        if qb.searchRetries >= 40 then
             ResetQuickBuy(true)
             print("|cffff8800[GAM]|r Quick buy timed out waiting for Auctionator search results.")
             return
         end
         qb.searchRetries = qb.searchRetries + 1
         C_Timer.After(0.20, function()
-            AdvanceQuickBuy()
+            AdvanceQuickBuy(false)
         end)
         return
     end
 
     qb.searchPending = false
     qb.searchRetries = 0
+    qb.readySignature = ctx.signature
+    if qb.statusNotice == "searching" then
+        qb.statusNotice = "results_ready"
+        print("|cffff8800[GAM]|r Quick buy found results. Press your macro again to start the purchase.")
+    end
 
     local nextEntry = ctx.entries[1]
     local row = nextEntry and qb.resultRows[nextEntry.searchString]
@@ -408,8 +485,32 @@ AdvanceQuickBuy = function()
 
     qb.currentSearchString = nextEntry.searchString
     qb.pendingItemID = row.itemKey.itemID
-    qb.pendingQty = row.purchaseQuantity
+    qb.pendingQty = nextEntry.quantity or row.purchaseQuantity
+
+    if qb.statusNotice == "awaiting_ready" and not qb.confirmReady then
+        if fromClick then
+            print("|cffff8800[GAM]|r Waiting for the Auction House purchase prompt. Press your macro again once it appears.")
+        end
+        return
+    end
+
+    if qb.confirmReady then
+        if not fromClick then
+            return
+        end
+        qb.confirmReady = false
+        qb.confirmSent = true
+        qb.statusNotice = "confirming"
+        C_AuctionHouse.ConfirmCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
+        return
+    end
+
+    if not fromClick then
+        return
+    end
+
     qb.confirmSent = false
+    qb.statusNotice = "awaiting_ready"
     C_AuctionHouse.StartCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
 end
 
@@ -503,7 +604,7 @@ handlers["PLAYER_LOGIN"] = function(self)
             end
             GAM.quickBuyState.active = true
         end
-        AdvanceQuickBuy()
+        AdvanceQuickBuy(true)
     end)
     -- Pre-warm WoW item cache for all strat itemIDs so crafting quality API
     -- calls (used by ARP Export) return correct data on first use.
@@ -578,7 +679,9 @@ handlers["AUCTION_HOUSE_SHOW"] = function(self)
     self.ahOpen = true
     self.Log.Debug("AH opened.")
     local opts = self.db and self.db.options
-    if self.UI and self.UI.MainWindowV2 and (opts == nil or opts.autoOpenWithAH ~= false) then
+    if self.UI and self.UI.MainWindowV2
+            and (opts == nil or opts.rememberAHWindowState ~= false)
+            and (opts == nil or opts.lastAHWindowOpen ~= false) then
         self.UI.MainWindowV2.Show()
     end
     GetOrCreateAHButton():Show()
@@ -602,10 +705,6 @@ handlers["AUCTION_HOUSE_CLOSED"] = function(self)
         self.AHScan.OnAHClosed()
     end
     if ahBtn then ahBtn:Hide() end
-    local opts = self.db and self.db.options
-    if opts and opts.closeWithAH and self.UI and self.UI.MainWindowV2 then
-        self.UI.MainWindowV2.Hide()
-    end
 end
 
 -- ===== COMMODITY_SEARCH_RESULTS_UPDATED =====
@@ -633,8 +732,11 @@ end
 handlers["AUCTION_HOUSE_THROTTLED_SYSTEM_READY"] = function(self)
     local qb = self.quickBuyState
     if qb and qb.active and qb.pendingItemID and qb.pendingQty and not qb.confirmSent then
-        qb.confirmSent = true
-        C_AuctionHouse.ConfirmCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
+        qb.confirmReady = true
+        if qb.statusNotice ~= "ready_to_confirm" then
+            qb.statusNotice = "ready_to_confirm"
+            print("|cffff8800[GAM]|r Review the commodity purchase, then press your macro again to confirm.")
+        end
     end
 end
 
@@ -653,6 +755,11 @@ handlers["COMMODITY_PURCHASE_SUCCEEDED"] = function(self)
     qb.currentSearchString = nil
     qb.searchPending = false
     qb.searchRetries = 0
+    qb.confirmReady = false
+    qb.confirmSent = false
+    qb.statusNotice = nil
+    qb.readySignature = nil
+    qb.resultRows = {}
 
     if Auctionator and Auctionator.API and Auctionator.API.v1 and listName then
         local oldTerms = Auctionator.API.v1.ConvertFromSearchString(ADDON_NAME, oldSearchString)
@@ -683,6 +790,19 @@ handlers["COMMODITY_PURCHASE_SUCCEEDED"] = function(self)
                 end
             end
         end
+    end
+
+    RefreshQuickBuyListSignature()
+
+    local ctx = GetQuickBuyContext()
+    if ctx and #ctx.searchStrings > 0 then
+        qb.searchPending = true
+        qb.searchRetries = 0
+        qb.statusNotice = "searching"
+        AuctionatorShoppingFrame:DoSearch(ctx.searchStrings)
+        C_Timer.After(0.20, function()
+            AdvanceQuickBuy(false)
+        end)
     end
 
     -- Do NOT auto-advance: each purchase requires a hardware event.
@@ -728,7 +848,11 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
         end
     elseif cmd == "clearcache" then
         GAM:GetRealmCache()  -- ensures exists
-        wipe(GAM.db.priceCache)
+        if GAM.State and GAM.State.ClearPriceCache then
+            GAM.State.ClearPriceCache()
+        else
+            wipe(GAM.db.priceCache)
+        end
         GAM.Log.Info("Price cache cleared.")
         print("|cffff8800[GAM]|r Price cache cleared.")
     elseif cmd == "reload" then
@@ -740,6 +864,31 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
         if GAM.UI and GAM.UI.DebugLog then
             GAM.UI.DebugLog.Show()
             GAM.UI.DebugLog.DumpItemIDs()
+        end
+    elseif cmd == "smoketest" then
+        local pricingOK, pricingErr
+        if GAM.Pricing and GAM.Pricing.RunSmokeChecks then
+            pricingOK, pricingErr = GAM.Pricing.RunSmokeChecks()
+        else
+            pricingOK, pricingErr = false, "Pricing smoke checks unavailable"
+        end
+
+        local scanOK, scanErr
+        if GAM.AHScan and GAM.AHScan.RunSmokeChecks then
+            scanOK, scanErr = GAM.AHScan.RunSmokeChecks()
+        else
+            scanOK, scanErr = false, "AH scan smoke checks unavailable"
+        end
+
+        if pricingOK and scanOK then
+            print("|cffff8800[GAM]|r Smoke tests passed.")
+        else
+            if not pricingOK then
+                print("|cffff0000[GAM]|r Pricing smoke test failed: " .. tostring(pricingErr))
+            end
+            if not scanOK then
+                print("|cffff0000[GAM]|r AH scan smoke test failed: " .. tostring(scanErr))
+            end
         end
     elseif cmd == "create" then
         if GAM.UI and GAM.UI.StratCreator then

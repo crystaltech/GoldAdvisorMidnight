@@ -5,14 +5,27 @@
 local ADDON_NAME, GAM = ...
 local Pricing = {}
 GAM.Pricing = Pricing
+local Derivation = GAM.PricingDerivation or {}
 
 -- ===== Internal helpers =====
 
-local function GetDB() return GAM.db end
-local function GetOpts() return GAM.db and GAM.db.options or {} end
+local function GetDB()
+    return (GAM.GetDB and GAM:GetDB()) or GAM.db
+end
+
+local function GetOpts()
+    return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
+end
 local function GetPatchDB(pt) return GAM:GetPatchDB(pt) end
 local function GetFormulaProfiles()
     return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+end
+local function SafeWholeText(n)
+    if n == nil then return "0" end
+    if n == math.huge then return "inf" end
+    if n == -math.huge then return "-inf" end
+    local whole = math.floor(tonumber(n) or 0)
+    return tostring(whole)
 end
 
 local function RequestItemData(itemID)
@@ -111,6 +124,10 @@ local function GetItemQualityRank(itemID)
     return nil
 end
 
+local function GetItemName(itemID)
+    return select(1, GetItemInfo(itemID))
+end
+
 local function FindItemIDByQuality(itemIDs, desiredQuality)
     if not desiredQuality or not itemIDs then return nil end
     for _, id in ipairs(itemIDs) do
@@ -140,121 +157,9 @@ local function GetRankPolicyDesiredQuality(itemIDs, patchTag)
     return bestQ
 end
 
--- ===== Pigment → herb mapping for "Mill Own Herbs" cost mode =====
--- Maps each pigment itemID → { herbIDs, yieldPerHerb }
--- yieldPerHerb = output.qtyMultiplier (1.53) / reagent.qtyMultiplier (1.0)
-local PIGMENT_MILL_MAP = {
-    [245807] = { herbIDs = {236761,236767}, yieldPerHerb = 1.530000 }, -- Powder Pigment Q1
-    [245808] = { herbIDs = {236761,236767}, yieldPerHerb = 1.530000 }, -- Powder Pigment Q2
-    [245803] = { herbIDs = {236776,236777}, yieldPerHerb = 1.530000 }, -- Argentleaf Pigment Q1
-    [245804] = { herbIDs = {236776,236777}, yieldPerHerb = 1.530000 }, -- Argentleaf Pigment Q2
-    [245867] = { herbIDs = {236778,236779}, yieldPerHerb = 1.530000 }, -- Mana Lily Pigment Q1
-    [245866] = { herbIDs = {236778,236779}, yieldPerHerb = 1.530000 }, -- Mana Lily Pigment Q2
-    [245865] = { herbIDs = {236770,236771}, yieldPerHerb = 1.530000 }, -- Sanguithorn Pigment Q1
-    [245864] = { herbIDs = {236770,236771}, yieldPerHerb = 1.530000 }, -- Sanguithorn Pigment Q2
-}
-
--- Crafted reagent cost derivations for "craft your own" reagent modes.
--- Each entry maps crafted output itemID -> recipe ingredients and expected output
--- per source unit, mirroring the spreadsheet-baked strategy definition.
-local CRAFTED_REAGENT_MAP = {
-    -- Bright Linen Bolt Q1/Q2
-    [239700] = {
-        optionKey = "boltCostSource",
-        modeValue = "craft",
-        ingredients = {
-            { itemIDs = { 236963, 236965 }, qty = 1.000000 }, -- Bright Linen
-            { itemIDs = { 251665 },         qty = 4.000000 }, -- Silverleaf Thread
-        },
-        yield = 1.000000,
-        formulaProfile = "tailoring",
-    },
-    [239701] = {
-        optionKey = "boltCostSource",
-        modeValue = "craft",
-        ingredients = {
-            { itemIDs = { 236963, 236965 }, qty = 1.000000 },
-            { itemIDs = { 251665 },         qty = 4.000000 },
-        },
-        yield = 1.000000,
-        formulaProfile = "tailoring",
-    },
-    -- Refulgent Copper Ingot Q1: 5×R1 ore + 2×flux → 1 ingot (base)
-    -- Normalised to 1 R1 ore unit: flux qty = 2/5 = 0.4, yield = 1/5
-    -- formulaProfile = "blacksmithing" so GetEffectiveCraftYield applies MC/RS bonuses,
-    -- keeping shopping-list ore qty consistent with the direct Refulgent Copper Ingot view.
-    [238197] = {
-        optionKey = "ingotCostSource",
-        modeValue = "craft",
-        ingredients = {
-            { itemIDs = { 237359 }, qty = 1.000000 }, -- Refulgent Copper Ore R1
-            { itemIDs = { 243060 }, qty = 0.400000 }, -- Luminant Flux
-        },
-        yield = 0.200000,
-        formulaProfile = "blacksmithing",
-    },
-    -- Refulgent Copper Ingot Q2: 3×R1 ore + 2×R2 ore + 2×flux → 1 ingot (base)
-    -- Normalised to 1 R1 ore unit: R2 qty = 2/3, flux qty = 2/3, yield = 1/3
-    [238198] = {
-        optionKey = "ingotCostSource",
-        modeValue = "craft",
-        ingredients = {
-            { itemIDs = { 237359 }, qty = 1.000000 }, -- Refulgent Copper Ore R1
-            { itemIDs = { 237361 }, qty = 0.666667 }, -- Refulgent Copper Ore R2
-            { itemIDs = { 243060 }, qty = 0.666667 }, -- Luminant Flux
-        },
-        yield = 0.333333,
-        formulaProfile = "blacksmithing",
-    },
-    -- Sienna Ink Q1: 20×PP + 10×Argentleaf Pigment + 5×Mana Lily Pigment + 30×Songwater → 2 inks (base)
-    -- Normalized per 1 PP unit: AP=0.5, MLP=0.25, TS=1.5; yield includes MC/RS stats from workbook
-    -- Activates automatically when pigmentCostSource == "mill" (no separate "craft own inks" checkbox needed)
-    [245805] = {
-        optionKey  = "pigmentCostSource",
-        modeValue  = "mill",
-        ingredients = {
-            { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
-            { itemIDs = { 245803, 245804 }, qty = 0.500000 }, -- Argentleaf Pigment
-            { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
-            { itemIDs = { 245882 },         qty = 1.500000 }, -- Thalassian Songwater
-        },
-        yield = 0.178077,
-    },
-    [245806] = { -- Sienna Ink Q2 — same recipe
-        optionKey  = "pigmentCostSource",
-        modeValue  = "mill",
-        ingredients = {
-            { itemIDs = { 245807, 245808 }, qty = 1.000000 },
-            { itemIDs = { 245803, 245804 }, qty = 0.500000 },
-            { itemIDs = { 245867, 245866 }, qty = 0.250000 },
-            { itemIDs = { 245882 },         qty = 1.500000 },
-        },
-        yield = 0.178077,
-    },
-    -- Munsell Ink Q1: 20×PP + 10×Sanguithorn Pigment + 5×Mana Lily Pigment + 30×Songwater → 2 inks (base)
-    [245801] = {
-        optionKey  = "pigmentCostSource",
-        modeValue  = "mill",
-        ingredients = {
-            { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
-            { itemIDs = { 245865, 245864 }, qty = 0.500000 }, -- Sanguithorn Pigment
-            { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
-            { itemIDs = { 245882 },         qty = 1.500000 }, -- Thalassian Songwater
-        },
-        yield = 0.178077,
-    },
-    [245802] = { -- Munsell Ink Q2 — same recipe
-        optionKey  = "pigmentCostSource",
-        modeValue  = "mill",
-        ingredients = {
-            { itemIDs = { 245807, 245808 }, qty = 1.000000 },
-            { itemIDs = { 245865, 245864 }, qty = 0.500000 },
-            { itemIDs = { 245867, 245866 }, qty = 0.250000 },
-            { itemIDs = { 245882 },         qty = 1.500000 },
-        },
-        yield = 0.178077,
-    },
-}
+-- Dependency container for derivation functions (GetEffectivePrice, PickItemID).
+-- Populated lazily by GetDerivationDeps() on first use.
+local DERIVATION_DEPS = {}
 
 -- Pick best itemID from a list according to rankPolicy.
 -- Uses C_TradeSkillUI.GetItemReagentQualityByItemInfo to sort by actual crafting
@@ -307,6 +212,12 @@ function Pricing.PreloadStratItemData(strat, patchTag)
     touch(active.output)
     for _, o in ipairs(active.outputs or {}) do touch(o) end
     for _, r in ipairs(active.reagents or {}) do touch(r) end
+end
+
+local function GetDerivationDeps()
+    DERIVATION_DEPS.PickItemID = PickItemID
+    DERIVATION_DEPS.GetEffectivePrice = Pricing.GetEffectivePrice
+    return DERIVATION_DEPS
 end
 
 function Pricing.GetItemDisplayData(itemID, fallbackName)
@@ -390,106 +301,13 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     return cachedPrice, stale
 end
 
--- GetMillDerivedPigmentCost(itemID, patchTag, pigmentQty) → cost per pigment (copper), isStale
--- Derives pigment cost from herb AH price ÷ milling yield.
--- pigmentQty (optional): when provided the herb price lookup uses the actual
---   herb volume needed (pigmentQty / yieldPerHerb) for a qty-aware fill price.
--- Returns nil if the item is not a known pigment or herb prices are unavailable
--- (caller falls through to AH pigment price).
-local function GetMillDerivedPigmentCost(itemID, patchTag, pigmentQty)
-    local info = PIGMENT_MILL_MAP[itemID]
-    if not info then return nil, false end
-    local herbQty = (pigmentQty and pigmentQty > 0 and info.yieldPerHerb and info.yieldPerHerb > 0)
-                    and math.ceil(pigmentQty / info.yieldPerHerb) or nil
-    local bestPrice, isStale = nil, false
-    local hid = PickItemID(info.herbIDs, patchTag)
-    if hid then
-        bestPrice, isStale = Pricing.GetEffectivePrice(hid, patchTag, herbQty)
-    end
-    if not bestPrice then
-        -- fallback: try remaining herb IDs if the chosen one has no price
-        for _, fid in ipairs(info.herbIDs) do
-            if fid ~= hid then
-                local p, s = Pricing.GetEffectivePrice(fid, patchTag, herbQty)
-                if p then bestPrice = p; isStale = isStale or (s or false); break end
-            end
-        end
-    end
-    if not bestPrice then return nil, false end
-    return math.floor(bestPrice / info.yieldPerHerb + 0.5), isStale
-end
-
 -- GetPreferredIngredientPrice(itemIDs, patchTag, qty) → price, isStale
 -- Checks mill/craft derivation chains before falling back to AH price.
 -- This ensures the full chain works: e.g. inks inside a recipe pick up
 -- herb-derived pigment cost, and ingots inside alloy recipes pick up ore cost.
+-- The derivation chain itself lives in PricingDerivation.lua.
 local function GetPreferredIngredientPrice(itemIDs, patchTag, qty)
-    if not itemIDs or #itemIDs == 0 then return nil, false end
-    local picked = PickItemID(itemIDs, patchTag)
-    if picked then
-        -- Respect mill derivation (pigments → herbs when Mill own herbs is on)
-        if GetOpts().pigmentCostSource == "mill" and PIGMENT_MILL_MAP[picked] then
-            local p, s = GetMillDerivedPigmentCost(picked, patchTag, qty)
-            if p then return p, s end
-        end
-        -- Respect craft derivation (inks when pigmentCostSource=mill, ingots/bolts per their options)
-        if CRAFTED_REAGENT_MAP[picked] then
-            local p, s = GetCraftDerivedReagentCost(picked, patchTag, qty)
-            if p then return p, s end
-        end
-        local price, isStale = Pricing.GetEffectivePrice(picked, patchTag, qty)
-        if price then return price, isStale end
-    end
-    for _, itemID in ipairs(itemIDs) do
-        if itemID ~= picked then
-            local price, isStale = Pricing.GetEffectivePrice(itemID, patchTag, qty)
-            if price then return price, isStale end
-        end
-    end
-    return nil, false
-end
-
--- GetEffectiveCraftYield(craftInfo) → stat-adjusted yield (float)
--- If craftInfo has a formulaProfile, applies the same MC/RS formula as
--- CalculateStratMetrics so chain expansion and cost derivation match the
--- direct strategy view.  Falls back to craftInfo.yield when no profile is set.
-local function GetEffectiveCraftYield(craftInfo)
-    local baseYield = craftInfo.yield
-    if not craftInfo.formulaProfile then return baseYield end
-    local profileDef = GetFormulaProfiles()[craftInfo.formulaProfile]
-    if not profileDef then return baseYield end
-    local opts = GetOpts()
-    local statMCp     = profileDef.multiKey and ((opts[profileDef.multiKey] or 0) / 100) or 0
-    local statRp      = profileDef.resKey   and ((opts[profileDef.resKey]   or 0) / 100) or 0
-    local statMCm_tot = profileDef.multiKey and (GAM.C.BASE_MCM * (1 + ((profileDef.mcNodeKey and (opts[profileDef.mcNodeKey] or 0) or 0) / 100))) or 0
-    local statRs_tot  = GAM.C.BASE_RS * (1 + ((profileDef.rsNodeKey and (opts[profileDef.rsNodeKey] or 0) or 0) / 100))
-    local statDenom   = 1 - statRp * statRs_tot
-    if statDenom <= 0 then statDenom = 1 end
-    return baseYield * (1 + statMCp * statMCm_tot) / statDenom
-end
-
--- GetCraftDerivedReagentCost(itemID, patchTag, outputQty) → cost per output unit (copper), isStale
--- outputQty (optional): when provided the ingredient price lookups use the
---   actual per-ingredient volume needed for a qty-aware fill price.
-local function GetCraftDerivedReagentCost(itemID, patchTag, outputQty)
-    local info = CRAFTED_REAGENT_MAP[itemID]
-    if not info then return nil, false end
-    if (GetOpts()[info.optionKey] or "ah") ~= info.modeValue then return nil, false end
-
-    local effectiveYield = GetEffectiveCraftYield(info)
-    if effectiveYield <= 0 then return nil, false end
-
-    local totalCost, anyStale = 0, false
-    for _, ingredient in ipairs(info.ingredients) do
-        local ingQty = (outputQty and outputQty > 0)
-                       and math.ceil(ingredient.qty * outputQty / effectiveYield) or nil
-        local unitPrice, isStale = GetPreferredIngredientPrice(ingredient.itemIDs, patchTag, ingQty)
-        if not unitPrice then return nil, false end
-        totalCost = totalCost + (unitPrice * ingredient.qty)
-        anyStale = anyStale or isStale
-    end
-
-    return math.floor(totalCost / effectiveYield + 0.5), anyStale
+    return Derivation.GetPreferredIngredientPrice(itemIDs, patchTag, qty, GetDerivationDeps())
 end
 
 -- GetEffectivePriceForItem(item, patchTag, qty) → price, isStale
@@ -511,10 +329,9 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
     if not ids or #ids == 0 then return nil, false end
 
     -- Manual price overrides win over all derivation. Check every ID.
-    local pdb2 = GetPatchDB(patchTag)
     for _, id in ipairs(ids) do
-        if pdb2.priceOverrides and pdb2.priceOverrides[id] ~= nil then
-            return pdb2.priceOverrides[id], false
+        if pdb.priceOverrides and pdb.priceOverrides[id] ~= nil then
+            return pdb.priceOverrides[id], false
         end
     end
 
@@ -524,12 +341,12 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
     local picked = PickItemID(ids, patchTag)
     if not picked then return nil, false end
 
-    if GetOpts().pigmentCostSource == "mill" and PIGMENT_MILL_MAP[picked] then
-        local millCost, millStale = GetMillDerivedPigmentCost(picked, patchTag, qty)
+    if GetOpts().pigmentCostSource == "mill" and Derivation.HasMillMapping(picked) then
+        local millCost, millStale = Derivation.GetMillDerivedPigmentCost(picked, patchTag, qty, GetDerivationDeps())
         if millCost then return millCost, millStale end
     end
-    if CRAFTED_REAGENT_MAP[picked] then
-        local craftCost, craftStale = GetCraftDerivedReagentCost(picked, patchTag, qty)
+    if Derivation.HasCraftedMapping(picked) then
+        local craftCost, craftStale = Derivation.GetCraftDerivedReagentCost(picked, patchTag, qty, GetDerivationDeps())
         if craftCost then return craftCost, craftStale end
     end
 
@@ -614,62 +431,438 @@ function Pricing.FormatPrice(copper)
     local s = math.floor((copper % 10000) / 100)
     local c = copper % 100
     local parts = {}
-    if g > 0 then parts[#parts+1] = string.format("|cffffd700%dg|r", g) end
-    if s > 0 then parts[#parts+1] = string.format("|cffc0c0c0%ds|r", s) end
-    if c > 0 or #parts == 0 then parts[#parts+1] = string.format("|cffae8f0a%dc|r", c) end
+    if g > 0 then parts[#parts+1] = "|cffffd700" .. SafeWholeText(g) .. "g|r" end
+    if s > 0 then parts[#parts+1] = "|cffc0c0c0" .. SafeWholeText(s) .. "s|r" end
+    if c > 0 or #parts == 0 then parts[#parts+1] = "|cffae8f0a" .. SafeWholeText(c) .. "c|r" end
     local result = table.concat(parts, " ")
     return neg and ("-" .. result) or result
+end
+
+function Pricing.RunSmokeChecks()
+    local ok, err = pcall(function()
+        local profiles = GetFormulaProfiles()
+        assert(type(profiles) == "table", "formula profiles unavailable")
+
+        local craftInfo = Derivation.GetAnyCraftInfo()
+        assert(craftInfo and craftInfo.yield, "crafted reagent map unavailable")
+
+        local effectiveYield = Derivation.GetEffectiveCraftYield(craftInfo)
+        assert(type(effectiveYield) == "number" and effectiveYield > 0, "effective craft yield invalid")
+
+        local sample = Pricing.FormatPrice(39994560554478)
+        assert(type(sample) == "string" and #sample > 0, "FormatPrice failed for large value")
+
+        local score = Pricing.GetStrategyScore({ profit = 2500, roi = 9, totalCostFull = 1000 })
+        assert(type(score) == "number", "strategy score unavailable")
+    end)
+    return ok, err
 end
 
 -- ===== Stat scaling (Workbook-driven formula profiles) =====
 
 -- ===== Chain expansion for shopping list =====
 
--- ExpandReagentThroughChain(itemIDs, qty, patchTag, depth) → list of {itemIDs, qty}
--- Recursively expands a reagent through active derivation chains so the caller
--- receives the actual items to *buy* (herbs/ores/linens) rather than intermediate
--- products (inks/ingots/bolts).  Returns a flat list; callers must merge by key.
--- Safety depth limit prevents infinite loops (the chain always terminates at raw
--- materials that appear in neither CRAFTED_REAGENT_MAP nor PIGMENT_MILL_MAP).
-local function ExpandReagentThroughChain(itemIDs, qty, patchTag, depth)
-    depth = depth or 0
-    if depth > 5 or not itemIDs or #itemIDs == 0 then
-        return {{ itemIDs = itemIDs, qty = qty }}
+-- ===== Core calculation =====
+
+local function GetFormulaFactor(strat, profileDef, statDenom, statMCp, statMCm_tot)
+    if strat.calcMode == "formula" and profileDef and statDenom then
+        return (1 + statMCp * statMCm_tot) / statDenom
     end
-
-    local picked = PickItemID(itemIDs, patchTag)
-    if not picked then return {{ itemIDs = itemIDs, qty = qty }} end
-
-    -- Craft derivation (inks → pigments, ingots → ores, bolts → linens)
-    local craftInfo = CRAFTED_REAGENT_MAP[picked]
-    if craftInfo and (GetOpts()[craftInfo.optionKey] or "ah") == craftInfo.modeValue then
-        -- qty items ÷ effective yield = primary-ingredient units needed.
-        -- GetEffectiveCraftYield applies MC/RS bonuses when a formulaProfile is set,
-        -- so the ore quantity matches the direct strategy view.
-        local primaryQty = qty / GetEffectiveCraftYield(craftInfo)
-        local result = {}
-        for _, ing in ipairs(craftInfo.ingredients) do
-            local ingQty = primaryQty * ing.qty
-            local sub = ExpandReagentThroughChain(ing.itemIDs, ingQty, patchTag, depth + 1)
-            for _, e in ipairs(sub) do
-                tinsert(result, e)
-            end
-        end
-        return result
-    end
-
-    -- Mill derivation (pigments → herbs)
-    local millInfo = PIGMENT_MILL_MAP[picked]
-    if millInfo and GetOpts().pigmentCostSource == "mill" then
-        local herbQty = qty / millInfo.yieldPerHerb
-        return {{ itemIDs = millInfo.herbIDs, qty = herbQty }}
-    end
-
-    -- Not expandable — return as-is (raw material or chain not active)
-    return {{ itemIDs = itemIDs, qty = qty }}
+    return 1
 end
 
--- ===== Core calculation =====
+local function ComputeOutputQuantity(outputDef, strat, profileDef, statDenom, statMCp, statMCm_tot, startingAmt, crafts)
+    if not outputDef then
+        return 0, 0
+    end
+
+    local baseYield = outputDef.baseYield
+    if baseYield == nil then
+        baseYield = outputDef.baseYieldMultiplier
+    end
+    if baseYield == nil then
+        baseYield = outputDef.qtyMultiplier
+    end
+    if outputDef.baseYieldPerCraft ~= nil then
+        baseYield = outputDef.baseYieldPerCraft
+    end
+
+    local factor = GetFormulaFactor(strat, profileDef, statDenom, statMCp, statMCm_tot)
+    local qtyRaw
+    if outputDef.baseYieldPerCraft ~= nil then
+        qtyRaw = crafts * (baseYield or 0) * factor
+    else
+        qtyRaw = startingAmt * (baseYield or 0) * factor
+    end
+
+    return qtyRaw, math.floor(qtyRaw + 0.5)
+end
+
+local function BuildProfileContext(strat, opts)
+    local profileKey = strat.formulaProfile
+    local profileDef = profileKey and GetFormulaProfiles()[profileKey] or nil
+    local statMCp, statRp, statMCm_tot, statRs_tot, statDenom
+
+    if strat.calcMode == "formula" and profileDef then
+        statMCp = profileDef.multiKey and ((opts[profileDef.multiKey] or 0) / 100) or 0
+        statRp = profileDef.resKey and ((opts[profileDef.resKey] or 0) / 100) or 0
+        statMCm_tot = profileDef.multiKey
+            and (GAM.C.BASE_MCM * (1 + ((profileDef.mcNodeKey and (opts[profileDef.mcNodeKey] or 0) or 0) / 100)))
+            or 0
+        statRs_tot = GAM.C.BASE_RS * (1 + ((profileDef.rsNodeKey and (opts[profileDef.rsNodeKey] or 0) or 0) / 100))
+        statDenom = 1 - statRp * statRs_tot
+        if statDenom <= 0 then
+            statDenom = 1
+        end
+    end
+
+    return {
+        profileDef = profileDef,
+        statMCp = statMCp,
+        statRp = statRp,
+        statMCm_tot = statMCm_tot,
+        statRs_tot = statRs_tot,
+        statDenom = statDenom,
+    }
+end
+
+local function ResolveStartingAmountAndCrafts(strat, active, pdb, craftQty)
+    local startingAmt = (active.defaultStartingAmount or strat.defaultStartingAmount or 1) * craftQty
+
+    if pdb.inputQtyOverrides and pdb.inputQtyOverrides[strat.id] then
+        startingAmt = pdb.inputQtyOverrides[strat.id]
+    end
+
+    local defaultCrafts = active.defaultCrafts or strat.defaultCrafts
+        or active.defaultStartingAmount or strat.defaultStartingAmount or 1
+    if defaultCrafts <= 0 then
+        defaultCrafts = 1
+    end
+
+    local crafts = defaultCrafts
+    local baseStartingAmount = active.defaultStartingAmount or strat.defaultStartingAmount or 0
+    if baseStartingAmount > 0 then
+        crafts = defaultCrafts * (startingAmt / baseStartingAmount)
+    end
+
+    if pdb.craftsOverrides and pdb.craftsOverrides[strat.id] then
+        crafts = pdb.craftsOverrides[strat.id]
+        local dsa = active.defaultStartingAmount or strat.defaultStartingAmount or 0
+        local dc = active.defaultCrafts or strat.defaultCrafts or dsa or 1
+        if dsa > 0 and dc > 0 then
+            startingAmt = crafts * dsa / dc
+        else
+            startingAmt = crafts
+        end
+    end
+
+    return startingAmt, crafts
+end
+
+local function BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
+    local profile = BuildProfileContext(strat, opts)
+    local startingAmt, crafts = ResolveStartingAmountAndCrafts(strat, active, pdb, craftQty)
+
+    return {
+        strat = strat,
+        active = active,
+        patchTag = patchTag,
+        opts = opts,
+        pdb = pdb,
+        ahCut = ahCut,
+        fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY,
+        -- chainActive: any mill/craft derivation path enabled; triggers expanded reagent chain pricing
+        chainActive = (opts.pigmentCostSource == "mill")
+            or (opts.ingotCostSource == "craft")
+            or (opts.boltCostSource == "craft"),
+        startingAmt = startingAmt,
+        crafts = crafts,
+        profileDef = profile.profileDef,
+        statMCp = profile.statMCp,
+        statRp = profile.statRp,
+        statMCm_tot = profile.statMCm_tot,
+        statRs_tot = profile.statRs_tot,
+        statDenom = profile.statDenom,
+    }
+end
+
+local function GetResolvedReagentItemIDs(reagent, pdb)
+    local reagentIDs = reagent.itemIDs
+    if (not reagentIDs or #reagentIDs == 0) and reagent.name then
+        reagentIDs = pdb.rankGroups[reagent.name] or {}
+    end
+    return reagentIDs
+end
+
+local function GetRequiredReagentAmount(reagent, startingAmt, crafts)
+    local qtyPerCraft = reagent.qtyPerCraft
+    local requiredRaw
+    if qtyPerCraft ~= nil then
+        requiredRaw = qtyPerCraft * crafts
+    else
+        local qtyPerStart = reagent.qtyPerStart or reagent.qtyMultiplier or 0
+        requiredRaw = qtyPerStart * startingAmt
+    end
+    return math.floor(requiredRaw + 0.5)
+end
+
+local function AddMergedReagentEntry(mergedMap, mergedOrder, key, itemIDs, qty, name)
+    if mergedMap[key] then
+        mergedMap[key].qty = mergedMap[key].qty + qty
+        return
+    end
+    mergedMap[key] = { itemIDs = itemIDs, qty = qty, name = name }
+    tinsert(mergedOrder, key)
+end
+
+local function BuildMergedReagentMap(ctx)
+    local mergedMap = {}
+    local mergedOrder = {}
+
+    for _, reagent in ipairs(ctx.active.reagents or {}) do
+        local required = GetRequiredReagentAmount(reagent, ctx.startingAmt, ctx.crafts)
+        local reagentIDs = GetResolvedReagentItemIDs(reagent, ctx.pdb)
+
+        if ctx.chainActive then
+            local expanded = Derivation.ExpandReagentThroughChain(reagentIDs, required, ctx.patchTag, GetDerivationDeps())
+            for _, exp in ipairs(expanded) do
+                local key = exp.itemIDs[1]
+                local entryName = reagent.name
+                if exp.itemIDs ~= reagentIDs then
+                    local expID = PickItemID(exp.itemIDs, ctx.patchTag)
+                    entryName = expID and GetItemName(expID) or tostring(key)
+                end
+                AddMergedReagentEntry(mergedMap, mergedOrder, key, exp.itemIDs, exp.qty, entryName)
+            end
+        else
+            local key = PickItemID(reagentIDs, ctx.patchTag) or (reagentIDs and reagentIDs[1]) or reagent.name
+            AddMergedReagentEntry(mergedMap, mergedOrder, key, reagentIDs, required, reagent.name)
+        end
+    end
+
+    return mergedOrder, mergedMap
+end
+
+local function CountOwnedReagentItems(itemID, entryIDs)
+    local userHave = 0
+    if itemID then
+        return GetItemCount(itemID, true) or 0
+    end
+    if entryIDs and #entryIDs > 0 then
+        for _, reagentID in ipairs(entryIDs) do
+            userHave = userHave + (GetItemCount(reagentID, true) or 0)
+        end
+    end
+    return userHave
+end
+
+local function BuildReagentMetrics(ctx, missingPrices)
+    local mergedOrder, mergedMap = BuildMergedReagentMap(ctx)
+    local reagentResults = {}
+    local totalCostToBuy = 0
+    local totalCostRequired = 0
+    local hasStale = false
+
+    for _, key in ipairs(mergedOrder) do
+        local entry = mergedMap[key]
+        local entryIDs = entry.itemIDs
+        local required = math.floor(entry.qty + 0.5)
+        local itemID = PickItemID(entryIDs, ctx.patchTag)
+        local userHave = CountOwnedReagentItems(itemID, entryIDs)
+        local needToBuy = math.max(0, required - userHave)
+        local itemProxy = { itemIDs = entryIDs, name = entry.name }
+        local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, ctx.patchTag, required)
+        if stale then
+            hasStale = true
+        end
+
+        local totalCost = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
+        local totalCostFull = price and (required * price) or nil
+        local missingPrice = (needToBuy > 0) and not price
+
+        if missingPrice then
+            missingPrices[#missingPrices + 1] = entry.name
+        else
+            totalCostToBuy = totalCostToBuy + (totalCost or 0)
+            totalCostRequired = totalCostRequired + (totalCostFull or 0)
+        end
+
+        reagentResults[#reagentResults + 1] = {
+            name = entry.name,
+            itemID = itemID,
+            unitPrice = price,
+            required = required,
+            have = userHave,
+            needToBuy = needToBuy,
+            totalCost = totalCost,
+            totalCostFull = totalCostFull,
+            isStale = stale,
+            missingPrice = missingPrice,
+        }
+    end
+
+    return {
+        reagentResults = reagentResults,
+        totalCostToBuy = totalCostToBuy,
+        totalCostRequired = totalCostRequired,
+        hasStale = hasStale,
+    }
+end
+
+local function GetPrimaryOutput(ctx)
+    return (ctx.active.outputs and ctx.active.outputs[1]) or ctx.active.output or {}
+end
+
+local function GetPrimaryInputQuality(ctx)
+    if ctx.strat.qualityPolicy == "force_q1_inputs" then
+        return 1
+    end
+    if ctx.strat.qualityPolicy == "force_q2_inputs" then
+        return 2
+    end
+    if not (ctx.active.reagents and #ctx.active.reagents > 0) then
+        return nil
+    end
+
+    local firstReagent = ctx.active.reagents[1]
+    local reagentIDs = GetResolvedReagentItemIDs(firstReagent, ctx.pdb)
+    if not (reagentIDs and #reagentIDs > 0) then
+        return nil
+    end
+
+    local pickedID = PickItemID(reagentIDs, ctx.patchTag)
+    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+    if api and pickedID then
+        local quality = api(pickedID)
+        if quality and quality > 0 then
+            return quality
+        end
+    end
+    return nil
+end
+
+local function BuildSingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice, outMissingPrice, missingPrices)
+    local netRevenue = nil
+    if outMissingPrice then
+        missingPrices[#missingPrices + 1] = primaryOut.name or "Output"
+    elseif outPrice and outputQtyRaw > 0 then
+        netRevenue = math.floor(outputQtyRaw * outPrice * (1 - ctx.ahCut))
+    end
+    return nil, netRevenue
+end
+
+local function BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrices)
+    local totalRevenue = 0
+    local allHavePrices = true
+    local outResults = {}
+    local hasStale = false
+
+    for _, outputDef in ipairs(ctx.active.outputs) do
+        local outputQtyRaw, outputQty = ComputeOutputQuantity(
+            outputDef, ctx.strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, ctx.startingAmt, ctx.crafts)
+        local price, stale = GetOutputPriceForItem(outputDef, ctx.patchTag, outputPreferredQuality, ctx.fillQty)
+        if stale then
+            hasStale = true
+        end
+        local netRevenue = price and math.floor(outputQtyRaw * price * (1 - ctx.ahCut)) or nil
+        if not price then
+            allHavePrices = false
+            missingPrices[#missingPrices + 1] = outputDef.name or "Output"
+        else
+            totalRevenue = totalRevenue + netRevenue
+        end
+        outResults[#outResults + 1] = {
+            name = outputDef.name,
+            itemID = GetOutputItemIDForDisplay(outputDef, ctx.patchTag, outputPreferredQuality),
+            unitPrice = price,
+            expectedQty = outputQty,
+            netRevenue = netRevenue,
+            isStale = stale,
+            missingPrice = not price,
+        }
+    end
+
+    return outResults, allHavePrices and totalRevenue or nil, hasStale
+end
+
+local function BuildOutputMetrics(ctx, missingPrices)
+    local primaryOut = GetPrimaryOutput(ctx)
+    if not primaryOut.name and not primaryOut.itemRef and not primaryOut.itemIDs then
+        if GAM.Log and GAM.Log.Warn then
+            GAM.Log.Warn("Pricing: strat '%s' missing active output", tostring(ctx.strat.stratName or ctx.strat.id or "?"))
+        end
+        return nil
+    end
+
+    local outputQtyRaw, outputQty = ComputeOutputQuantity(
+        primaryOut, ctx.strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, ctx.startingAmt, ctx.crafts)
+    local primaryQuality = GetPrimaryInputQuality(ctx)
+    local outputPreferredQuality = (ctx.strat.outputQualityMode == "match_input") and primaryQuality or nil
+    local outPrice, outStale = GetOutputPriceForItem(primaryOut, ctx.patchTag, outputPreferredQuality, ctx.fillQty)
+    local outMissingPrice = not outPrice
+    local isMultiOutput = ctx.active.outputs and #ctx.active.outputs > 1
+    local outputs, netRevenue, extraStale
+
+    if isMultiOutput then
+        outputs, netRevenue, extraStale = BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrices)
+    else
+        outputs, netRevenue = BuildSingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice, outMissingPrice, missingPrices)
+        extraStale = false
+    end
+
+    local outItemID = GetOutputItemIDForDisplay(primaryOut, ctx.patchTag, outputPreferredQuality)
+
+    return {
+        primaryOut = primaryOut,
+        outputQtyRaw = outputQtyRaw,
+        output = {
+            name = primaryOut.name,
+            itemID = outItemID,
+            unitPrice = outPrice,
+            expectedQty = outputQty,
+            netRevenue = (not isMultiOutput) and netRevenue or nil,
+            isStale = outStale,
+            missingPrice = outMissingPrice,
+        },
+        outputs = outputs,
+        netRevenue = netRevenue,
+        hasStale = outStale or extraStale,
+        isMultiOutput = isMultiOutput,
+    }
+end
+
+local function BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
+    local profit = nil
+    local roi = nil
+    local breakEven = nil
+
+    if outputData.netRevenue and #missingPrices == 0 then
+        profit = outputData.netRevenue - reagentData.totalCostRequired
+        if reagentData.totalCostRequired > 0 then
+            roi = (profit / reagentData.totalCostRequired) * 100
+        end
+    end
+
+    if reagentData.totalCostRequired > 0 and outputData.outputQtyRaw > 0 and not outputData.isMultiOutput then
+        breakEven = reagentData.totalCostRequired / (outputData.outputQtyRaw * (1 - ctx.ahCut))
+    end
+
+    return {
+        startingAmount = ctx.startingAmt,
+        crafts = ctx.crafts,
+        reagents = reagentData.reagentResults,
+        output = outputData.output,
+        outputs = outputData.outputs,
+        totalCostToBuy = reagentData.totalCostToBuy,
+        totalCostFull = reagentData.totalCostRequired,
+        netRevenue = outputData.netRevenue,
+        profit = profit,
+        roi = roi,
+        breakEvenSell = breakEven,
+        missingPrices = missingPrices,
+        hasStale = reagentData.hasStale or outputData.hasStale,
+    }
+end
 
 -- CalculateStratMetrics(strat, patchTag, craftQty) → metrics table or nil
 -- strat = one entry from GAM_RECIPES_GENERATED / importer-normalized data
@@ -700,327 +893,22 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     local ahCut  = opts.ahCut or GAM.C.AH_CUT
     local pdb    = GetPatchDB(patchTag)
     local active = GetActiveRecipeView(strat)
-
-    -- Direct formula stat factors:  Y = X × B × (1 + MCp × MCm_total) / (1 − Rp × Rs_total)
-    -- MCm_total = BASE_MCM × (1 + mcNodeBonus/100)
-    -- Rs_total  = BASE_RS  × (1 + rsNodeBonus/100)
-    -- Computed once here and reused for all outputs (primary + multi-output strats).
-    local profileKey = strat.formulaProfile
-    local profileDef = profileKey and GetFormulaProfiles()[profileKey] or nil
-    local statMCp, statRp, statMCm_tot, statRs_tot, statDenom
-    if strat.calcMode == "formula" and profileDef then
-        statMCp = profileDef.multiKey and ((opts[profileDef.multiKey] or 0) / 100) or 0
-        statRp = profileDef.resKey and ((opts[profileDef.resKey] or 0) / 100) or 0
-        statMCm_tot = profileDef.multiKey and (GAM.C.BASE_MCM * (1 + ((profileDef.mcNodeKey and (opts[profileDef.mcNodeKey] or 0) or 0) / 100))) or 0
-        statRs_tot = GAM.C.BASE_RS * (1 + ((profileDef.rsNodeKey and (opts[profileDef.rsNodeKey] or 0) or 0) / 100))
-        statDenom = 1 - statRp * statRs_tot
-        if statDenom <= 0 then statDenom = 1 end  -- guard against degenerate inputs
+    if not active or type(active.reagents) ~= "table" or #active.reagents == 0 then
+        if GAM.Log and GAM.Log.Warn then
+            GAM.Log.Warn("Pricing: strat '%s' missing active reagents", tostring(strat.stratName or strat.id or "?"))
+        end
+        return nil
     end
 
-    -- Helper: apply formula to a base yield multiplier B.
-    -- Returns outputQtyRaw (float, used for revenue math).
-    local function ApplyYieldFormula(B, startAmt)
-        if strat.calcMode == "formula" and profileDef and statDenom then
-            return startAmt * B * (1 + statMCp * statMCm_tot) / statDenom
-        else
-            return startAmt * B  -- custom strats: no stat bonuses
-        end
+    local ctx = BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
+    local missingPrices = {}
+    local reagentData = BuildReagentMetrics(ctx, missingPrices)
+    local outputData = BuildOutputMetrics(ctx, missingPrices)
+    if not outputData then
+        return nil
     end
 
-    local startingAmt = (active.defaultStartingAmount or strat.defaultStartingAmount or 1) * craftQty
-
-    -- If the user has set a desired input (primary reagent) qty, use it directly.
-    if pdb.inputQtyOverrides and pdb.inputQtyOverrides[strat.id] then
-        startingAmt = pdb.inputQtyOverrides[strat.id]
-    end
-    local defaultCrafts = active.defaultCrafts or strat.defaultCrafts or active.defaultStartingAmount or strat.defaultStartingAmount or 1
-    if defaultCrafts <= 0 then defaultCrafts = 1 end
-    local crafts = defaultCrafts
-    if (active.defaultStartingAmount or strat.defaultStartingAmount or 0) > 0 then
-        crafts = defaultCrafts * (startingAmt / (active.defaultStartingAmount or strat.defaultStartingAmount))
-    end
-
-    -- If the user has set a desired craft count, use it directly and derive startingAmt.
-    if pdb.craftsOverrides and pdb.craftsOverrides[strat.id] then
-        crafts = pdb.craftsOverrides[strat.id]
-        local dsa = active.defaultStartingAmount or strat.defaultStartingAmount or 0
-        local dc  = active.defaultCrafts or strat.defaultCrafts or dsa or 1
-        if dsa > 0 and dc > 0 then
-            startingAmt = crafts * dsa / dc
-        else
-            startingAmt = crafts
-        end
-    end
-
-    local totalCostToBuy     = 0
-    local totalCostRequired  = 0   -- full material cost ignoring bag inventory (used for ROI)
-    local missingPrices      = {}
-    local hasStale           = false
-    local reagentResults = {}
-
-    -- Fill Qty: use the configured simulation qty for all price lookups so that
-    -- changing the Fill Qty box immediately updates displayed prices without rescanning.
-    local fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY
-
-    -- Chain expansion: when any "craft/mill own X" option is active, expand each
-    -- reagent to the raw materials the player actually buys (herbs, ores, linens).
-    -- Multiple reagents that expand to the same raw material are merged (summed).
-    local chainActive = (opts.pigmentCostSource == "mill") or
-                        (opts.ingotCostSource   == "craft") or
-                        (opts.boltCostSource    == "craft")
-
-    -- mergedMap: key (first itemID of expanded entry) → {itemIDs, qty, name}
-    local mergedMap   = {}
-    local mergedOrder = {}  -- insertion-order keys
-
-    -- ── Reagents ──
-    for _, r in ipairs(active.reagents or {}) do
-        -- Use nearest-integer rounding to avoid float precision issues
-        -- (e.g. 1.53 * 5000 = 7649.999... in binary; +0.5 floors to 7650)
-        local qtyPerCraft = r.qtyPerCraft
-        local requiredRaw
-        if qtyPerCraft ~= nil then
-            requiredRaw = qtyPerCraft * crafts
-        else
-            local qtyPerStart = r.qtyPerStart or r.qtyMultiplier or 0
-            requiredRaw = qtyPerStart * startingAmt
-        end
-        local required = math.floor(requiredRaw + 0.5)
-
-        local rIds = r.itemIDs
-        if (not rIds or #rIds == 0) and r.name then
-            rIds = pdb.rankGroups[r.name] or {}
-        end
-
-        if chainActive then
-            -- Expand through derivation chain; merge duplicate raw materials
-            local expanded = ExpandReagentThroughChain(rIds, required, patchTag)
-            for _, exp in ipairs(expanded) do
-                local key = exp.itemIDs[1]
-                if mergedMap[key] then
-                    mergedMap[key].qty = mergedMap[key].qty + exp.qty
-                else
-                    -- Use strat reagent name for direct (unexpanded) items,
-                    -- resolve via GetItemInfo for expanded raw materials.
-                    local entryName = r.name
-                    if exp.itemIDs ~= rIds then
-                        local expID = PickItemID(exp.itemIDs, patchTag)
-                        entryName = expID and (select(1, GetItemInfo(expID))) or tostring(key)
-                    end
-                    mergedMap[key]   = { itemIDs = exp.itemIDs, qty = exp.qty, name = entryName }
-                    tinsert(mergedOrder, key)
-                end
-            end
-        else
-            -- No chain: add reagent directly with its own key
-            local key = PickItemID(rIds, patchTag) or (rIds and rIds[1]) or r.name
-            if mergedMap[key] then
-                mergedMap[key].qty = mergedMap[key].qty + required
-            else
-                mergedMap[key] = { itemIDs = rIds, qty = required, name = r.name }
-                tinsert(mergedOrder, key)
-            end
-        end
-    end
-
-    -- Build reagentResults from merged map (handles both chain-expanded and direct)
-    for _, key in ipairs(mergedOrder) do
-        local entry    = mergedMap[key]
-        local entryIDs = entry.itemIDs
-        local required = math.floor(entry.qty + 0.5)
-
-        local itemID = PickItemID(entryIDs, patchTag)
-
-        -- Bags + bank count should respect the active rank selection when the
-        -- reagent row has resolved to a concrete itemID. Only fall back to
-        -- summing the rank group if the row could not resolve to one item.
-        local userHave = 0
-        if itemID then
-            userHave = GetItemCount(itemID, true) or 0
-        elseif entryIDs and #entryIDs > 0 then
-            for _, rid in ipairs(entryIDs) do
-                userHave = userHave + (GetItemCount(rid, true) or 0)
-            end
-        end
-
-        local needToBuy = math.max(0, required - userHave)
-
-        -- Simulate buying the actual required quantity from the AH order book so that
-        -- large craft runs (e.g. 6666 hides) reflect real market depth, not a flat average.
-        local itemProxy = { itemIDs = entryIDs, name = entry.name }
-        local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, patchTag, required)
-        if stale then hasStale = true end
-
-        local totalCost     = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
-        local totalCostFull = price and (required * price) or nil
-        local missingPrice  = (needToBuy > 0) and not price
-
-        if missingPrice then
-            missingPrices[#missingPrices + 1] = entry.name
-        else
-            totalCostToBuy    = totalCostToBuy    + (totalCost     or 0)
-            totalCostRequired = totalCostRequired + (totalCostFull or 0)
-        end
-
-        reagentResults[#reagentResults + 1] = {
-            name         = entry.name,
-            itemID       = itemID,
-            unitPrice    = price,
-            required     = required,
-            have         = userHave,
-            needToBuy    = needToBuy,
-            totalCost    = totalCost,
-            totalCostFull = totalCostFull,
-            isStale      = stale,
-            missingPrice = missingPrice,
-        }
-    end
-
-    -- ── Output(s) ──
-    -- Primary output (always strat.output, used for display + single-output calcs)
-    local primaryOut = (active.outputs and active.outputs[1]) or active.output or {}
-    -- Raw float used for revenue calculation (expected value over many crafts).
-    -- Nearest-integer rounding only for the display qty field.
-    local B = primaryOut.baseYield or primaryOut.baseYieldMultiplier or primaryOut.qtyMultiplier or 0
-    if primaryOut.baseYieldPerCraft ~= nil and crafts > 0 then
-        B = primaryOut.baseYieldPerCraft
-    end
-    local outputQtyRaw
-    if primaryOut.baseYieldPerCraft ~= nil then
-        local factor = (strat.calcMode == "formula" and profileDef and statDenom) and ((1 + statMCp * statMCm_tot) / statDenom) or 1
-        outputQtyRaw = crafts * B * factor
-    else
-        outputQtyRaw = ApplyYieldFormula(B, startingAmt)
-    end
-    local outputQty    = math.floor(outputQtyRaw + 0.5)
-
-    -- Determine the crafting quality of the primary reagent so output pricing can
-    -- match the same rank (R1 herb → R1 pigment, R2 herb → R2 pigment).
-    -- qualityPolicy overrides: "force_q1_inputs" or "force_q2_inputs" lock quality
-    -- regardless of the user's R1/R2 rankPolicy setting.
-    local primaryQuality = nil
-    if strat.qualityPolicy == "force_q1_inputs" then
-        primaryQuality = 1
-    elseif strat.qualityPolicy == "force_q2_inputs" then
-        primaryQuality = 2
-    elseif active.reagents and #active.reagents > 0 then
-        local r0   = active.reagents[1]
-        local rIds = r0.itemIDs
-        if (not rIds or #rIds == 0) and r0.name then
-            rIds = pdb.rankGroups[r0.name] or {}
-        end
-        if rIds and #rIds > 0 then
-            local pickedId = PickItemID(rIds, patchTag)
-            local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
-            if api and pickedId then
-                local q = api(pickedId)
-                if q and q > 0 then primaryQuality = q end
-            end
-        end
-    end
-
-    local outputPreferredQuality = (strat.outputQualityMode == "match_input") and primaryQuality or nil
-    local outPrice, outStale = GetOutputPriceForItem(primaryOut, patchTag, outputPreferredQuality, fillQty)
-    if outStale then hasStale = true end
-    local outMissingPrice = not outPrice
-
-    local netRevenue  = nil
-    local outResults  = nil  -- non-nil only for JC multi-output strats
-
-    if active.outputs and #active.outputs > 1 then
-        -- JC prospecting / Enchanting shatter: sum revenues from all output items.
-        -- Each output item gets its own netRevenue field so the display row can show
-        -- the correct net value without recomputing the AH cut separately.
-        local totalRev      = 0
-        local allHavePrices = true
-        outResults = {}
-        for _, o in ipairs(active.outputs) do
-            local oB = o.baseYield or o.baseYieldMultiplier or o.qtyMultiplier or 0
-            if o.baseYieldPerCraft ~= nil then
-                oB = o.baseYieldPerCraft
-            end
-            local oQtyRaw
-            if o.baseYieldPerCraft ~= nil then
-                local factor = (strat.calcMode == "formula" and profileDef and statDenom) and ((1 + statMCp * statMCm_tot) / statDenom) or 1
-                oQtyRaw = crafts * oB * factor
-            else
-                oQtyRaw = ApplyYieldFormula(oB, startingAmt)                       -- float for revenue
-            end
-            local oQty    = math.floor(oQtyRaw + 0.5)                               -- integer for display
-            local oPrice, oStale2 = GetOutputPriceForItem(o, patchTag, outputPreferredQuality, fillQty)
-            if oStale2 then hasStale = true end
-            local oNetRev = oPrice and math.floor(oQtyRaw * oPrice * (1 - ahCut)) or nil
-            if not oPrice then
-                allHavePrices = false
-                missingPrices[#missingPrices + 1] = o.name or "Output"
-            else
-                totalRev = totalRev + oNetRev
-            end
-            outResults[#outResults + 1] = {
-                name         = o.name,
-                itemID       = GetOutputItemIDForDisplay(o, patchTag, outputPreferredQuality),
-                unitPrice    = oPrice,
-                expectedQty  = oQty,
-                netRevenue   = oNetRev,
-                isStale      = oStale2,
-                missingPrice = not oPrice,
-            }
-        end
-        if allHavePrices then netRevenue = totalRev end
-    else
-        -- Standard single output
-        if outMissingPrice then
-            missingPrices[#missingPrices + 1] = primaryOut.name or "Output"
-        elseif outPrice and outputQtyRaw > 0 then
-            netRevenue = math.floor(outputQtyRaw * outPrice * (1 - ahCut))
-        end
-    end
-
-    local outItemID = GetOutputItemIDForDisplay(primaryOut, patchTag, outputPreferredQuality)
-
-    -- ── Final metrics ──
-    local profit    = nil
-    local roi       = nil
-    local breakEven = nil
-
-    if netRevenue and #missingPrices == 0 then
-        profit = netRevenue - totalCostRequired
-        if totalCostRequired > 0 then
-            roi = (profit / totalCostRequired) * 100
-        end
-    end
-
-    -- Break-even is only meaningful for single-output strats: it is the minimum
-    -- sell price per output unit needed to cover all input costs.  For multi-output
-    -- strats (JC prospecting, Enchanting shatters) there is no single output unit
-    -- to price, so we leave breakEven nil and the UI shows "—".
-        if totalCostRequired > 0 and outputQtyRaw > 0 and not (active.outputs and #active.outputs > 1) then
-            breakEven = totalCostRequired / (outputQtyRaw * (1 - ahCut))
-        end
-
-    return {
-        startingAmount = startingAmt,
-        crafts         = crafts,
-        reagents       = reagentResults,
-        output = {
-            name         = primaryOut.name,
-            itemID       = outItemID,
-            unitPrice    = outPrice,
-            expectedQty  = outputQty,
-            netRevenue   = (not (active.outputs and #active.outputs > 1)) and netRevenue or nil,
-            isStale      = outStale,
-            missingPrice = outMissingPrice,
-        },
-        outputs        = outResults,   -- list; non-nil for multi-output (JC) strats
-        totalCostToBuy  = totalCostToBuy,
-        totalCostFull   = totalCostRequired,
-        netRevenue     = netRevenue,
-        profit         = profit,
-        roi            = roi,
-        breakEvenSell  = breakEven,
-        missingPrices  = missingPrices,
-        hasStale       = hasStale,
-    }
+    return BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
 end
 
 -- GetBestStrategy(patchTag, profFilter) — returns (strat, profit, roi) for the top
@@ -1070,7 +958,7 @@ function Pricing.StorePrice(itemID, price)
         price = price,
         ts    = time(),
     }
-    GAM.Log.Debug("Stored price: itemID=%d price=%d", itemID, price)
+    GAM.Log.Debug("Stored price: itemID=%s price=%s", tostring(itemID), tostring(price))
 end
 
 -- StoreRaw / GetRawCache — no-ops. Raw AH listings are kept in session-only

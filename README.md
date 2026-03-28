@@ -9,12 +9,12 @@ Scans the Auction House for live prices, computes profit and ROI for spreadsheet
 ## Features
 
 - **Live AH scanning** — throttled commodity + item queries via `C_AuctionHouse`
-- **64 strategies** across 8 professions, generated from the Midnight community spreadsheet
+- **62 strategies** across 8 professions, generated from the Midnight community spreadsheet
 - **Profit / ROI engine** — cost-to-buy, net revenue after AH cut, break-even sell price, Multicraft / Resourcefulness stat scaling
 - **Formula profiles** — per-profession crafting stat slots (Res%, Multi%, spec node bonuses) match the spreadsheet model exactly
 - **Editable batch sizes** — override crafts or starting amount per strategy; scales all quantities live
 - **Fill Qty simulation** — simulates buying N units from the AH order book so large runs reflect real market depth
-- **Mill / craft own intermediates** — "Mill Own Herbs" and "Craft Own Ingots/Bolts" modes expand derived reagent chains to raw material costs
+- **Vertical integration** — "Use own items/crafts" toggle expands derived reagent chains to raw material costs (herbs → pigments, ore → ingots, linen → bolts)
 - **Shopping list** — aggregated NeedToBuy across all strategies
 - **Inline strategy detail** — right-hand panel in the main window; no secondary window required
 - **Best Strategy card** — highlights the current top opportunity
@@ -51,7 +51,7 @@ The window has three panels:
 **Left panel** — scan controls and options:
 - Mine / All toggle — filter to your professions or show everything
 - Profession sub-filter dropdown
-- Fill Qty, AH Cut %, stat options (Mill Own Herbs, Craft Own Ingots/Bolts)
+- Fill Qty, AH Cut %, "Use own items/crafts" vertical integration toggle
 - Scan All / Shopping List buttons
 
 **Center panel** — sortable strategy list; click a row to open detail
@@ -100,7 +100,7 @@ python3 tools/generate_workbook_data.py
 **Input**: `references/Spreadsheet/<spreadsheet>.xlsx`
 **Output**:
 - `source/GoldAdvisorMidnight/Data/WorkbookGenerated.lua` — item catalog and formula profiles
-- `source/GoldAdvisorMidnight/Data/StratsGenerated.lua` — all 64 strategy definitions
+- `source/GoldAdvisorMidnight/Data/StratsGenerated.lua` — all 62 strategy definitions
 
 Do not edit the `*Generated.lua` files manually; they are overwritten on the next run.
 
@@ -116,8 +116,10 @@ WorkbookGenerated.lua → WorkbookEncoded.lua  (XOR + custom-base64, ~10 KB)
 The TOC is patched to load the encoded files, the zip is built, then the TOC and encoded files are removed — the git repo always stays in plain dev state.
 
 ```bash
-bash Release_Protected.command   # encoded zip + commit + tag + push + GitHub release
-bash Release_Addon.command       # plain zip + commit + tag + push + GitHub release
+bash Release_Discord.command      # protected zip + GitHub pre-release tag, pushes current branch
+bash Release_CurseForge.command   # protected zip + GitHub stable release + CurseForge upload, pushes main
+bash Release_Patreon.command      # protected zip only, no git ops, for direct client handoff
+bash Package_Addon.command        # plain unencoded zip only, no git ops, for local testing
 ```
 
 ---
@@ -132,18 +134,24 @@ source/GoldAdvisorMidnight/
 ├── Locale/                       10 community-maintained locale files
 ├── Log.lua                       Ring-buffer debug log (500 entries)
 ├── Core.lua                      Event backbone, SavedVars init, DB migration, slash commands
+├── State.lua                     Shared addon state (selected strat, patchTag, UI refs)
 ├── Minimap.lua                   Pure Blizzard minimap button
 ├── Settings.lua                  Blizzard Settings panel (all profession stat fields)
 ├── Pricing.lua                   GetEffectivePriceForItem / CalculateStratMetrics / FormatPrice
+├── PricingDerivation.lua         Vertical integration derivation chains (mill/craft cost paths)
 ├── AHScan.lua                    C_AuctionHouse scan queue + throttle + progress callbacks
 ├── Importer.lua                  Loads + indexes StratsGenerated; XOR decoder for protected builds
 ├── CraftSimBridge.lua            Optional CraftSim stat sync and price push
 ├── Data/
 │   ├── WorkbookGenerated.lua     AUTO-GENERATED — item catalog + formula profiles
-│   └── StratsGenerated.lua       AUTO-GENERATED — all 64 strategy definitions
+│   └── StratsGenerated.lua       AUTO-GENERATED — 62 strategy definitions
 └── UI/
-    ├── MainWindowV2.lua          Three-panel main window (list + inline detail + best card)
-    ├── StratDetail.lua           Inline strategy detail panel
+    ├── MainWindowV2.lua          Three-panel main window coordinator (layout, theme, refresh)
+    ├── MainWindowV2Common.lua    Shared theme definitions and helper utilities
+    ├── MainWindowV2LeftPanel.lua Left panel: scan controls, filters, VI toggle, craft stats
+    ├── MainWindowV2Center.lua    Center panel: sortable strategy list
+    ├── MainWindowV2Detail.lua    Right panel: inline strategy detail (reagents, metrics, scaler)
+    ├── StratDetail.lua           Standalone strategy detail panel (legacy/secondary use)
     ├── StratCreator.lua          Custom strategy creation UI
     └── DebugLog.lua              Scrollable log frame + ARP Export
 
@@ -159,8 +167,8 @@ releases/                         Built zips (not committed)
 
 ```lua
 GoldAdvisorMidnightDB = {
-    addonVersion = "1.4.3",
-    dataVersion  = 8,
+    addonVersion = "1.7.12",
+    dataVersion  = 11,
     options = {
         ahCut              = 0.05,
         scanDelay          = 1.0,
@@ -230,15 +238,15 @@ GoldAdvisorMidnightDB = {
 
 | Profession      | Strategies |
 |-----------------|:----------:|
-| Engineering     |     22     |
-| Alchemy         |     14     |
+| Alchemy         |     15     |
+| Inscription     |     14     |
+| Engineering     |     12     |
 | Jewelcrafting   |      7     |
-| Inscription     |      7     |
 | Enchanting      |      5     |
 | Leatherworking  |      4     |
 | Blacksmithing   |      3     |
 | Tailoring       |      2     |
-| **Total**       |   **64**   |
+| **Total**       |   **62**   |
 
 ---
 
@@ -252,10 +260,11 @@ GoldAdvisorMidnightDB = {
 6. Second scan after switching profession filter maintains 60+ FPS throughout
 7. Click a strategy → right panel shows reagents, metrics, crafts editbox
 8. Edit Crafts field → all quantities and output scale live
-9. Click **Shopping List** → aggregated buy list appears
-10. Build shopping list → press `/click GAMQuickBuyBtn` macro → auto-arms and buys one item per press; `/gam quickbuy` stops early
-11. `/gam log` → debug frame opens
-12. Drag minimap button; `/reload` → position persists
-13. Right-click minimap → Settings opens; stat fields present for all professions
-14. Load with CraftSim → no Lua errors; load without CraftSim → no Lua errors
-15. `bash Release_Protected.command` → encoded zip built, TOC restored to dev state after
+9. Check **Use own items/crafts** toggle → pricing updates to use derived costs; uncheck → reverts to AH pricing
+10. Click **Shopping List** → aggregated buy list appears
+11. Build shopping list → press `/click GAMQuickBuyBtn` macro → auto-arms and buys one item per press; `/gam quickbuy` stops early
+12. `/gam log` → debug frame opens
+13. Drag minimap button; `/reload` → position persists
+14. Right-click minimap → Settings opens; stat fields present for all professions; no theme toggle present
+15. Load with CraftSim → no Lua errors; load without CraftSim → no Lua errors
+16. `bash Release_Patreon.command` → encoded zip built in `releases/`

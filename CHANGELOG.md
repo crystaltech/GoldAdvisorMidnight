@@ -1,5 +1,16 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.12] — 2026-03-28
+
+### Changes
+- **Vertical integration simplified** — Replaced the three separate "Mill own herbs / Craft own bolts / Craft own ingots" checkboxes with a single "Use own items/crafts" toggle that enables all derivation paths atomically.
+- **Theme switcher removed** — Main window theme is now locked to Classic while theme switching is reworked for a future release.
+
+### Internal
+- Locale cleanup: removed 14 obsolete keys, added new vertical integration and stat-label keys; all 10 translation files synced.
+- Code comment cleanup across Core.lua, Pricing.lua, Settings.lua, and MainWindowV2.lua.
+- Documentation updated (README, PROJECT_STRUCTURE, CLAUDE.md) to reflect current file structure and strategy count (62).
+
 ## [1.7.11] — 2026-03-24
 
 ### Bug Fixes

@@ -35,6 +35,20 @@ local function ResolveCategoryID(cat)
     return cat
 end
 
+local function GetOpts()
+    return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
+end
+
+local function ClearPriceCache()
+    if GAM.State and GAM.State.ClearPriceCache then
+        GAM.State.ClearPriceCache()
+        return
+    end
+    if GAM.db and GAM.db.priceCache then
+        wipe(GAM.db.priceCache)
+    end
+end
+
 -- Apply a scale factor to all main addon frames
 local function ApplyScaleToFrames(scale)
     local targets = {
@@ -207,8 +221,7 @@ local function LayoutButtonsTop(parent, buttons, topY, cfg)
     }
 end
 
--- (MakeDropdown removed: UIDropDownMenuTemplate pops outside ScrollFrame in Midnight 12.x.
---  Rank policy now uses a cycle button; see ddRank below.)
+-- UIDropDownMenuTemplate replaced with cycle button: pops outside ScrollFrame boundaries.
 
 -- Formats an integer with thousands-separator commas: 50000 → "50,000"
 local function FmtQty(n)
@@ -220,7 +233,7 @@ end
 -- Returns a plain frame with no backdrop — safe to embed in Blizzard's canvas.
 local function BuildPanel()
     local L    = GAM.L
-    local opts = GAM.db.options
+    local opts = GetOpts()
 
     -- Plain frame: no BackdropTemplate, no custom title, no custom close button.
     -- Blizzard Settings embeds this directly; it inherits the canvas background.
@@ -312,26 +325,15 @@ local function BuildPanel()
     slScaleRange:SetTextColor(0.55, 0.55, 0.55)
     y = y - 48
 
-    local cbAutoOpenAH = MakeCheckbox(content, L["OPT_AUTO_OPEN_AH"], y - 4)
-    cbAutoOpenAH:SetChecked(opts.autoOpenWithAH ~= false)
-    cbAutoOpenAH:SetScript("OnEnter", function(self)
+    local cbRememberAHState = MakeCheckbox(content, L["OPT_REMEMBER_AH_STATE"], y - 4)
+    cbRememberAHState:SetChecked(opts.rememberAHWindowState ~= false)
+    cbRememberAHState:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L["TT_OPT_AUTO_OPEN_AH_TITLE"], 1, 1, 1)
-        GameTooltip:AddLine(L["TT_OPT_AUTO_OPEN_AH_BODY"], 1, 0.82, 0, true)
+        GameTooltip:SetText(L["TT_OPT_REMEMBER_AH_STATE_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(L["TT_OPT_REMEMBER_AH_STATE_BODY"], 1, 0.82, 0, true)
         GameTooltip:Show()
     end)
-    cbAutoOpenAH:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    y = y - 32
-
-    local cbCloseWithAH = MakeCheckbox(content, L["OPT_CLOSE_WITH_AH"], y - 4)
-    cbCloseWithAH:SetChecked(opts.closeWithAH == true)
-    cbCloseWithAH:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L["TT_OPT_CLOSE_WITH_AH_TITLE"], 1, 1, 1)
-        GameTooltip:AddLine(L["TT_OPT_CLOSE_WITH_AH_BODY"], 1, 0.82, 0, true)
-        GameTooltip:Show()
-    end)
-    cbCloseWithAH:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    cbRememberAHState:SetScript("OnLeave", function() GameTooltip:Hide() end)
     y = y - 32
 
     -- ── Pricing ────────────────────────────────────────────────────────────
@@ -373,43 +375,7 @@ local function BuildPanel()
     end)
     ebFillQty:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    y = y - 36
-
-    local cbMillOwn = MakeCheckbox(content, "Mill own herbs for Inscription", y - 4)
-    cbMillOwn:SetChecked((opts.pigmentCostSource or "ah") == "mill")
-    cbMillOwn:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Mill Own Herbs", 1, 1, 1)
-        GameTooltip:AddLine("Enables the full inscription cost chain:", 0.9, 0.9, 0.9)
-        GameTooltip:AddLine("  Herbs \xE2\x86\x92 Pigments \xE2\x86\x92 Inks \xE2\x86\x92 Soul Cipher", 1, 0.82, 0)
-        GameTooltip:AddLine("Shopping lists show herbs to buy,", 0.7, 0.7, 0.7)
-        GameTooltip:AddLine("not intermediate pigments or inks.", 0.7, 0.7, 0.7)
-        GameTooltip:Show()
-    end)
-    cbMillOwn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    y = y - 32
-
-    local cbCraftBolts = MakeCheckbox(content, "Craft own bolts (Tailoring)", y - 4)
-    cbCraftBolts:SetChecked((opts.boltCostSource or "ah") == "craft")
-    cbCraftBolts:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(GAM.L["TT_OPT_BOLTS_TITLE"] or "Craft Own Bolts", 1, 1, 1)
-        GameTooltip:AddLine(GAM.L["TT_OPT_BOLTS_BODY"] or "When enabled, bolt prices are derived from raw linen using the Tailoring recipe instead of the AH bolt price.", 1, 0.82, 0, true)
-        GameTooltip:Show()
-    end)
-    cbCraftBolts:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    y = y - 32
-
-    local cbCraftIngots = MakeCheckbox(content, "Craft own ingots (Blacksmithing/LW)", y - 4)
-    cbCraftIngots:SetChecked((opts.ingotCostSource or "ah") == "craft")
-    cbCraftIngots:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(GAM.L["TT_OPT_INGOTS_TITLE"] or "Craft Own Ingots", 1, 1, 1)
-        GameTooltip:AddLine(GAM.L["TT_OPT_INGOTS_BODY"] or "When enabled, ingot prices are derived from raw ore using the smelting recipe instead of the AH ingot price.", 1, 0.82, 0, true)
-        GameTooltip:Show()
-    end)
-    cbCraftIngots:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    y = y - 32
+    y = y - 40
 
     -- ── Crafting Stats ─────────────────────────────────────────────────────
     y = MakeSectionHeader(content, "Crafting Stats", y)
@@ -521,7 +487,7 @@ local function BuildPanel()
     y = y - 4
 
     -- ── CraftSim node bonus sync ────────────────────────────────────────────
-    local btnSyncCraftSim = MakeButton(content, "Sync from CraftSim", 160)
+    local btnSyncCraftSim = MakeButton(content, "Sync Node Bonuses", 160)
     btnSyncCraftSim:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
     btnSyncCraftSim:SetScript("OnClick", function()
         if not GAM.CraftSimBridge then
@@ -530,9 +496,18 @@ local function BuildPanel()
         end
         local count = GAM.CraftSimBridge.SyncNodeBonusesFromCraftSim()
         if count == 0 then
-            print("|cffff8800[GAM]|r CraftSim node bonus data not found. Open CraftSim and spec your characters first.")
+            print("|cffff8800[GAM]|r CraftSim node bonus data not found. Open each profession in CraftSim at least once so it can cache your data.")
         else
-            print(string.format("|cffff8800[GAM]|r Synced node bonuses from CraftSim for %d profession(s). Reload the settings panel to see updated values.", count))
+            if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
+                GAM.UI.MainWindowV2.Refresh()
+            end
+            if GAM.UI and GAM.UI.StratDetail
+                    and GAM.UI.StratDetail.IsShown
+                    and GAM.UI.StratDetail.Refresh
+                    and GAM.UI.StratDetail.IsShown() then
+                GAM.UI.StratDetail.Refresh()
+            end
+            print(string.format("|cffff8800[GAM]|r Synced CraftSim node bonuses for %d profession(s).", count))
         end
     end)
     y = y - 30
@@ -550,7 +525,7 @@ local function BuildPanel()
 
     local btnClear = MakeButton(content, L["BTN_CLEAR_CACHE"], 120)
     btnClear:SetScript("OnClick", function()
-        wipe(GAM.db.priceCache)
+        ClearPriceCache()
         GAM.Log.Info("Price cache cleared.")
         print("|cffff8800[GAM]|r Cache cleared.")
     end)
@@ -656,19 +631,12 @@ local function BuildPanel()
     -- ── Apply logic ────────────────────────────────────────────────────────
     local function ApplySettings()
         local prevQty             = opts.shallowFillQty    or GAM.C.DEFAULT_FILL_QTY
-        local prevPigment         = opts.pigmentCostSource or "ah"
-        local prevBolt            = opts.boltCostSource    or "ah"
-        local prevIngot           = opts.ingotCostSource   or "ah"
-
         opts.scanDelay      = slScanDelay:GetValue()
         opts.debugVerbosity = slVerbosity:GetValue()
         opts.minimapHidden  = not cbMinimap:GetChecked()
-        opts.autoOpenWithAH = cbAutoOpenAH:GetChecked()
-        opts.closeWithAH    = cbCloseWithAH:GetChecked()
+        opts.v2Theme        = themeCurrent
+        opts.rememberAHWindowState = cbRememberAHState:GetChecked()
         opts.rankPolicy         = ddRank.GetValue() or "lowest"
-        opts.pigmentCostSource  = cbMillOwn:GetChecked()    and "mill"  or "ah"
-        opts.boltCostSource     = cbCraftBolts:GetChecked() and "craft" or "ah"
-        opts.ingotCostSource    = cbCraftIngots:GetChecked() and "craft" or "ah"
 
         local function clampStat(eb, default)
             return math.max(0, math.min(100, tonumber(eb:GetText()) or default))
@@ -713,7 +681,7 @@ local function BuildPanel()
 
         local qtyChanged = opts.shallowFillQty ~= prevQty
         if qtyChanged then
-            wipe(GAM.db.priceCache)
+            ClearPriceCache()
             local msg = string.format("Fill qty changed (%s -> %s units). Price cache cleared — re-scan.",
                 FmtQty(prevQty), FmtQty(opts.shallowFillQty))
             GAM.Log.Info(msg)
@@ -722,25 +690,17 @@ local function BuildPanel()
 
         GAM.Log.Info("Fill qty: %d", opts.shallowFillQty)
 
-        local costSourceChanged = (opts.pigmentCostSource ~= prevPigment)
-                                or (opts.boltCostSource    ~= prevBolt)
-                                or (opts.ingotCostSource   ~= prevIngot)
-
-        -- Refresh visible strategy panels when fill qty or any cost source changed
-        if qtyChanged or costSourceChanged then
-            if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
-                GAM.UI.MainWindowV2.Refresh()
-            end
-            if GAM.UI and GAM.UI.StratDetail and
-                GAM.UI.StratDetail.IsShown and GAM.UI.StratDetail.Refresh and
-                GAM.UI.StratDetail.IsShown() then
-                GAM.UI.StratDetail.Refresh()
-            end
+        if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
+            GAM.UI.MainWindowV2.Refresh()
+        end
+        if GAM.UI and GAM.UI.StratDetail and
+            GAM.UI.StratDetail.IsShown and GAM.UI.StratDetail.Refresh and
+            GAM.UI.StratDetail.IsShown() then
+            GAM.UI.StratDetail.Refresh()
         end
 
-        -- Sync cost-source checkboxes back to the V2 left panel
-        if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.SyncSourceCheckboxes then
-            GAM.UI.MainWindowV2.SyncSourceCheckboxes()
+        if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.ApplyTheme then
+            GAM.UI.MainWindowV2.ApplyTheme()
         end
 
         GAM.Log.Info("Settings saved.")
@@ -749,21 +709,19 @@ local function BuildPanel()
     local function SyncControlsFromOptions(o)
         if not o then return end
         cbMinimap:SetChecked(not o.minimapHidden)
-        cbAutoOpenAH:SetChecked(o.autoOpenWithAH ~= false)
-        cbCloseWithAH:SetChecked(o.closeWithAH == true)
-        cbMillOwn:SetChecked((o.pigmentCostSource or "ah") == "mill")
-        cbCraftBolts:SetChecked((o.boltCostSource or "ah") == "craft")
-        cbCraftIngots:SetChecked((o.ingotCostSource or "ah") == "craft")
+        cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
         slScale:SetValue(o.uiScale or GAM.C.DEFAULT_UI_SCALE)
         ebFillQty:SetText(tostring(o.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
         rankCurrent = (o.rankPolicy == "highest") and "highest" or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
+        themeCurrent = themeTexts[o.v2Theme] and o.v2Theme or "classic"
+        themeBtn:SetText(themeTexts[themeCurrent])
     end
 
     -- Re-sync checkboxes from opts whenever the panel is shown
     -- (covers changes made via the V2 left panel since settings was last opened)
     panel:SetScript("OnShow", function()
-        local o = GAM.db and GAM.db.options
+        local o = GetOpts()
         if not o then return end
         SyncControlsFromOptions(o)
     end)
@@ -771,7 +729,7 @@ local function BuildPanel()
     -- Blizzard Settings ok/cancel callbacks
     panel.name   = L["SETTINGS_NAME"]
     panel.cancel = function()
-        local o = GAM.db and GAM.db.options
+        local o = GetOpts()
         if o then
             SyncControlsFromOptions(o)
         end
