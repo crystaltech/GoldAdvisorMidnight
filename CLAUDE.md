@@ -13,7 +13,7 @@ WoW addon (Lua) for WoW Midnight (Interface 120001). All shipped code lives in `
 | `State.lua` | Shared addon state (selected strat, patchTag, UI refs) |
 | `Pricing.lua` | Price engine: `GetEffectivePriceForItem`, `CalculateStratMetrics`, `FormatPrice` |
 | `PricingDerivation.lua` | Vertical integration derivation chains (mill/craft cost paths) |
-| `Importer.lua` | Loads `StratsGenerated`; XOR decoder for protected builds |
+| `Importer.lua` | Loads `StratsGenerated` and normalizes it into runtime data |
 | `AHScan.lua` | C_AuctionHouse scan queue, throttle, progress callbacks |
 | `CraftSimBridge.lua` | Optional CraftSim stat sync and price push |
 | `Minimap.lua` | Pure Blizzard minimap button |
@@ -84,20 +84,19 @@ Files loaded later can depend on files loaded earlier. Files loaded earlier cann
 - `.venv/` — Python virtual environment.
 - `memory/` — Claude Code memory files, not addon code.
 
-## Data / Encoding
-- `source/GoldAdvisorMidnight/Data/` files are generated Lua, not readable source. Use `tools/decode_data.py` to inspect encoded builds.
+## Data / Generation
+- `source/GoldAdvisorMidnight/Data/` files are generated Lua. Regenerate them from the spreadsheet instead of editing them by hand.
 - `references/Spreadsheet/*.xlsx` are the source of truth for item data. Do not attempt to read them directly.
 - `tools/compare_strats.py` — verifies `StratsGenerated.lua` matches the spreadsheet. Must show 0 mismatches before any release.
 - `tools/verify_stat_scaling.py` — verifies crafting stat scaling calculations against expected values.
 - `tools/manual_strats.json` — supplemental strategy entries not yet in the spreadsheet; regenerated and appended to `StratsGenerated.lua` by the generator with a `-- MANUAL:` marker.
-- Encoding scheme documented in `tools/ENCODING_HOWTO.md`.
 
 ## Release Workflow
 - Version lives in **two places**: `## Version:` in `GoldAdvisorMidnight.toc` and `ADDON_VERSION` in `Constants.lua` — bump both.
 - `Sync_Addon.command` — rsync source into local WoW AddOns directory for testing.
-- `Release_Discord.command` — protected zip + GitHub pre-release tag `vX.X.X-discord`, pushes current branch.
-- `Release_CurseForge.command` — protected zip + GitHub stable release + CurseForge upload, pushes `main`.
-- `Release_Patreon.command` — protected zip only, no git ops, for direct client handoff.
+- `Release_Discord.command` — plain zip + GitHub pre-release tag `vX.X.X-discord`, pushes current branch.
+- `Release_CurseForge.command` — plain zip + GitHub stable release + CurseForge upload, pushes `main`.
+- `Release_Patreon.command` — plain handoff zip only, no git ops, for direct distribution.
 - `Package_Addon.command` — plain unencoded zip only, no git ops, for local testing.
 
 ## Locale

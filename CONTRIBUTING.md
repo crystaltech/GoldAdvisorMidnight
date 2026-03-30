@@ -64,10 +64,9 @@ release: v1.4.3 (curseforge)
 
 | Script | Purpose | Target | Git action |
 |--------|---------|--------|------------|
-| `Release_Patreon.command` | Protected zip for client handoff | Patreon members | None — zip only |
-| `Release_Discord.command` | Protected zip + GitHub **pre-release** | Discord members | Commits, tags `vX.X.X-discord`, pushes current branch |
-| `Release_CurseForge.command` | Protected zip + GitHub **stable** release + CF upload | CurseForge / public | Commits, tags `vX.X.X`, pushes `main`, uploads to CF |
-| `Release_Protected.command` | Protected zip + GitHub stable release | Internal / legacy | Commits, tags `vX.X.X`, pushes `main` |
+| `Release_Patreon.command` | Plain handoff zip for direct distribution | Direct handoff | None — zip only |
+| `Release_Discord.command` | Plain zip + GitHub **pre-release** | Discord members | Commits, tags `vX.X.X-discord`, pushes current branch |
+| `Release_CurseForge.command` | Plain zip + GitHub **stable** release + CF upload | CurseForge / public | Commits, tags `vX.X.X`, pushes `main`, uploads to CF |
 | `Package_Addon.command` | Plain zip only, no git | Local testing | None |
 
 ### Before any release

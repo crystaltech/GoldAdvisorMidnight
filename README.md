@@ -22,7 +22,6 @@ Scans the Auction House for live prices, computes profit and ROI for spreadsheet
 - **CraftSim stat sync** — imports profession stats (Res%, Multi%, node bonuses) from CraftSim in one click
 - **ARP Export** — one-click price export in AverageReagentPrice addon format for spreadsheet paste
 - **Quick Buy** — macro-driven AH purchase flow via hidden named button `GAMQuickBuyBtn`; one hardware event per item
-- **Protected build** — strategy data files are XOR-encoded in release zips
 - **Pure Blizzard UI** — no Ace3, no LibDBIcon, no external dependencies
 - **10 locales** — deDE, frFR, esES, esMX, ruRU, zhCN, zhTW, koKR, itIT, ptBR (community-maintained)
 
@@ -104,21 +103,14 @@ python3 tools/generate_workbook_data.py
 
 Do not edit the `*Generated.lua` files manually; they are overwritten on the next run.
 
-### Protected build
+### Release packaging
 
-The protected release script encodes both generated data files before zipping:
-
-```
-StratsGenerated.lua   → StratsEncoded.lua   (XOR + custom-base64, ~116 KB)
-WorkbookGenerated.lua → WorkbookEncoded.lua  (XOR + custom-base64, ~10 KB)
-```
-
-The TOC is patched to load the encoded files, the zip is built, then the TOC and encoded files are removed — the git repo always stays in plain dev state.
+All release scripts build plain addon zips directly from `source/GoldAdvisorMidnight/`.
 
 ```bash
-bash Release_Discord.command      # protected zip + GitHub pre-release tag, pushes current branch
-bash Release_CurseForge.command   # protected zip + GitHub stable release + CurseForge upload, pushes main
-bash Release_Patreon.command      # protected zip only, no git ops, for direct client handoff
+bash Release_Discord.command      # plain zip + GitHub pre-release tag, pushes current branch
+bash Release_CurseForge.command   # plain zip + GitHub stable release + CurseForge upload, pushes main
+bash Release_Patreon.command      # plain handoff zip only, no git ops, for direct distribution
 bash Package_Addon.command        # plain unencoded zip only, no git ops, for local testing
 ```
 
@@ -140,7 +132,7 @@ source/GoldAdvisorMidnight/
 ├── Pricing.lua                   GetEffectivePriceForItem / CalculateStratMetrics / FormatPrice
 ├── PricingDerivation.lua         Vertical integration derivation chains (mill/craft cost paths)
 ├── AHScan.lua                    C_AuctionHouse scan queue + throttle + progress callbacks
-├── Importer.lua                  Loads + indexes StratsGenerated; XOR decoder for protected builds
+├── Importer.lua                  Loads + indexes StratsGenerated into the runtime shape
 ├── CraftSimBridge.lua            Optional CraftSim stat sync and price push
 ├── Data/
 │   ├── WorkbookGenerated.lua     AUTO-GENERATED — item catalog + formula profiles
@@ -157,8 +149,9 @@ source/GoldAdvisorMidnight/
 
 tools/
 ├── generate_workbook_data.py     xlsx → WorkbookGenerated.lua + StratsGenerated.lua
-├── encode_data.py                XOR encode for protected builds
-└── decode_data.py                Decode for debugging
+├── compare_strats.py             Spreadsheet-to-generated-data verification
+├── verify_stat_scaling.py        Stat-scaling verification checks
+└── manual_strats.json            Manual strategy supplements appended by the generator
 
 releases/                         Built zips (not committed)
 ```
@@ -266,6 +259,6 @@ GoldAdvisorMidnightDB = {
 11. Build shopping list → press `/click GAMQuickBuyBtn` macro → auto-arms and buys one item per press; `/gam quickbuy` stops early
 12. `/gam log` → debug frame opens
 13. Drag minimap button; `/reload` → position persists
-14. Right-click minimap → Settings opens; stat fields present for all professions; no theme toggle present
+14. Right-click minimap → Settings opens; stat fields present for all professions
 15. Load with CraftSim → no Lua errors; load without CraftSim → no Lua errors
-16. `bash Release_Patreon.command` → encoded zip built in `releases/`
+16. `bash Release_Patreon.command` → plain handoff zip built in `releases/`

@@ -9,7 +9,7 @@ This repository contains the Gold Advisor Midnight WoW addon and all supporting 
 ```
 GoldAdvisorAddon/
 ├── source/                    Addon source (the only thing that ships to players)
-├── tools/                     Data generation and encode/decode scripts
+├── tools/                     Data generation and verification scripts
 ├── references/                Spreadsheets and game notes (not shipped)
 ├── releases/                  Built zip artifacts (not committed)
 ├── build/                     Legacy build scripts (archived)
@@ -17,8 +17,10 @@ GoldAdvisorAddon/
 │
 ├── Sync_Addon.command         rsync source/ → WoW AddOns directory
 ├── Package_Addon.command      Build release zip only (no git ops)
-├── Release_Addon.command      Build + commit + tag + push + GitHub release (plain)
-└── Release_Protected.command  Build + commit + tag + push + GitHub release (encoded data)
+├── Release_Discord.command    Build plain pre-release zip + GitHub pre-release
+├── Release_CurseForge.command Build plain release zip + GitHub release + CurseForge upload
+├── Release_Patreon.command    Build plain handoff zip only
+└── Release_Addon.command      Legacy: build + commit + tag + push + GitHub release (plain)
 ```
 
 ---
@@ -41,7 +43,7 @@ source/GoldAdvisorMidnight/
 ├── Pricing.lua                   Price engine: GetEffectivePriceForItem, CalculateStratMetrics, FormatPrice
 ├── PricingDerivation.lua         Vertical integration derivation chains (mill/craft cost paths)
 ├── AHScan.lua                    C_AuctionHouse scan queue, throttle, progress callbacks
-├── Importer.lua                  Loads StratsGenerated; XOR decoder for protected builds
+├── Importer.lua                  Loads StratsGenerated and normalizes it for runtime
 ├── CraftSimBridge.lua            Optional CraftSim stat sync and price push
 ├── Data/
 │   ├── WorkbookGenerated.lua     AUTO-GENERATED — item catalog + formula profiles per profession
@@ -59,8 +61,6 @@ source/GoldAdvisorMidnight/
 
 The `Data/*Generated.lua` files are written by `tools/generate_workbook_data.py` and must not be edited manually.
 
-In a **protected release**, these two files are encoded to `Data/*Encoded.lua` before zipping, and the TOC is temporarily patched to load them. The git repo always stays in plain dev state.
-
 ---
 
 ## tools/
@@ -69,10 +69,8 @@ In a **protected release**, these two files are encoded to `Data/*Encoded.lua` b
 tools/
 ├── generate_workbook_data.py   Reads .xlsx spreadsheet → writes WorkbookGenerated.lua + StratsGenerated.lua
 ├── compare_strats.py           Verifies StratsGenerated.lua matches spreadsheet source (must show 0 mismatches before release)
-├── encode_data.py              XOR + custom-base64 encode for protected builds (called by release scripts)
-├── decode_data.py              Decode for debugging encoded builds
 ├── verify_stat_scaling.py      Verify crafting stat scaling calculations against expected values
-└── ENCODING_HOWTO.md           Notes on the encoding scheme
+└── manual_strats.json          Supplemental strategy entries merged in by the generator
 ```
 
 ---
@@ -97,7 +95,7 @@ Built zip artifacts. This directory is not committed to git.
 
 ```
 releases/
-├── GoldAdvisorMidnight-v1.4.3-protected.zip    (latest)
+├── GoldAdvisorMidnight-v1.7.14.zip    (example)
 └── ...
 ```
 
@@ -111,10 +109,9 @@ Zips are attached to GitHub releases via the release scripts.
 |--------|-------------|
 | `Sync_Addon.command` | rsync `source/GoldAdvisorMidnight/` into the local WoW AddOns directory for testing |
 | `Package_Addon.command` | Plain unencoded zip only, no git ops, for local testing |
-| `Release_Discord.command` | Protected zip + GitHub pre-release tag `vX.X.X-discord`, pushes current branch |
-| `Release_CurseForge.command` | Protected zip + GitHub stable release + CurseForge upload, pushes `main` |
-| `Release_Patreon.command` | Protected zip only, no git ops, for direct client handoff |
+| `Release_Discord.command` | Plain zip + GitHub pre-release tag `vX.X.X-discord`, pushes current branch |
+| `Release_CurseForge.command` | Plain zip + GitHub stable release + CurseForge upload, pushes `main` |
+| `Release_Patreon.command` | Plain handoff zip only, no git ops, for direct distribution |
 | `Release_Addon.command` | Legacy: plain zip + commit + tag + push + GitHub release |
-| `Release_Protected.command` | Legacy: same as Release_Addon but with encoded data files |
 
 All release scripts read the version from `## Version:` in the TOC file — bump that (and `ADDON_VERSION` in Constants.lua) before running.
