@@ -1,5 +1,14 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.15] — 2026-03-30
+
+### Bug Fixes
+- **Dynamic Crushing inputs restored** — Flexible `cheapestOf` reagent pools now survive importer normalization, so Jewelcrafting `Crushing` is priced against the cheapest eligible gem at runtime instead of falling back to a fixed baseline item.
+- **Crushing detail note** — Strategy detail now shows which flexible-pool reagent was selected as the current cheapest input, making the live pricing choice visible without changing profit math.
+
+### Tooling
+- Added a checked-in strategy coverage audit report and generator so workbook-backed versus manual shipped content can be reviewed directly from the repo.
+
 ## [1.7.14] — 2026-03-30
 
 ### Bug Fixes

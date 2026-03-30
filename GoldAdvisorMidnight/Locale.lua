@@ -46,6 +46,8 @@ L["LBL_REVENUE"]           = "Net Revenue:"
 L["LBL_PROFIT"]            = "Profit:"
 L["LBL_ROI"]               = "ROI:"
 L["LBL_BREAKEVEN"]         = "Break-Even Sell:"
+L["DETAIL_SELECTION_NOTE"] = "Using %s as cheapest input."
+L["DETAIL_SELECTION_NOTE_MULTI"] = "Using %s as cheapest inputs."
 L["RANK_SELECT"]           = "Rank:"
 L["NO_PRICE"]              = "—"
 L["COL_REVENUE"]           = "Net Revenue"
@@ -219,7 +221,7 @@ L["TT_SCAN_ITEM_TITLE"]      = "Scan This Item"
 L["TT_SCAN_ITEM_BODY"]       = "Queue this item for an AH price lookup. The Auction House must be open."
 L["TT_SCAN_ALL_ITEMS_TITLE"] = "Scan All Strategy Items"
 L["TT_SCAN_ALL_ITEMS_BODY"]  = "Queue all reagents and output items in this strategy for AH price lookups."
-L["TT_AH_SELL_PRICE_TIP"]    = "Current AH market price per unit (fill-qty weighted average). Used to calculate Net Revenue."
+L["TT_AH_SELL_PRICE_TIP"]    = "Current AH market price per unit for this strategy's expected output quantity. Used to calculate Net Revenue."
 
 -- Tooltips — Settings panel
 L["TT_OPT_BOLTS_TITLE"]    = "Craft Own Bolts"
@@ -266,4 +268,3 @@ L["TT_OPT_REMEMBER_AH_STATE_BODY"]  = "When enabled, Gold Advisor reopens with t
 -- Compact mode
 L["TT_BTN_COMPACT_TITLE"]        = "Compact Mode"
 L["TT_BTN_COMPACT_BODY"]         = "Hides the tools panel and strategy list, showing only the strategy detail panel. Click again to restore the full layout."
-
