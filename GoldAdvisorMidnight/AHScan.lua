@@ -763,6 +763,24 @@ function AHScan.QueueNameScan(itemName, patchTag, callback)
     EnqueueNameScan(itemName, patchTag, callback)
 end
 
+local function QueueCheapestAlternatives(reagent, patchTag)
+    if not (reagent and reagent.cheapestOf) then
+        return
+    end
+    for _, alt in ipairs(reagent.cheapestOf) do
+        if alt and alt.name then
+            local ids = alt.itemIDs
+            if ids and #ids > 0 then
+                for _, id in ipairs(ids) do
+                    EnqueuePriceScan(id, nil, alt.name)
+                end
+            else
+                EnqueueNameScan(alt.name, patchTag)
+            end
+        end
+    end
+end
+
 -- QueueStratListItems: queues price scans for a specific list of strats.
 -- Use this when scanning a filtered/selected subset (e.g. one profession).
 function AHScan.QueueStratListItems(stratList, patchTag)
@@ -786,7 +804,10 @@ function AHScan.QueueStratListItems(stratList, patchTag)
 
     for _, strat in ipairs(stratList or {}) do
         tryQueueItem(strat.output)
-        for _, r in ipairs(strat.reagents or {}) do tryQueueItem(r) end
+        for _, r in ipairs(strat.reagents or {}) do
+            tryQueueItem(r)
+            QueueCheapestAlternatives(r, patchTag)
+        end
         if strat.outputs then
             for _, o in ipairs(strat.outputs) do tryQueueItem(o) end
         end
@@ -794,7 +815,10 @@ function AHScan.QueueStratListItems(stratList, patchTag)
         -- (e.g. R2-only reagents in the "highest" variant won't be in strat.reagents)
         if strat.rankVariants then
             for _, variant in pairs(strat.rankVariants) do
-                for _, r in ipairs(variant.reagents or {}) do tryQueueItem(r) end
+                for _, r in ipairs(variant.reagents or {}) do
+                    tryQueueItem(r)
+                    QueueCheapestAlternatives(r, patchTag)
+                end
                 for _, o in ipairs(variant.outputs  or {}) do tryQueueItem(o) end
             end
         end
@@ -829,14 +853,20 @@ function AHScan.QueueAllStratItems(patchTag)
 
     for _, strat in ipairs(strats) do
         tryQueueItem(strat.output)
-        for _, r in ipairs(strat.reagents or {}) do tryQueueItem(r) end
+        for _, r in ipairs(strat.reagents or {}) do
+            tryQueueItem(r)
+            QueueCheapestAlternatives(r, patchTag)
+        end
         if strat.outputs then
             for _, o in ipairs(strat.outputs) do tryQueueItem(o) end
         end
         -- Also queue items that only appear in non-default rank variants
         if strat.rankVariants then
             for _, variant in pairs(strat.rankVariants) do
-                for _, r in ipairs(variant.reagents or {}) do tryQueueItem(r) end
+                for _, r in ipairs(variant.reagents or {}) do
+                    tryQueueItem(r)
+                    QueueCheapestAlternatives(r, patchTag)
+                end
                 for _, o in ipairs(variant.outputs  or {}) do tryQueueItem(o) end
             end
         end
