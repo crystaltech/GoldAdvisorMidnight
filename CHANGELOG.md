@@ -6,21 +6,15 @@
 - **Engineering stat scaling restored** — All 12 Engineering strategies now use the shared Engineering formula profile, so `engMulti`, `engRes`, `engMcNode`, and `engRsNode` finally affect ROI consistently for recycling, reagent crafting, and finished Engineering crafts.
 - **Engineering defaults normalized** — Engineering now uses one authoritative workbook baseline (`30.467%` Multicraft, `36%` Resourcefulness, `50/50` node bonuses). Generated raw yields are normalized so default output and profit stay aligned with the existing spreadsheet numbers.
 
-### Tooling
-- `tools/generate_workbook_data.py` now normalizes Engineering `baseYieldPerCraft` from workbook-baked outputs and reads formula-profile defaults from `WorkbookGenerated.lua` so generator/runtime baselines stay in sync.
-- `tools/verify_stat_scaling.py` now treats Engineering as a full MC+Res profile and verifies the normalized defaults.
-
 ### Documentation & Localization
 - Updated the user docs to reflect that Engineering now uses shared Multicraft, Resourcefulness, and node-bonus fields.
 - Synced missing Settings/AH/theme locale keys across all shipped translation files.
+- Cleaned the public repo docs and release metadata for the first plain-source GitHub release.
 
 ## [1.7.13] — 2026-03-28
 
 ### Bug Fixes
 - **JC prospecting ROI corrected** — The generator was storing `baseYieldPerCraft` as `workbook_expected / crafts` for all four JC prospecting strategies (Refulgent Copper Ore, Brilliant Silver Ore, Umbral Tin Ore, Dazzling Thorium is fixed-mode and unaffected). That value already had the formula factor baked in, so the addon was double-applying it and inflating output quantities by ~17%. All three `calcMode = "formula"` prospecting strategies now store the correct raw per-craft yield; ROI at default settings will match the spreadsheet.
-
-### Internal
-- `tools/generate_workbook_data.py`: added full `mc_node`/`rs_node` defaults to `FORMULA_PROFILES`, added `compute_workbook_factor()` helper, and corrected both prospecting `base_yield` write paths to divide out the workbook factor.
 
 ## [1.7.12] — 2026-03-28
 
@@ -229,8 +223,7 @@
 ### Bug Fixes
 - **Detail panel ROI mismatch** — Best Strategy card and detail panel could show different ROI values for the same strategy if bag contents changed between the scan and the click. Fixed by synchronising both calculations to the same moment.
 
-### Internal
-- Protected build infrastructure: `Importer.lua` now includes XOR + custom-base64 decoder functions; key/alphabet fragments distributed across Core, Log, Minimap, Locale, and Pricing files. No-op in dev/plain builds.
+### UI Polish
 - Community ticker links updated with real Twitch, Patreon, YouTube, and Discord URLs. Click popup redesigned to show all four as individually copyable rows.
 
 ## [1.3.1] — 2026-03-17
