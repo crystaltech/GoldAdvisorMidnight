@@ -1,12 +1,12 @@
 # GoldAdvisorMidnight
 
-Gold Advisor Midnight is a WoW Retail Midnight addon for Auction House-based crafting analysis. It scans prices, evaluates strategy profitability, and shows the materials, revenue, and ROI behind each craft.
+Gold Advisor Midnight is a World of Warcraft Retail addon for Auction House crafting analysis in Midnight. It scans market prices, estimates crafting costs and revenue, and helps compare profit opportunities before you commit materials.
 
 ## Repository Contents
 
-- `GoldAdvisorMidnight/` — the addon folder
-- `CHANGELOG.md` — release notes
-- `LICENSE` — usage terms
+- `GoldAdvisorMidnight/` - installable addon folder
+- `CHANGELOG.md` - version history
+- `LICENSE` - usage terms
 
 ## Features
 
@@ -14,17 +14,18 @@ Gold Advisor Midnight is a WoW Retail Midnight addon for Auction House-based cra
 - 62 built-in strategies across 8 professions
 - Profit, ROI, break-even, and buy-now cost calculations
 - Multicraft and Resourcefulness support with per-profession stat inputs
-- Fill Qty simulation for large-buy pricing
-- Vertical integration with "Use own items/crafts"
-- Shopping aggregation and Quick Buy helper flow
-- CraftSim stat sync
+- Fill Qty simulation for large-batch pricing
+- Vertical integration with `Use own items/crafts`
+- Auctionator shopping-list support and Quick Buy helper flow
+- Optional CraftSim stat sync
 - 10 shipped locales
 
 ## Installation
 
-1. Copy `GoldAdvisorMidnight/` into `World of Warcraft/_retail_/Interface/AddOns/`
-2. Reload the UI with `/reload`
-3. Open the Auction House and use `/gam` if the window is not already visible
+1. Download a release zip or clone this repository.
+2. Copy `GoldAdvisorMidnight/` into `World of Warcraft/_retail_/Interface/AddOns/`
+3. Reload the UI with `/reload`
+4. Open the Auction House and use `/gam` if the window is not already visible
 
 ## Commands
 
@@ -42,9 +43,5 @@ Gold Advisor Midnight is a WoW Retail Midnight addon for Auction House-based cra
 ## Notes
 
 - The addon ships with checked-in data files in `GoldAdvisorMidnight/Data/`.
-- The folder to install is `GoldAdvisorMidnight/`.
+- The install folder name must remain `GoldAdvisorMidnight/`.
 - See `CHANGELOG.md` for recent addon changes.
-13. Drag minimap button; `/reload` → position persists
-14. Right-click minimap → Settings opens; stat fields present for all professions
-15. Load with CraftSim → no Lua errors; load without CraftSim → no Lua errors
-16. `bash Release_Patreon.command` → plain handoff zip built in `releases/`
