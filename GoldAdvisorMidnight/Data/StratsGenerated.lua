@@ -187,9 +187,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Thalassian Songwater",
       itemIDs = { 245882 },
-      qtyPerCraft = 30.000000,
-      qtyPerStart = 1.500000,
-      workbookTotalQty = 2267.349585,
+      qtyPerCraft = 3.000000,
+      qtyPerStart = 0.150000,
+      workbookTotalQty = 226.734959,
     },
   },
 }
@@ -242,9 +242,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Thalassian Songwater",
       itemIDs = { 245882 },
-      qtyPerCraft = 30.000000,
-      qtyPerStart = 1.500000,
-      workbookTotalQty = 2267.349585,
+      qtyPerCraft = 3.000000,
+      qtyPerStart = 0.150000,
+      workbookTotalQty = 226.734959,
     },
   },
 }
@@ -2676,7 +2676,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Engineering",
   sourceBlock = "C5",
   defaultStartingAmount = 5000.000000,
-  defaultCrafts = 5000.000000,
+  defaultCrafts = 1000.000000,
   formulaProfile = "engineering",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2695,8 +2695,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Powder Pigment",
       itemIDs = { 245807, 245808 },
-      qtyPerCraft = 1.000000,
-      qtyPerStart = 1.000000,
+      qtyPerCraft = 5.000000,
+      qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
     },
   },

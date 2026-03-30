@@ -1509,7 +1509,8 @@ local function BuildInlineDetail(panel)
                 local seenIDs = {}
                 local seenNames = {}
                 local function queueDisplayed(item)
-                    if not item or not item.name then return end
+                    if not item then return end
+                    local itemName = item.name or item.itemRef
                     local ids = item.itemIDs
                     if ids and #ids > 0 then
                         for _, id in ipairs(ids) do
@@ -1519,10 +1520,11 @@ local function BuildInlineDetail(panel)
                             end
                         end
                     else
-                        local nameKey = item.name .. "@" .. tostring(patchTag or GAM.C.DEFAULT_PATCH)
+                        if not itemName then return end
+                        local nameKey = itemName .. "@" .. tostring(patchTag or GAM.C.DEFAULT_PATCH)
                         if not seenNames[nameKey] then
                             seenNames[nameKey] = true
-                            GAM.AHScan.QueueNameScan(item.name, patchTag, function() ShowInlineDetail(strat, patchTag) end)
+                            GAM.AHScan.QueueNameScan(itemName, patchTag, function() ShowInlineDetail(strat, patchTag) end)
                         end
                     end
                 end
