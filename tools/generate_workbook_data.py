@@ -54,8 +54,55 @@ FORMULA_PROFILES = {
     "tailoring":      {"multi": 21.4, "res": 12.1,  "mc_node": 40,  "rs_node": 50},
     "blacksmithing":  {"multi": 27.9, "res": 18.7,  "mc_node": 0,   "rs_node": 0},
     "leatherworking": {"multi": 28.2, "res": 14.9,  "mc_node": 50,  "rs_node": 50},
-    "engineering":    {"multi": None, "res": 36.0,  "mc_node": 0,   "rs_node": 0},
+    "engineering":    {"multi": 30.467, "res": 36.0, "mc_node": 50, "rs_node": 50},
 }
+
+
+def parse_profile_field(block, field):
+    """Parse a simple numeric-or-nil field from a WorkbookGenerated profile block."""
+    match = re.search(rf'\b{re.escape(field)}\s*=\s*(nil|[0-9.]+)', block)
+    if not match:
+        return False, None
+    raw = match.group(1)
+    if raw == "nil":
+        return True, None
+    return True, float(raw)
+
+
+def load_formula_profile_overrides_from_workbook(base_profiles):
+    """Override hard-coded workbook defaults from WorkbookGenerated.lua when available."""
+    try:
+        with open(WORKBOOK_LUA, "r", encoding="utf-8") as f:
+            workbook_text = f.read()
+    except OSError:
+        return base_profiles
+
+    merged = {key: dict(profile) for key, profile in base_profiles.items()}
+    field_map = {
+        "multi": "defaultMulti",
+        "res": "defaultRes",
+        "mc_node": "defaultMcNode",
+        "rs_node": "defaultRsNode",
+    }
+
+    for key in merged:
+        profile_match = re.search(
+            rf'^\s*{re.escape(key)}\s*=\s*\{{(.*?)^\s*\}},',
+            workbook_text,
+            re.MULTILINE | re.DOTALL,
+        )
+        if not profile_match:
+            continue
+        block = profile_match.group(1)
+        for py_field, lua_field in field_map.items():
+            found, value = parse_profile_field(block, lua_field)
+            if found:
+                merged[key][py_field] = value
+
+    return merged
+
+
+FORMULA_PROFILES = load_formula_profile_overrides_from_workbook(FORMULA_PROFILES)
 
 
 def compute_workbook_factor(profile_key):
@@ -479,6 +526,37 @@ def update_num_in_block(block, key, new_val, occurrences=1):
     return re.sub(pattern, replacer, block)
 
 
+def update_string_in_block(block, key, new_val, occurrences=1):
+    """Replace key = "value" in block (first `occurrences` times)."""
+    pattern = rf'({re.escape(key)}\s*=\s*)"(.*?)"(\s*[,\n])'
+    count = 0
+
+    def replacer(m):
+        nonlocal count
+        count += 1
+        if count <= occurrences:
+            return m.group(1) + f'"{new_val}"' + m.group(3)
+        return m.group(0)
+
+    return re.sub(pattern, replacer, block)
+
+
+def update_string_or_nil_in_block(block, key, new_val, occurrences=1):
+    """Replace key = nil or key = "value" in block (first `occurrences` times)."""
+    pattern = rf'({re.escape(key)}\s*=\s*)(nil|"[^"]*")(\s*[,\n])'
+    count = 0
+    replacement = "nil" if new_val is None else f'"{new_val}"'
+
+    def replacer(m):
+        nonlocal count
+        count += 1
+        if count <= occurrences:
+            return m.group(1) + replacement + m.group(3)
+        return m.group(0)
+
+    return re.sub(pattern, replacer, block)
+
+
 def update_workbook_totals_in_block(block, totals):
     """
     Update workbookTotalQty values in reagents section.
@@ -546,22 +624,25 @@ def update_qty_per_craft_in_block(block, qty_per_crafts):
 
 
 def update_base_yield_in_block(block, base_yields):
-    """Update baseYieldPerCraft values in outputs section."""
-    pattern = r'(baseYieldPerCraft\s*=\s*)[0-9.]+'
-    matches = list(re.finditer(pattern, block))
+    """Update both baseYieldPerCraft and mirrored baseYield values in outputs."""
+    for pattern in (
+        r'(baseYieldPerCraft\s*=\s*)[0-9.]+',
+        r'(baseYield\s*=\s*)[0-9.]+',
+    ):
+        matches = list(re.finditer(pattern, block))
+        result = list(block)
+        offset = 0
+        for i, (m, y) in enumerate(zip(matches, base_yields)):
+            if y is None:
+                continue
+            new_str = m.group(1) + fmt_f(y)
+            start = m.start() + offset
+            end = m.end() + offset
+            result[start:end] = list(new_str)
+            offset += len(new_str) - (m.end() - m.start())
+        block = "".join(result)
 
-    result = list(block)
-    offset = 0
-    for i, (m, y) in enumerate(zip(matches, base_yields)):
-        if y is None:
-            continue
-        new_str = m.group(1) + fmt_f(y)
-        start = m.start() + offset
-        end = m.end() + offset
-        result[start:end] = list(new_str)
-        offset += len(new_str) - (m.end() - m.start())
-
-    return "".join(result)
+    return block
 
 
 # ---------------------------------------------------------------------------
@@ -598,7 +679,13 @@ def process_standard_strategy(ws, strat, wb_sheet):
         # Count only in top-level outputs/reagents (after rankVariants block)
         pass
 
-    is_fixed = parsed.get("calcMode") == "fixed"
+    desired_calc_mode = parsed.get("calcMode")
+    desired_formula_profile = parsed.get("formulaProfile")
+    if profession == "Engineering":
+        desired_calc_mode = "formula"
+        desired_formula_profile = "engineering"
+
+    is_fixed = desired_calc_mode == "fixed"
     target_crafts = parsed["defaultCrafts"]
     target_starting = parsed["defaultStartingAmount"]
 
@@ -659,16 +746,25 @@ def process_standard_strategy(ws, strat, wb_sheet):
     new_block = update_num_in_block(new_block, "defaultCrafts", crafts)
     if profession == "Engineering":
         new_block = update_num_in_block(new_block, "defaultStartingAmount", crafts)
+        new_block = update_string_in_block(new_block, "calcMode", desired_calc_mode)
+        new_block = update_string_or_nil_in_block(new_block, "formulaProfile", desired_formula_profile)
     new_block = update_workbook_totals_in_block(new_block, workbook_totals)
     new_block = update_qty_per_craft_in_block(new_block, qty_per_crafts)
     if expected_qtys:
         new_block = update_workbook_expected_in_block(new_block, expected_qtys)
+        if profession == "Engineering" and target_crafts:
+            wf = compute_workbook_factor(desired_formula_profile)
+            base_yields = [
+                (e / target_crafts / wf) if e is not None else None
+                for e in expected_qtys
+            ]
+            new_block = update_base_yield_in_block(new_block, base_yields)
         # Also update baseYieldPerCraft for prospecting outputs.
         # The spreadsheet stores expected output at workbook-default stats, so
         # we divide out the workbook formula factor to obtain the raw per-craft
         # yield.  The addon then re-applies the player's factor correctly.
         if profession == "Jewelcrafting" and "Prospecting" in strat_name:
-            profile_key = parsed.get("formulaProfile", "jc_prospect")
+            profile_key = desired_formula_profile or "jc_prospect"
             wf = compute_workbook_factor(profile_key)
             base_yields = [
                 (e / crafts / wf) if (e is not None and crafts) else None

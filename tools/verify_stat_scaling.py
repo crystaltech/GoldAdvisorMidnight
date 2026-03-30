@@ -20,7 +20,7 @@ BAKED_MCM = 1.875
 BAKED_RS  = 0.45
 
 # STAT_PROFILES from Pricing.lua
-# (bakedMulti, bakedRes)  — None multiKey = no Multicraft stat
+# (bakedMulti, bakedRes)  — profiles without multicraft use 0 for bakedMulti
 STAT_PROFILES = {
     "insc_milling":   (0,    0.32),  # no Multicraft stat
     "insc_ink":       (0.26, 0.17),
@@ -33,10 +33,10 @@ STAT_PROFILES = {
     "tailoring":      (0.25, 0.15),
     "blacksmithing":  (0.28, 0.19),
     "leatherworking": (0.29, 0.17),
-    "engineering":    (0,    0.38),  # no Multicraft stat (baseline 0%)
+    "engineering":    (0.30467, 0.36),
 }
 
-# DB defaults from Constants.lua (integer %)
+# DB defaults from Constants.lua (numeric %)
 DB_DEFAULTS = {
     "insc_milling":   (0,   32),
     "insc_ink":       (26,  17),
@@ -49,12 +49,12 @@ DB_DEFAULTS = {
     "tailoring":      (25,  15),
     "blacksmithing":  (28,  19),
     "leatherworking": (29,  17),
-    "engineering":    (0,   38),
+    "engineering":    (30.467, 36),
 }
 
 
 def scale(b_multi, b_res, u_multi_pct, u_res_pct):
-    """Compute outputStatScale. u_multi_pct / u_res_pct are integer percentages (0–100)."""
+    """Compute outputStatScale. u_multi_pct / u_res_pct are numeric percentages (0–100)."""
     u_multi = u_multi_pct / 100
     u_res   = u_res_pct   / 100
     multi_denom = 1 + b_multi * BAKED_MCM
@@ -114,8 +114,7 @@ tests = [
     # total ≈ 0.76 × 0.9540 ≈ 0.7251
     ("alchemy",        10,   5, None,   "Alchemy (10% multi, 5% res)"),
 
-    # Engineering: no multi, 20% res vs baked 0% / 38%
-    # multi cancels → (1-0.38×0.45)/(1-0.20×0.45) = 0.829/0.910 ≈ 0.9110
+    # Engineering: lower than the shared default multicraft/resourcefulness profile
     ("engineering",    0,   20, None,   "Engineering (0% multi, 20% res)"),
 
     # Enchanting Shattering: no multi, 30% res = defaults → must be 1.0

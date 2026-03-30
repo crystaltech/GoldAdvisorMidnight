@@ -1,6 +1,6 @@
 #!/bin/bash
 # Release_CurseForge.command
-# Builds a PROTECTED CurseForge release zip, creates a stable GitHub release
+# Builds a CurseForge release zip, creates a stable GitHub release
 # (marked --latest), and uploads the zip to CurseForge via the API.
 #
 # Usage: Double-click in Finder, or run from terminal.
@@ -13,20 +13,16 @@
 #
 # What it does:
 #   1. Loads .env credentials
-#   2. Encodes Data/*Generated.lua → Data/*Encoded.lua
-#   3. Patches the TOC to load *Encoded.lua instead of *Generated.lua
-#   4. Builds a release zip → GoldAdvisorMidnight-vX.X.X-protected.zip
-#   5. Restores the TOC to dev state and removes temporary encoded files
-#   6. Commits source changes, tags vX.X.X, pushes to main
-#   7. Creates GitHub release (--latest)
-#   8. Uploads zip to CurseForge via API
+#   2. Builds a release zip → GoldAdvisorMidnight-vX.X.X.zip
+#   3. Commits source changes, tags vX.X.X, pushes to main
+#   4. Creates GitHub release (--latest)
+#   5. Uploads zip to CurseForge via API
 
 set -euo pipefail
 cd "$(dirname "$0")"
 
 SRC_DIR="source/GoldAdvisorMidnight"
 TOC="$SRC_DIR/GoldAdvisorMidnight.toc"
-DATA_DIR="$SRC_DIR/Data"
 OUT_DIR="releases"
 
 # ── Load .env credentials ──────────────────────────────────────────────────
@@ -44,27 +40,6 @@ if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_PROJECT_ID:-}" ] || [ -z "${CF_GAME_
     exit 1
 fi
 
-# ── Cleanup: always restore TOC + remove encoded files ────────────────────
-restore() {
-    echo ""
-    echo "Restoring TOC to dev state..."
-    python3 - "$TOC" <<'PYEOF'
-import sys
-path = sys.argv[1]
-with open(path, "r", encoding="utf-8") as f:
-    content = f.read()
-content = content.replace("Data\\WorkbookEncoded.lua", "Data\\WorkbookGenerated.lua")
-content = content.replace("Data\\StratsEncoded.lua",   "Data\\StratsGenerated.lua")
-with open(path, "w", encoding="utf-8") as f:
-    f.write(content)
-print("  TOC restored.")
-PYEOF
-    rm -f "$DATA_DIR/StratsEncoded.lua" "$DATA_DIR/WorkbookEncoded.lua"
-    echo "  Encoded files removed."
-}
-
-trap restore EXIT
-
 # ── Read version ───────────────────────────────────────────────────────────
 VERSION=$(grep "^## Version:" "$TOC" | awk '{print $NF}' | tr -d '\r')
 if [ -z "$VERSION" ]; then
@@ -73,7 +48,7 @@ if [ -z "$VERSION" ]; then
 fi
 
 TAG="v${VERSION}"
-ZIPNAME="GoldAdvisorMidnight-${TAG}-protected.zip"
+ZIPNAME="GoldAdvisorMidnight-${TAG}.zip"
 OUT_PATH="$OUT_DIR/$ZIPNAME"
 
 echo "========================================================"
@@ -111,28 +86,8 @@ if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
     exit 0
 fi
 
-# ── Step 1: Encode data files ─────────────────────────────────────────────
+# ── Step 1: Build zip ─────────────────────────────────────────────────────
 echo ""
-echo "Encoding data files..."
-python3 tools/encode_data.py
-echo ""
-
-# ── Step 2: Patch TOC ─────────────────────────────────────────────────────
-echo "Patching TOC for protected build..."
-python3 - "$TOC" <<'PYEOF'
-import sys
-path = sys.argv[1]
-with open(path, "r", encoding="utf-8") as f:
-    content = f.read()
-content = content.replace("Data\\WorkbookGenerated.lua", "Data\\WorkbookEncoded.lua")
-content = content.replace("Data\\StratsGenerated.lua",   "Data\\StratsEncoded.lua")
-with open(path, "w", encoding="utf-8") as f:
-    f.write(content)
-print("  TOC patched.")
-PYEOF
-echo ""
-
-# ── Step 3: Build protected zip ───────────────────────────────────────────
 echo "Building CurseForge zip..."
 mkdir -p "$OUT_DIR"
 rm -f "$OUT_PATH"
@@ -143,35 +98,28 @@ rm -f "$OUT_PATH"
         -x "*.DS_Store" \
         -x "__MACOSX/*" \
         -x "*.swp" \
-        -x "*~" \
-        -x "GoldAdvisorMidnight/Data/StratsGenerated.lua" \
-        -x "GoldAdvisorMidnight/Data/WorkbookGenerated.lua"
+        -x "*~"
 )
 
 echo ""
 echo "  Created: $(pwd)/$OUT_PATH"
 echo ""
 
-# ── Step 4: Restore TOC + remove encoded files ────────────────────────────
-trap - EXIT
-restore
-
-# ── Step 5: Commit source changes ─────────────────────────────────────────
-echo ""
+# ── Step 2: Commit source changes ─────────────────────────────────────────
 git add CHANGELOG.md
 git add source/
 git commit --allow-empty -m "release: $TAG (curseforge)"
 
-# ── Step 6: Tag ───────────────────────────────────────────────────────────
+# ── Step 3: Tag ───────────────────────────────────────────────────────────
 git tag "$TAG"
 
-# ── Step 7: Push ──────────────────────────────────────────────────────────
+# ── Step 4: Push ──────────────────────────────────────────────────────────
 echo ""
 echo "Pushing to GitHub..."
 git push origin main
 git push origin "$TAG"
 
-# ── Step 8: GitHub Stable Release (--latest) ──────────────────────────────
+# ── Step 5: GitHub Stable Release (--latest) ──────────────────────────────
 echo ""
 echo "Creating GitHub stable release $TAG..."
 gh release create "$TAG" "$OUT_PATH" \
@@ -179,7 +127,7 @@ gh release create "$TAG" "$OUT_PATH" \
     --latest \
     --generate-notes
 
-# ── Step 9: Upload to CurseForge ──────────────────────────────────────────
+# ── Step 6: Upload to CurseForge ──────────────────────────────────────────
 echo ""
 echo "Uploading to CurseForge..."
 
@@ -189,7 +137,6 @@ import sys, re
 path, version = sys.argv[1], sys.argv[2]
 with open(path, "r", encoding="utf-8") as f:
     content = f.read()
-# Find the section for this version
 pattern = rf"## \[{re.escape(version)}\].*?(?=\n## \[|\Z)"
 match = re.search(pattern, content, re.DOTALL)
 if match:

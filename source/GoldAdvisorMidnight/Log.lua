@@ -125,4 +125,3 @@ function Log.Clear()
     emit("[" .. timestamp() .. "][INFO] " .. (GAM.L and GAM.L["LOG_CLEARED"] or "[Log cleared]"))
 end
 
-GAM._ls = "Gold"   -- log-sink identifier

@@ -914,4 +914,3 @@ function GAM:GetActiveMainWindow()
     return self.UI.MainWindowV2
 end
 
-GAM._vt = "Midnight"   -- internal version tag

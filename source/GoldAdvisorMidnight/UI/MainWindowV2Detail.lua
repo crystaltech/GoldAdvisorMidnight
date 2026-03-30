@@ -484,7 +484,7 @@ function Detail.Build(args)
     y = y - 18
 
     local detailInnerWidth = usableWidth - 18
-    local reagentNameW, reagentQtyW, reagentNeedW = 156, 48, 52
+    local reagentNameW, reagentQtyW, reagentNeedW = 140, 48, 48
     local reagentPriceW = detailInnerWidth - reagentNameW - reagentQtyW - reagentNeedW
     local reagentSectionHeight = 136
     local outputSectionHeight = 118
@@ -603,7 +603,7 @@ function Detail.Build(args)
         local priceFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         priceFS:SetPoint("LEFT", row, "LEFT", reagentNameW + reagentQtyW + reagentNeedW + 4, 0)
         priceFS:SetWidth(reagentPriceW - 6)
-        priceFS:SetJustifyH("RIGHT")
+        priceFS:SetJustifyH("LEFT")
         priceFS:SetWordWrap(false)
         applyFontSize(priceFS, softInk and 11 or 10)
         applyTextShadow(priceFS)
@@ -634,7 +634,7 @@ function Detail.Build(args)
     applyTextShadow(outHdr)
     y = y - 18
 
-    local outputNameW, outputQtyW = 170, 48
+    local outputNameW, outputQtyW = 148, 48
     local outputPriceW = detailInnerWidth - outputNameW - outputQtyW
 
     local outputShell, outputSection = nil, bodyRoot
@@ -724,7 +724,7 @@ function Detail.Build(args)
         local priceFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         priceFS:SetPoint("LEFT", row, "LEFT", outputNameW + outputQtyW + 6, 0)
         priceFS:SetWidth(outputPriceW - 10)
-        priceFS:SetJustifyH("RIGHT")
+        priceFS:SetJustifyH("LEFT")
         priceFS:SetWordWrap(false)
         applyFontSize(priceFS, softInk and 11 or 10)
         applyTextShadow(priceFS)

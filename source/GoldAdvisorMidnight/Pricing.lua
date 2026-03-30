@@ -268,7 +268,7 @@ function Pricing.GetUnitPrice(itemID)
 end
 
 -- GetEffectivePrice(itemID, patchTag, qty) → price in copper, or nil
--- Priority: override > CraftSim > qty-aware AH fill > AH cache avg
+-- Priority: override > vendor price > CraftSim > qty-aware AH fill > AH cache avg
 -- qty (optional): when provided, uses ComputePriceForQty for the actual fill
 --                 cost at that volume rather than the shallowFillQty cached avg.
 function Pricing.GetEffectivePrice(itemID, patchTag, qty)
@@ -282,7 +282,12 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
         return pdb.priceOverrides[itemID], false
     end
 
-    -- 2. CraftSim (if selected as source)
+    -- 2. Vendor price (static — no scan needed)
+    if GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID] then
+        return GAM.C.VENDOR_PRICES[itemID], false
+    end
+
+    -- 3. CraftSim (if selected as source)
     if opts.priceSource == "craftsim" and GAM.CraftSimBridge then
         local csPrice = GAM.CraftSimBridge.GetPrice(itemID)
         if csPrice and csPrice > 0 then
@@ -606,12 +611,12 @@ local function GetRequiredReagentAmount(reagent, startingAmt, crafts)
     return math.floor(requiredRaw + 0.5)
 end
 
-local function AddMergedReagentEntry(mergedMap, mergedOrder, key, itemIDs, qty, name)
+local function AddMergedReagentEntry(mergedMap, mergedOrder, key, itemIDs, qty, name, cheapestOf)
     if mergedMap[key] then
         mergedMap[key].qty = mergedMap[key].qty + qty
         return
     end
-    mergedMap[key] = { itemIDs = itemIDs, qty = qty, name = name }
+    mergedMap[key] = { itemIDs = itemIDs, qty = qty, name = name, cheapestOf = cheapestOf }
     tinsert(mergedOrder, key)
 end
 
@@ -636,7 +641,7 @@ local function BuildMergedReagentMap(ctx)
             end
         else
             local key = PickItemID(reagentIDs, ctx.patchTag) or (reagentIDs and reagentIDs[1]) or reagent.name
-            AddMergedReagentEntry(mergedMap, mergedOrder, key, reagentIDs, required, reagent.name)
+            AddMergedReagentEntry(mergedMap, mergedOrder, key, reagentIDs, required, reagent.name, reagent.cheapestOf)
         end
     end
 
@@ -667,11 +672,36 @@ local function BuildReagentMetrics(ctx, missingPrices)
         local entry = mergedMap[key]
         local entryIDs = entry.itemIDs
         local required = math.floor(entry.qty + 0.5)
-        local itemID = PickItemID(entryIDs, ctx.patchTag)
+        local itemID, price, stale, displayName
+
+        if entry.cheapestOf then
+            -- Pick whichever gem/item type has the lowest unit price right now.
+            -- Rank policy still applies within each alternative's itemIDs group.
+            entryIDs    = entry.itemIDs
+            itemID      = PickItemID(entryIDs, ctx.patchTag)
+            displayName = entry.name
+            price       = nil
+            stale       = false
+            for _, alt in ipairs(entry.cheapestOf) do
+                local altProxy = { itemIDs = alt.itemIDs, name = alt.itemRef }
+                local altPrice, altStale = Pricing.GetEffectivePriceForItem(altProxy, ctx.patchTag, required)
+                if altPrice and (not price or altPrice < price) then
+                    price       = altPrice
+                    stale       = altStale or false
+                    entryIDs    = alt.itemIDs
+                    displayName = alt.itemRef
+                    itemID      = PickItemID(alt.itemIDs, ctx.patchTag)
+                end
+            end
+        else
+            itemID      = PickItemID(entryIDs, ctx.patchTag)
+            displayName = entry.name
+            local itemProxy = { itemIDs = entryIDs, name = entry.name }
+            price, stale = Pricing.GetEffectivePriceForItem(itemProxy, ctx.patchTag, required)
+        end
+
         local userHave = CountOwnedReagentItems(itemID, entryIDs)
         local needToBuy = math.max(0, required - userHave)
-        local itemProxy = { itemIDs = entryIDs, name = entry.name }
-        local price, stale = Pricing.GetEffectivePriceForItem(itemProxy, ctx.patchTag, required)
         if stale then
             hasStale = true
         end
@@ -681,14 +711,14 @@ local function BuildReagentMetrics(ctx, missingPrices)
         local missingPrice = (needToBuy > 0) and not price
 
         if missingPrice then
-            missingPrices[#missingPrices + 1] = entry.name
+            missingPrices[#missingPrices + 1] = displayName
         else
             totalCostToBuy = totalCostToBuy + (totalCost or 0)
             totalCostRequired = totalCostRequired + (totalCostFull or 0)
         end
 
         reagentResults[#reagentResults + 1] = {
-            name = entry.name,
+            name = displayName,
             itemID = itemID,
             unitPrice = price,
             required = required,
@@ -985,4 +1015,3 @@ function Pricing.ClearPriceOverride(itemID, patchTag)
     end
 end
 
-GAM._eb = "wxyz0123456789+/ABCDEFGHIJKLMNOP"   -- encoding alphabet part B

@@ -129,4 +129,3 @@ function MM.Toggle()
     MM.SetShown(not btn:IsShown())
 end
 
-GAM._ms = "2026"   -- minimap stamp constant

@@ -223,10 +223,10 @@ GAM_WORKBOOK_GENERATED = {
       resKey = "engRes",
       mcNodeKey = "engMcNode",
       rsNodeKey = "engRsNode",
-      defaultMulti = nil,
+      defaultMulti = 30.467,
       defaultRes = 36.000,
-      defaultMcNode = 0,
-      defaultRsNode = 0,
+      defaultMcNode = 50,
+      defaultRsNode = 50,
     },
   },
 }

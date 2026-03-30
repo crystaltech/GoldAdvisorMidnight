@@ -311,6 +311,24 @@ local function BuildPanel()
     local ddRank = { GetValue = function() return rankCurrent end }
     y = y - 30
 
+    -- Theme: cycle button (Classic ↔ Soft)
+    local themeLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    themeLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
+    themeLabel:SetText(L["OPT_THEME"])
+
+    local themeTexts = { classic = L["OPT_THEME_CLASSIC"], soft = L["OPT_THEME_SOFT"] }
+    local themeCurrent = (opts.v2Theme == "soft") and "soft" or "classic"
+
+    local themeBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+    themeBtn:SetSize(80, 22)
+    themeBtn:SetPoint("LEFT", themeLabel, "RIGHT", 12, 0)
+    themeBtn:SetText(themeTexts[themeCurrent])
+    themeBtn:SetScript("OnClick", function()
+        themeCurrent = (themeCurrent == "classic") and "soft" or "classic"
+        themeBtn:SetText(themeTexts[themeCurrent])
+    end)
+    y = y - 30
+
     local slScale, slScaleVal = MakeSlider(content, L["OPT_UI_SCALE"], L["OPT_UI_SCALE_TIP"],
         GAM.C.MIN_UI_SCALE, GAM.C.MAX_UI_SCALE, 0.05, y)
     slScale:SetValue(opts.uiScale or GAM.C.DEFAULT_UI_SCALE)
@@ -480,7 +498,7 @@ local function BuildPanel()
         opts.lwMulti or GAM.C.DEFAULT_LW_MULTI,
         opts.lwRes   or GAM.C.DEFAULT_LW_RES)
     local ebEngMulti, ebEngRes = MakeStatRow(
-        "Engineering: *",
+        "Engineering:",
         opts.engMulti or GAM.C.DEFAULT_ENG_MULTI,
         opts.engRes   or GAM.C.DEFAULT_ENG_RES)
 

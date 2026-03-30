@@ -90,6 +90,9 @@ L["OPT_UI_SCALE_RANGE"]   = "(0.7 - 1.5)"
 L["OPT_RANK_POLICY"]      = "Rank Selection Policy"
 L["OPT_RANK_HIGHEST"]     = "Highest Rank"
 L["OPT_RANK_LOWEST"]      = "Lowest Rank"
+L["OPT_THEME"]            = "Theme"
+L["OPT_THEME_CLASSIC"]    = "Classic"
+L["OPT_THEME_SOFT"]       = "Soft"
 L["AH_BTN_TITLE"]         = "Gold Advisor"
 L["AH_BTN_TIP"]           = "Click to show/hide"
 L["BTN_RELOAD_DATA"]      = "Reload Data"
@@ -264,4 +267,3 @@ L["TT_OPT_REMEMBER_AH_STATE_BODY"]  = "When enabled, Gold Advisor reopens with t
 L["TT_BTN_COMPACT_TITLE"]        = "Compact Mode"
 L["TT_BTN_COMPACT_BODY"]         = "Hides the tools panel and strategy list, showing only the strategy detail panel. Click again to restore the full layout."
 
-GAM._ea = "QRSTUVWXYZabcdefvutsrqponmlkjihg"   -- encoding alphabet part A

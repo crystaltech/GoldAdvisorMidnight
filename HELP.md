@@ -231,7 +231,9 @@ Per-profession Resourcefulness %, Multicraft %, and spec node bonus fields. Thes
 | Tailoring | Multicraft %, Resourcefulness %, MC Node, Res Node |
 | Blacksmithing | Multicraft %, Resourcefulness %, MC Node, Res Node |
 | Leatherworking | Multicraft %, Resourcefulness %, MC Node, Res Node |
-| Engineering | Resourcefulness %, Res Node |
+| Engineering | Multicraft %, Resourcefulness %, MC Node, Res Node |
+
+Engineering uses one shared stat profile across recycling, reagent crafting, and finished-item crafting, so ROI now responds to both Multicraft and Resourcefulness for all Engineering strategies.
 
 ### Buttons
 

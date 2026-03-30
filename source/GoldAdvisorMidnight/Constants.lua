@@ -15,7 +15,7 @@ local function ProfileDefault(profileKey, field, fallback)
 end
 
 GAM.C = {
-    ADDON_VERSION        = "1.7.13",
+    ADDON_VERSION        = "1.7.14",
     DATA_VERSION         = 11,
     DEFAULT_PATCH        = "midnight-1",
 
@@ -76,8 +76,8 @@ GAM.C = {
     DEFAULT_LW_MULTI           = ProfileDefault("leatherworking", "defaultMulti", 28.2),
     DEFAULT_LW_RES             = ProfileDefault("leatherworking", "defaultRes", 14.9),
     -- Engineering
-    DEFAULT_ENG_MULTI          = ProfileDefault("engineering", "defaultMulti", 0),
-    DEFAULT_ENG_RES            = ProfileDefault("engineering", "defaultRes", 38),
+    DEFAULT_ENG_MULTI          = ProfileDefault("engineering", "defaultMulti", 30.467),
+    DEFAULT_ENG_RES            = ProfileDefault("engineering", "defaultRes", 36),
 
     -- UI scale
     DEFAULT_UI_SCALE     = 1.0,    -- frame scale applied to non-settings addon windows/popups
@@ -106,4 +106,10 @@ GAM.C = {
     -- Best Strategy scoring thresholds
     BEST_STRAT_MIN_PROFIT   = 50000, -- 5g minimum profit to qualify (copper)
     BEST_STRAT_MIN_ROI      = 5,     -- 5% minimum ROI to qualify
+
+    -- Vendor-purchasable items: static buy prices in copper.
+    -- Checked in GetEffectivePrice after manual overrides — no AH scan needed.
+    VENDOR_PRICES = {
+        [245882] = 3595,   -- Thalassian Songwater  (35s 95c)
+    },
 }

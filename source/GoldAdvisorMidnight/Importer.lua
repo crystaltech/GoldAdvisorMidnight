@@ -321,71 +321,7 @@ local function LoadRecipeList(list, src, isUser)
     return loaded, skipped
 end
 
--- ── Encoded data loader ────────────────────────────────────────────────────
--- No-op when encoded globals are nil (dev/plain build).
--- Decodes and executes encoded data blobs in protected builds.
-
-local function _b64dec(s)
-    local alpha = (GAM._ea or "") .. (GAM._eb or "")
-    if #alpha ~= 64 then return nil end
-    local lookup = {}
-    for i = 1, 64 do
-        lookup[alpha:sub(i, i)] = i - 1
-    end
-    local out = {}
-    local i = 1
-    local len = #s
-    while i <= len - 3 do
-        local c1 = lookup[s:sub(i,   i)]   or 0
-        local c2 = lookup[s:sub(i+1, i+1)] or 0
-        local c3 = lookup[s:sub(i+2, i+2)] or 0
-        local c4 = lookup[s:sub(i+3, i+3)] or 0
-        local n = c1 * 262144 + c2 * 4096 + c3 * 64 + c4
-        out[#out+1] = string.char(math.floor(n / 65536))
-        if s:sub(i+2, i+2) ~= "=" then
-            out[#out+1] = string.char(math.floor((n % 65536) / 256))
-        end
-        if s:sub(i+3, i+3) ~= "=" then
-            out[#out+1] = string.char(n % 256)
-        end
-        i = i + 4
-    end
-    return table.concat(out)
-end
-
-local function _xordec(data, key)
-    local klen = #key
-    local out  = {}
-    for i = 1, #data do
-        out[i] = string.char(bit.bxor(data:byte(i), key:byte(((i - 1) % klen) + 1)))
-    end
-    return table.concat(out)
-end
-
-local function _loadEncoded(encoded)
-    if not encoded or encoded == "" then return end
-    local key = (GAM._vt or "") .. (GAM._ls or "") .. (GAM._ms or "")
-    local decoded = _b64dec(encoded)
-    if not decoded then
-        GAM.Log.Warn("Importer: failed to base64-decode data blob")
-        return
-    end
-    local src = _xordec(decoded, key)
-    local fn, err = (load or loadstring)(src)
-    if fn then
-        fn()
-    else
-        GAM.Log.Warn("Importer: failed to load encoded data: %s", tostring(err))
-    end
-end
-
--- ── /Encoded data loader ───────────────────────────────────────────────────
-
 function Importer.Init()
-    -- Decode encoded data files if present; no-op when using plain dev files
-    _loadEncoded(GAM_STRATS_ENCODED)
-    _loadEncoded(GAM_WORKBOOK_ENCODED)
-
     wipe(stratsByID)
     wipe(stratsByPatch)
     wipe(stratsByProfession)

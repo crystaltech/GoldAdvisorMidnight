@@ -1,5 +1,19 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.14] — 2026-03-30
+
+### Bug Fixes
+- **Engineering stat scaling restored** — All 12 Engineering strategies now use the shared Engineering formula profile, so `engMulti`, `engRes`, `engMcNode`, and `engRsNode` finally affect ROI consistently for recycling, reagent crafting, and finished Engineering crafts.
+- **Engineering defaults normalized** — Engineering now uses one authoritative workbook baseline (`30.467%` Multicraft, `36%` Resourcefulness, `50/50` node bonuses). Generated raw yields are normalized so default output and profit stay aligned with the existing spreadsheet numbers.
+
+### Tooling
+- `tools/generate_workbook_data.py` now normalizes Engineering `baseYieldPerCraft` from workbook-baked outputs and reads formula-profile defaults from `WorkbookGenerated.lua` so generator/runtime baselines stay in sync.
+- `tools/verify_stat_scaling.py` now treats Engineering as a full MC+Res profile and verifies the normalized defaults.
+
+### Documentation & Localization
+- Updated the user docs to reflect that Engineering now uses shared Multicraft, Resourcefulness, and node-bonus fields.
+- Synced missing Settings/AH/theme locale keys across all shipped translation files.
+
 ## [1.7.13] — 2026-03-28
 
 ### Bug Fixes

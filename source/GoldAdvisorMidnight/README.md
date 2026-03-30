@@ -5,7 +5,7 @@
 
 ## What It Does
 
-Gold Advisor Midnight scans the Auction House for current prices, then calculates profit, ROI, and reagent costs for 63 crafting strategies across 8 professions. It tells you which crafts are profitable right now and exactly what to buy. You can also create, edit, and share your own custom strategies.
+Gold Advisor Midnight scans the Auction House for current prices, then calculates profit, ROI, and reagent costs for 62 crafting strategies across 8 professions. It tells you which crafts are profitable right now and exactly what to buy. You can also create, edit, and share your own custom strategies.
 
 ---
 
@@ -91,7 +91,7 @@ This reflects the Fill Qty configured in Settings. See [Fill Qty](#fill-qty) bel
 
 ---
 
-## Covered Strategies (63 total)
+## Covered Strategies (62 total)
 
 ### Alchemy (14)
 Composite Flora · Haranir Phial of Perception · Amani Extract · Silvermoon Health Potion · Draught of Rampant Abandon · Vicious Thalassian Flask of Honor · Haranir Phial of Finesse · Potion of Recklessness · Potion of Zealotry · Light's Potential · Flask of the Blood Knights · Flask of the Shattered Sun · Void-Shrouded Tincture · Lightfused Mana Potion
@@ -164,7 +164,7 @@ To clear an override, right-click the price and choose **Clear Override**.
 
 ## Understanding Output Quantities
 
-All quantities shown assume you're processing the **default batch size** (shown at the top of the detail panel). Expected output quantities already include average proc rates for multicraft and resourcefulness — they represent real-world averages, not base recipe yields.
+All quantities shown assume you're processing the **default batch size** (shown at the top of the detail panel). Expected output quantities match the workbook baseline by default, and formula-driven strategies are then rescaled from that baseline using your current Crafting Stats values. This now includes all Engineering recycling and crafted Engineering strategies, not just the other professions.
 
 > **Example:** Soul Cipher shows 2.729 ciphers per craft. This accounts for the multicraft proc that occasionally yields 2 instead of 1. Over many crafts your actual average will be close to this number.
 

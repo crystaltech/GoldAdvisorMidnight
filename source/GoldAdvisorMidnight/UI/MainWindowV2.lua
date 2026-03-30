@@ -600,12 +600,10 @@ local function BuildStatusAndTicker(L, C, SB_H)
     scanBtnStatus:Hide()
 
     local TICK_H  = C.TICKER_H
-    local TICK_SP = 55
     local tickerClip = CreateFrame("Frame", nil, frame)
     tickerClip:SetHeight(TICK_H)
     tickerClip:SetPoint("BOTTOMLEFT",  frame, "BOTTOMLEFT",  14, 6)
     tickerClip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, 6)
-    tickerClip:SetClipsChildren(true)
 
     local tickerBg = tickerClip:CreateTexture(nil, "BACKGROUND")
     tickerBg:SetAllPoints()
@@ -619,81 +617,23 @@ local function BuildStatusAndTicker(L, C, SB_H)
     tickerBorder:SetColorTexture(C_DR, C_DG, C_DB, 0.35)
     themeRefs.tickerBorder = tickerBorder
 
-    local tickerContent = CreateFrame("Frame", nil, tickerClip)
-    tickerContent:SetHeight(TICK_H)
     local SEP = "   \124cff888888\183\124r   "
-    local sodaEggs = {
-        SEP .. "\124cff0033ccP\124cffcc0000e\124cffffffff p\124cff0033ccs\124cffcc0000i\124r  \124cffaaddffPepsi Break soon\124r",
-        SEP .. "\124cff0066ffPEPSI\124r \124cffff3333RULES\124r \124cffffffff~*~\124r",
-        SEP .. "\124cffcc0000C\124cffffffff o\124cffcc0000c\124cffffffff a\124cffcc0000-\124cffffffff C\124cffcc0000o\124cffffffff l\124cffcc0000a\124r  \124cffff6666Coca-Cola Break soon\124r",
-        SEP .. "\124cffdd0000COCA-COLA\124r \124cffff4444RULES\124r \124cffffffff~*~\124r",
-    }
-    local eggQueued = false
-    local function BuildTickerMsg(forceEgg)
-        local insert
-        if forceEgg then
-            insert = sodaEggs[math.random(#sodaEggs)]
-        else
-            insert = math.random(5) == 1 and sodaEggs[math.random(#sodaEggs)] or ""
-        end
-        return table.concat({
-            "  \124cffffcc00[Gold Advisor Midnight]\124r",
-            SEP .. "\124cffff9900Twitch:\124r  twitch.tv/eloncs",
-            SEP .. "\124cffff9900Patreon:\124r  patreon.com/14598821/join",
-            SEP .. "\124cffff9900YouTube:\124r  youtube.com/@Elon_CS",
-            SEP .. "\124cff7289daDiscord:\124r  discord.gg/v7vsCKCsFh",
-            insert,
-            SEP .. "\124cff666666v" .. (GAM.version or "?") .. "\124r  ",
-        }, "")
-    end
-    local tickerFS = tickerContent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    tickerFS:SetPoint("LEFT", tickerContent, "LEFT", 0, 0)
-    tickerFS:SetJustifyH("LEFT")
+    local tickerFS = tickerClip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tickerFS:SetPoint("LEFT",  tickerClip, "LEFT",  8, 0)
+    tickerFS:SetPoint("RIGHT", tickerClip, "RIGHT", -8, 0)
+    tickerFS:SetJustifyH("CENTER")
     tickerFS:SetWordWrap(false)
-    tickerFS:SetText(BuildTickerMsg(false))
+    tickerFS:SetText(
+        "\124cffffcc00[Gold Advisor Midnight]\124r" ..
+        SEP .. "For support and community:" ..
+        SEP .. "\124cff7289daDiscord:\124r  discord.gg/v7vsCKCsFh" ..
+        SEP .. "\124cff666666v" .. (GAM.version or "?") .. "\124r"
+    )
     ApplyFontSize(tickerFS, 9)
     tickerFS:SetTextColor(0.75, 0.75, 0.75, 1)
     tickerFS:SetShadowOffset(1, -1)
     tickerFS:SetShadowColor(0, 0, 0, 0.9)
     themeRefs.tickerText = tickerFS
-
-    local tickerW = 0
-    C_Timer.After(0, function()
-        local tw = tickerFS:GetStringWidth() + 20
-        tickerContent:SetWidth(math.max(tw, 10))
-        tickerW = tickerContent:GetWidth()
-        tickerContent:SetPoint("LEFT", tickerClip, "LEFT", tickerClip:GetWidth(), 0)
-    end)
-
-    local tickerX = 0
-    local tickerPaused = false
-    C_Timer.NewTicker(0.033, function()
-        if not frame:IsShown() or tickerPaused then return end
-        local clipW = tickerClip:GetWidth()
-        if tickerW == 0 then
-            tickerW = tickerContent:GetWidth()
-            if tickerW == 0 then return end
-        end
-        tickerX = tickerX - TICK_SP / 30
-        if tickerX < -tickerW then
-            tickerX = clipW
-            if eggQueued then
-                eggQueued = false
-                tickerFS:SetText(BuildTickerMsg(true))
-                C_Timer.After(0, function()
-                    local tw = tickerFS:GetStringWidth() + 20
-                    tickerContent:SetWidth(math.max(tw, 10))
-                    tickerW = tickerContent:GetWidth()
-                end)
-            end
-        end
-        tickerContent:ClearAllPoints()
-        tickerContent:SetPoint("LEFT", tickerClip, "LEFT", tickerX, 0)
-    end)
-
-    tickerClip:EnableMouse(true)
-    tickerClip:SetScript("OnEnter", function() tickerPaused = true end)
-    tickerClip:SetScript("OnLeave", function() tickerPaused = false end)
     frame.tickerClip = tickerClip
 end
 
