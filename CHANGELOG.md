@@ -4,6 +4,7 @@
 
 ### Bug Fixes
 - **Dynamic Crushing inputs restored** — Flexible `cheapestOf` reagent pools now survive importer normalization, so Jewelcrafting `Crushing` is priced against the cheapest eligible gem at runtime instead of falling back to a fixed baseline item.
+- **Crushing scan coverage fixed** — Bulk AH scans now queue every gem in a flexible reagent pool, so `Crushing` can actually compare the full eligible set during normal `Scan Strat` and `Scan All` flows.
 - **Crushing detail note** — Strategy detail now shows which flexible-pool reagent was selected as the current cheapest input, making the live pricing choice visible without changing profit math.
 
 ### Tooling
