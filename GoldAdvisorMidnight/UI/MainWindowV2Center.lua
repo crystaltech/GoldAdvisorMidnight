@@ -83,14 +83,14 @@ function CenterUI.MakeRowFrame(args, parent, idx)
     row.profText = profText
 
     local profitText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    profitText:SetJustifyH("RIGHT")
+    profitText:SetJustifyH("CENTER")
     profitText:SetWordWrap(false)
     applyFontSize(profitText, 10)
     applyTextShadow(profitText)
     row.profitText = profitText
 
     local roiText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    roiText:SetJustifyH("RIGHT")
+    roiText:SetJustifyH("CENTER")
     roiText:SetWordWrap(false)
     applyFontSize(roiText, 10)
     applyTextShadow(roiText)

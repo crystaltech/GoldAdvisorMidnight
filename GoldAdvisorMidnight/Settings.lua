@@ -229,6 +229,41 @@ local function FmtQty(n)
     return s:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
 end
 
+local function GetOptionValue(o, key, default)
+    if not o then
+        return default
+    end
+    local value = o[key]
+    if value == nil then
+        return default
+    end
+    return value
+end
+
+local function ClampStatPercentValue(value, fallback)
+    local n = tonumber(value)
+    if not n then
+        n = fallback or 0
+    end
+    return math.max(0, math.min(100, n))
+end
+
+local function FormatStatPercentValue(value)
+    local n = tonumber(value) or 0
+    if math.abs(n - math.floor(n + 0.5)) < 0.0001 then
+        return tostring(math.floor(n + 0.5))
+    end
+    return string.format("%.1f", n)
+end
+
+local function NormalizeStatBox(eb, fallback)
+    if not eb then return fallback end
+    local value = ClampStatPercentValue(eb:GetText(), fallback)
+    eb:SetText(FormatStatPercentValue(value))
+    eb:ClearFocus()
+    return value
+end
+
 -- ===== Build the settings content panel =====
 -- Returns a plain frame with no backdrop — safe to embed in Blizzard's canvas.
 local function BuildPanel()
@@ -411,96 +446,161 @@ local function BuildPanel()
     chRes:SetText("Res%")
     y = y - 20
 
-    -- multiDefault=nil → no Multi% field (Milling/Prospecting/Crushing/Shattering have no Multicraft stat)
-    local function MakeStatRow(labelText, multiDefault, resDefault)
-        local lbl = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        lbl:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
-        lbl:SetText(labelText)
+    local craftStatRows = {}
 
-        local ebMulti = nil
-        if multiDefault ~= nil then
-            ebMulti = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-            ebMulti:SetSize(44, 22)
-            ebMulti:SetAutoFocus(false)
-            ebMulti:SetMaxLetters(6)
-            ebMulti:SetPoint("TOPLEFT", content, "TOPLEFT", 250, y)
-            ebMulti:SetText(tostring(multiDefault))
-            ebMulti:SetScript("OnEnter", function(self)
-                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(GAM.L["TT_STAT_MULTI_TITLE"] or "Multicraft %", 1, 1, 1)
-                GameTooltip:AddLine(GAM.L["TT_STAT_MULTI_BODY"] or "Your Multicraft stat from the profession window (%). Higher values increase expected output quantity.", 1, 0.82, 0, true)
-                GameTooltip:Show()
-            end)
-            ebMulti:SetScript("OnLeave", function() GameTooltip:Hide() end)
-        end
-
-        local ebRes = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-        ebRes:SetSize(44, 22)
-        ebRes:SetAutoFocus(false)
-        ebRes:SetMaxLetters(6)
-        ebRes:SetPoint("TOPLEFT", content, "TOPLEFT", 345, y)
-        ebRes:SetText(tostring(resDefault))
-        ebRes:SetScript("OnEnter", function(self)
+    local function MakeStatEditBox(anchorX, tooltipTitle, tooltipBody, fallbackValue)
+        local eb = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+        eb:SetSize(44, 22)
+        eb:SetAutoFocus(false)
+        eb:SetMaxLetters(6)
+        eb:SetPoint("TOPLEFT", content, "TOPLEFT", anchorX, y)
+        eb:SetText(FormatStatPercentValue(fallbackValue))
+        eb:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(GAM.L["TT_STAT_RES_TITLE"] or "Resourcefulness %", 1, 1, 1)
-            GameTooltip:AddLine(GAM.L["TT_STAT_RES_BODY"] or "Your Resourcefulness stat from the profession window (%). Higher values reduce average reagent consumption.", 1, 0.82, 0, true)
+            GameTooltip:SetText(tooltipTitle, 1, 1, 1)
+            GameTooltip:AddLine(tooltipBody, 1, 0.82, 0, true)
             GameTooltip:Show()
         end)
-        ebRes:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-        y = y - 26
-        return ebMulti, ebRes
+        eb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        return eb
     end
 
-    -- nil multiDefault = no Multicraft stat for this tool set
-    local _, ebInscMillingRes = MakeStatRow(
-        "Inscription - Milling:",
-        nil,
-        opts.inscMillingRes or GAM.C.DEFAULT_INSC_MILLING_RES)
-    local ebInscInkMulti, ebInscInkRes = MakeStatRow(
-        "Inscription - Ink:",
-        opts.inscInkMulti or GAM.C.DEFAULT_INSC_INK_MULTI,
-        opts.inscInkRes   or GAM.C.DEFAULT_INSC_INK_RES)
-    local _, ebJcProspectRes = MakeStatRow(
-        "Jewelcrafting - Prospect:",
-        nil,
-        opts.jcProspectRes or GAM.C.DEFAULT_JC_PROSPECT_RES)
-    local _, ebJcCrushRes = MakeStatRow(
-        "Jewelcrafting - Crushing:",
-        nil,
-        opts.jcCrushRes or GAM.C.DEFAULT_JC_CRUSH_RES)
-    local ebJcCraftMulti, ebJcCraftRes = MakeStatRow(
-        "Jewelcrafting - Crafting:",
-        opts.jcCraftMulti or GAM.C.DEFAULT_JC_CRAFT_MULTI,
-        opts.jcCraftRes   or GAM.C.DEFAULT_JC_CRAFT_RES)
-    local _, ebEnchShatterRes = MakeStatRow(
-        "Enchanting - Shattering:",
-        nil,
-        opts.enchShatterRes or GAM.C.DEFAULT_ENCH_SHATTER_RES)
-    local ebEnchCraftMulti, ebEnchCraftRes = MakeStatRow(
-        "Enchanting - Crafting:",
-        opts.enchCraftMulti or GAM.C.DEFAULT_ENCH_CRAFT_MULTI,
-        opts.enchCraftRes   or GAM.C.DEFAULT_ENCH_CRAFT_RES)
-    local ebAlchMulti, ebAlchRes = MakeStatRow(
-        "Alchemy:",
-        opts.alchMulti or GAM.C.DEFAULT_ALCH_MULTI,
-        opts.alchRes   or GAM.C.DEFAULT_ALCH_RES)
-    local ebTailMulti, ebTailRes = MakeStatRow(
-        "Tailoring:",
-        opts.tailMulti or GAM.C.DEFAULT_TAIL_MULTI,
-        opts.tailRes   or GAM.C.DEFAULT_TAIL_RES)
-    local ebBsMulti, ebBsRes = MakeStatRow(
-        "Blacksmithing:",
-        opts.bsMulti or GAM.C.DEFAULT_BS_MULTI,
-        opts.bsRes   or GAM.C.DEFAULT_BS_RES)
-    local ebLwMulti, ebLwRes = MakeStatRow(
-        "Leatherworking:",
-        opts.lwMulti or GAM.C.DEFAULT_LW_MULTI,
-        opts.lwRes   or GAM.C.DEFAULT_LW_RES)
-    local ebEngMulti, ebEngRes = MakeStatRow(
-        "Engineering:",
-        opts.engMulti or GAM.C.DEFAULT_ENG_MULTI,
-        opts.engRes   or GAM.C.DEFAULT_ENG_RES)
+    -- multiKey=nil → no Multi% field (Milling/Prospecting/Crushing/Shattering have no Multicraft stat)
+    local function MakeStatRow(def)
+        local lbl = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
+        lbl:SetText(def.label)
+
+        local row = {
+            label = def.label,
+            multiKey = def.multiKey,
+            resKey = def.resKey,
+            defaultMulti = def.defaultMulti,
+            defaultRes = def.defaultRes,
+            multiBox = nil,
+            resBox = nil,
+        }
+
+        if row.multiKey then
+            row.multiBox = MakeStatEditBox(
+                250,
+                GAM.L["TT_STAT_MULTI_TITLE"] or "Multicraft %",
+                GAM.L["TT_STAT_MULTI_BODY"] or "Your Multicraft stat from the profession window (%). Higher values increase expected output quantity.",
+                GetOptionValue(opts, row.multiKey, row.defaultMulti)
+            )
+            local function NormalizeMulti()
+                NormalizeStatBox(
+                    row.multiBox,
+                    GetOptionValue(GetOpts(), row.multiKey, row.defaultMulti)
+                )
+            end
+            row.multiBox:SetScript("OnEnterPressed", NormalizeMulti)
+            row.multiBox:SetScript("OnEditFocusLost", NormalizeMulti)
+        end
+
+        row.resBox = MakeStatEditBox(
+            345,
+            GAM.L["TT_STAT_RES_TITLE"] or "Resourcefulness %",
+            GAM.L["TT_STAT_RES_BODY"] or "Your Resourcefulness stat from the profession window (%). Higher values reduce average reagent consumption.",
+            GetOptionValue(opts, row.resKey, row.defaultRes)
+        )
+        local function NormalizeRes()
+            NormalizeStatBox(
+                row.resBox,
+                GetOptionValue(GetOpts(), row.resKey, row.defaultRes)
+            )
+        end
+        row.resBox:SetScript("OnEnterPressed", NormalizeRes)
+        row.resBox:SetScript("OnEditFocusLost", NormalizeRes)
+
+        craftStatRows[#craftStatRows + 1] = row
+        y = y - 26
+    end
+
+    MakeStatRow({
+        label = "Inscription - Milling:",
+        multiKey = nil,
+        resKey = "inscMillingRes",
+        defaultMulti = nil,
+        defaultRes = GAM.C.DEFAULT_INSC_MILLING_RES,
+    })
+    MakeStatRow({
+        label = "Inscription - Ink:",
+        multiKey = "inscInkMulti",
+        resKey = "inscInkRes",
+        defaultMulti = GAM.C.DEFAULT_INSC_INK_MULTI,
+        defaultRes = GAM.C.DEFAULT_INSC_INK_RES,
+    })
+    MakeStatRow({
+        label = "Jewelcrafting - Prospect:",
+        multiKey = nil,
+        resKey = "jcProspectRes",
+        defaultMulti = nil,
+        defaultRes = GAM.C.DEFAULT_JC_PROSPECT_RES,
+    })
+    MakeStatRow({
+        label = "Jewelcrafting - Crushing:",
+        multiKey = nil,
+        resKey = "jcCrushRes",
+        defaultMulti = nil,
+        defaultRes = GAM.C.DEFAULT_JC_CRUSH_RES,
+    })
+    MakeStatRow({
+        label = "Jewelcrafting - Crafting:",
+        multiKey = "jcCraftMulti",
+        resKey = "jcCraftRes",
+        defaultMulti = GAM.C.DEFAULT_JC_CRAFT_MULTI,
+        defaultRes = GAM.C.DEFAULT_JC_CRAFT_RES,
+    })
+    MakeStatRow({
+        label = "Enchanting - Shattering:",
+        multiKey = nil,
+        resKey = "enchShatterRes",
+        defaultMulti = nil,
+        defaultRes = GAM.C.DEFAULT_ENCH_SHATTER_RES,
+    })
+    MakeStatRow({
+        label = "Enchanting - Crafting:",
+        multiKey = "enchCraftMulti",
+        resKey = "enchCraftRes",
+        defaultMulti = GAM.C.DEFAULT_ENCH_CRAFT_MULTI,
+        defaultRes = GAM.C.DEFAULT_ENCH_CRAFT_RES,
+    })
+    MakeStatRow({
+        label = "Alchemy:",
+        multiKey = "alchMulti",
+        resKey = "alchRes",
+        defaultMulti = GAM.C.DEFAULT_ALCH_MULTI,
+        defaultRes = GAM.C.DEFAULT_ALCH_RES,
+    })
+    MakeStatRow({
+        label = "Tailoring:",
+        multiKey = "tailMulti",
+        resKey = "tailRes",
+        defaultMulti = GAM.C.DEFAULT_TAIL_MULTI,
+        defaultRes = GAM.C.DEFAULT_TAIL_RES,
+    })
+    MakeStatRow({
+        label = "Blacksmithing:",
+        multiKey = "bsMulti",
+        resKey = "bsRes",
+        defaultMulti = GAM.C.DEFAULT_BS_MULTI,
+        defaultRes = GAM.C.DEFAULT_BS_RES,
+    })
+    MakeStatRow({
+        label = "Leatherworking:",
+        multiKey = "lwMulti",
+        resKey = "lwRes",
+        defaultMulti = GAM.C.DEFAULT_LW_MULTI,
+        defaultRes = GAM.C.DEFAULT_LW_RES,
+    })
+    MakeStatRow({
+        label = "Engineering:",
+        multiKey = "engMulti",
+        resKey = "engRes",
+        defaultMulti = GAM.C.DEFAULT_ENG_MULTI,
+        defaultRes = GAM.C.DEFAULT_ENG_RES,
+    })
 
     y = y - 4
 
@@ -648,65 +748,57 @@ local function BuildPanel()
 
     -- ── Apply logic ────────────────────────────────────────────────────────
     local function ApplySettings()
-        local prevQty             = opts.shallowFillQty    or GAM.C.DEFAULT_FILL_QTY
-        opts.scanDelay      = slScanDelay:GetValue()
-        opts.debugVerbosity = slVerbosity:GetValue()
-        opts.minimapHidden  = not cbMinimap:GetChecked()
-        opts.v2Theme        = themeCurrent
-        opts.rememberAHWindowState = cbRememberAHState:GetChecked()
-        opts.rankPolicy         = ddRank.GetValue() or "lowest"
+        local currentOpts = GetOpts()
+        local prevQty = GetOptionValue(currentOpts, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)
+        currentOpts.scanDelay = slScanDelay:GetValue()
+        currentOpts.debugVerbosity = slVerbosity:GetValue()
+        currentOpts.minimapHidden = not cbMinimap:GetChecked()
+        currentOpts.v2Theme = themeCurrent
+        currentOpts.rememberAHWindowState = cbRememberAHState:GetChecked()
+        currentOpts.rankPolicy = ddRank.GetValue() or "lowest"
 
-        local function clampStat(eb, default)
-            return math.max(0, math.min(100, tonumber(eb:GetText()) or default))
+        for _, row in ipairs(craftStatRows) do
+            if row.multiKey and row.multiBox then
+                currentOpts[row.multiKey] = NormalizeStatBox(
+                    row.multiBox,
+                    GetOptionValue(currentOpts, row.multiKey, row.defaultMulti)
+                )
+            end
+            if row.resKey and row.resBox then
+                currentOpts[row.resKey] = NormalizeStatBox(
+                    row.resBox,
+                    GetOptionValue(currentOpts, row.resKey, row.defaultRes)
+                )
+            end
         end
-        opts.inscMillingRes   = clampStat(ebInscMillingRes,   GAM.C.DEFAULT_INSC_MILLING_RES)
-        opts.inscInkMulti     = clampStat(ebInscInkMulti,     GAM.C.DEFAULT_INSC_INK_MULTI)
-        opts.inscInkRes       = clampStat(ebInscInkRes,       GAM.C.DEFAULT_INSC_INK_RES)
-        opts.jcProspectRes    = clampStat(ebJcProspectRes,    GAM.C.DEFAULT_JC_PROSPECT_RES)
-        opts.jcCrushRes       = clampStat(ebJcCrushRes,       GAM.C.DEFAULT_JC_CRUSH_RES)
-        opts.jcCraftMulti     = clampStat(ebJcCraftMulti,     GAM.C.DEFAULT_JC_CRAFT_MULTI)
-        opts.jcCraftRes       = clampStat(ebJcCraftRes,       GAM.C.DEFAULT_JC_CRAFT_RES)
-        opts.enchShatterRes   = clampStat(ebEnchShatterRes,   GAM.C.DEFAULT_ENCH_SHATTER_RES)
-        opts.enchCraftMulti   = clampStat(ebEnchCraftMulti,   GAM.C.DEFAULT_ENCH_CRAFT_MULTI)
-        opts.enchCraftRes     = clampStat(ebEnchCraftRes,     GAM.C.DEFAULT_ENCH_CRAFT_RES)
-        opts.alchMulti        = clampStat(ebAlchMulti,        GAM.C.DEFAULT_ALCH_MULTI)
-        opts.alchRes          = clampStat(ebAlchRes,          GAM.C.DEFAULT_ALCH_RES)
-        opts.tailMulti        = clampStat(ebTailMulti,        GAM.C.DEFAULT_TAIL_MULTI)
-        opts.tailRes          = clampStat(ebTailRes,          GAM.C.DEFAULT_TAIL_RES)
-        opts.bsMulti          = clampStat(ebBsMulti,          GAM.C.DEFAULT_BS_MULTI)
-        opts.bsRes            = clampStat(ebBsRes,            GAM.C.DEFAULT_BS_RES)
-        opts.lwMulti          = clampStat(ebLwMulti,          GAM.C.DEFAULT_LW_MULTI)
-        opts.lwRes            = clampStat(ebLwRes,            GAM.C.DEFAULT_LW_RES)
-        opts.engMulti         = clampStat(ebEngMulti,         GAM.C.DEFAULT_ENG_MULTI)
-        opts.engRes           = clampStat(ebEngRes,           GAM.C.DEFAULT_ENG_RES)
 
-        opts.uiScale        = slScale:GetValue()
-        opts.ahCut          = GAM.C.AH_CUT
-        ApplyScaleToFrames(opts.uiScale)
+        currentOpts.uiScale = slScale:GetValue()
+        currentOpts.ahCut = GAM.C.AH_CUT
+        ApplyScaleToFrames(currentOpts.uiScale)
 
         local raw = tonumber(ebFillQty:GetText())
-        opts.shallowFillQty = raw
+        currentOpts.shallowFillQty = raw
             and math.max(GAM.C.MIN_FILL_QTY,
                 math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
             or GAM.C.DEFAULT_FILL_QTY
-        ebFillQty:SetText(tostring(opts.shallowFillQty))
+        ebFillQty:SetText(tostring(currentOpts.shallowFillQty))
 
-        GAM.Log.SetLevel(opts.debugVerbosity)
+        GAM.Log.SetLevel(currentOpts.debugVerbosity)
         if GAM.AHScan then
-            GAM.AHScan.SetScanDelay(opts.scanDelay)
+            GAM.AHScan.SetScanDelay(currentOpts.scanDelay)
         end
-        GAM.Minimap.SetShown(not opts.minimapHidden)
+        GAM.Minimap.SetShown(not currentOpts.minimapHidden)
 
-        local qtyChanged = opts.shallowFillQty ~= prevQty
+        local qtyChanged = currentOpts.shallowFillQty ~= prevQty
         if qtyChanged then
             ClearPriceCache()
             local msg = string.format("Fill qty changed (%s -> %s units). Price cache cleared — re-scan.",
-                FmtQty(prevQty), FmtQty(opts.shallowFillQty))
+                FmtQty(prevQty), FmtQty(currentOpts.shallowFillQty))
             GAM.Log.Info(msg)
             print("|cffff8800[GAM]|r " .. msg)
         end
 
-        GAM.Log.Info("Fill qty: %d", opts.shallowFillQty)
+        GAM.Log.Info("Fill qty: %d", currentOpts.shallowFillQty)
 
         if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
             GAM.UI.MainWindowV2.Refresh()
@@ -724,49 +816,56 @@ local function BuildPanel()
         GAM.Log.Info("Settings saved.")
     end
 
-    local function SyncControlsFromOptions(o)
+    local function RefreshControlsFromOptions(o)
         if not o then return end
+        slScanDelay:SetValue(GetOptionValue(o, "scanDelay", GAM.C.DEFAULT_SCAN_DELAY))
+        slVerbosity:SetValue(GetOptionValue(o, "debugVerbosity", GAM.C.DEFAULT_VERBOSITY))
         cbMinimap:SetChecked(not o.minimapHidden)
         cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
-        slScale:SetValue(o.uiScale or GAM.C.DEFAULT_UI_SCALE)
-        ebFillQty:SetText(tostring(o.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
+        slScale:SetValue(GetOptionValue(o, "uiScale", GAM.C.DEFAULT_UI_SCALE))
+        ebFillQty:SetText(tostring(GetOptionValue(o, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)))
         rankCurrent = (o.rankPolicy == "highest") and "highest" or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
         themeCurrent = themeTexts[o.v2Theme] and o.v2Theme or "classic"
         themeBtn:SetText(themeTexts[themeCurrent])
+
+        for _, row in ipairs(craftStatRows) do
+            if row.multiBox and row.multiKey then
+                row.multiBox:SetText(FormatStatPercentValue(
+                    GetOptionValue(o, row.multiKey, row.defaultMulti)
+                ))
+            end
+            if row.resBox and row.resKey then
+                row.resBox:SetText(FormatStatPercentValue(
+                    GetOptionValue(o, row.resKey, row.defaultRes)
+                ))
+            end
+        end
     end
 
-    -- Re-sync checkboxes from opts whenever the panel is shown
+    -- Re-sync controls from opts whenever the panel is shown
     -- (covers changes made via the V2 left panel since settings was last opened)
     panel:SetScript("OnShow", function()
-        local o = GetOpts()
-        if not o then return end
-        SyncControlsFromOptions(o)
+        RefreshControlsFromOptions(GetOpts())
     end)
 
     -- Blizzard Settings ok/cancel callbacks
     panel.name   = L["SETTINGS_NAME"]
+    panel.okay = ApplySettings
     panel.cancel = function()
-        local o = GetOpts()
-        if o then
-            SyncControlsFromOptions(o)
-        end
+        RefreshControlsFromOptions(GetOpts())
     end
-
-    -- Guard prevents double-apply after native okay/apply.
-    local applyCalledFromOkay = false
-    panel.okay = function()
-        applyCalledFromOkay = true
-        ApplySettings()
+    panel.refresh = function()
+        RefreshControlsFromOptions(GetOpts())
     end
+    panel.OnCommit = panel.okay
+    panel.OnRefresh = panel.refresh
+    panel.OnDefault = function() end
+    panel.default = panel.OnDefault
 
     -- Native Blizzard settings should not auto-apply on hide/cancel.
     -- Standalone fallback keeps the historical apply-on-close behavior.
     panel:SetScript("OnHide", function()
-        if applyCalledFromOkay then
-            applyCalledFromOkay = false
-            return
-        end
         if not nativeMode then
             ApplySettings()
         end

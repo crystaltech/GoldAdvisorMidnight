@@ -3,6 +3,8 @@
 ## [1.7.14] — 2026-03-30
 
 ### Bug Fixes
+- **Dazzling Thorium prospecting corrected** — The generator now reads the `3-30-26.xlsx` Dazzling layout correctly and pins every Dazzling output to its explicit Rank 1 item ID from the ranked materials table, so Crystalline Glass and the other Dazzling outputs stay Q1-only as intended.
+- **Spreadsheet regen baseline fixed** — Regenerated `workbookExpectedQty` values now use the workbook's current craft baseline instead of the previously generated craft count, so data regen stays aligned when spreadsheet craft counts change and `compare_strats.py` verifies cleanly against the new sheet.
 - **Engineering stat scaling restored** — All 12 Engineering strategies now use the shared Engineering formula profile, so `engMulti`, `engRes`, `engMcNode`, and `engRsNode` finally affect ROI consistently for recycling, reagent crafting, and finished Engineering crafts.
 - **Engineering defaults normalized** — Engineering now uses one authoritative workbook baseline (`30.467%` Multicraft, `36%` Resourcefulness, `50/50` node bonuses). Generated raw yields are normalized so default output and profit stay aligned with the existing spreadsheet numbers.
 
