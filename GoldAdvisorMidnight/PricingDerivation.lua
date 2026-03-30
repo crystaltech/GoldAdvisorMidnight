@@ -83,8 +83,8 @@ local CRAFTED_REAGENT_MAP = {
         yield = 0.333333,
         formulaProfile = "blacksmithing",
     },
-    -- Sienna Ink Q1: 20xPP + 10xArgentleaf Pigment + 5xMana Lily Pigment + 30xSongwater -> 2 inks (base)
-    -- Normalized per 1 PP unit: AP=0.5, MLP=0.25, TS=1.5; yield includes MC/RS stats from workbook
+    -- Sienna Ink Q1: 20xPP + 10xArgentleaf Pigment + 5xMana Lily Pigment + 3xSongwater -> 2 inks (base)
+    -- Normalized per 1 PP unit: AP=0.5, MLP=0.25, TS=0.15; yield includes MC/RS stats from workbook
     -- Activates automatically when pigmentCostSource == "mill" (no separate "craft own inks" checkbox needed)
     [245805] = {
         optionKey  = "pigmentCostSource",
@@ -93,7 +93,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
             { itemIDs = { 245803, 245804 }, qty = 0.500000 }, -- Argentleaf Pigment
             { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
-            { itemIDs = { 245882 },         qty = 1.500000 }, -- Thalassian Songwater
+            { itemIDs = { 245882 },         qty = 0.150000 }, -- Thalassian Songwater
         },
         yield = 0.178077,
     },
@@ -104,11 +104,11 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 },
             { itemIDs = { 245803, 245804 }, qty = 0.500000 },
             { itemIDs = { 245867, 245866 }, qty = 0.250000 },
-            { itemIDs = { 245882 },         qty = 1.500000 },
+            { itemIDs = { 245882 },         qty = 0.150000 },
         },
         yield = 0.178077,
     },
-    -- Munsell Ink Q1: 20xPP + 10xSanguithorn Pigment + 5xMana Lily Pigment + 30xSongwater -> 2 inks (base)
+    -- Munsell Ink Q1: 20xPP + 10xSanguithorn Pigment + 5xMana Lily Pigment + 3xSongwater -> 2 inks (base)
     [245801] = {
         optionKey  = "pigmentCostSource",
         modeValue  = "mill",
@@ -116,7 +116,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
             { itemIDs = { 245865, 245864 }, qty = 0.500000 }, -- Sanguithorn Pigment
             { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
-            { itemIDs = { 245882 },         qty = 1.500000 }, -- Thalassian Songwater
+            { itemIDs = { 245882 },         qty = 0.150000 }, -- Thalassian Songwater
         },
         yield = 0.178077,
     },
@@ -127,7 +127,7 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 },
             { itemIDs = { 245865, 245864 }, qty = 0.500000 },
             { itemIDs = { 245867, 245866 }, qty = 0.250000 },
-            { itemIDs = { 245882 },         qty = 1.500000 },
+            { itemIDs = { 245882 },         qty = 0.150000 },
         },
         yield = 0.178077,
     },
