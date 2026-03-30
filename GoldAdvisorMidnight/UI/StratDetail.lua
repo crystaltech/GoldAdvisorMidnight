@@ -364,23 +364,24 @@ local function MakeReagentRow(parent, idx)
     -- COL_QTY_CRAFT narrows from 80 to 62px accordingly; "Total Qty" and its translations are short.
     local colX = { 0, 170, 232, 320, 400, 500, 590 }
 
-    local function MakeFontCell(xOff, w)
+    local function MakeFontCell(xOff, w, justify)
         local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         fs:SetPoint("TOPLEFT", row, "TOPLEFT", xOff, 0)
         fs:SetSize(w - 4, ROW_H)
-        fs:SetJustifyH("LEFT")
+        fs:SetJustifyH(justify or "LEFT")
         return fs
     end
 
     row.nameText  = MakeFontCell(colX[1], colX[2] - colX[1])
 
     -- Total Qty: FontString for secondary rows, EditBox for primary reagent
-    local qtyFS = MakeFontCell(colX[2], colX[3] - colX[2])
+    local qtyFS = MakeFontCell(colX[2], colX[3] - colX[2], "CENTER")
     local qtyEB = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
     qtyEB:SetSize(58, 20)   -- narrowed to match 62px COL_QTY_CRAFT column (colX[3]-colX[2]=62)
     qtyEB:SetPoint("TOPLEFT", row, "TOPLEFT", colX[2], 1)
     qtyEB:SetAutoFocus(false)
     qtyEB:SetNumeric(false)
+    qtyEB:SetJustifyH("CENTER")
     local function SaveInputQty(self)
         if currentStrat then
             SetInputQtyOverride(self:GetText())
@@ -397,8 +398,8 @@ local function MakeReagentRow(parent, idx)
     row.qtyText = qtyFS   -- alias kept for non-primary path
     row.qtyEB   = qtyEB
 
-    row.haveText  = MakeFontCell(colX[3], colX[4] - colX[3])  -- In Bags (read-only)
-    row.needText  = MakeFontCell(colX[4], colX[5] - colX[4])
+    row.haveText  = MakeFontCell(colX[3], colX[4] - colX[3], "CENTER")  -- In Bags (read-only)
+    row.needText  = MakeFontCell(colX[4], colX[5] - colX[4], "CENTER")
     row.priceText = MakeFontCell(colX[5], colX[6] - colX[5])
     row.costText  = MakeFontCell(colX[6], colX[7] - colX[6])
 
@@ -499,11 +500,11 @@ local function MakeOutputRow(parent, idx)
     row:SetScript("OnEnter",    ItemRowEnter)
     row:SetScript("OnLeave",    ItemRowLeave)
 
-    local function MakeFontCell(xOff, w)
+    local function MakeFontCell(xOff, w, justify)
         local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         fs:SetPoint("TOPLEFT", row, "TOPLEFT", xOff, 0)
         fs:SetSize(w - 4, ROW_H)
-        fs:SetJustifyH("LEFT")
+        fs:SetJustifyH(justify or "LEFT")
         return fs
     end
 
@@ -512,12 +513,13 @@ local function MakeOutputRow(parent, idx)
     row.revenueText = MakeFontCell(420, 126)
 
     -- Qty: FontString for display, EditBox for primary output
-    local qtyFS = MakeFontCell(200, 86)
+    local qtyFS = MakeFontCell(200, 86, "CENTER")
     local qtyEB = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
     qtyEB:SetSize(80, 20)
     qtyEB:SetPoint("TOPLEFT", row, "TOPLEFT", 200, 1)
     qtyEB:SetAutoFocus(false)
     qtyEB:SetNumeric(false)
+    qtyEB:SetJustifyH("CENTER")
     -- Output qty is read-only (derived from input qty); no script handlers needed.
     qtyFS:Hide()
     qtyEB:Hide()
@@ -665,18 +667,19 @@ local function Build()
     inHdr:SetTextColor(GR, GG, GB)
 
     local inColDefs = {
-        { L["COL_ITEM"],       0,   170 },
-        { L["COL_QTY_CRAFT"], 170,   62 },  -- narrowed; col shifts at colX[3]=232
-        { L["COL_HAVE"],      232,   88 },  -- widened for translated "In Bags" labels
-        { L["COL_NEED_BUY"],  320,   80 },
-        { L["COL_UNIT_PRICE"],400,  100 },
-        { L["COL_TOTAL_COST"],500,   90 },
+        { L["COL_ITEM"],       0,   170, "LEFT" },
+        { L["COL_QTY_CRAFT"], 170,   62, "CENTER" },  -- narrowed; col shifts at colX[3]=232
+        { L["COL_HAVE"],      232,   88, "CENTER" },  -- widened for translated "In Bags" labels
+        { L["COL_NEED_BUY"],  320,   80, "CENTER" },
+        { L["COL_UNIT_PRICE"],400,  100, "LEFT" },
+        { L["COL_TOTAL_COST"],500,   90, "LEFT" },
     }
     for _, cd in ipairs(inColDefs) do
         local fs = inputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         fs:SetPoint("TOPLEFT", inputSection, "TOPLEFT", cd[2], -22)
         fs:SetWidth(cd[3])
         fs:SetText(cd[1])
+        fs:SetJustifyH(cd[4] or "LEFT")
     end
 
     local inSep = inputSection:CreateTexture(nil, "ARTWORK")
@@ -718,16 +721,17 @@ local function Build()
     outHdr:SetTextColor(GR, GG, GB)
 
     local outColDefs = {
-        { L["COL_ITEM"],          0,   200 },
-        { L["COL_QTY_CRAFT"],   200,    90 },
-        { L["COL_AH_SELL_PRICE"],290,  130 },
-        { L["COL_REVENUE"],     420,   130 },
+        { L["COL_ITEM"],          0,   200, "LEFT" },
+        { L["COL_QTY_CRAFT"],   200,    90, "CENTER" },
+        { L["COL_AH_SELL_PRICE"],290,  130, "LEFT" },
+        { L["COL_REVENUE"],     420,   130, "LEFT" },
     }
     for _, cd in ipairs(outColDefs) do
         local fs = outputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         fs:SetPoint("TOPLEFT", outputSection, "TOPLEFT", cd[2], -22)
         fs:SetWidth(cd[3])
         fs:SetText(cd[1])
+        fs:SetJustifyH(cd[4] or "LEFT")
     end
 
     local outSep = outputSection:CreateTexture(nil, "ARTWORK")
@@ -935,6 +939,8 @@ local function Build()
         else
             for _, r in ipairs(active.reagents or {}) do queueItem(r) end
         end
+        local extraScanItems = (GAM.Pricing and GAM.Pricing.GetExtraScanItems and GAM.Pricing.GetExtraScanItems(currentStrat, currentPatch)) or {}
+        for _, extra in ipairs(extraScanItems) do queueItem(extra) end
         GAM.AHScan.StartScan()
     end)
     scanAllBtn:SetScript("OnEnter", function(self)

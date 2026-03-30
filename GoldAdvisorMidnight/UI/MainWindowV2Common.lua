@@ -558,8 +558,8 @@ function Common.BuildRuntimeColumns(rowW, showProfession)
 
     if showProfession then
         local statusW = showStatus and 56 or 0
-        local roiW = 60
-        local profitW = 84
+        local roiW = 58
+        local profitW = 100
         local profW = math.max(76, math.floor(usable * 0.18))
         local nameW = usable - profW - profitW - roiW - statusW - gap * (showStatus and 4 or 3)
         if nameW < 150 then
@@ -572,24 +572,24 @@ function Common.BuildRuntimeColumns(rowW, showProfession)
         x = x + nameW + gap
         cols[#cols + 1] = { id="profession", x=x, w=profW,  hKey="COL_PROF",   sKey="profession", j="LEFT"  }
         x = x + profW + gap
-        cols[#cols + 1] = { id="profit",     x=x, w=profitW,hKey="COL_PROFIT", sKey="profit",     j="RIGHT" }
+        cols[#cols + 1] = { id="profit",     x=x, w=profitW,hKey="COL_PROFIT", sKey="profit",     j="CENTER" }
         x = x + profitW + gap
-        cols[#cols + 1] = { id="roi",        x=x, w=roiW,   hKey="COL_ROI",    sKey="roi",        j="RIGHT" }
+        cols[#cols + 1] = { id="roi",        x=x, w=roiW,   hKey="COL_ROI",    sKey="roi",        j="CENTER" }
         if showStatus then
             x = x + roiW + gap
             cols[#cols + 1] = { id="status", x=x, w=statusW,hKey="COL_STATUS", sKey=nil,          j="LEFT"  }
         end
     else
         local statusW = showStatus and 58 or 0
-        local roiW = 60
-        local profitW = 90
+        local roiW = 58
+        local profitW = 110
         local nameW = usable - profitW - roiW - statusW - gap * (showStatus and 3 or 2)
         local x = 10
         cols[#cols + 1] = { id="stratName", x=x, w=nameW,  hKey="COL_STRAT",  sKey="stratName", j="LEFT"  }
         x = x + nameW + gap
-        cols[#cols + 1] = { id="profit",    x=x, w=profitW,hKey="COL_PROFIT", sKey="profit",    j="RIGHT" }
+        cols[#cols + 1] = { id="profit",    x=x, w=profitW,hKey="COL_PROFIT", sKey="profit",    j="CENTER" }
         x = x + profitW + gap
-        cols[#cols + 1] = { id="roi",       x=x, w=roiW,   hKey="COL_ROI",    sKey="roi",       j="RIGHT" }
+        cols[#cols + 1] = { id="roi",       x=x, w=roiW,   hKey="COL_ROI",    sKey="roi",       j="CENTER" }
         if showStatus then
             x = x + roiW + gap
             cols[#cols + 1] = { id="status", x=x, w=statusW,hKey="COL_STATUS", sKey=nil,        j="LEFT"  }

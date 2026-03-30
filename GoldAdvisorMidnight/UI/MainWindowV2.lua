@@ -115,15 +115,15 @@ local GetFormulaProfiles = Common.GetFormulaProfiles
 local LIST_COLUMNS_ALL = {
     { id="stratName",  x=14,  w=180, hKey="COL_STRAT",  sKey="stratName",  j="LEFT"  },
     { id="profession", x=200, w=100, hKey="COL_PROF",   sKey="profession", j="LEFT"  },
-    { id="profit",     x=306, w=100, hKey="COL_PROFIT", sKey="profit",     j="RIGHT" },
-    { id="roi",        x=412, w=58,  hKey="COL_ROI",    sKey="roi",        j="RIGHT" },
+    { id="profit",     x=306, w=100, hKey="COL_PROFIT", sKey="profit",     j="CENTER" },
+    { id="roi",        x=412, w=58,  hKey="COL_ROI",    sKey="roi",        j="CENTER" },
     { id="status",     x=476, w=60,  hKey="COL_STATUS", sKey=nil,          j="LEFT"  },
 }
 -- FILTERED mode: wider name, profession shown as subtitle, no profession column
 local LIST_COLUMNS_FILTERED = {
     { id="stratName", x=14,  w=270, hKey="COL_STRAT",  sKey="stratName", j="LEFT"  },
-    { id="profit",    x=290, w=110, hKey="COL_PROFIT", sKey="profit",    j="RIGHT" },
-    { id="roi",       x=406, w=58,  hKey="COL_ROI",    sKey="roi",       j="RIGHT" },
+    { id="profit",    x=290, w=110, hKey="COL_PROFIT", sKey="profit",    j="CENTER" },
+    { id="roi",       x=406, w=58,  hKey="COL_ROI",    sKey="roi",       j="CENTER" },
     { id="status",    x=470, w=60,  hKey="COL_STATUS", sKey=nil,         j="LEFT"  },
 }
 
@@ -973,6 +973,8 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     queueItem(displayed.output)
     for _, o in ipairs(displayed.outputs or {}) do queueItem(o) end
     for _, r in ipairs(displayed.reagents or {}) do queueItem(r) end
+    local extraScanItems = (GAM.Pricing and GAM.Pricing.GetExtraScanItems and GAM.Pricing.GetExtraScanItems(strat, pt)) or {}
+    for _, extra in ipairs(extraScanItems) do queueItem(extra) end
     GAM.AHScan.StartScan()
 end
 
@@ -1528,6 +1530,8 @@ local function BuildInlineDetail(panel)
                 queueDisplayed(displayed.output)
                 for _, output in ipairs(displayed.outputs or {}) do queueDisplayed(output) end
                 for _, reagent in ipairs(displayed.reagents or {}) do queueDisplayed(reagent) end
+                local extraScanItems = (GAM.Pricing and GAM.Pricing.GetExtraScanItems and GAM.Pricing.GetExtraScanItems(strat, patchTag)) or {}
+                for _, extra in ipairs(extraScanItems) do queueDisplayed(extra) end
                 GAM.AHScan.StartScan()
                 return
             end

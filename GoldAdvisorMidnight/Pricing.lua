@@ -20,12 +20,20 @@ local function GetPatchDB(pt) return GAM:GetPatchDB(pt) end
 local function GetFormulaProfiles()
     return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
 end
-local function SafeWholeText(n)
+local function SafeWholeText(n, useCommas)
     if n == nil then return "0" end
     if n == math.huge then return "inf" end
     if n == -math.huge then return "-inf" end
     local whole = math.floor(tonumber(n) or 0)
-    return tostring(whole)
+    local text = tostring(whole)
+    if not useCommas then
+        return text
+    end
+    local sign, digits = text:match("^([%-]?)(%d+)$")
+    if not digits then
+        return text
+    end
+    return sign .. digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
 end
 
 local function RequestItemData(itemID)
@@ -87,6 +95,32 @@ function Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
         outputs = active.outputs or {},
         reagents = reagentItems,
     }
+end
+
+-- Extra scan targets that are not part of the visible displayed reagent list.
+-- Used for flexible reagent groups like `cheapestOf`, where pricing needs every
+-- eligible alternative scanned even though only one row is shown in the UI.
+function Pricing.GetExtraScanItems(strat, patchTag)
+    local active = GetActiveRecipeView(strat)
+    if not active then return {} end
+
+    local extras = {}
+    for _, reagent in ipairs(active.reagents or {}) do
+        if reagent.cheapestOf then
+            for _, alt in ipairs(reagent.cheapestOf) do
+                local altIDs = alt.itemIDs
+                if (not altIDs or #altIDs == 0) and alt.itemRef then
+                    local pdb = GetPatchDB(patchTag)
+                    altIDs = pdb.rankGroups[alt.itemRef] or {}
+                end
+                extras[#extras + 1] = {
+                    itemIDs = altIDs or {},
+                    name = alt.itemRef,
+                }
+            end
+        end
+    end
+    return extras
 end
 
 local function GetStrategyScoreFromMetrics(metrics)
@@ -160,6 +194,7 @@ end
 -- Dependency container for derivation functions (GetEffectivePrice, PickItemID).
 -- Populated lazily by GetDerivationDeps() on first use.
 local DERIVATION_DEPS = {}
+local ResolveCheapestAlternative
 
 -- Pick best itemID from a list according to rankPolicy.
 -- Uses C_TradeSkillUI.GetItemReagentQualityByItemInfo to sort by actual crafting
@@ -436,7 +471,7 @@ function Pricing.FormatPrice(copper)
     local s = math.floor((copper % 10000) / 100)
     local c = copper % 100
     local parts = {}
-    if g > 0 then parts[#parts+1] = "|cffffd700" .. SafeWholeText(g) .. "g|r" end
+    if g > 0 then parts[#parts+1] = "|cffffd700" .. SafeWholeText(g, true) .. "g|r" end
     if s > 0 then parts[#parts+1] = "|cffc0c0c0" .. SafeWholeText(s) .. "s|r" end
     if c > 0 or #parts == 0 then parts[#parts+1] = "|cffae8f0a" .. SafeWholeText(c) .. "c|r" end
     local result = table.concat(parts, " ")
@@ -454,8 +489,46 @@ function Pricing.RunSmokeChecks()
         local effectiveYield = Derivation.GetEffectiveCraftYield(craftInfo)
         assert(type(effectiveYield) == "number" and effectiveYield > 0, "effective craft yield invalid")
 
-        local sample = Pricing.FormatPrice(39994560554478)
-        assert(type(sample) == "string" and #sample > 0, "FormatPrice failed for large value")
+        local largeSample = Pricing.FormatPrice(245000 * 10000)
+        assert(largeSample:find("245,000g", 1, true), "FormatPrice missing gold comma separators")
+
+        local mixedSample = Pricing.FormatPrice((245000 * 10000) + (56 * 100) + 78)
+        assert(mixedSample:find("245,000g", 1, true), "FormatPrice failed for mixed gold value")
+        assert(mixedSample:find("56s", 1, true), "FormatPrice failed for silver value")
+        assert(mixedSample:find("78c", 1, true), "FormatPrice failed for copper value")
+
+        local negativeSample = Pricing.FormatPrice(-245000 * 10000)
+        assert(negativeSample:sub(1, 1) == "-", "FormatPrice failed for negative value")
+        assert(negativeSample:find("245,000g", 1, true), "FormatPrice failed for negative gold value")
+
+        assert(Pricing.FormatPrice(0) == "0g", "FormatPrice failed for zero value")
+
+        local originalGetEffectivePriceForItem = Pricing.GetEffectivePriceForItem
+        local cheapestOK, cheapestErr = pcall(function()
+            Pricing.GetEffectivePriceForItem = function(item)
+                local exactID = item and item.itemIDs and item.itemIDs[1] or nil
+                local prices = {
+                    [1001] = 400,
+                    [1002] = 450,
+                    [1003] = 410,
+                    [1004] = 399,
+                }
+                return prices[exactID], false
+            end
+
+            local resolved = ResolveCheapestAlternative({
+                cheapestOf = {
+                    { itemRef = "Amani Lapis", itemIDs = { 1001, 1002 } },
+                    { itemRef = "Flawless Amani Lapis", itemIDs = { 1003, 1004 } },
+                },
+            }, {
+                patchTag = GAM.C.DEFAULT_PATCH,
+                pdb = { rankGroups = {} },
+            }, 15)
+            assert(resolved and resolved.itemID == 1004, "cheapestOf cross-rank selection regressed")
+        end)
+        Pricing.GetEffectivePriceForItem = originalGetEffectivePriceForItem
+        assert(cheapestOK, cheapestErr)
 
         local score = Pricing.GetStrategyScore({ profit = 2500, roi = 9, totalCostFull = 1000 })
         assert(type(score) == "number", "strategy score unavailable")
@@ -648,6 +721,54 @@ local function BuildMergedReagentMap(ctx)
     return mergedOrder, mergedMap
 end
 
+ResolveCheapestAlternative = function(entry, ctx, required)
+    if not (entry and entry.cheapestOf) then
+        return nil
+    end
+
+    local best = nil
+    for _, alt in ipairs(entry.cheapestOf) do
+        local altIDs = alt.itemIDs
+        if (not altIDs or #altIDs == 0) and alt.itemRef then
+            altIDs = ctx.pdb.rankGroups[alt.itemRef] or {}
+        end
+
+        if altIDs and #altIDs > 0 then
+            -- `cheapestOf` represents recipe alternatives, so compare every exact itemID
+            -- instead of filtering each alternative through the current rank policy first.
+            for _, altID in ipairs(altIDs) do
+                local altPrice, altStale = Pricing.GetEffectivePriceForItem({
+                    itemIDs = { altID },
+                    name = alt.itemRef,
+                }, ctx.patchTag, required)
+                if altPrice and (not best or altPrice < best.price) then
+                    best = {
+                        itemID = altID,
+                        itemIDs = altIDs,
+                        name = alt.itemRef,
+                        price = altPrice,
+                        stale = altStale or false,
+                    }
+                end
+            end
+        else
+            local altProxy = { itemIDs = altIDs or {}, name = alt.itemRef }
+            local altPrice, altStale = Pricing.GetEffectivePriceForItem(altProxy, ctx.patchTag, required)
+            if altPrice and (not best or altPrice < best.price) then
+                best = {
+                    itemID = PickItemID(altIDs, ctx.patchTag),
+                    itemIDs = altIDs,
+                    name = alt.itemRef,
+                    price = altPrice,
+                    stale = altStale or false,
+                }
+            end
+        end
+    end
+
+    return best
+end
+
 local function CountOwnedReagentItems(itemID, entryIDs)
     local userHave = 0
     if itemID then
@@ -675,23 +796,19 @@ local function BuildReagentMetrics(ctx, missingPrices)
         local itemID, price, stale, displayName
 
         if entry.cheapestOf then
-            -- Pick whichever gem/item type has the lowest unit price right now.
-            -- Rank policy still applies within each alternative's itemIDs group.
-            entryIDs    = entry.itemIDs
-            itemID      = PickItemID(entryIDs, ctx.patchTag)
-            displayName = entry.name
-            price       = nil
-            stale       = false
-            for _, alt in ipairs(entry.cheapestOf) do
-                local altProxy = { itemIDs = alt.itemIDs, name = alt.itemRef }
-                local altPrice, altStale = Pricing.GetEffectivePriceForItem(altProxy, ctx.patchTag, required)
-                if altPrice and (not price or altPrice < price) then
-                    price       = altPrice
-                    stale       = altStale or false
-                    entryIDs    = alt.itemIDs
-                    displayName = alt.itemRef
-                    itemID      = PickItemID(alt.itemIDs, ctx.patchTag)
-                end
+            local resolved = ResolveCheapestAlternative(entry, ctx, required)
+            if resolved then
+                entryIDs = resolved.itemIDs
+                itemID = resolved.itemID
+                displayName = resolved.name
+                price = resolved.price
+                stale = resolved.stale
+            else
+                entryIDs = entry.itemIDs
+                itemID = PickItemID(entryIDs, ctx.patchTag)
+                displayName = entry.name
+                price = nil
+                stale = false
             end
         else
             itemID      = PickItemID(entryIDs, ctx.patchTag)
@@ -1014,4 +1131,3 @@ function Pricing.ClearPriceOverride(itemID, patchTag)
         pdb.priceOverrides[itemID] = nil
     end
 end
-

@@ -110,6 +110,7 @@ GAM.C = {
     -- Vendor-purchasable items: static buy prices in copper.
     -- Checked in GetEffectivePrice after manual overrides — no AH scan needed.
     VENDOR_PRICES = {
+        [245881] = 2105,   -- Lexicologist's Vellum (21s 5c)
         [245882] = 3595,   -- Thalassian Songwater  (35s 95c)
     },
 }
