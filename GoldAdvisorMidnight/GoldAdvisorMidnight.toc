@@ -1,0 +1,42 @@
+## Interface: 120001
+## Title: Gold Advisor Midnight
+## Notes: Crafting profit advisor for WoW Midnight. Scans AH, computes ROI per strategy.
+## Version: 1.7.14
+## Author: Celaida
+## SavedVariables: GoldAdvisorMidnightDB
+## DefaultState: enabled
+## X-License: All Rights Reserved
+## X-Curse-Project-ID: (fill in after CurseForge project is created)
+
+Data\WorkbookGenerated.lua
+Constants.lua
+Locale.lua
+Locale\deDE.lua
+Locale\frFR.lua
+Locale\esES.lua
+Locale\esMX.lua
+Locale\ruRU.lua
+Locale\zhCN.lua
+Locale\zhTW.lua
+Locale\koKR.lua
+Locale\itIT.lua
+Locale\ptBR.lua
+Log.lua
+Core.lua
+State.lua
+Minimap.lua
+Settings.lua
+PricingDerivation.lua
+Pricing.lua
+AHScan.lua
+Importer.lua
+Data\StratsGenerated.lua
+CraftSimBridge.lua
+UI\DebugLog.lua
+UI\MainWindowV2Common.lua
+UI\MainWindowV2Detail.lua
+UI\MainWindowV2LeftPanel.lua
+UI\MainWindowV2Center.lua
+UI\MainWindowV2.lua
+UI\StratCreator.lua
+UI\StratDetail.lua

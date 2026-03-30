@@ -31,7 +31,7 @@
 ### Internal
 - Locale cleanup: removed 14 obsolete keys, added new vertical integration and stat-label keys; all 10 translation files synced.
 - Code comment cleanup across Core.lua, Pricing.lua, Settings.lua, and MainWindowV2.lua.
-- Documentation updated (README, PROJECT_STRUCTURE, CLAUDE.md) to reflect current file structure and strategy count (62).
+- Documentation updated to reflect current file structure and strategy count (62).
 
 ## [1.7.11] — 2026-03-24
 
