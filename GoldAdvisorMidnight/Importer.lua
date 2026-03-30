@@ -42,6 +42,35 @@ local function CopyIDs(ids)
     return out
 end
 
+local function NormalizeCheapestOf(list)
+    if type(list) ~= "table" or #list == 0 then
+        return nil
+    end
+
+    local out = {}
+    for _, alt in ipairs(list) do
+        if type(alt) == "table" then
+            local itemRef = alt.itemRef or alt.name
+            local itemIDs = CopyIDs(alt.itemIDs)
+            if #itemIDs == 0 and itemRef then
+                itemIDs = CopyIDs(CatalogIDsFor(itemRef))
+            end
+            if itemRef or #itemIDs > 0 then
+                out[#out + 1] = {
+                    itemRef = itemRef,
+                    name = itemRef,
+                    itemIDs = itemIDs,
+                }
+            end
+        end
+    end
+
+    if #out == 0 then
+        return nil
+    end
+    return out
+end
+
 local function NormalizeOutput(output, startingAmt, defaultCrafts)
     if type(output) ~= "table" then
         return nil
@@ -124,6 +153,7 @@ local function NormalizeReagent(reagent, startingAmt, defaultCrafts)
         qtyPerStart = qtyPerStart,
         qtyMultiplier = qtyPerStart,
         workbookTotalQty = tonumber(reagent.workbookTotalQty),
+        cheapestOf = NormalizeCheapestOf(reagent.cheapestOf),
     }
 end
 

@@ -347,6 +347,22 @@ local function RefreshMetrics()
     end
 end
 
+local function RefreshSelectionNote()
+    if not frame or not frame.selectionNoteFS or not currentStrat then return end
+    local m = metricsCache
+    local selectionNames = m and m.selectionNotes or nil
+    if selectionNames and #selectionNames > 0 then
+        local key = (#selectionNames > 1) and "DETAIL_SELECTION_NOTE_MULTI" or "DETAIL_SELECTION_NOTE"
+        frame.selectionNoteFS:SetText(string.format(
+            GAM.L[key] or "Using %s as cheapest input.",
+            table.concat(selectionNames, ", ")))
+        frame.selectionNoteFS:Show()
+    else
+        frame.selectionNoteFS:SetText("")
+        frame.selectionNoteFS:Hide()
+    end
+end
+
 -- ===== Reagent rows =====
 local reagentRows = {}
 
@@ -447,7 +463,10 @@ end
 
 local function PopulateReagentRow(row, reagentMetric, isPrimary)
     -- Store a scannable reference derived from the metric (expanded item, not original strat def)
-    row.reagentData = { itemIDs = reagentMetric.itemID and {reagentMetric.itemID} or {}, name = reagentMetric.name }
+    row.reagentData = {
+        itemIDs = reagentMetric.scanItemIDs or (reagentMetric.itemID and { reagentMetric.itemID } or {}),
+        name = reagentMetric.name,
+    }
     local display = GAM.Pricing.GetItemDisplayData(reagentMetric.itemID, reagentMetric.name)
     row.nameText:SetText(display.displayText)
     BindItemRow(row, display)
@@ -655,10 +674,18 @@ local function Build()
     notesFS:SetJustifyH("LEFT")
     frame.notesFS = notesFS
 
+    local selectionNoteFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    selectionNoteFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -68)
+    selectionNoteFS:SetWidth(WIN_W - 28)
+    selectionNoteFS:SetTextColor(1.0, 0.82, 0.0, 1.0)
+    selectionNoteFS:SetJustifyH("LEFT")
+    selectionNoteFS:Hide()
+    frame.selectionNoteFS = selectionNoteFS
+
     -- ── Input Section Frame ──
     local inputSection = CreateFrame("Frame", nil, frame)
-    inputSection:SetPoint("TOPLEFT",  notesFS, "BOTTOMLEFT",  0, -10)
-    inputSection:SetPoint("TOPRIGHT", notesFS, "BOTTOMRIGHT", 0, -10)
+    inputSection:SetPoint("TOPLEFT",  selectionNoteFS, "BOTTOMLEFT",  0, -10)
+    inputSection:SetPoint("TOPRIGHT", selectionNoteFS, "BOTTOMRIGHT", 0, -10)
     inputSection:SetHeight(224)
 
     local inHdr = inputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -906,9 +933,10 @@ local function Build()
         local seenIDs = {}
         local seenNames = {}
         local function queueItem(item)
-            if not item or not item.name then return end
+            if not item then return end
+            local itemName = item.name or item.itemRef
             local ids = item.itemIDs
-            if (not ids or #ids == 0) then ids = pdb.rankGroups[item.name] or {} end
+            if (not ids or #ids == 0) and itemName then ids = pdb.rankGroups[itemName] or {} end
             if ids and #ids > 0 then
                 for _, id in ipairs(ids) do
                     if not seenIDs[id] then
@@ -917,10 +945,11 @@ local function Build()
                     end
                 end
             else
-                local nameKey = item.name .. "@" .. tostring(currentPatch or GAM.C.DEFAULT_PATCH)
+                if not itemName then return end
+                local nameKey = itemName .. "@" .. tostring(currentPatch or GAM.C.DEFAULT_PATCH)
                 if not seenNames[nameKey] then
                     seenNames[nameKey] = true
-                    GAM.AHScan.QueueNameScan(item.name, currentPatch, function() SD.Refresh() end)
+                    GAM.AHScan.QueueNameScan(itemName, currentPatch, function() SD.Refresh() end)
                 end
             end
         end
@@ -1066,6 +1095,7 @@ function SD.Refresh()
     -- Compute metrics
     local m = GAM.Pricing.CalculateStratMetrics(currentStrat, currentPatch)
     metricsCache = m
+    RefreshSelectionNote()
 
     -- Rank toggle label
     if frame.rankToggleBtn then

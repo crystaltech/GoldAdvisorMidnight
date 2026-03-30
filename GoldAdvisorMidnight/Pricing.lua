@@ -20,6 +20,10 @@ local function GetPatchDB(pt) return GAM:GetPatchDB(pt) end
 local function GetFormulaProfiles()
     return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
 end
+local function GetItemLabel(item)
+    if not item then return nil end
+    return item.name or item.itemRef
+end
 local function SafeWholeText(n, useCommas)
     if n == nil then return "0" end
     if n == math.huge then return "inf" end
@@ -88,11 +92,27 @@ function Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
             }
         end
     else
-        reagentItems = active.reagents or {}
+        for _, reagent in ipairs(active.reagents or {}) do
+            reagentItems[#reagentItems + 1] = {
+                itemIDs = reagent.itemIDs or {},
+                name = GetItemLabel(reagent),
+            }
+        end
+    end
+    local output = active.output and {
+        itemIDs = active.output.itemIDs or {},
+        name = GetItemLabel(active.output),
+    } or nil
+    local outputs = {}
+    for _, out in ipairs(active.outputs or {}) do
+        outputs[#outputs + 1] = {
+            itemIDs = out.itemIDs or {},
+            name = GetItemLabel(out),
+        }
     end
     return {
-        output = active.output,
-        outputs = active.outputs or {},
+        output = output,
+        outputs = outputs,
         reagents = reagentItems,
     }
 end
@@ -139,8 +159,9 @@ local function GetResolvedItemIDs(item, patchTag)
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local pdb = GetPatchDB(patchTag)
     local ids = item.itemIDs
-    if (not ids or #ids == 0) and item.name then
-        ids = pdb.rankGroups[item.name] or {}
+    local label = GetItemLabel(item)
+    if (not ids or #ids == 0) and label then
+        ids = pdb.rankGroups[label] or {}
     end
     return ids or {}
 end
@@ -363,8 +384,9 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
 
     -- Resolve itemIDs: use rankGroups if item.itemIDs is empty
     local ids = item.itemIDs
-    if (not ids or #ids == 0) and item.name then
-        ids = pdb.rankGroups[item.name] or {}
+    local label = GetItemLabel(item)
+    if (not ids or #ids == 0) and label then
+        ids = pdb.rankGroups[label] or {}
     end
     if not ids or #ids == 0 then return nil, false end
 
@@ -530,6 +552,13 @@ function Pricing.RunSmokeChecks()
         Pricing.GetEffectivePriceForItem = originalGetEffectivePriceForItem
         assert(cheapestOK, cheapestErr)
 
+        if GAM.Importer and GAM.Importer.GetStratByID then
+            local crushing = GAM.Importer.GetStratByID("jewelcrafting__crushing__midnight_1")
+            assert(crushing and crushing.reagents and crushing.reagents[1], "crushing strat unavailable")
+            assert(type(crushing.reagents[1].cheapestOf) == "table" and #crushing.reagents[1].cheapestOf > 0,
+                "normalized cheapestOf pool unavailable")
+        end
+
         local score = Pricing.GetStrategyScore({ profit = 2500, roi = 9, totalCostFull = 1000 })
         assert(type(score) == "number", "strategy score unavailable")
     end)
@@ -666,8 +695,9 @@ end
 
 local function GetResolvedReagentItemIDs(reagent, pdb)
     local reagentIDs = reagent.itemIDs
-    if (not reagentIDs or #reagentIDs == 0) and reagent.name then
-        reagentIDs = pdb.rankGroups[reagent.name] or {}
+    local label = GetItemLabel(reagent)
+    if (not reagentIDs or #reagentIDs == 0) and label then
+        reagentIDs = pdb.rankGroups[label] or {}
     end
     return reagentIDs
 end
@@ -705,7 +735,7 @@ local function BuildMergedReagentMap(ctx)
             local expanded = Derivation.ExpandReagentThroughChain(reagentIDs, required, ctx.patchTag, GetDerivationDeps())
             for _, exp in ipairs(expanded) do
                 local key = exp.itemIDs[1]
-                local entryName = reagent.name
+                local entryName = GetItemLabel(reagent)
                 if exp.itemIDs ~= reagentIDs then
                     local expID = PickItemID(exp.itemIDs, ctx.patchTag)
                     entryName = expID and GetItemName(expID) or tostring(key)
@@ -713,8 +743,9 @@ local function BuildMergedReagentMap(ctx)
                 AddMergedReagentEntry(mergedMap, mergedOrder, key, exp.itemIDs, exp.qty, entryName)
             end
         else
-            local key = PickItemID(reagentIDs, ctx.patchTag) or (reagentIDs and reagentIDs[1]) or reagent.name
-            AddMergedReagentEntry(mergedMap, mergedOrder, key, reagentIDs, required, reagent.name, reagent.cheapestOf)
+            local reagentName = GetItemLabel(reagent)
+            local key = PickItemID(reagentIDs, ctx.patchTag) or (reagentIDs and reagentIDs[1]) or reagentName
+            AddMergedReagentEntry(mergedMap, mergedOrder, key, reagentIDs, required, reagentName, reagent.cheapestOf)
         end
     end
 
@@ -782,12 +813,34 @@ local function CountOwnedReagentItems(itemID, entryIDs)
     return userHave
 end
 
+local function GetCheapestAlternativeScanIDs(entry, ctx)
+    if not (entry and entry.cheapestOf) then
+        return nil
+    end
+    local seen = {}
+    local scanIDs = {}
+    for _, alt in ipairs(entry.cheapestOf) do
+        local altIDs = alt.itemIDs
+        if (not altIDs or #altIDs == 0) and alt.itemRef then
+            altIDs = ctx.pdb.rankGroups[alt.itemRef] or {}
+        end
+        for _, altID in ipairs(altIDs or {}) do
+            if not seen[altID] then
+                seen[altID] = true
+                scanIDs[#scanIDs + 1] = altID
+            end
+        end
+    end
+    return (#scanIDs > 0) and scanIDs or nil
+end
+
 local function BuildReagentMetrics(ctx, missingPrices)
     local mergedOrder, mergedMap = BuildMergedReagentMap(ctx)
     local reagentResults = {}
     local totalCostToBuy = 0
     local totalCostRequired = 0
     local hasStale = false
+    local selectionNotes = {}
 
     for _, key in ipairs(mergedOrder) do
         local entry = mergedMap[key]
@@ -837,6 +890,7 @@ local function BuildReagentMetrics(ctx, missingPrices)
         reagentResults[#reagentResults + 1] = {
             name = displayName,
             itemID = itemID,
+            scanItemIDs = GetCheapestAlternativeScanIDs(entry, ctx),
             unitPrice = price,
             required = required,
             have = userHave,
@@ -845,7 +899,14 @@ local function BuildReagentMetrics(ctx, missingPrices)
             totalCostFull = totalCostFull,
             isStale = stale,
             missingPrice = missingPrice,
+            selectedAlternativeName = entry.cheapestOf and displayName or nil,
+            selectedAlternativeItemID = entry.cheapestOf and itemID or nil,
+            selectionMode = entry.cheapestOf and "cheapest_pool" or nil,
         }
+
+        if entry.cheapestOf and displayName then
+            selectionNotes[#selectionNotes + 1] = displayName
+        end
     end
 
     return {
@@ -853,6 +914,7 @@ local function BuildReagentMetrics(ctx, missingPrices)
         totalCostToBuy = totalCostToBuy,
         totalCostRequired = totalCostRequired,
         hasStale = hasStale,
+        selectionNotes = selectionNotes,
     }
 end
 
@@ -872,12 +934,18 @@ local function GetPrimaryInputQuality(ctx)
     end
 
     local firstReagent = ctx.active.reagents[1]
-    local reagentIDs = GetResolvedReagentItemIDs(firstReagent, ctx.pdb)
-    if not (reagentIDs and #reagentIDs > 0) then
-        return nil
+    local pickedID = nil
+    if firstReagent.cheapestOf then
+        local required = GetRequiredReagentAmount(firstReagent, ctx.startingAmt, ctx.crafts)
+        local resolved = ResolveCheapestAlternative(firstReagent, ctx, required)
+        pickedID = resolved and resolved.itemID or nil
+    else
+        local reagentIDs = GetResolvedReagentItemIDs(firstReagent, ctx.pdb)
+        if not (reagentIDs and #reagentIDs > 0) then
+            return nil
+        end
+        pickedID = PickItemID(reagentIDs, ctx.patchTag)
     end
-
-    local pickedID = PickItemID(reagentIDs, ctx.patchTag)
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
     if api and pickedID then
         local quality = api(pickedID)
@@ -891,11 +959,21 @@ end
 local function BuildSingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice, outMissingPrice, missingPrices)
     local netRevenue = nil
     if outMissingPrice then
-        missingPrices[#missingPrices + 1] = primaryOut.name or "Output"
+        missingPrices[#missingPrices + 1] = GetItemLabel(primaryOut) or "Output"
     elseif outPrice and outputQtyRaw > 0 then
         netRevenue = math.floor(outputQtyRaw * outPrice * (1 - ctx.ahCut))
     end
     return nil, netRevenue
+end
+
+local function GetOutputSaleQty(outputQtyRaw, outputQtyRounded)
+    if outputQtyRounded and outputQtyRounded > 0 then
+        return outputQtyRounded
+    end
+    if outputQtyRaw and outputQtyRaw > 0 then
+        return math.max(1, math.floor(outputQtyRaw + 0.5))
+    end
+    return 1
 end
 
 local function BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrices)
@@ -907,19 +985,20 @@ local function BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrice
     for _, outputDef in ipairs(ctx.active.outputs) do
         local outputQtyRaw, outputQty = ComputeOutputQuantity(
             outputDef, ctx.strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, ctx.startingAmt, ctx.crafts)
-        local price, stale = GetOutputPriceForItem(outputDef, ctx.patchTag, outputPreferredQuality, ctx.fillQty)
+        local saleQty = GetOutputSaleQty(outputQtyRaw, outputQty)
+        local price, stale = GetOutputPriceForItem(outputDef, ctx.patchTag, outputPreferredQuality, saleQty)
         if stale then
             hasStale = true
         end
         local netRevenue = price and math.floor(outputQtyRaw * price * (1 - ctx.ahCut)) or nil
         if not price then
             allHavePrices = false
-            missingPrices[#missingPrices + 1] = outputDef.name or "Output"
+            missingPrices[#missingPrices + 1] = GetItemLabel(outputDef) or "Output"
         else
             totalRevenue = totalRevenue + netRevenue
         end
         outResults[#outResults + 1] = {
-            name = outputDef.name,
+            name = GetItemLabel(outputDef),
             itemID = GetOutputItemIDForDisplay(outputDef, ctx.patchTag, outputPreferredQuality),
             unitPrice = price,
             expectedQty = outputQty,
@@ -945,7 +1024,8 @@ local function BuildOutputMetrics(ctx, missingPrices)
         primaryOut, ctx.strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, ctx.startingAmt, ctx.crafts)
     local primaryQuality = GetPrimaryInputQuality(ctx)
     local outputPreferredQuality = (ctx.strat.outputQualityMode == "match_input") and primaryQuality or nil
-    local outPrice, outStale = GetOutputPriceForItem(primaryOut, ctx.patchTag, outputPreferredQuality, ctx.fillQty)
+    local saleQty = GetOutputSaleQty(outputQtyRaw, outputQty)
+    local outPrice, outStale = GetOutputPriceForItem(primaryOut, ctx.patchTag, outputPreferredQuality, saleQty)
     local outMissingPrice = not outPrice
     local isMultiOutput = ctx.active.outputs and #ctx.active.outputs > 1
     local outputs, netRevenue, extraStale
@@ -963,7 +1043,7 @@ local function BuildOutputMetrics(ctx, missingPrices)
         primaryOut = primaryOut,
         outputQtyRaw = outputQtyRaw,
         output = {
-            name = primaryOut.name,
+            name = GetItemLabel(primaryOut),
             itemID = outItemID,
             unitPrice = outPrice,
             expectedQty = outputQty,
@@ -1008,6 +1088,7 @@ local function BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
         breakEvenSell = breakEven,
         missingPrices = missingPrices,
         hasStale = reagentData.hasStale or outputData.hasStale,
+        selectionNotes = reagentData.selectionNotes,
     }
 end
 
