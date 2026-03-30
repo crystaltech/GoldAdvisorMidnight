@@ -11,7 +11,7 @@ Scans the Auction House for live prices, computes profit and ROI for spreadsheet
 - **Live AH scanning** — throttled commodity + item queries via `C_AuctionHouse`
 - **62 strategies** across 8 professions, generated from the Midnight community spreadsheet
 - **Profit / ROI engine** — cost-to-buy, net revenue after AH cut, break-even sell price, Multicraft / Resourcefulness stat scaling
-- **Formula profiles** — per-profession crafting stat slots (Res%, Multi%, spec node bonuses) match the spreadsheet model exactly
+- **Formula profiles** — per-profession crafting stat slots (Res%, Multi%, spec node bonuses) match the normalized spreadsheet baseline, including the shared Engineering profile used by recycling and crafted Engineering strategies
 - **Editable batch sizes** — override crafts or starting amount per strategy; scales all quantities live
 - **Fill Qty simulation** — simulates buying N units from the AH order book so large runs reflect real market depth
 - **Vertical integration** — "Use own items/crafts" toggle expands derived reagent chains to raw material costs (herbs → pigments, ore → ingots, linen → bolts)
@@ -167,7 +167,7 @@ releases/                         Built zips (not committed)
 
 ```lua
 GoldAdvisorMidnightDB = {
-    addonVersion = "1.7.12",
+    addonVersion = "1.7.14",
     dataVersion  = 11,
     options = {
         ahCut              = 0.05,
@@ -185,7 +185,8 @@ GoldAdvisorMidnightDB = {
         -- Per-profession stat fields (see WorkbookGenerated.formulaProfiles for full key list)
         inscMillingRes = 30.1, inscRsNode = 55,
         inscInkMulti   = 25.9, inscInkRes = 16.1, inscMcNode = 100,
-        -- ... alchemy, jc, enchanting, tailoring, bs, lw, engineering
+        -- ... alchemy, jc, enchanting, tailoring, bs, lw
+        engMulti       = 30.467, engRes = 36, engMcNode = 50, engRsNode = 50,
     },
     patch = {
         ["midnight-1"] = {
