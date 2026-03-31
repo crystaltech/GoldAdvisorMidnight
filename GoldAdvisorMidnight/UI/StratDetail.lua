@@ -287,22 +287,23 @@ local function CreateAuctionatorList()
         local qty = math.floor(rm.needToBuy or 0)
         if qty > 0 then
             local entry
+            local searchData = GAM.Pricing.GetShoppingSearchData(rm.itemID, rm.name)
             if hasConvert then
-                local qualityID = rm.itemID and
-                    C_TradeSkillUI.GetItemReagentQualityByItemInfo(rm.itemID) or nil
-                local searchTerm = { searchString = rm.name, quantity = qty, isExact = true }
+                local qualityID = (rm.itemID and C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo)
+                    and C_TradeSkillUI.GetItemReagentQualityByItemInfo(rm.itemID) or nil
+                local searchTerm = {
+                    searchString = searchData.searchName or rm.name,
+                    quantity = qty,
+                    isExact = true,
+                }
                 if qualityID and qualityID > 0 then searchTerm.tier = qualityID end
                 entry = Auctionator.API.v1.ConvertToSearchString(addonName, searchTerm)
             else
-                local _, link
-                if rm.itemID then
-                    _, link = GetItemInfo(rm.itemID)
-                end
-                entry = link or rm.name
+                entry = searchData.searchString
             end
             if entry then
                 searchStrings[#searchStrings + 1] = entry
-                qtySummary[#qtySummary + 1] = string.format("  %s: |cffffd700%d|r", rm.name, qty)
+                qtySummary[#qtySummary + 1] = string.format("  %s: |cffffd700%d|r", searchData.displayName, qty)
             end
         end
     end
