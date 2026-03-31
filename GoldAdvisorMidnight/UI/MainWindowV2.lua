@@ -794,15 +794,19 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
         local qty = math.floor(rm.needToBuy or 0)
         if qty > 0 then
             local entry
+            local searchData = GAM.Pricing.GetShoppingSearchData(rm.itemID, rm.name)
             if hasConvert then
                 local qualityID = (rm.itemID and C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo)
                     and C_TradeSkillUI.GetItemReagentQualityByItemInfo(rm.itemID) or nil
-                local searchTerm = { searchString = rm.name, quantity = qty, isExact = true }
+                local searchTerm = {
+                    searchString = searchData.searchName or rm.name,
+                    quantity = qty,
+                    isExact = true,
+                }
                 if qualityID and qualityID > 0 then searchTerm.tier = qualityID end
                 entry = Auctionator.API.v1.ConvertToSearchString(addonName, searchTerm)
             else
-                local _, link = rm.itemID and GetItemInfo(rm.itemID) or nil
-                entry = link or rm.name
+                entry = searchData.searchString
             end
             if entry then
                 searchStrings[#searchStrings + 1] = entry
@@ -810,7 +814,7 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
                 items[#items + 1] = {
                     searchString = entry,
                     itemID = rm.itemID,
-                    name = rm.name,
+                    name = searchData.displayName,
                     quantity = qty,
                 }
             end

@@ -1,5 +1,10 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.16] — 2026-03-31
+
+### Bug Fixes
+- **Crushing rank-aware cheapest gem selection** — Flexible `cheapestOf` gem pools now resolve each option through the active rank policy before comparing prices, so R2 crushing picks the cheapest R2 gem instead of undercutting itself with an R1 listing.
+
 ## [1.7.15] — 2026-03-30
 
 ### Bug Fixes

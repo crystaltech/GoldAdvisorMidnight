@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: Gold Advisor Midnight
 ## Notes: Crafting profit advisor for WoW Midnight. Scans AH, computes ROI per strategy.
-## Version: 1.7.15
+## Version: 1.7.16
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled

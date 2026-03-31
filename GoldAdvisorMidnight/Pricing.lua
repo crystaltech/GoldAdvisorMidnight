@@ -306,6 +306,28 @@ function Pricing.GetItemDisplayData(itemID, fallbackName)
     }
 end
 
+-- Resolve localized item text for Auctionator shopping exports without changing
+-- the addon's canonical English item keys used for workbook/catalog lookups.
+function Pricing.GetShoppingSearchData(itemID, fallbackName)
+    local resolvedName = fallbackName
+    local resolvedLink = nil
+
+    if itemID and itemID > 0 then
+        RequestItemData(itemID)
+        local localizedName, localizedLink = GetItemInfo(itemID)
+        resolvedName = localizedName or resolvedName
+        resolvedLink = localizedLink
+    end
+
+    return {
+        itemID = itemID,
+        displayName = resolvedName or fallbackName or "?",
+        searchName = resolvedName,
+        searchString = resolvedLink or resolvedName or fallbackName,
+        itemLink = resolvedLink,
+    }
+end
+
 -- ===== Public API =====
 
 -- GetUnitPrice(itemID) → price in copper, or nil
@@ -538,6 +560,9 @@ function Pricing.RunSmokeChecks()
                 return prices[exactID], false
             end
 
+            local opts = GetOpts()
+            local savedPolicy = opts.rankPolicy
+            opts.rankPolicy = "highest"
             local resolved = ResolveCheapestAlternative({
                 cheapestOf = {
                     { itemRef = "Amani Lapis", itemIDs = { 1001, 1002 } },
@@ -547,7 +572,8 @@ function Pricing.RunSmokeChecks()
                 patchTag = GAM.C.DEFAULT_PATCH,
                 pdb = { rankGroups = {} },
             }, 15)
-            assert(resolved and resolved.itemID == 1004, "cheapestOf cross-rank selection regressed")
+            opts.rankPolicy = savedPolicy
+            assert(resolved and resolved.itemID == 1004, "cheapestOf rank-policy selection regressed")
         end)
         Pricing.GetEffectivePriceForItem = originalGetEffectivePriceForItem
         assert(cheapestOK, cheapestErr)
@@ -765,22 +791,21 @@ ResolveCheapestAlternative = function(entry, ctx, required)
         end
 
         if altIDs and #altIDs > 0 then
-            -- `cheapestOf` represents recipe alternatives, so compare every exact itemID
-            -- instead of filtering each alternative through the current rank policy first.
-            for _, altID in ipairs(altIDs) do
-                local altPrice, altStale = Pricing.GetEffectivePriceForItem({
-                    itemIDs = { altID },
+            -- Compare alternatives within the active rank policy so an R2 pool
+            -- chooses the cheapest R2 reagent, not the cheapest reagent of any rank.
+            local pickedAltID = PickItemID(altIDs, ctx.patchTag)
+            local altPrice, altStale = Pricing.GetEffectivePriceForItem({
+                itemIDs = pickedAltID and { pickedAltID } or altIDs,
+                name = alt.itemRef,
+            }, ctx.patchTag, required)
+            if altPrice and pickedAltID and (not best or altPrice < best.price) then
+                best = {
+                    itemID = pickedAltID,
+                    itemIDs = altIDs,
                     name = alt.itemRef,
-                }, ctx.patchTag, required)
-                if altPrice and (not best or altPrice < best.price) then
-                    best = {
-                        itemID = altID,
-                        itemIDs = altIDs,
-                        name = alt.itemRef,
-                        price = altPrice,
-                        stale = altStale or false,
-                    }
-                end
+                    price = altPrice,
+                    stale = altStale or false,
+                }
             end
         else
             local altProxy = { itemIDs = altIDs or {}, name = alt.itemRef }
