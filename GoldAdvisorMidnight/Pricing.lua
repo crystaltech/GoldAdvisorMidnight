@@ -179,16 +179,34 @@ local function GetItemQualityRank(itemID)
     return nil
 end
 
+local function GetExplicitItemQualityRank(itemID)
+    if not itemID or itemID == 0 then return nil end
+    RequestItemData(itemID)
+    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+    local q = api and api(itemID) or nil
+    if q and q > 0 then return q end
+    if q == 0 then return 1 end
+    return nil
+end
+
 local function GetItemName(itemID)
     return select(1, GetItemInfo(itemID))
 end
 
 local function FindItemIDByQuality(itemIDs, desiredQuality)
     if not desiredQuality or not itemIDs then return nil end
+    local anyKnown = false
     for _, id in ipairs(itemIDs) do
-        if GetItemQualityRank(id) == desiredQuality then
+        local q = GetExplicitItemQualityRank(id)
+        if q then
+            anyKnown = true
+        end
+        if q == desiredQuality then
             return id
         end
+    end
+    if not anyKnown and desiredQuality >= 1 and desiredQuality <= #itemIDs then
+        return itemIDs[desiredQuality]
     end
     return nil
 end
@@ -198,7 +216,7 @@ local function GetRankPolicyDesiredQuality(itemIDs, patchTag)
     local policy = GetOpts().rankPolicy or "lowest"
     local bestQ = nil
     for _, id in ipairs(itemIDs) do
-        local q = GetItemQualityRank(id)
+        local q = GetExplicitItemQualityRank(id)
         if q then
             if not bestQ then
                 bestQ = q
@@ -346,9 +364,10 @@ function Pricing.GetUnitPrice(itemID)
 end
 
 -- GetEffectivePrice(itemID, patchTag, qty) → price in copper, or nil
--- Priority: override > vendor price > CraftSim > qty-aware AH fill > AH cache avg
--- qty (optional): when provided, uses ComputePriceForQty for the actual fill
---                 cost at that volume rather than the shallowFillQty cached avg.
+-- Priority: override > vendor price > CraftSim > AH cache avg
+-- qty is intentionally ignored for spreadsheet parity. The Google Sheet and
+-- ARP export both use the cached/export unit price, not a per-call deep-fill
+-- repricing at the strategy's full required quantity.
 function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     if not itemID then return nil end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
@@ -373,14 +392,10 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
         end
     end
 
-    -- 3. AH cache — use qty-aware fill when qty is supplied and raw data exists.
-    -- Always derive stale status from the cached timestamp (ComputePriceForQty
-    -- does not check age, so we get correctness from GetUnitPrice's ts check).
+    -- 3. AH cache — spreadsheet parity uses the cached/export price basis.
+    -- Qty-aware repricing is temporarily disabled so addon Profit/ROI matches
+    -- the sheet when both are fed the same ARP export values.
     local cachedPrice, stale = Pricing.GetUnitPrice(itemID)
-    if qty and qty > 0 and GAM.AHScan and GAM.AHScan.ComputePriceForQty then
-        local qp = GAM.AHScan.ComputePriceForQty(itemID, qty)
-        if qp then return qp, stale end
-    end
     return cachedPrice, stale
 end
 
@@ -425,13 +440,15 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
     local picked = PickItemID(ids, patchTag)
     if not picked then return nil, false end
 
-    if GetOpts().pigmentCostSource == "mill" and Derivation.HasMillMapping(picked) then
-        local millCost, millStale = Derivation.GetMillDerivedPigmentCost(picked, patchTag, qty, GetDerivationDeps())
-        if millCost then return millCost, millStale end
-    end
-    if Derivation.HasCraftedMapping(picked) then
-        local craftCost, craftStale = Derivation.GetCraftDerivedReagentCost(picked, patchTag, qty, GetDerivationDeps())
-        if craftCost then return craftCost, craftStale end
+    if not item.skipDerivation then
+        if GetOpts().pigmentCostSource == "mill" and Derivation.HasMillMapping(picked) then
+            local millCost, millStale = Derivation.GetMillDerivedPigmentCost(picked, patchTag, qty, GetDerivationDeps())
+            if millCost then return millCost, millStale end
+        end
+        if Derivation.HasCraftedMapping(picked) then
+            local craftCost, craftStale = Derivation.GetCraftDerivedReagentCost(picked, patchTag, qty, GetDerivationDeps())
+            if craftCost then return craftCost, craftStale end
+        end
     end
 
     -- AH price: preferred rank first, then remaining variants as fallback
@@ -547,6 +564,37 @@ function Pricing.RunSmokeChecks()
 
         assert(Pricing.FormatPrice(0) == "0g", "FormatPrice failed for zero value")
 
+        local originalGetUnitPrice = Pricing.GetUnitPrice
+        local originalAHScan = GAM.AHScan
+        local qtyPricingOK, qtyPricingErr = pcall(function()
+            Pricing.GetUnitPrice = function(itemID)
+                if itemID == 424242 then
+                    return 12345, false
+                end
+                return nil, false
+            end
+            GAM.AHScan = {
+                ComputePriceForQty = function(itemID, qty)
+                    if itemID == 424242 and qty == 5000 then
+                        return 67890
+                    end
+                    return nil
+                end,
+            }
+
+            local price = Pricing.GetEffectivePrice(424242, GAM.C.DEFAULT_PATCH, 5000)
+            assert(price == 12345, string.format(
+                "qty-aware repricing still active in spreadsheet parity path: got %s expected 12345",
+                tostring(price)))
+        end)
+        Pricing.GetUnitPrice = originalGetUnitPrice
+        GAM.AHScan = originalAHScan
+        assert(qtyPricingOK, qtyPricingErr)
+        assert((GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[243060]) == 5000,
+            "Luminant Flux vendor-price baseline missing")
+        assert((GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[251665]) == 5000,
+            "Silverleaf Thread vendor-price baseline missing")
+
         local originalGetEffectivePriceForItem = Pricing.GetEffectivePriceForItem
         local cheapestOK, cheapestErr = pcall(function()
             Pricing.GetEffectivePriceForItem = function(item)
@@ -578,6 +626,99 @@ function Pricing.RunSmokeChecks()
         Pricing.GetEffectivePriceForItem = originalGetEffectivePriceForItem
         assert(cheapestOK, cheapestErr)
 
+        local originalCraftUI = C_TradeSkillUI
+        local originalGetItemInfo = GetItemInfo
+        local originalGetEffectivePrice = Pricing.GetEffectivePrice
+        local dazzlingRankOK, dazzlingRankErr = pcall(function()
+            C_TradeSkillUI = {
+                GetItemReagentQualityByItemInfo = function(itemID)
+                    return ({
+                        [242786] = 1,
+                        [242787] = 2,
+                    })[itemID]
+                end,
+            }
+            GetItemInfo = function(itemID)
+                return itemID and ("Item-" .. tostring(itemID)) or nil
+            end
+            Pricing.GetEffectivePrice = function(itemID)
+                return ({
+                    [242786] = 20500,
+                    [242787] = 3605500,
+                })[itemID], false
+            end
+
+            local dazzling = GAM.Importer and GAM.Importer.GetStratByID
+                and GAM.Importer.GetStratByID("jewelcrafting__dazzling_thorium_prospecting__midnight_1") or nil
+            assert(dazzling and dazzling.outputs and dazzling.outputs[7], "dazzling strat unavailable")
+            assert(#(dazzling.outputs[7].itemIDs or {}) >= 2,
+                "dazzling Crystalline Glass must keep both ranked itemIDs for runtime q1 selection")
+
+            local price = GetOutputPriceForItem(dazzling.outputs[7], GAM.C.DEFAULT_PATCH, 1, 800)
+            assert(price == 20500, string.format(
+                "Dazzling Crystalline Glass rank resolution failed: got %s expected 20500",
+                tostring(price)))
+        end)
+        C_TradeSkillUI = originalCraftUI
+        GetItemInfo = originalGetItemInfo
+        Pricing.GetEffectivePrice = originalGetEffectivePrice
+        assert(dazzlingRankOK, dazzlingRankErr)
+
+        local originalGetOptions = GAM.GetOptions
+        local oilRankOK, oilRankErr = pcall(function()
+            C_TradeSkillUI = {
+                GetItemReagentQualityByItemInfo = function(itemID)
+                    return nil
+                end,
+            }
+            GetItemInfo = function(itemID)
+                return itemID and ("Item-" .. tostring(itemID)) or nil
+            end
+            GAM.GetOptions = function()
+                return { rankPolicy = "highest" }
+            end
+            Pricing.GetEffectivePrice = function(itemID)
+                return ({
+                    [243735] = 17500,
+                    [243736] = 0,
+                })[itemID], false
+            end
+
+            local oil = GAM.Importer and GAM.Importer.GetStratByID
+                and GAM.Importer.GetStratByID("enchanting__oil_of_dawn__midnight_1") or nil
+            assert(oil and oil.outputs and oil.outputs[1], "oil of dawn strat unavailable")
+            assert(#(oil.outputs[1].itemIDs or {}) >= 2,
+                "Oil of Dawn must keep both ranked itemIDs for rank-policy output pricing")
+            assert(oil.reagents and oil.reagents[3] and #(oil.reagents[3].itemIDs or {}) >= 2,
+                "Oil of Dawn must keep both Eversinging Dust ranks for reagent rank-policy pricing")
+
+            local priceByPolicy = GetOutputPriceForItem(oil.outputs[1], GAM.C.DEFAULT_PATCH, nil, 8295)
+            assert(priceByPolicy == 0, string.format(
+                "Oil of Dawn rank-policy resolution failed: got %s expected 0",
+                tostring(priceByPolicy)))
+
+            local priceByPreferredQuality = GetOutputPriceForItem(oil.outputs[1], GAM.C.DEFAULT_PATCH, 2, 8295)
+            assert(priceByPreferredQuality == 0, string.format(
+                "Oil of Dawn R2 rank resolution failed: got %s expected 0",
+                tostring(priceByPreferredQuality)))
+        end)
+        C_TradeSkillUI = originalCraftUI
+        GetItemInfo = originalGetItemInfo
+        GAM.GetOptions = originalGetOptions
+        Pricing.GetEffectivePrice = originalGetEffectivePrice
+        assert(oilRankOK, oilRankErr)
+
+        local phoenixDustOK, phoenixDustErr = pcall(function()
+            local phoenix = GAM.Importer and GAM.Importer.GetStratByID
+                and GAM.Importer.GetStratByID("enchanting__thalassian_phoenix_oil__midnight_1") or nil
+            assert(phoenix and phoenix.reagents and phoenix.reagents[2], "thalassian phoenix oil strat unavailable")
+            local dustIDs = phoenix.reagents[2].itemIDs or {}
+            assert(#dustIDs == 1 and dustIDs[1] == 243599,
+                string.format("Thalassian Phoenix Oil must pin Eversinging Dust to Q1: got %s",
+                    table.concat(dustIDs, ",")))
+        end)
+        assert(phoenixDustOK, phoenixDustErr)
+
         if GAM.Importer and GAM.Importer.GetStratByID then
             local crushing = GAM.Importer.GetStratByID("jewelcrafting__crushing__midnight_1")
             assert(crushing and crushing.reagents and crushing.reagents[1], "crushing strat unavailable")
@@ -597,6 +738,8 @@ function Pricing.RunSmokeChecks()
         assert(inkProfile, "insc_ink profile missing")
         assert(math.abs((inkProfile.defaultMulti or 0) - 29.7) < 0.01,
             string.format("insc_ink defaultMulti parity fail: got %.3f expected 29.7", inkProfile.defaultMulti or 0))
+        local codifiedProfile = profiles["insc_codified"]
+        assert(codifiedProfile, "insc_codified profile missing")
 
         -- leatherworking: live sheet Leatherworking!A18=32.0
         local lwProfile = profiles["leatherworking"]
@@ -610,12 +753,133 @@ function Pricing.RunSmokeChecks()
         assert(not profiles["engineering"], "stale unified engineering profile still present")
 
         if GAM.Importer and GAM.Importer.GetStratByID then
+            local function assertNear(actual, expected, label)
+                assert(math.abs(actual - expected) <= math.max(0.0001, math.abs(expected) * 0.001),
+                    string.format("%s: got %.6f expected %.6f", label, actual, expected))
+            end
+
+            local originalGetOptions = GAM.GetOptions
+            local derivedParityOK, derivedParityErr = pcall(function()
+                local parityOpts = {
+                    pigmentCostSource = "mill",
+                    inscMillingRes = 30.1,
+                    inscInkMulti = 29.7,
+                    inscInkRes = 16.1,
+                }
+                GAM.GetOptions = function()
+                    return parityOpts
+                end
+
+                local priceMap = {
+                    [236761] = 30798,  -- Tranquility Bloom
+                    [236776] = 239300, -- Argentleaf
+                    [236778] = 120000, -- Mana Lily
+                    [236770] = 10400,  -- Sanguithorn
+                    [245882] = 3595,   -- Thalassian Songwater
+                }
+                local deps = {
+                    PickItemID = function(ids)
+                        return ids and ids[1] or nil
+                    end,
+                    GetEffectivePrice = function(itemID)
+                        return priceMap[itemID], false
+                    end,
+                }
+
+                local pigmentYield = 1.3 / (1 - 0.301 * 0.465)
+                local inkYield = 0.1 * (1 + 0.297 * 2.5) / (1 - 0.161 * 0.465)
+
+                local powderCost = Derivation.GetMillDerivedPigmentCost(245807, GAM.C.DEFAULT_PATCH, 1512, deps)
+                local argentleafCost = Derivation.GetMillDerivedPigmentCost(245803, GAM.C.DEFAULT_PATCH, 756, deps)
+                local manaCost = Derivation.GetMillDerivedPigmentCost(245867, GAM.C.DEFAULT_PATCH, 378, deps)
+                local sanguithornCost = Derivation.GetMillDerivedPigmentCost(245865, GAM.C.DEFAULT_PATCH, 756, deps)
+
+                assertNear(powderCost or 0, math.floor(priceMap[236761] / pigmentYield + 0.5),
+                    "inscription powder pigment derived cost")
+                assertNear(argentleafCost or 0, math.floor(priceMap[236776] / pigmentYield + 0.5),
+                    "inscription argentleaf pigment derived cost")
+                assertNear(manaCost or 0, math.floor(priceMap[236778] / pigmentYield + 0.5),
+                    "inscription mana pigment derived cost")
+                assertNear(sanguithornCost or 0, math.floor(priceMap[236770] / pigmentYield + 0.5),
+                    "inscription sanguithorn pigment derived cost")
+
+                local expectedSienna = math.floor((
+                    (powderCost * 1.0)
+                    + (argentleafCost * 0.5)
+                    + (manaCost * 0.25)
+                ) / inkYield + 0.5)
+                local expectedMunsell = math.floor((
+                    (powderCost * 1.0)
+                    + (sanguithornCost * 0.5)
+                    + (manaCost * 0.25)
+                ) / inkYield + 0.5)
+
+                local siennaCost = Derivation.GetCraftDerivedReagentCost(245805, GAM.C.DEFAULT_PATCH, 285, deps)
+                local munsellCost = Derivation.GetCraftDerivedReagentCost(245801, GAM.C.DEFAULT_PATCH, 285, deps)
+                assertNear(siennaCost or 0, expectedSienna, "inscription sienna derived cost")
+                assertNear(munsellCost or 0, expectedMunsell, "inscription munsell derived cost")
+
+                local sienna = GAM.Importer.GetStratByID("inscription__sienna_ink__midnight_1")
+                assert(sienna, "sienna strat unavailable")
+                local active = GetActiveRecipeView(sienna)
+                local ctx = BuildCalcContext(
+                    sienna, active, GAM.C.DEFAULT_PATCH, 1, parityOpts,
+                    GetPatchDB(GAM.C.DEFAULT_PATCH), GAM.C.AH_CUT)
+                local mergedOrder, mergedMap = BuildMergedReagentMap(ctx)
+                assert(#mergedOrder == 4, string.format(
+                    "sienna reagent list regressed to raw-chain expansion: got %d entries expected 4",
+                    #mergedOrder))
+                assert(mergedMap[245807] and mergedMap[245803] and mergedMap[245867] and mergedMap[245882],
+                    "sienna reagent list must stay at powder/pigment/songwater sheet level")
+                assert(mergedMap[245882].excludeFromCost,
+                    "sienna songwater must stay visible but excluded from sheet cost math")
+
+                local originalGetUnitPrice = Pricing.GetUnitPrice
+                local originalGetItemCount = GetItemCount
+                local recyclingParityOK, recyclingParityErr = pcall(function()
+                    Pricing.GetUnitPrice = function(itemID)
+                        local recyclingPrices = {
+                            [236761] = 27000, -- cheaper herb-derived pigment would regress engineering recycling
+                            [245807] = 24800, -- Powder Pigment Q1 direct sheet price
+                            [243581] = 68900, -- Evercore Q1
+                        }
+                        return recyclingPrices[itemID], false
+                    end
+                    GetItemCount = function()
+                        return 0
+                    end
+
+                    local recycling = GAM.Importer.GetStratByID("engineering__recycling_powder_pigment__midnight_1")
+                    assert(recycling, "engineering recycling powder pigment strat unavailable")
+                    assert(recycling.reagents and recycling.reagents[1] and recycling.reagents[1].skipDerivation,
+                        "engineering recycling reagent must preserve skipDerivation")
+                    local recyclingActive = GetActiveRecipeView(recycling)
+                    local recyclingCtx = BuildCalcContext(
+                        recycling, recyclingActive, GAM.C.DEFAULT_PATCH, 1, {
+                            pigmentCostSource = "mill",
+                            engRecycleRes = 36.0,
+                            rankPolicy = "lowest",
+                        }, GetPatchDB(GAM.C.DEFAULT_PATCH), GAM.C.AH_CUT)
+                    local recyclingMissing = {}
+                    local recyclingReagents = BuildReagentMetrics(recyclingCtx, recyclingMissing)
+                    assertNear((recyclingReagents.reagentResults[1] and recyclingReagents.reagentResults[1].unitPrice) or 0,
+                        24800, "engineering recycling powder pigment direct reagent price")
+                    local recyclingOutput = BuildOutputMetrics(recyclingCtx, recyclingMissing)
+                    assertNear((recyclingOutput.output and recyclingOutput.output.unitPrice) or 0, 68900,
+                        "engineering recycling powder pigment output price")
+                end)
+                Pricing.GetUnitPrice = originalGetUnitPrice
+                GetItemCount = originalGetItemCount
+                assert(recyclingParityOK, recyclingParityErr)
+            end)
+            GAM.GetOptions = originalGetOptions
+            assert(derivedParityOK, derivedParityErr)
+
             local function checkWorkbookParity(stratID, outputIdx, expectedQty, label)
                 local strat = GAM.Importer.GetStratByID(stratID)
                 if not strat then return end
                 local profileDef = profiles[strat.formulaProfile]
                 if not profileDef then return end
-                local opts = GetOpts()
                 -- Build a default-opts snapshot for this profile so we evaluate at
                 -- spreadsheet baseline stats (independent of the user's saved values).
                 local defaultOpts = {}
@@ -631,12 +895,178 @@ function Pricing.RunSmokeChecks()
                 local sa = strat.defaultStartingAmount or 1
                 local cr = strat.defaultCrafts or sa
                 local qty = ComputeOutputQuantity(outputDef, strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, sa, cr)
-                assert(math.abs(qty - expectedQty) <= expectedQty * 0.005,
-                    string.format("Parity %s: got %.4f expected %.4f", label, qty, expectedQty))
+                assertNear(qty, expectedQty, "Parity " .. label)
             end
-            -- Engineering!C11 recycling parity
-            checkWorkbookParity("engineering__recycling_argentleaf_pigment__midnight_1", 1, 3557.031065,
-                "Engineering recycling C11")
+
+            local function checkVariantWorkbookParity(stratID, variantKey, outputIdx, expectedQty, label)
+                local strat = GAM.Importer.GetStratByID(stratID)
+                if not strat or not strat.rankVariants or not strat.rankVariants[variantKey] then
+                    return
+                end
+                local variant = strat.rankVariants[variantKey]
+                local profileDef = profiles[strat.formulaProfile]
+                if not profileDef then return end
+                local defaultOpts = {}
+                if profileDef.multiKey then
+                    defaultOpts[profileDef.multiKey] = profileDef.defaultMulti or 0
+                end
+                if profileDef.resKey then
+                    defaultOpts[profileDef.resKey] = profileDef.defaultRes or 0
+                end
+                local ctx = BuildProfileContext(strat, defaultOpts)
+                local outputDef = variant.outputs and variant.outputs[outputIdx]
+                if not outputDef then return end
+                local sa = variant.defaultStartingAmount or strat.defaultStartingAmount or 1
+                local cr = variant.defaultCrafts or strat.defaultCrafts or sa
+                assertNear(outputDef.workbookExpectedQty or 0, expectedQty, label .. " workbookExpectedQty")
+                local qty = ComputeOutputQuantity(outputDef, strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, sa, cr)
+                assertNear(qty, expectedQty, "Parity " .. label)
+            end
+
+            local engineeringRecyclingIDs = {
+                "engineering__recycling_argentleaf_pigment__midnight_1",
+                "engineering__recycling_bright_linen_bolt__midnight_1",
+                "engineering__recycling_codified_azeroot__midnight_1",
+                "engineering__recycling_imbued_bright_linen_bolt__midnight_1",
+                "engineering__recycling_powder_pigment__midnight_1",
+            }
+            for _, stratID in ipairs(engineeringRecyclingIDs) do
+                local strat = GAM.Importer.GetStratByID(stratID)
+                if strat then
+                    assertNear(strat.defaultStartingAmount or 0, 5000, stratID .. " defaultStartingAmount")
+                    assertNear(strat.defaultCrafts or 0, 1000, stratID .. " defaultCrafts")
+                    assertNear((strat.outputs and strat.outputs[1] and strat.outputs[1].baseYieldPerCraft) or 0, 3.0,
+                        stratID .. " baseYieldPerCraft")
+                    assertNear((strat.reagents and strat.reagents[1] and strat.reagents[1].qtyPerCraft) or 0, 5.0,
+                        stratID .. " reagent qtyPerCraft")
+                    assertNear((strat.reagents and strat.reagents[1] and strat.reagents[1].qtyPerStart) or 0, 1.0,
+                        stratID .. " reagent qtyPerStart")
+                end
+                checkWorkbookParity(stratID, 1, 3557.031065, stratID .. " Engineering recycling")
+            end
+
+            local refulgent = GAM.Importer.GetStratByID("blacksmithing__refulgent_copper_ingot__midnight_1")
+            if refulgent then
+                assertNear(refulgent.defaultStartingAmount or 0, 5.0, "Refulgent Copper Ingot defaultStartingAmount")
+                assertNear(refulgent.defaultCrafts or 0, 1.0, "Refulgent Copper Ingot defaultCrafts")
+                assertNear((refulgent.rankVariants and refulgent.rankVariants.lowest
+                    and refulgent.rankVariants.lowest.defaultStartingAmount) or 0,
+                    5.0, "Refulgent Copper Ingot lowest defaultStartingAmount")
+                assertNear((refulgent.rankVariants and refulgent.rankVariants.lowest
+                    and refulgent.rankVariants.lowest.defaultCrafts) or 0,
+                    1.0, "Refulgent Copper Ingot lowest defaultCrafts")
+                assertNear((refulgent.rankVariants and refulgent.rankVariants.highest
+                    and refulgent.rankVariants.highest.defaultStartingAmount) or 0,
+                    5000.0, "Refulgent Copper Ingot highest defaultStartingAmount")
+                assertNear((refulgent.rankVariants and refulgent.rankVariants.highest
+                    and refulgent.rankVariants.highest.defaultCrafts) or 0,
+                    1000.0, "Refulgent Copper Ingot highest defaultCrafts")
+            end
+            checkVariantWorkbookParity("blacksmithing__refulgent_copper_ingot__midnight_1", "lowest", 1, 1.428911961,
+                "Blacksmithing Refulgent Copper Ingot Q1")
+            checkVariantWorkbookParity("blacksmithing__refulgent_copper_ingot__midnight_1", "highest", 1, 1428.911961,
+                "Blacksmithing Refulgent Copper Ingot Q2")
+
+            local gloaming = GAM.Importer.GetStratByID("blacksmithing__gloaming_alloy__midnight_1")
+            if gloaming then
+                assertNear((gloaming.defaultStartingAmount or 0), 600.0, "Gloaming Alloy defaultStartingAmount")
+                assertNear((gloaming.defaultCrafts or 0), 100.0, "Gloaming Alloy defaultCrafts")
+                assertNear((gloaming.rankVariants and gloaming.rankVariants.lowest
+                    and gloaming.rankVariants.lowest.defaultStartingAmount) or 0,
+                    600.0, "Gloaming Alloy lowest defaultStartingAmount")
+                assertNear((gloaming.rankVariants and gloaming.rankVariants.lowest
+                    and gloaming.rankVariants.lowest.defaultCrafts) or 0,
+                    100.0, "Gloaming Alloy lowest defaultCrafts")
+                assertNear((gloaming.rankVariants and gloaming.rankVariants.highest
+                    and gloaming.rankVariants.highest.defaultStartingAmount) or 0,
+                    600.0, "Gloaming Alloy highest defaultStartingAmount")
+                assertNear((gloaming.rankVariants and gloaming.rankVariants.highest
+                    and gloaming.rankVariants.highest.defaultCrafts) or 0,
+                    100.0, "Gloaming Alloy highest defaultCrafts")
+            end
+            checkVariantWorkbookParity("blacksmithing__gloaming_alloy__midnight_1", "lowest", 1, 142.8911961,
+                "Blacksmithing Gloaming Alloy Q1")
+            checkVariantWorkbookParity("blacksmithing__gloaming_alloy__midnight_1", "highest", 1, 142.8911961,
+                "Blacksmithing Gloaming Alloy Q2")
+
+            local sterling = GAM.Importer.GetStratByID("blacksmithing__sterling_alloy__midnight_1")
+            if sterling then
+                assertNear((sterling.defaultStartingAmount or 0), 6000.0, "Sterling Alloy defaultStartingAmount")
+                assertNear((sterling.defaultCrafts or 0), 1000.0, "Sterling Alloy defaultCrafts")
+                assertNear((sterling.rankVariants and sterling.rankVariants.lowest
+                    and sterling.rankVariants.lowest.defaultStartingAmount) or 0,
+                    6000.0, "Sterling Alloy lowest defaultStartingAmount")
+                assertNear((sterling.rankVariants and sterling.rankVariants.lowest
+                    and sterling.rankVariants.lowest.defaultCrafts) or 0,
+                    1000.0, "Sterling Alloy lowest defaultCrafts")
+                assertNear((sterling.rankVariants and sterling.rankVariants.highest
+                    and sterling.rankVariants.highest.defaultStartingAmount) or 0,
+                    600.0, "Sterling Alloy highest defaultStartingAmount")
+                assertNear((sterling.rankVariants and sterling.rankVariants.highest
+                    and sterling.rankVariants.highest.defaultCrafts) or 0,
+                    100.0, "Sterling Alloy highest defaultCrafts")
+            end
+            checkVariantWorkbookParity("blacksmithing__sterling_alloy__midnight_1", "lowest", 1, 1428.911961,
+                "Blacksmithing Sterling Alloy Q1")
+            checkVariantWorkbookParity("blacksmithing__sterling_alloy__midnight_1", "highest", 1, 142.8911961,
+                "Blacksmithing Sterling Alloy Q2")
+
+            local dawn = GAM.Importer.GetStratByID("enchanting__dawn_shatter_q2__midnight_1")
+            if dawn then
+                assertNear((dawn.outputs and dawn.outputs[1] and dawn.outputs[1].workbookExpectedQty) or 0, 3086.673801,
+                    "dawn_shatter_q2 top-level workbookExpectedQty")
+                assertNear((dawn.rankVariants and dawn.rankVariants.lowest and dawn.rankVariants.lowest.outputs
+                    and dawn.rankVariants.lowest.outputs[1] and dawn.rankVariants.lowest.outputs[1].workbookExpectedQty) or 0,
+                    3086.673801, "dawn_shatter_q2 lowest workbookExpectedQty")
+            end
+            checkVariantWorkbookParity("enchanting__dawn_shatter_q2__midnight_1", "highest", 1, 2262.531896,
+                "Dawn Shatter highest output 1")
+            checkVariantWorkbookParity("enchanting__dawn_shatter_q2__midnight_1", "highest", 2, 824.141905,
+                "Dawn Shatter highest output 2")
+
+            local radiant = GAM.Importer.GetStratByID("enchanting__radiant_shatter_q2__midnight_1")
+            if radiant then
+                assertNear((radiant.outputs and radiant.outputs[1] and radiant.outputs[1].workbookExpectedQty) or 0, 3086.673801,
+                    "radiant_shatter_q2 top-level workbookExpectedQty")
+                assertNear((radiant.rankVariants and radiant.rankVariants.lowest and radiant.rankVariants.lowest.outputs
+                    and radiant.rankVariants.lowest.outputs[1] and radiant.rankVariants.lowest.outputs[1].workbookExpectedQty) or 0,
+                    3086.673801, "radiant_shatter_q2 lowest workbookExpectedQty")
+            end
+            checkVariantWorkbookParity("enchanting__radiant_shatter_q2__midnight_1", "highest", 1, 2262.531896,
+                "Radiant Shatter highest output 1")
+            checkVariantWorkbookParity("enchanting__radiant_shatter_q2__midnight_1", "highest", 2, 824.141905,
+                "Radiant Shatter highest output 2")
+
+            local crushing = GAM.Importer.GetStratByID("jewelcrafting__crushing__midnight_1")
+            if crushing then
+                assertNear(crushing.defaultStartingAmount or 0, 426.0, "jc_crush defaultStartingAmount")
+                assertNear(crushing.defaultCrafts or 0, 142.0, "jc_crush defaultCrafts")
+                assertNear((crushing.outputs and crushing.outputs[1] and crushing.outputs[1].baseYieldPerCraft) or 0, 2.09,
+                    "jc_crush baseYieldPerCraft")
+                assertNear((crushing.reagents and crushing.reagents[1] and crushing.reagents[1].qtyPerCraft) or 0, 3.0,
+                    "jc_crush cheapest gem qtyPerCraft")
+            end
+            checkWorkbookParity("jewelcrafting__crushing__midnight_1", 1, 348.5378743,
+                "Jewelcrafting crushing G23")
+            local amani = GAM.Importer.GetStratByID("alchemy__amani_extract__midnight_1")
+            if amani then
+                assertNear(amani.defaultStartingAmount or 0, 5000.0, "Amani Extract defaultStartingAmount")
+                assertNear(amani.defaultCrafts or 0, 1000.0, "Amani Extract defaultCrafts")
+                assertNear((amani.reagents and amani.reagents[1] and amani.reagents[1].qtyPerCraft) or 0, 5.0,
+                    "Amani Extract sunglass vial qtyPerCraft")
+            end
+            checkWorkbookParity("alchemy__amani_extract__midnight_1", 1, 7591.623037,
+                "Alchemy Amani Extract C57")
+            checkWorkbookParity("inscription__codified_azeroot__midnight_1", 1, 1522.982248,
+                "Inscription codified azeroot O31")
+
+            local jcCrushProfile = profiles["jc_crush"]
+            assert(jcCrushProfile, "jc_crush profile missing")
+            assertNear(jcCrushProfile.defaultRes or 0, 33.0, "jc_crush defaultRes")
+            assertNear(jcCrushProfile.defaultRsNode or 0, 50.0, "jc_crush defaultRsNode")
+            assertNear(jcCrushProfile.sheetRs or 0, 0.45, "jc_crush sheetRs")
+            assertNear(codifiedProfile.sheetRs or 0, 0.495, "insc_codified sheetRs")
+
             -- Engineering!C56 craft parity
             checkWorkbookParity("engineering__soul_sprocket__midnight_1", 1, 1950.595878,
                 "Engineering craft C56")
@@ -762,7 +1192,8 @@ local function BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ah
         pdb = pdb,
         ahCut = ahCut,
         fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY,
-        -- chainActive: any mill/craft derivation path enabled; triggers expanded reagent chain pricing
+        -- chainActive: any mill/craft derivation path enabled; derived unit pricing
+        -- stays active even when we keep the visible reagent list at sheet-level ingredients.
         chainActive = (opts.pigmentCostSource == "mill")
             or (opts.ingotCostSource == "craft")
             or (opts.boltCostSource == "craft"),
@@ -798,12 +1229,21 @@ local function GetRequiredReagentAmount(reagent, startingAmt, crafts)
     return math.floor(requiredRaw + 0.5)
 end
 
-local function AddMergedReagentEntry(mergedMap, mergedOrder, key, itemIDs, qty, name, cheapestOf)
+local function AddMergedReagentEntry(mergedMap, mergedOrder, key, itemIDs, qty, name, cheapestOf, excludeFromCost, skipDerivation)
     if mergedMap[key] then
         mergedMap[key].qty = mergedMap[key].qty + qty
+        mergedMap[key].excludeFromCost = mergedMap[key].excludeFromCost or excludeFromCost
+        mergedMap[key].skipDerivation = mergedMap[key].skipDerivation or skipDerivation
         return
     end
-    mergedMap[key] = { itemIDs = itemIDs, qty = qty, name = name, cheapestOf = cheapestOf }
+    mergedMap[key] = {
+        itemIDs = itemIDs,
+        qty = qty,
+        name = name,
+        cheapestOf = cheapestOf,
+        excludeFromCost = excludeFromCost and true or false,
+        skipDerivation = skipDerivation and true or false,
+    }
     tinsert(mergedOrder, key)
 end
 
@@ -814,23 +1254,11 @@ local function BuildMergedReagentMap(ctx)
     for _, reagent in ipairs(ctx.active.reagents or {}) do
         local required = GetRequiredReagentAmount(reagent, ctx.startingAmt, ctx.crafts)
         local reagentIDs = GetResolvedReagentItemIDs(reagent, ctx.pdb)
-
-        if ctx.chainActive then
-            local expanded = Derivation.ExpandReagentThroughChain(reagentIDs, required, ctx.patchTag, GetDerivationDeps())
-            for _, exp in ipairs(expanded) do
-                local key = exp.itemIDs[1]
-                local entryName = GetItemLabel(reagent)
-                if exp.itemIDs ~= reagentIDs then
-                    local expID = PickItemID(exp.itemIDs, ctx.patchTag)
-                    entryName = expID and GetItemName(expID) or tostring(key)
-                end
-                AddMergedReagentEntry(mergedMap, mergedOrder, key, exp.itemIDs, exp.qty, entryName)
-            end
-        else
-            local reagentName = GetItemLabel(reagent)
-            local key = PickItemID(reagentIDs, ctx.patchTag) or (reagentIDs and reagentIDs[1]) or reagentName
-            AddMergedReagentEntry(mergedMap, mergedOrder, key, reagentIDs, required, reagentName, reagent.cheapestOf)
-        end
+        local reagentName = GetItemLabel(reagent)
+        local key = PickItemID(reagentIDs, ctx.patchTag) or (reagentIDs and reagentIDs[1]) or reagentName
+        AddMergedReagentEntry(
+            mergedMap, mergedOrder, key, reagentIDs, required, reagentName,
+            reagent.cheapestOf, reagent.excludeFromCost, reagent.skipDerivation)
     end
 
     return mergedOrder, mergedMap
@@ -929,6 +1357,7 @@ local function BuildReagentMetrics(ctx, missingPrices)
         local entry = mergedMap[key]
         local entryIDs = entry.itemIDs
         local required = math.floor(entry.qty + 0.5)
+        local excludeFromCost = entry.excludeFromCost and true or false
         local itemID, price, stale, displayName
 
         if entry.cheapestOf then
@@ -949,7 +1378,11 @@ local function BuildReagentMetrics(ctx, missingPrices)
         else
             itemID      = PickItemID(entryIDs, ctx.patchTag)
             displayName = entry.name
-            local itemProxy = { itemIDs = entryIDs, name = entry.name }
+            local itemProxy = {
+                itemIDs = entryIDs,
+                name = entry.name,
+                skipDerivation = entry.skipDerivation and true or false,
+            }
             price, stale = Pricing.GetEffectivePriceForItem(itemProxy, ctx.patchTag, required)
         end
 
@@ -959,9 +1392,9 @@ local function BuildReagentMetrics(ctx, missingPrices)
             hasStale = true
         end
 
-        local totalCost = (needToBuy == 0) and 0 or (price and (needToBuy * price) or nil)
-        local totalCostFull = price and (required * price) or nil
-        local missingPrice = (needToBuy > 0) and not price
+        local totalCost = excludeFromCost and 0 or ((needToBuy == 0) and 0 or (price and (needToBuy * price) or nil))
+        local totalCostFull = excludeFromCost and 0 or (price and (required * price) or nil)
+        local missingPrice = (not excludeFromCost) and (needToBuy > 0) and not price
 
         if missingPrice then
             missingPrices[#missingPrices + 1] = displayName

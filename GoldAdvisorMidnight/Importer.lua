@@ -154,6 +154,8 @@ local function NormalizeReagent(reagent, startingAmt, defaultCrafts)
         qtyMultiplier = qtyPerStart,
         workbookTotalQty = tonumber(reagent.workbookTotalQty),
         cheapestOf = NormalizeCheapestOf(reagent.cheapestOf),
+        excludeFromCost = reagent.excludeFromCost and true or false,
+        skipDerivation = reagent.skipDerivation and true or false,
     }
 end
 

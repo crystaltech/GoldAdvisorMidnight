@@ -190,6 +190,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       qtyPerCraft = 30.000000,
       qtyPerStart = 0.150000,
       workbookTotalQty = 2267.349585,
+      excludeFromCost = true,
     },
   },
 }
@@ -245,6 +246,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       qtyPerCraft = 30.000000,
       qtyPerStart = 0.150000,
       workbookTotalQty = 2267.349585,
+      excludeFromCost = true,
     },
   },
 }
@@ -320,7 +322,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceBlock = "O20",
   defaultStartingAmount = 1000.000000,
   defaultCrafts = 804.366243,
-  formulaProfile = "insc_ink",
+  formulaProfile = "insc_codified",
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
@@ -1436,49 +1438,49 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Flawless Sanguine Garnet",
-      itemIDs = { 242613 },
+      itemIDs = { 242613, 242724 },
       baseYieldPerCraft = 0.175000,
       baseYield = 0.175000,
       workbookExpectedQty = 175.000000,
     },
     {
       itemRef = "Flawless Amani Lapis",
-      itemIDs = { 242612 },
+      itemIDs = { 242612, 242727 },
       baseYieldPerCraft = 0.175000,
       baseYield = 0.175000,
       workbookExpectedQty = 175.000000,
     },
     {
       itemRef = "Flawless Tenebrous Amethyst",
-      itemIDs = { 242611 },
+      itemIDs = { 242611, 242725 },
       baseYieldPerCraft = 0.175000,
       baseYield = 0.175000,
       workbookExpectedQty = 175.000000,
     },
     {
       itemRef = "Flawless Harandar Peridot",
-      itemIDs = { 242610 },
+      itemIDs = { 242610, 242726 },
       baseYieldPerCraft = 0.175000,
       baseYield = 0.175000,
       workbookExpectedQty = 175.000000,
     },
     {
       itemRef = "Eversong Diamond",
-      itemIDs = { 242608 },
+      itemIDs = { 242608, 242712 },
       baseYieldPerCraft = 0.237500,
       baseYield = 0.237500,
       workbookExpectedQty = 237.500000,
     },
     {
       itemRef = "Duskshrouded Stone",
-      itemIDs = { 242788 },
+      itemIDs = { 242788, 242789 },
       baseYieldPerCraft = 1.350000,
       baseYield = 1.350000,
       workbookExpectedQty = 1350.000000,
     },
     {
       itemRef = "Crystalline Glass",
-      itemIDs = { 242786 },
+      itemIDs = { 242786, 242787 },
       baseYieldPerCraft = 0.800000,
       baseYield = 0.800000,
       workbookExpectedQty = 800.000000,
@@ -1502,7 +1504,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   stratName = "Crushing",
   sourceTab = "Jewelcrafting",
   sourceBlock = "G19",
-  defaultStartingAmount = 3000.000000,
+  defaultStartingAmount = 426.000000,
   defaultCrafts = 142.000000,
   formulaProfile = "jc_crush",
   calcMode = "formula",
@@ -1513,9 +1515,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Glimmering Gemdust",
       itemIDs = { 242620, 242621 },
-      baseYieldPerCraft = 2.196770,
-      baseYield = 0.732257,
-      workbookExpectedQty = 2454.492073,
+      baseYieldPerCraft = 2.090000,
+      baseYield = 0.6966666667,
+      workbookExpectedQty = 348.5378743,
     },
   },
   reagents = {
@@ -1687,7 +1689,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Oil of Dawn",
-      itemIDs = { 243735 },
+      itemIDs = { 243735, 243736 },
       baseYieldPerCraft = 5.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 8295.435838,
@@ -1758,7 +1760,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Eversinging Dust",
-      itemIDs = { 243599, 243600 },
+      itemIDs = { 243599 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
@@ -2050,7 +2052,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Radiant Shard",
           itemIDs = { 243602 },
           baseYieldPerCraft = 3.000000,
-          workbookExpectedQty = 2262.531896,
+          workbookExpectedQty = 3086.673801,
         },
       },
       reagents = {
@@ -2070,13 +2072,13 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Radiant Shard",
           itemIDs = { 243603 },
           baseYieldPerCraft = 2.199000,
-          workbookExpectedQty = 824.141905,
+          workbookExpectedQty = 2262.531896,
         },
         {
           itemRef = "Radiant Shard",
           itemIDs = { 243602 },
           baseYieldPerCraft = 0.801000,
-          workbookExpectedQty = 8295.435838,
+          workbookExpectedQty = 824.141905,
         },
       },
       reagents = {
@@ -2132,7 +2134,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Eversinging Dust",
           itemIDs = { 243599 },
           baseYieldPerCraft = 3.000000,
-          workbookExpectedQty = 2262.531896,
+          workbookExpectedQty = 3086.673801,
         },
       },
       reagents = {
@@ -2152,13 +2154,13 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Eversinging Dust",
           itemIDs = { 243600 },
           baseYieldPerCraft = 2.199000,
-          workbookExpectedQty = 824.141905,
+          workbookExpectedQty = 2262.531896,
         },
         {
           itemRef = "Eversinging Dust",
           itemIDs = { 243599 },
           baseYieldPerCraft = 0.801000,
-          workbookExpectedQty = 8295.435838,
+          workbookExpectedQty = 824.141905,
         },
       },
       reagents = {
@@ -2198,8 +2200,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   stratName = "Refulgent Copper Ingot",
   sourceTab = "Blacksmithing",
   sourceBlock = "B4",
-  defaultStartingAmount = 5000.000000,
-  defaultCrafts = 1000.000000,
+  defaultStartingAmount = 5.000000,
+  defaultCrafts = 1.000000,
   formulaProfile = "blacksmithing",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2207,14 +2209,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   notes = "",
   rankVariants = {
     lowest = {
-      defaultStartingAmount = 5000.000000,
-      defaultCrafts = 1000.000000,
+      defaultStartingAmount = 5.000000,
+      defaultCrafts = 1.000000,
       outputs = {
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238197, 238198 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 1428.911961,
+          workbookExpectedQty = 1.428912,
         },
       },
       reagents = {
@@ -2222,13 +2224,13 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Refulgent Copper Ore",
           itemIDs = { 237359 },
           qtyPerCraft = 5.000000,
-          workbookTotalQty = 5000.000000,
+          workbookTotalQty = 5.000000,
         },
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
           qtyPerCraft = 2.000000,
-          workbookTotalQty = 2000.000000,
+          workbookTotalQty = 2.000000,
         },
       },
     },
@@ -2271,7 +2273,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 238197, 238198 },
       baseYieldPerCraft = 1.000000,
       baseYield = 0.200000,
-      workbookExpectedQty = 1428.911961,
+      workbookExpectedQty = 1.428912,
     },
   },
   reagents = {
@@ -2280,14 +2282,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 237359 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 5000.000000,
+      workbookTotalQty = 5.000000,
     },
     {
       itemRef = "Luminant Flux",
       itemIDs = { 243060 },
       qtyPerCraft = 2.000000,
       qtyPerStart = 0.400000,
-      workbookTotalQty = 2000.000000,
+      workbookTotalQty = 2.000000,
     },
   },
 }
@@ -2299,7 +2301,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   stratName = "Gloaming Alloy",
   sourceTab = "Blacksmithing",
   sourceBlock = "F4",
-  defaultStartingAmount = 6000.000000,
+  defaultStartingAmount = 600.000000,
   defaultCrafts = 100.000000,
   formulaProfile = "blacksmithing",
   calcMode = "formula",
@@ -2308,8 +2310,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   notes = "",
   rankVariants = {
     lowest = {
-      defaultStartingAmount = 6000.000000,
-      defaultCrafts = 1000.000000,
+      defaultStartingAmount = 600.000000,
+      defaultCrafts = 100.000000,
       outputs = {
         {
           itemRef = "Gloaming Alloy",
@@ -2340,8 +2342,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       },
     },
     highest = {
-      defaultStartingAmount = 6000.000000,
-      defaultCrafts = 1000.000000,
+      defaultStartingAmount = 600.000000,
+      defaultCrafts = 100.000000,
       outputs = {
         {
           itemRef = "Gloaming Alloy",
@@ -2420,7 +2422,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Blacksmithing",
   sourceBlock = "J4",
   defaultStartingAmount = 6000.000000,
-  defaultCrafts = 100.000000,
+  defaultCrafts = 1000.000000,
   formulaProfile = "blacksmithing",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2435,7 +2437,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Sterling Alloy",
           itemIDs = { 238204, 238205 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 142.891196,
+          workbookExpectedQty = 1428.911961,
         },
       },
       reagents = {
@@ -2443,25 +2445,25 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Brilliant Silver Ore",
           itemIDs = { 237364 },
           qtyPerCraft = 6.000000,
-          workbookTotalQty = 600.000000,
+          workbookTotalQty = 6000.000000,
         },
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
           qtyPerCraft = 4.000000,
-          workbookTotalQty = 400.000000,
+          workbookTotalQty = 4000.000000,
         },
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238197 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 300.000000,
+          workbookTotalQty = 3000.000000,
         },
       },
     },
     highest = {
-      defaultStartingAmount = 6000.000000,
-      defaultCrafts = 1000.000000,
+      defaultStartingAmount = 600.000000,
+      defaultCrafts = 100.000000,
       outputs = {
         {
           itemRef = "Sterling Alloy",
@@ -2504,7 +2506,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 238204, 238205 },
       baseYieldPerCraft = 1.000000,
       baseYield = 0.166667,
-      workbookExpectedQty = 142.891196,
+      workbookExpectedQty = 1428.911961,
     },
   },
   reagents = {
@@ -2513,21 +2515,21 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 237364 },
       qtyPerCraft = 6.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 600.000000,
+      workbookTotalQty = 6000.000000,
     },
     {
       itemRef = "Luminant Flux",
       itemIDs = { 243060 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 0.666667,
-      workbookTotalQty = 400.000000,
+      workbookTotalQty = 4000.000000,
     },
     {
       itemRef = "Refulgent Copper Ingot",
       itemIDs = { 238197 },
       qtyPerCraft = 3.000000,
       qtyPerStart = 0.500000,
-      workbookTotalQty = 300.000000,
+      workbookTotalQty = 3000.000000,
     },
   },
 }
@@ -2540,7 +2542,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Engineering",
   sourceBlock = "K5",
   defaultStartingAmount = 5000.000000,
-  defaultCrafts = 5000.000000,
+  defaultCrafts = 1000.000000,
   formulaProfile = "engineering_recycling",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2550,7 +2552,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Evercore",
       itemIDs = { 243581, 243582 },
-      baseYieldPerCraft = 0.600000,
+      baseYieldPerCraft = 3.000000,
       baseYield = 0.600000,
       workbookExpectedQty = 3557.031065,
     },
@@ -2559,9 +2561,10 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Argentleaf Pigment",
       itemIDs = { 245803, 245804 },
-      qtyPerCraft = 1.000000,
+      qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
+      skipDerivation = true,
     },
   },
 }
@@ -2574,7 +2577,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Engineering",
   sourceBlock = "G17",
   defaultStartingAmount = 5000.000000,
-  defaultCrafts = 5000.000000,
+  defaultCrafts = 1000.000000,
   formulaProfile = "engineering_recycling",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2584,7 +2587,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Evercore",
       itemIDs = { 243581, 243582 },
-      baseYieldPerCraft = 0.600000,
+      baseYieldPerCraft = 3.000000,
       baseYield = 0.600000,
       workbookExpectedQty = 3557.031065,
     },
@@ -2593,9 +2596,10 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Bright Linen Bolt",
       itemIDs = { 239700, 239701 },
-      qtyPerCraft = 1.000000,
+      qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
+      skipDerivation = true,
     },
   },
 }
@@ -2608,7 +2612,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Engineering",
   sourceBlock = "C17",
   defaultStartingAmount = 5000.000000,
-  defaultCrafts = 5000.000000,
+  defaultCrafts = 1000.000000,
   formulaProfile = "engineering_recycling",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2618,7 +2622,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Aetherlume",
       itemIDs = { 243578, 243579 },
-      baseYieldPerCraft = 0.600000,
+      baseYieldPerCraft = 3.000000,
       baseYield = 0.600000,
       workbookExpectedQty = 3557.031065,
     },
@@ -2627,9 +2631,10 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Codified Azeroot",
       itemIDs = { 245764, 245765 },
-      qtyPerCraft = 1.000000,
+      qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
+      skipDerivation = true,
     },
   },
 }
@@ -2642,7 +2647,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Engineering",
   sourceBlock = "G5",
   defaultStartingAmount = 5000.000000,
-  defaultCrafts = 5000.000000,
+  defaultCrafts = 1000.000000,
   formulaProfile = "engineering_recycling",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2652,7 +2657,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Aetherlume",
       itemIDs = { 243578, 243579 },
-      baseYieldPerCraft = 0.600000,
+      baseYieldPerCraft = 3.000000,
       baseYield = 0.600000,
       workbookExpectedQty = 3557.031065,
     },
@@ -2661,9 +2666,10 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Imbued Bright Linen Bolt",
       itemIDs = { 239702, 239703 },
-      qtyPerCraft = 1.000000,
+      qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
+      skipDerivation = true,
     },
   },
 }
@@ -2676,7 +2682,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   sourceTab = "Engineering",
   sourceBlock = "C5",
   defaultStartingAmount = 5000.000000,
-  defaultCrafts = 5000.000000,
+  defaultCrafts = 1000.000000,
   formulaProfile = "engineering_recycling",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2686,7 +2692,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Evercore",
       itemIDs = { 243581, 243582 },
-      baseYieldPerCraft = 0.600000,
+      baseYieldPerCraft = 3.000000,
       baseYield = 0.600000,
       workbookExpectedQty = 3557.031065,
     },
@@ -2695,9 +2701,10 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Powder Pigment",
       itemIDs = { 245807, 245808 },
-      qtyPerCraft = 1.000000,
-      qtyPerStart = 5.000000,
+      qtyPerCraft = 5.000000,
+      qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
+      skipDerivation = true,
     },
   },
 }

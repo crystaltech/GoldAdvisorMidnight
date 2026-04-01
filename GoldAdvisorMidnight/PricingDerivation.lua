@@ -18,17 +18,19 @@ local function HasRequiredDeps(deps)
 end
 
 -- ===== Pigment -> herb mapping for "Mill Own Herbs" cost mode =====
--- Maps each pigment itemID -> { herbIDs, yieldPerHerb }
--- yieldPerHerb = output.qtyMultiplier (1.53) / reagent.qtyMultiplier (1.0)
+-- Maps each pigment itemID -> { herbIDs, yieldPerHerb, formulaProfile }.
+-- yieldPerHerb stores the sheet base yield before workbook stat scaling.
+-- Inscription milling uses 13 pigments per 10 herbs => 1.3 base yield/herb,
+-- with resourcefulness applied by the insc_milling profile.
 local PIGMENT_MILL_MAP = {
-    [245807] = { herbIDs = {236761,236767}, yieldPerHerb = 1.530000 }, -- Powder Pigment Q1
-    [245808] = { herbIDs = {236761,236767}, yieldPerHerb = 1.530000 }, -- Powder Pigment Q2
-    [245803] = { herbIDs = {236776,236777}, yieldPerHerb = 1.530000 }, -- Argentleaf Pigment Q1
-    [245804] = { herbIDs = {236776,236777}, yieldPerHerb = 1.530000 }, -- Argentleaf Pigment Q2
-    [245867] = { herbIDs = {236778,236779}, yieldPerHerb = 1.530000 }, -- Mana Lily Pigment Q1
-    [245866] = { herbIDs = {236778,236779}, yieldPerHerb = 1.530000 }, -- Mana Lily Pigment Q2
-    [245865] = { herbIDs = {236770,236771}, yieldPerHerb = 1.530000 }, -- Sanguithorn Pigment Q1
-    [245864] = { herbIDs = {236770,236771}, yieldPerHerb = 1.530000 }, -- Sanguithorn Pigment Q2
+    [245807] = { herbIDs = {236761,236767}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Powder Pigment Q1
+    [245808] = { herbIDs = {236761,236767}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Powder Pigment Q2
+    [245803] = { herbIDs = {236776,236777}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Argentleaf Pigment Q1
+    [245804] = { herbIDs = {236776,236777}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Argentleaf Pigment Q2
+    [245867] = { herbIDs = {236778,236779}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Mana Lily Pigment Q1
+    [245866] = { herbIDs = {236778,236779}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Mana Lily Pigment Q2
+    [245865] = { herbIDs = {236770,236771}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Sanguithorn Pigment Q1
+    [245864] = { herbIDs = {236770,236771}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Sanguithorn Pigment Q2
 }
 
 -- Crafted reagent cost derivations for "craft your own" reagent modes.
@@ -83,8 +85,9 @@ local CRAFTED_REAGENT_MAP = {
         yield = 0.333333,
         formulaProfile = "blacksmithing",
     },
-    -- Sienna Ink Q1: 20xPP + 10xArgentleaf Pigment + 5xMana Lily Pigment + 3xSongwater -> 2 inks (base)
-    -- Normalized per 1 PP unit: AP=0.5, MLP=0.25, TS=0.15; yield includes MC/RS stats from workbook
+    -- Sienna Ink Q1: sheet pricing omits Songwater from the expected-value math.
+    -- Costing therefore mirrors the live workbook C29/C31 formulas: pigments only.
+    -- Base yield is 2/20 = 0.1 inks per normalized PP unit before insc_ink stats.
     -- Activates automatically when pigmentCostSource == "mill" (no separate "craft own inks" checkbox needed)
     [245805] = {
         optionKey  = "pigmentCostSource",
@@ -93,9 +96,9 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
             { itemIDs = { 245803, 245804 }, qty = 0.500000 }, -- Argentleaf Pigment
             { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
-            { itemIDs = { 245882 },         qty = 0.150000 }, -- Thalassian Songwater
         },
-        yield = 0.178077,
+        yield = 0.100000,
+        formulaProfile = "insc_ink",
     },
     [245806] = { -- Sienna Ink Q2 -- same recipe
         optionKey  = "pigmentCostSource",
@@ -104,11 +107,11 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 },
             { itemIDs = { 245803, 245804 }, qty = 0.500000 },
             { itemIDs = { 245867, 245866 }, qty = 0.250000 },
-            { itemIDs = { 245882 },         qty = 0.150000 },
         },
-        yield = 0.178077,
+        yield = 0.100000,
+        formulaProfile = "insc_ink",
     },
-    -- Munsell Ink Q1: 20xPP + 10xSanguithorn Pigment + 5xMana Lily Pigment + 3xSongwater -> 2 inks (base)
+    -- Munsell Ink Q1: sheet pricing omits Songwater from the expected-value math.
     [245801] = {
         optionKey  = "pigmentCostSource",
         modeValue  = "mill",
@@ -116,9 +119,9 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
             { itemIDs = { 245865, 245864 }, qty = 0.500000 }, -- Sanguithorn Pigment
             { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
-            { itemIDs = { 245882 },         qty = 0.150000 }, -- Thalassian Songwater
         },
-        yield = 0.178077,
+        yield = 0.100000,
+        formulaProfile = "insc_ink",
     },
     [245802] = { -- Munsell Ink Q2 -- same recipe
         optionKey  = "pigmentCostSource",
@@ -127,9 +130,9 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 },
             { itemIDs = { 245865, 245864 }, qty = 0.500000 },
             { itemIDs = { 245867, 245866 }, qty = 0.250000 },
-            { itemIDs = { 245882 },         qty = 0.150000 },
         },
-        yield = 0.178077,
+        yield = 0.100000,
+        formulaProfile = "insc_ink",
     },
 }
 
@@ -146,7 +149,7 @@ function Derivation.GetAnyCraftInfo()
 end
 
 function Derivation.GetEffectiveCraftYield(craftInfo)
-    local baseYield = craftInfo and craftInfo.yield
+    local baseYield = craftInfo and (craftInfo.yield or craftInfo.yieldPerHerb)
     if not baseYield then
         return 0
     end
@@ -183,17 +186,20 @@ function Derivation.GetMillDerivedPigmentCost(itemID, patchTag, pigmentQty, deps
         return nil, false
     end
 
-    local herbQty = (pigmentQty and pigmentQty > 0 and info.yieldPerHerb and info.yieldPerHerb > 0)
-        and math.ceil(pigmentQty / info.yieldPerHerb) or nil
+    local effectiveYield = Derivation.GetEffectiveCraftYield(info)
+    if effectiveYield <= 0 then
+        return nil, false
+    end
+
     local bestPrice, isStale = nil, false
     local hid = deps.PickItemID(info.herbIDs, patchTag)
     if hid then
-        bestPrice, isStale = deps.GetEffectivePrice(hid, patchTag, herbQty)
+        bestPrice, isStale = deps.GetEffectivePrice(hid, patchTag, nil)
     end
     if not bestPrice then
         for _, fid in ipairs(info.herbIDs) do
             if fid ~= hid then
-                local p, s = deps.GetEffectivePrice(fid, patchTag, herbQty)
+                local p, s = deps.GetEffectivePrice(fid, patchTag, nil)
                 if p then
                     bestPrice = p
                     isStale = isStale or (s or false)
@@ -206,7 +212,7 @@ function Derivation.GetMillDerivedPigmentCost(itemID, patchTag, pigmentQty, deps
         return nil, false
     end
 
-    return math.floor(bestPrice / info.yieldPerHerb + 0.5), isStale
+    return math.floor(bestPrice / effectiveYield + 0.5), isStale
 end
 
 function Derivation.GetPreferredIngredientPrice(itemIDs, patchTag, qty, deps)
@@ -262,9 +268,7 @@ function Derivation.GetCraftDerivedReagentCost(itemID, patchTag, outputQty, deps
 
     local totalCost, anyStale = 0, false
     for _, ingredient in ipairs(info.ingredients) do
-        local ingQty = (outputQty and outputQty > 0)
-            and math.ceil(ingredient.qty * outputQty / effectiveYield) or nil
-        local unitPrice, isStale = Derivation.GetPreferredIngredientPrice(ingredient.itemIDs, patchTag, ingQty, deps)
+        local unitPrice, isStale = Derivation.GetPreferredIngredientPrice(ingredient.itemIDs, patchTag, nil, deps)
         if not unitPrice then
             return nil, false
         end
@@ -307,7 +311,11 @@ function Derivation.ExpandReagentThroughChain(itemIDs, qty, patchTag, deps, dept
 
     local millInfo = PIGMENT_MILL_MAP[picked]
     if millInfo and GetOpts().pigmentCostSource == "mill" then
-        local herbQty = qty / millInfo.yieldPerHerb
+        local effectiveYield = Derivation.GetEffectiveCraftYield(millInfo)
+        if effectiveYield <= 0 then
+            return {{ itemIDs = itemIDs, qty = qty }}
+        end
+        local herbQty = qty / effectiveYield
         return {{ itemIDs = millInfo.herbIDs, qty = herbQty }}
     end
 

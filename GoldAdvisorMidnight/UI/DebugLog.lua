@@ -185,7 +185,9 @@ end
 -- ===== ARP Export =====
 -- Produces a CSV-style block matching the AverageReagentPrice addon export format.
 -- Format: ItemName, Rank 1, X.XX, Rank 2, X.XX, Rank 3, X.XX
--- X.XX = copper / 10000, 2 decimal places, English decimal. No AH cut applied.
+-- Price = copper / 10000, exported to 4 decimal places so the sheet receives
+-- exact copper precision and can reproduce addon Profit/ROI without rounding drift.
+-- No AH cut applied.
 local function GenerateARPExport()
     if not (GAM.Importer and GAM.Importer.GetAllStrats) then
         return "-- Importer not ready"
@@ -275,7 +277,7 @@ local function GenerateARPExport()
                 local itemID = rankMap[rankIdx]
                 local price = itemID and GAM.Pricing.GetEffectivePrice(itemID, patchTag)
                 parts[#parts + 1] = "Rank " .. rankIdx
-                parts[#parts + 1] = (price and price > 0) and string.format("%.2f", price / 10000) or "0.00"
+                parts[#parts + 1] = (price and price > 0) and string.format("%.4f", price / 10000) or "0.0000"
             end
             lines[#lines + 1] = table.concat(parts, ", ")
         end

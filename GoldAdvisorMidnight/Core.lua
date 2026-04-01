@@ -219,6 +219,51 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        -- dataVersion 12: Split Engineering stat keys and carry forward stale
+        -- workbook-baseline defaults to the live-sheet baseline without
+        -- overwriting user-customized values.
+        dataVersion = 12,
+        migrate = function(db)
+            if type(db.options) ~= "table" then
+                return
+            end
+
+            local opts = db.options
+            local function approxEqual(value, expected)
+                local num = tonumber(value)
+                return num ~= nil and math.abs(num - expected) < 0.001
+            end
+
+            if opts.engRes ~= nil then
+                if opts.engRecycleRes == nil or approxEqual(opts.engRecycleRes, GAM.C.DEFAULT_ENG_RECYCLE_RES) then
+                    opts.engRecycleRes = opts.engRes
+                end
+                if opts.engCraftRes == nil or approxEqual(opts.engCraftRes, GAM.C.DEFAULT_ENG_CRAFT_RES) then
+                    opts.engCraftRes = opts.engRes
+                end
+            end
+
+            if opts.engMulti ~= nil then
+                if opts.engCraftMulti == nil or approxEqual(opts.engCraftMulti, GAM.C.DEFAULT_ENG_CRAFT_MULTI) then
+                    opts.engCraftMulti = opts.engMulti
+                end
+            end
+
+            opts.engRes = nil
+            opts.engMulti = nil
+
+            if approxEqual(opts.inscInkMulti, 25.9) then
+                opts.inscInkMulti = 29.7
+            end
+            if approxEqual(opts.lwMulti, 28.2) then
+                opts.lwMulti = 32.0
+            end
+            if approxEqual(opts.jcCrushRes, 35.0) then
+                opts.jcCrushRes = 33.0
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)
@@ -914,4 +959,3 @@ GAM.UI = GAM.UI or {}
 function GAM:GetActiveMainWindow()
     return self.UI.MainWindowV2
 end
-

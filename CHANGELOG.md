@@ -1,5 +1,12 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.18] — 2026-04-01
+
+### Bug Fixes / Parity
+- **Workbook parity completed across shipped sheet-backed professions** — Alchemy, Blacksmithing, Enchanting, Engineering, Inscription, Jewelcrafting, Leatherworking, and Tailoring now match the live spreadsheet baseline aside from the intentional Dazzling ranked-ID runtime exception.
+- **Rank-path and baseline repairs** — Fixed mis-scaled craft/start amounts in Blacksmithing and Alchemy, restored correct ranked output/reagent handling for Enchanting oils and shatters, and locked Engineering recycling to direct sheet prices even when vertical integration is enabled.
+- **Vendor baseline alignment** — Added vendor-priced reagent handling for `Silverleaf Thread` and `Luminant Flux` using the spreadsheet’s lowest-cost baseline assumptions.
+
 ## [1.7.17] — 2026-04-01
 
 ### Data
