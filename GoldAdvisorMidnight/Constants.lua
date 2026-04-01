@@ -15,8 +15,8 @@ local function ProfileDefault(profileKey, field, fallback)
 end
 
 GAM.C = {
-    ADDON_VERSION        = "1.7.17",
-    DATA_VERSION         = 11,
+    ADDON_VERSION        = "1.7.18",
+    DATA_VERSION         = 12,
     DEFAULT_PATCH        = "midnight-1",
 
     -- Base crafting-stat multipliers (game-level, before talent/spec node bonuses)
@@ -56,7 +56,7 @@ GAM.C = {
     DEFAULT_INSC_INK_RES       = ProfileDefault("insc_ink", "defaultRes", 16.1),
     -- Jewelcrafting
     DEFAULT_JC_PROSPECT_RES    = ProfileDefault("jc_prospect", "defaultRes", 33),
-    DEFAULT_JC_CRUSH_RES       = 35,   -- Resourcefulness % for JC crushing
+    DEFAULT_JC_CRUSH_RES       = ProfileDefault("jc_crush", "defaultRes", 33.0),
     DEFAULT_JC_CRAFT_MULTI     = ProfileDefault("jc_craft", "defaultMulti", 29.5),
     DEFAULT_JC_CRAFT_RES       = ProfileDefault("jc_craft", "defaultRes", 33.0),
     -- Enchanting
@@ -113,5 +113,7 @@ GAM.C = {
     VENDOR_PRICES = {
         [245881] = 2105,   -- Lexicologist's Vellum (21s 5c)
         [245882] = 3595,   -- Thalassian Songwater  (35s 95c)
+        [243060] = 5000,   -- Luminant Flux         (50s)
+        [251665] = 5000,   -- Silverleaf Thread     (50s)
     },
 }
