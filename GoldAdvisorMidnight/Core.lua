@@ -926,7 +926,14 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             scanOK, scanErr = false, "AH scan smoke checks unavailable"
         end
 
-        if pricingOK and scanOK then
+        local stateOK, stateErr
+        if GAM.State and GAM.State.RunSmokeChecks then
+            stateOK, stateErr = GAM.State.RunSmokeChecks()
+        else
+            stateOK, stateErr = false, "State smoke checks unavailable"
+        end
+
+        if pricingOK and scanOK and stateOK then
             print("|cffff8800[GAM]|r Smoke tests passed.")
         else
             if not pricingOK then
@@ -934,6 +941,9 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             end
             if not scanOK then
                 print("|cffff0000[GAM]|r AH scan smoke test failed: " .. tostring(scanErr))
+            end
+            if not stateOK then
+                print("|cffff0000[GAM]|r State smoke test failed: " .. tostring(stateErr))
             end
         end
     elseif cmd == "create" then

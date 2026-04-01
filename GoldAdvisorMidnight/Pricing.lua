@@ -71,6 +71,8 @@ local function GetActiveRecipeView(strat)
     }
 end
 
+local GetInputRankPolicy, PickItemID
+
 -- Public helper so non-pricing helpers (scan buttons, exports, CraftSim push)
 -- can use the same rank-policy-resolved reagent/output set as pricing.
 function Pricing.GetActiveRecipeView(strat)
@@ -84,6 +86,7 @@ function Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
     local active = GetActiveRecipeView(strat)
     if not active then return nil end
     local reagentItems = {}
+    local inputPolicy = GetInputRankPolicy and GetInputRankPolicy(strat) or ((GetOpts().rankPolicy or "lowest"))
     if metrics and metrics.reagents and #metrics.reagents > 0 then
         for _, r in ipairs(metrics.reagents) do
             reagentItems[#reagentItems + 1] = {
@@ -93,8 +96,10 @@ function Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
         end
     else
         for _, reagent in ipairs(active.reagents or {}) do
+            local reagentIDs = reagent.itemIDs or {}
+            local pickedID = PickItemID and PickItemID(reagentIDs, patchTag, inputPolicy) or nil
             reagentItems[#reagentItems + 1] = {
-                itemIDs = reagent.itemIDs or {},
+                itemIDs = pickedID and { pickedID } or reagentIDs,
                 name = GetItemLabel(reagent),
             }
         end
@@ -235,13 +240,23 @@ end
 local DERIVATION_DEPS = {}
 local ResolveCheapestAlternative
 
+GetInputRankPolicy = function(strat)
+    if strat and strat.qualityPolicy == "force_q1_inputs" then
+        return "lowest"
+    end
+    if strat and strat.qualityPolicy == "force_q2_inputs" then
+        return "highest"
+    end
+    return GetOpts().rankPolicy or "lowest"
+end
+
 -- Pick best itemID from a list according to rankPolicy.
 -- Uses C_TradeSkillUI.GetItemReagentQualityByItemInfo to sort by actual crafting
 -- quality rather than array position (array order is not guaranteed to be Q1-first).
-local function PickItemID(itemIDs, patchTag)
+PickItemID = function(itemIDs, patchTag, policyOverride)
     if not itemIDs or #itemIDs == 0 then return nil end
     if #itemIDs == 1 then return itemIDs[1] end
-    local policy = GetOpts().rankPolicy or "lowest"
+    local policy = policyOverride or GetOpts().rankPolicy or "lowest"
 
     -- Build quality-aware sorted list
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
@@ -437,7 +452,7 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
     -- Pick rank-policy ID FIRST so mill/craft derivation honours R1/R2 selection.
     -- (Previously the loop checked ids in array order and could pick R1 even when
     -- R2 Mats was selected because R1's entry appeared first in the array.)
-    local picked = PickItemID(ids, patchTag)
+    local picked = PickItemID(ids, patchTag, item.rankPolicyOverride)
     if not picked then return nil, false end
 
     if not item.skipDerivation then
@@ -718,6 +733,58 @@ function Pricing.RunSmokeChecks()
                     table.concat(dustIDs, ",")))
         end)
         assert(phoenixDustOK, phoenixDustErr)
+
+        local originalGetOptions = GAM.GetOptions
+        local originalCraftUIForDrums = C_TradeSkillUI
+        local originalGetEffectivePriceForDrums = Pricing.GetEffectivePrice
+        local drumsRankOK, drumsRankErr = pcall(function()
+            C_TradeSkillUI = {
+                GetItemReagentQualityByItemInfo = function(itemID)
+                    return ({
+                        [238511] = 1,
+                        [238512] = 2,
+                        [238513] = 1,
+                        [238514] = 2,
+                    })[itemID]
+                end,
+            }
+            GAM.GetOptions = function()
+                return {
+                    rankPolicy = "highest",
+                    lwMulti = 32.0,
+                    lwRes = 14.9,
+                }
+            end
+            Pricing.GetEffectivePrice = function(itemID)
+                return ({
+                    [236952] = 8100,
+                    [238525] = 5280357,
+                    [238522] = 1319835,
+                    [238511] = 49400,
+                    [238512] = 620000,
+                    [238513] = 167500,
+                    [238514] = 480000,
+                })[itemID], false
+            end
+
+            local drums = GAM.Importer and GAM.Importer.GetStratByID
+                and GAM.Importer.GetStratByID("leatherworking__void_touched_drums__midnight_1") or nil
+            assert(drums and drums.qualityPolicy == "force_q1_inputs", "void-touched drums strat unavailable")
+
+            local ctx = BuildCalcContext(
+                drums, GetActiveRecipeView(drums), GAM.C.DEFAULT_PATCH, 1, GAM.GetOptions(),
+                GetPatchDB(GAM.C.DEFAULT_PATCH), GAM.C.AH_CUT)
+            local missing = {}
+            local reagents = BuildReagentMetrics(ctx, missing)
+            assert((reagents.reagentResults[4] and reagents.reagentResults[4].itemID) == 238511,
+                "Void-Touched Drums must force Q1 Void-Tempered Leather")
+            assert((reagents.reagentResults[5] and reagents.reagentResults[5].itemID) == 238513,
+                "Void-Touched Drums must force Q1 Void-Tempered Scales")
+        end)
+        GAM.GetOptions = originalGetOptions
+        C_TradeSkillUI = originalCraftUIForDrums
+        Pricing.GetEffectivePrice = originalGetEffectivePriceForDrums
+        assert(drumsRankOK, drumsRankErr)
 
         if GAM.Importer and GAM.Importer.GetStratByID then
             local crushing = GAM.Importer.GetStratByID("jewelcrafting__crushing__midnight_1")
@@ -1324,7 +1391,8 @@ local function BuildMergedReagentMap(ctx)
         local required = GetRequiredReagentAmount(reagent, ctx.startingAmt, ctx.crafts)
         local reagentIDs = GetResolvedReagentItemIDs(reagent, ctx.pdb)
         local reagentName = GetItemLabel(reagent)
-        local key = PickItemID(reagentIDs, ctx.patchTag) or (reagentIDs and reagentIDs[1]) or reagentName
+        local inputPolicy = GetInputRankPolicy(ctx.strat)
+        local key = PickItemID(reagentIDs, ctx.patchTag, inputPolicy) or (reagentIDs and reagentIDs[1]) or reagentName
         AddMergedReagentEntry(
             mergedMap, mergedOrder, key, reagentIDs, required, reagentName,
             reagent.cheapestOf, reagent.excludeFromCost, reagent.skipDerivation)
@@ -1339,6 +1407,7 @@ ResolveCheapestAlternative = function(entry, ctx, required)
     end
 
     local best = nil
+    local inputPolicy = GetInputRankPolicy(ctx.strat)
     for _, alt in ipairs(entry.cheapestOf) do
         local altIDs = alt.itemIDs
         if (not altIDs or #altIDs == 0) and alt.itemRef then
@@ -1348,10 +1417,11 @@ ResolveCheapestAlternative = function(entry, ctx, required)
         if altIDs and #altIDs > 0 then
             -- Compare alternatives within the active rank policy so an R2 pool
             -- chooses the cheapest R2 reagent, not the cheapest reagent of any rank.
-            local pickedAltID = PickItemID(altIDs, ctx.patchTag)
+            local pickedAltID = PickItemID(altIDs, ctx.patchTag, inputPolicy)
             local altPrice, altStale = Pricing.GetEffectivePriceForItem({
                 itemIDs = pickedAltID and { pickedAltID } or altIDs,
                 name = alt.itemRef,
+                rankPolicyOverride = inputPolicy,
             }, ctx.patchTag, required)
             if altPrice and pickedAltID and (not best or altPrice < best.price) then
                 best = {
@@ -1363,11 +1433,11 @@ ResolveCheapestAlternative = function(entry, ctx, required)
                 }
             end
         else
-            local altProxy = { itemIDs = altIDs or {}, name = alt.itemRef }
+            local altProxy = { itemIDs = altIDs or {}, name = alt.itemRef, rankPolicyOverride = inputPolicy }
             local altPrice, altStale = Pricing.GetEffectivePriceForItem(altProxy, ctx.patchTag, required)
             if altPrice and (not best or altPrice < best.price) then
                 best = {
-                    itemID = PickItemID(altIDs, ctx.patchTag),
+                    itemID = PickItemID(altIDs, ctx.patchTag, inputPolicy),
                     itemIDs = altIDs,
                     name = alt.itemRef,
                     price = altPrice,
@@ -1421,6 +1491,7 @@ local function BuildReagentMetrics(ctx, missingPrices)
     local totalCostRequired = 0
     local hasStale = false
     local selectionNotes = {}
+    local inputPolicy = GetInputRankPolicy(ctx.strat)
 
     for _, key in ipairs(mergedOrder) do
         local entry = mergedMap[key]
@@ -1439,18 +1510,19 @@ local function BuildReagentMetrics(ctx, missingPrices)
                 stale = resolved.stale
             else
                 entryIDs = entry.itemIDs
-                itemID = PickItemID(entryIDs, ctx.patchTag)
+                itemID = PickItemID(entryIDs, ctx.patchTag, inputPolicy)
                 displayName = entry.name
                 price = nil
                 stale = false
             end
         else
-            itemID      = PickItemID(entryIDs, ctx.patchTag)
+            itemID      = PickItemID(entryIDs, ctx.patchTag, inputPolicy)
             displayName = entry.name
             local itemProxy = {
-                itemIDs = entryIDs,
+                itemIDs = itemID and { itemID } or entryIDs,
                 name = entry.name,
                 skipDerivation = entry.skipDerivation and true or false,
+                rankPolicyOverride = inputPolicy,
             }
             price, stale = Pricing.GetEffectivePriceForItem(itemProxy, ctx.patchTag, required)
         end
@@ -1529,7 +1601,7 @@ local function GetPrimaryInputQuality(ctx)
         if not (reagentIDs and #reagentIDs > 0) then
             return nil
         end
-        pickedID = PickItemID(reagentIDs, ctx.patchTag)
+        pickedID = PickItemID(reagentIDs, ctx.patchTag, GetInputRankPolicy(ctx.strat))
     end
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
     if api and pickedID then
