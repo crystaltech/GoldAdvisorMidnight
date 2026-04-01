@@ -211,11 +211,18 @@ local SelectStrategyByID
 
 -- ===== Helpers =====
 local function IsFavorite(id)
+    if GAM.State and GAM.State.IsFavorite then
+        return GAM.State.IsFavorite(id, filterPatch, GetOpts().rankPolicy)
+    end
     local pdb = GAM:GetPatchDB(filterPatch)
     return pdb.favorites and pdb.favorites[id]
 end
 
 local function ToggleFavorite(id)
+    if GAM.State and GAM.State.ToggleFavorite then
+        GAM.State.ToggleFavorite(id, filterPatch, GetOpts().rankPolicy)
+        return
+    end
     local pdb = GAM:GetPatchDB(filterPatch)
     pdb.favorites = pdb.favorites or {}
     if pdb.favorites[id] then
@@ -678,7 +685,7 @@ local function SafeBuildSection(label, fn)
 end
 
 local function StratMatchesFilter(strat)
-    return Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingle)
+    return Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingle, GetOpts().rankPolicy)
 end
 
 local function GetActiveColumnConfig()
@@ -1057,6 +1064,18 @@ RebuildList = function()
         if sortAsc then return fn(a, b) else return fn(b, a) end
     end)
     filteredList = out
+    if selectedStratID then
+        local stillVisible = false
+        for _, s in ipairs(filteredList) do
+            if s.id == selectedStratID then
+                stillVisible = true
+                break
+            end
+        end
+        if not stillVisible then
+            selectedStratID = nil
+        end
+    end
     for _, s in ipairs(filteredList) do
         GetListMetric(s)
     end
