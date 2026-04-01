@@ -54,8 +54,9 @@ local DB_DEFAULTS = {
         bsRes            = GAM.C.DEFAULT_BS_RES,
         lwMulti          = GAM.C.DEFAULT_LW_MULTI,
         lwRes            = GAM.C.DEFAULT_LW_RES,
-        engMulti         = GAM.C.DEFAULT_ENG_MULTI,
-        engRes           = GAM.C.DEFAULT_ENG_RES,
+        engRecycleRes    = GAM.C.DEFAULT_ENG_RECYCLE_RES,
+        engCraftMulti    = GAM.C.DEFAULT_ENG_CRAFT_MULTI,
+        engCraftRes      = GAM.C.DEFAULT_ENG_CRAFT_RES,
         -- Per-profession spec node bonuses (percent values; default = value baked into spreadsheet)
         -- Used by CalculateStratMetrics to scale from the spreadsheet's baked-in stats
         -- to the user's actual spec tree allocation.
@@ -73,8 +74,8 @@ local DB_DEFAULTS = {
         tailRsNode       = ProfileDefault("tailoring", "defaultRsNode", 50),
         bsMcNode         = ProfileDefault("blacksmithing", "defaultMcNode", 0),
         bsRsNode         = ProfileDefault("blacksmithing", "defaultRsNode", 0),
-        engMcNode        = ProfileDefault("engineering", "defaultMcNode", 50),
-        engRsNode        = ProfileDefault("engineering", "defaultRsNode", 50),
+        engMcNode        = ProfileDefault("engineering_craft", "defaultMcNode", 100),
+        engRsNode        = ProfileDefault("engineering_craft", "defaultRsNode", 45),
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         v2Theme             = "classic",

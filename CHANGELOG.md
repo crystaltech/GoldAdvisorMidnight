@@ -1,5 +1,18 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.17] — 2026-04-01
+
+### Data
+- Regenerated from live Google Sheet (2026-04-01 export) — Songwater ingredient quantities, Crystalline Glass item ID, Enchanting shatter outputs, and Engineering baselines updated.
+
+### Bug Fixes / Parity
+- **Spreadsheet-parity rollback for formula math** — formula profiles now use sheet-authoritative fixed `sheetMCm`/`sheetRs` multipliers instead of mutable node-derived values, bringing runtime math to 1:1 parity with the live sheet at default stat inputs.
+- **`insc_ink` baseline corrected** — Multi updated from 25.9 % → 29.7 % to match live sheet (Inscription!A18).
+- **`leatherworking` baseline corrected** — Multi updated from 28.2 % → 32.0 % to match live sheet (Leatherworking!A18).
+- **Engineering profiles split** — `engineering` replaced by `engineering_recycling` (no multi, 36 % Res, sheetRs=0.435) and `engineering_craft` (31.1 % Multi, 20.4 % Res, sheetMCm=2.5, sheetRs=0.435); strategies reassigned by source-block group.
+- **CraftSim node sync temporarily disabled** — node influence is mathematically inert; node SavedVariables are preserved for future re-enablement.
+- **Parity smoke checks added** — `/gam smoketest` now verifies formula profiles against live-sheet expected quantities for Engineering recycling (C11=3557.031), craft (C56=1950.596), and O37 (975.298), plus asserts insc_ink/LW baseline values.
+
 ## [1.7.16] — 2026-03-31
 
 ### Bug Fixes

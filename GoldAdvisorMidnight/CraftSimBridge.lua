@@ -179,8 +179,8 @@ local PROF_KEY_TO_FIELDS = {
         rsNodeField = "lwRsNode",
     },
     eng = {
-        multiFields = { "engMulti" },
-        resFields = { "engRes" },
+        multiFields = { "engCraftMulti" },
+        resFields = { "engRecycleRes", "engCraftRes" },
         mcNodeField = "engMcNode",
         rsNodeField = "engRsNode",
     },
@@ -401,11 +401,10 @@ function Bridge.SyncOptionsFromCraftSim()
 end
 
 -- SyncNodeBonusesFromCraftSim() → count (number of professions updated)
--- Reads CraftSim spec data and updates per-profession node bonus DB fields.
--- Returns 0 if CraftSim data is unavailable.
+-- Temporarily disabled for spreadsheet parity: node influence is mathematically
+-- inert until parity is verified and node support is re-enabled.
 function Bridge.SyncNodeBonusesFromCraftSim()
-    local count = Bridge.SyncOptionsFromCraftSim()
-    return count
+    return 0
 end
 
 -- PushStratPrices(strat, patchTag) → pushed (number), err (string or nil)

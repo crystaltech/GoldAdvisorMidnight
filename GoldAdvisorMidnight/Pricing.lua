@@ -587,6 +587,63 @@ function Pricing.RunSmokeChecks()
 
         local score = Pricing.GetStrategyScore({ profit = 2500, roi = 9, totalCostFull = 1000 })
         assert(type(score) == "number", "strategy score unavailable")
+
+        -- ── Spreadsheet-parity checks ─────────────────────────────────────────
+        -- Verify formula profiles reproduce workbookExpectedQty at default stats.
+        local profiles = GetFormulaProfiles()
+
+        -- insc_ink: live sheet Inscription!A18=29.7 (multi) and A16=16.1 (res)
+        local inkProfile = profiles["insc_ink"]
+        assert(inkProfile, "insc_ink profile missing")
+        assert(math.abs((inkProfile.defaultMulti or 0) - 29.7) < 0.01,
+            string.format("insc_ink defaultMulti parity fail: got %.3f expected 29.7", inkProfile.defaultMulti or 0))
+
+        -- leatherworking: live sheet Leatherworking!A18=32.0
+        local lwProfile = profiles["leatherworking"]
+        assert(lwProfile, "leatherworking profile missing")
+        assert(math.abs((lwProfile.defaultMulti or 0) - 32.0) < 0.01,
+            string.format("leatherworking defaultMulti parity fail: got %.3f expected 32.0", lwProfile.defaultMulti or 0))
+
+        -- Engineering profiles must be split
+        assert(profiles["engineering_recycling"], "engineering_recycling profile missing")
+        assert(profiles["engineering_craft"], "engineering_craft profile missing")
+        assert(not profiles["engineering"], "stale unified engineering profile still present")
+
+        if GAM.Importer and GAM.Importer.GetStratByID then
+            local function checkWorkbookParity(stratID, outputIdx, expectedQty, label)
+                local strat = GAM.Importer.GetStratByID(stratID)
+                if not strat then return end
+                local profileDef = profiles[strat.formulaProfile]
+                if not profileDef then return end
+                local opts = GetOpts()
+                -- Build a default-opts snapshot for this profile so we evaluate at
+                -- spreadsheet baseline stats (independent of the user's saved values).
+                local defaultOpts = {}
+                if profileDef.multiKey then
+                    defaultOpts[profileDef.multiKey] = profileDef.defaultMulti or 0
+                end
+                if profileDef.resKey then
+                    defaultOpts[profileDef.resKey] = profileDef.defaultRes or 0
+                end
+                local ctx = BuildProfileContext(strat, defaultOpts)
+                local outputDef = strat.outputs and strat.outputs[outputIdx]
+                if not outputDef then return end
+                local sa = strat.defaultStartingAmount or 1
+                local cr = strat.defaultCrafts or sa
+                local qty = ComputeOutputQuantity(outputDef, strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, sa, cr)
+                assert(math.abs(qty - expectedQty) <= expectedQty * 0.005,
+                    string.format("Parity %s: got %.4f expected %.4f", label, qty, expectedQty))
+            end
+            -- Engineering!C11 recycling parity
+            checkWorkbookParity("engineering__recycling_argentleaf_pigment__midnight_1", 1, 3557.031065,
+                "Engineering recycling C11")
+            -- Engineering!C56 craft parity
+            checkWorkbookParity("engineering__soul_sprocket__midnight_1", 1, 1950.595878,
+                "Engineering craft C56")
+            -- Engineering!O37 craft parity (500-craft baseline)
+            checkWorkbookParity("engineering__emergency_soul_link__midnight_1", 1, 975.297939,
+                "Engineering craft O37")
+        end
     end)
     return ok, err
 end
@@ -639,10 +696,11 @@ local function BuildProfileContext(strat, opts)
     if strat.calcMode == "formula" and profileDef then
         statMCp = profileDef.multiKey and ((opts[profileDef.multiKey] or 0) / 100) or 0
         statRp = profileDef.resKey and ((opts[profileDef.resKey] or 0) / 100) or 0
-        statMCm_tot = profileDef.multiKey
-            and (GAM.C.BASE_MCM * (1 + ((profileDef.mcNodeKey and (opts[profileDef.mcNodeKey] or 0) or 0) / 100)))
-            or 0
-        statRs_tot = GAM.C.BASE_RS * (1 + ((profileDef.rsNodeKey and (opts[profileDef.rsNodeKey] or 0) or 0) / 100))
+        -- Node influence is temporarily disabled for spreadsheet parity.
+        -- sheetMCm/sheetRs are fixed sheet-authoritative effective multipliers;
+        -- node SavedVariables remain stored but are mathematically inert.
+        statMCm_tot = profileDef.multiKey and (profileDef.sheetMCm or GAM.C.BASE_MCM) or 0
+        statRs_tot = profileDef.sheetRs or GAM.C.BASE_RS
         statDenom = 1 - statRp * statRs_tot
         if statDenom <= 0 then
             statDenom = 1

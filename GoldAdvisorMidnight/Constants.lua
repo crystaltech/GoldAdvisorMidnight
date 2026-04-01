@@ -15,7 +15,7 @@ local function ProfileDefault(profileKey, field, fallback)
 end
 
 GAM.C = {
-    ADDON_VERSION        = "1.7.15",
+    ADDON_VERSION        = "1.7.17",
     DATA_VERSION         = 11,
     DEFAULT_PATCH        = "midnight-1",
 
@@ -52,7 +52,7 @@ GAM.C = {
     -- Milling, Prospecting, Crushing, Shattering: no Multicraft stat (profession window doesn't show it).
     -- Inscription
     DEFAULT_INSC_MILLING_RES   = ProfileDefault("insc_milling", "defaultRes", 30.1),
-    DEFAULT_INSC_INK_MULTI     = ProfileDefault("insc_ink", "defaultMulti", 25.9),
+    DEFAULT_INSC_INK_MULTI     = ProfileDefault("insc_ink", "defaultMulti", 29.7),
     DEFAULT_INSC_INK_RES       = ProfileDefault("insc_ink", "defaultRes", 16.1),
     -- Jewelcrafting
     DEFAULT_JC_PROSPECT_RES    = ProfileDefault("jc_prospect", "defaultRes", 33),
@@ -73,11 +73,12 @@ GAM.C = {
     DEFAULT_BS_MULTI           = ProfileDefault("blacksmithing", "defaultMulti", 27.9),
     DEFAULT_BS_RES             = ProfileDefault("blacksmithing", "defaultRes", 18.7),
     -- Leatherworking
-    DEFAULT_LW_MULTI           = ProfileDefault("leatherworking", "defaultMulti", 28.2),
+    DEFAULT_LW_MULTI           = ProfileDefault("leatherworking", "defaultMulti", 32.0),
     DEFAULT_LW_RES             = ProfileDefault("leatherworking", "defaultRes", 14.9),
-    -- Engineering
-    DEFAULT_ENG_MULTI          = ProfileDefault("engineering", "defaultMulti", 30.467),
-    DEFAULT_ENG_RES            = ProfileDefault("engineering", "defaultRes", 36),
+    -- Engineering (split: recycling has no multi; crafting has separate multi/res)
+    DEFAULT_ENG_RECYCLE_RES    = ProfileDefault("engineering_recycling", "defaultRes", 36.0),
+    DEFAULT_ENG_CRAFT_MULTI    = ProfileDefault("engineering_craft", "defaultMulti", 31.1),
+    DEFAULT_ENG_CRAFT_RES      = ProfileDefault("engineering_craft", "defaultRes", 20.4),
 
     -- UI scale
     DEFAULT_UI_SCALE     = 1.0,    -- frame scale applied to non-settings addon windows/popups
