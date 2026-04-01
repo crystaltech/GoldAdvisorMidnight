@@ -1048,6 +1048,75 @@ function Pricing.RunSmokeChecks()
             end
             checkWorkbookParity("jewelcrafting__crushing__midnight_1", 1, 348.5378743,
                 "Jewelcrafting crushing G23")
+
+            local jcRefulgent = GAM.Importer.GetStratByID("jewelcrafting__refulgent_copper_ore_prospecting__midnight_1")
+            if jcRefulgent then
+                assertNear(jcRefulgent.defaultStartingAmount or 0, 2000.0,
+                    "jc prospect refulgent defaultStartingAmount")
+                assertNear(jcRefulgent.defaultCrafts or 0, 400.0,
+                    "jc prospect refulgent defaultCrafts")
+                assertNear((jcRefulgent.outputs and jcRefulgent.outputs[1] and jcRefulgent.outputs[1].baseYieldPerCraft) or 0,
+                    0.115, "jc prospect refulgent baseYieldPerCraft")
+                assertNear((jcRefulgent.reagents and jcRefulgent.reagents[1] and jcRefulgent.reagents[1].qtyPerStart) or 0,
+                    1.0, "jc prospect refulgent qtyPerStart")
+            end
+            checkWorkbookParity("jewelcrafting__refulgent_copper_ore_prospecting__midnight_1", 1, 55.48854041,
+                "Jewelcrafting refulgent output 1")
+            checkWorkbookParity("jewelcrafting__refulgent_copper_ore_prospecting__midnight_1", 5, 12.06272618,
+                "Jewelcrafting refulgent diamond")
+            checkWorkbookParity("jewelcrafting__refulgent_copper_ore_prospecting__midnight_1", 6, 482.509047,
+                "Jewelcrafting refulgent stone")
+            checkWorkbookParity("jewelcrafting__refulgent_copper_ore_prospecting__midnight_1", 7, 337.7563329,
+                "Jewelcrafting refulgent glass")
+
+            local jcBrilliant = GAM.Importer.GetStratByID("jewelcrafting__brilliant_silver_ore_prospecting__midnight_1")
+            if jcBrilliant then
+                assertNear(jcBrilliant.defaultStartingAmount or 0, 15000.0,
+                    "jc prospect brilliant defaultStartingAmount")
+                assertNear(jcBrilliant.defaultCrafts or 0, 3000.0,
+                    "jc prospect brilliant defaultCrafts")
+                assertNear((jcBrilliant.outputs and jcBrilliant.outputs[1] and jcBrilliant.outputs[1].baseYieldPerCraft) or 0,
+                    0.17, "jc prospect brilliant baseYieldPerCraft")
+                assertNear((jcBrilliant.reagents and jcBrilliant.reagents[1] and jcBrilliant.reagents[1].qtyPerStart) or 0,
+                    1.0, "jc prospect brilliant qtyPerStart")
+            end
+            checkWorkbookParity("jewelcrafting__brilliant_silver_ore_prospecting__midnight_1", 1, 615.199035,
+                "Jewelcrafting brilliant output 1")
+            checkWorkbookParity("jewelcrafting__brilliant_silver_ore_prospecting__midnight_1", 3, 568.1544029,
+                "Jewelcrafting brilliant flawless output")
+            checkWorkbookParity("jewelcrafting__brilliant_silver_ore_prospecting__midnight_1", 5, 155.6091677,
+                "Jewelcrafting brilliant diamond")
+            checkWorkbookParity("jewelcrafting__brilliant_silver_ore_prospecting__midnight_1", 6, 3437.87696,
+                "Jewelcrafting brilliant stone")
+            checkWorkbookParity("jewelcrafting__brilliant_silver_ore_prospecting__midnight_1", 7, 2757.539204,
+                "Jewelcrafting brilliant glass")
+
+            local jcUmbral = GAM.Importer.GetStratByID("jewelcrafting__umbral_tin_ore_prospecting__midnight_1")
+            if jcUmbral then
+                assertNear(jcUmbral.defaultStartingAmount or 0, 15000.0,
+                    "jc prospect umbral defaultStartingAmount")
+                assertNear(jcUmbral.defaultCrafts or 0, 3000.0,
+                    "jc prospect umbral defaultCrafts")
+                assertNear((jcUmbral.outputs and jcUmbral.outputs[1] and jcUmbral.outputs[1].baseYieldPerCraft) or 0,
+                    0.17, "jc prospect umbral baseYieldPerCraft")
+                assertNear((jcUmbral.reagents and jcUmbral.reagents[1] and jcUmbral.reagents[1].qtyPerStart) or 0,
+                    1.0, "jc prospect umbral qtyPerStart")
+            end
+            checkWorkbookParity("jewelcrafting__umbral_tin_ore_prospecting__midnight_1", 1, 615.199035,
+                "Jewelcrafting umbral output 1")
+            checkWorkbookParity("jewelcrafting__umbral_tin_ore_prospecting__midnight_1", 3, 568.1544029,
+                "Jewelcrafting umbral flawless output")
+            checkWorkbookParity("jewelcrafting__umbral_tin_ore_prospecting__midnight_1", 5, 155.6091677,
+                "Jewelcrafting umbral diamond")
+            checkWorkbookParity("jewelcrafting__umbral_tin_ore_prospecting__midnight_1", 6, 3437.87696,
+                "Jewelcrafting umbral stone")
+            checkWorkbookParity("jewelcrafting__umbral_tin_ore_prospecting__midnight_1", 7, 2757.539204,
+                "Jewelcrafting umbral glass")
+
+            checkWorkbookParity("jewelcrafting__sin_dorei_lens_crafting__midnight_1", 1, 1873.492159,
+                "Jewelcrafting lens crafting")
+            checkWorkbookParity("jewelcrafting__sunglass_vial_crafting__midnight_1", 1, 337.2285887,
+                "Jewelcrafting sunglass vial crafting")
             local amani = GAM.Importer.GetStratByID("alchemy__amani_extract__midnight_1")
             if amani then
                 assertNear(amani.defaultStartingAmount or 0, 5000.0, "Amani Extract defaultStartingAmount")
