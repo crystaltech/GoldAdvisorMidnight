@@ -110,6 +110,8 @@ GAM_WORKBOOK_GENERATED = {
     ["Weighted Boomshots"] = { 257751, 257752 },
   },
   formulaProfiles = {
+    -- sheetMCm = BASE_MCM * (1 + defaultMcNode/100)  (fixed; node math is temporarily inert)
+    -- sheetRs  = BASE_RS  * (1 + defaultRsNode/100)  (fixed; node math is temporarily inert)
     alchemy = {
       multiKey = "alchMulti",
       resKey = "alchRes",
@@ -119,6 +121,8 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 15.000,
       defaultMcNode = 20,
       defaultRsNode = 0,
+      sheetMCm = 1.500,  -- 1.25 * (1 + 20/100)
+      sheetRs  = 0.300,  -- 0.30 * (1 + 0/100)
     },
     insc_milling = {
       multiKey = nil,
@@ -129,16 +133,20 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 30.100,
       defaultMcNode = 0,
       defaultRsNode = 55,
+      sheetMCm = 0,      -- no multicraft
+      sheetRs  = 0.465,  -- 0.30 * (1 + 55/100)
     },
     insc_ink = {
       multiKey = "inscInkMulti",
       resKey = "inscInkRes",
       mcNodeKey = "inscMcNode",
       rsNodeKey = "inscRsNode",
-      defaultMulti = 25.900,
+      defaultMulti = 29.700,
       defaultRes = 16.100,
       defaultMcNode = 100,
       defaultRsNode = 55,
+      sheetMCm = 2.500,  -- 1.25 * (1 + 100/100)
+      sheetRs  = 0.465,  -- 0.30 * (1 + 55/100)
     },
     jc_prospect = {
       multiKey = nil,
@@ -149,6 +157,8 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 33.000,
       defaultMcNode = 0,
       defaultRsNode = 50,
+      sheetMCm = 0,      -- no multicraft
+      sheetRs  = 0.450,  -- 0.30 * (1 + 50/100)
     },
     jc_crush = {
       multiKey = nil,
@@ -159,6 +169,8 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 35.000,
       defaultMcNode = 0,
       defaultRsNode = 0,
+      sheetMCm = 0,      -- no multicraft
+      sheetRs  = 0.300,  -- 0.30 * (1 + 0/100)
     },
     jc_craft = {
       multiKey = "jcCraftMulti",
@@ -169,6 +181,8 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 33.000,
       defaultMcNode = 50,
       defaultRsNode = 50,
+      sheetMCm = 1.875,  -- 1.25 * (1 + 50/100)
+      sheetRs  = 0.450,  -- 0.30 * (1 + 50/100)
     },
     ench_shatter = {
       multiKey = nil,
@@ -179,6 +193,8 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 7.800,
       defaultMcNode = 0,
       defaultRsNode = 20,
+      sheetMCm = 0,      -- no multicraft
+      sheetRs  = 0.360,  -- 0.30 * (1 + 20/100)
     },
     ench_craft = {
       multiKey = "enchCraftMulti",
@@ -189,6 +205,8 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 7.800,
       defaultMcNode = 100,
       defaultRsNode = 20,
+      sheetMCm = 2.500,  -- 1.25 * (1 + 100/100)
+      sheetRs  = 0.360,  -- 0.30 * (1 + 20/100)
     },
     tailoring = {
       multiKey = "tailMulti",
@@ -199,6 +217,8 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 12.100,
       defaultMcNode = 40,
       defaultRsNode = 50,
+      sheetMCm = 1.750,  -- 1.25 * (1 + 40/100)
+      sheetRs  = 0.450,  -- 0.30 * (1 + 50/100)
     },
     blacksmithing = {
       multiKey = "bsMulti",
@@ -209,26 +229,47 @@ GAM_WORKBOOK_GENERATED = {
       defaultRes = 18.700,
       defaultMcNode = 0,
       defaultRsNode = 0,
+      sheetMCm = 1.250,  -- 1.25 * (1 + 0/100)
+      sheetRs  = 0.300,  -- 0.30 * (1 + 0/100)
     },
     leatherworking = {
       multiKey = "lwMulti",
       resKey = "lwRes",
       mcNodeKey = "lwMcNode",
       rsNodeKey = "lwRsNode",
-      defaultMulti = 28.200,
+      defaultMulti = 32.000,
       defaultRes = 14.900,
       defaultMcNode = 50,
       defaultRsNode = 50,
+      sheetMCm = 1.875,  -- 1.25 * (1 + 50/100)
+      sheetRs  = 0.450,  -- 0.30 * (1 + 50/100)
     },
-    engineering = {
-      multiKey = "engMulti",
-      resKey = "engRes",
-      mcNodeKey = "engMcNode",
-      rsNodeKey = "engRsNode",
-      defaultMulti = 30.467,
+    -- Engineering is split into two profiles: recycling (no multi) and crafting.
+    -- Node keys are retained in SavedVariables but are mathematically inert;
+    -- sheetMCm/sheetRs are the fixed sheet-authoritative effective multipliers.
+    engineering_recycling = {
+      multiKey = nil,
+      resKey = "engRecycleRes",
+      mcNodeKey = nil,
+      rsNodeKey = nil,
+      defaultMulti = nil,
       defaultRes = 36.000,
-      defaultMcNode = 50,
-      defaultRsNode = 50,
+      defaultMcNode = 0,
+      defaultRsNode = 45,
+      sheetMCm = 0,      -- no multicraft
+      sheetRs  = 0.435,  -- 0.30 * (1 + 45/100)
+    },
+    engineering_craft = {
+      multiKey = "engCraftMulti",
+      resKey = "engCraftRes",
+      mcNodeKey = nil,
+      rsNodeKey = nil,
+      defaultMulti = 31.100,
+      defaultRes = 20.400,
+      defaultMcNode = 100,
+      defaultRsNode = 45,
+      sheetMCm = 2.500,  -- 1.25 * (1 + 100/100)
+      sheetRs  = 0.435,  -- 0.30 * (1 + 45/100)
     },
   },
 }

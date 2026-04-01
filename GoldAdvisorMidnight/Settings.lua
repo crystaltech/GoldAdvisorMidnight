@@ -595,40 +595,27 @@ local function BuildPanel()
         defaultRes = GAM.C.DEFAULT_LW_RES,
     })
     MakeStatRow({
-        label = "Engineering:",
-        multiKey = "engMulti",
-        resKey = "engRes",
-        defaultMulti = GAM.C.DEFAULT_ENG_MULTI,
-        defaultRes = GAM.C.DEFAULT_ENG_RES,
+        label = "Engineering - Recycling:",
+        multiKey = nil,
+        resKey = "engRecycleRes",
+        defaultMulti = nil,
+        defaultRes = GAM.C.DEFAULT_ENG_RECYCLE_RES,
+    })
+    MakeStatRow({
+        label = "Engineering - Crafting:",
+        multiKey = "engCraftMulti",
+        resKey = "engCraftRes",
+        defaultMulti = GAM.C.DEFAULT_ENG_CRAFT_MULTI,
+        defaultRes = GAM.C.DEFAULT_ENG_CRAFT_RES,
     })
 
     y = y - 4
 
-    -- ── CraftSim node bonus sync ────────────────────────────────────────────
-    local btnSyncCraftSim = MakeButton(content, "Sync Node Bonuses", 160)
-    btnSyncCraftSim:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
-    btnSyncCraftSim:SetScript("OnClick", function()
-        if not GAM.CraftSimBridge then
-            print("|cffff8800[GAM]|r CraftSimBridge not loaded.")
-            return
-        end
-        local count = GAM.CraftSimBridge.SyncNodeBonusesFromCraftSim()
-        if count == 0 then
-            print("|cffff8800[GAM]|r CraftSim node bonus data not found. Open each profession in CraftSim at least once so it can cache your data.")
-        else
-            if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
-                GAM.UI.MainWindowV2.Refresh()
-            end
-            if GAM.UI and GAM.UI.StratDetail
-                    and GAM.UI.StratDetail.IsShown
-                    and GAM.UI.StratDetail.Refresh
-                    and GAM.UI.StratDetail.IsShown() then
-                GAM.UI.StratDetail.Refresh()
-            end
-            print(string.format("|cffff8800[GAM]|r Synced CraftSim node bonuses for %d profession(s).", count))
-        end
-    end)
-    y = y - 30
+    -- ── CraftSim node bonus sync (temporarily disabled for spreadsheet parity) ─
+    local lblNodeSync = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    lblNodeSync:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
+    lblNodeSync:SetText("|cff808080Node sync disabled (spreadsheet parity mode)|r")
+    y = y - 20
 
     -- ── Actions ────────────────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_ACTIONS"], y)

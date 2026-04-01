@@ -162,10 +162,10 @@ function Derivation.GetEffectiveCraftYield(craftInfo)
     local opts = GetOpts()
     local statMCp = profileDef.multiKey and ((opts[profileDef.multiKey] or 0) / 100) or 0
     local statRp = profileDef.resKey and ((opts[profileDef.resKey] or 0) / 100) or 0
-    local statMCm_tot = profileDef.multiKey
-        and (GAM.C.BASE_MCM * (1 + ((profileDef.mcNodeKey and (opts[profileDef.mcNodeKey] or 0) or 0) / 100)))
-        or 0
-    local statRs_tot = GAM.C.BASE_RS * (1 + ((profileDef.rsNodeKey and (opts[profileDef.rsNodeKey] or 0) or 0) / 100))
+    -- Node influence is temporarily disabled for spreadsheet parity.
+    -- sheetMCm/sheetRs are fixed sheet-authoritative effective multipliers.
+    local statMCm_tot = profileDef.multiKey and (profileDef.sheetMCm or GAM.C.BASE_MCM) or 0
+    local statRs_tot = profileDef.sheetRs or GAM.C.BASE_RS
     local statDenom = 1 - statRp * statRs_tot
     if statDenom <= 0 then
         statDenom = 1
