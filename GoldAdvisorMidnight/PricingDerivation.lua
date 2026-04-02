@@ -23,14 +23,14 @@ end
 -- Inscription milling uses 13 pigments per 10 herbs => 1.3 base yield/herb,
 -- with resourcefulness applied by the insc_milling profile.
 local PIGMENT_MILL_MAP = {
-    [245807] = { herbIDs = {236761,236767}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Powder Pigment Q1
-    [245808] = { herbIDs = {236761,236767}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Powder Pigment Q2
-    [245803] = { herbIDs = {236776,236777}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Argentleaf Pigment Q1
-    [245804] = { herbIDs = {236776,236777}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Argentleaf Pigment Q2
-    [245867] = { herbIDs = {236778,236779}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Mana Lily Pigment Q1
-    [245866] = { herbIDs = {236778,236779}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Mana Lily Pigment Q2
-    [245865] = { herbIDs = {236770,236771}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Sanguithorn Pigment Q1
-    [245864] = { herbIDs = {236770,236771}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling" }, -- Sanguithorn Pigment Q2
+    [245807] = { herbIDs = {236761,236767}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling", displayYieldPerCraft = 13.000000, displayHerbQtyPerCraft = 10.000000 }, -- Powder Pigment Q1
+    [245808] = { herbIDs = {236761,236767}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling", displayYieldPerCraft = 13.000000, displayHerbQtyPerCraft = 10.000000 }, -- Powder Pigment Q2
+    [245803] = { herbIDs = {236776,236777}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling", displayYieldPerCraft = 13.000000, displayHerbQtyPerCraft = 10.000000 }, -- Argentleaf Pigment Q1
+    [245804] = { herbIDs = {236776,236777}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling", displayYieldPerCraft = 13.000000, displayHerbQtyPerCraft = 10.000000 }, -- Argentleaf Pigment Q2
+    [245867] = { herbIDs = {236778,236779}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling", displayYieldPerCraft = 13.000000, displayHerbQtyPerCraft = 10.000000 }, -- Mana Lily Pigment Q1
+    [245866] = { herbIDs = {236778,236779}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling", displayYieldPerCraft = 13.000000, displayHerbQtyPerCraft = 10.000000 }, -- Mana Lily Pigment Q2
+    [245865] = { herbIDs = {236770,236771}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling", displayYieldPerCraft = 13.000000, displayHerbQtyPerCraft = 10.000000 }, -- Sanguithorn Pigment Q1
+    [245864] = { herbIDs = {236770,236771}, yieldPerHerb = 1.300000, formulaProfile = "insc_milling", displayYieldPerCraft = 13.000000, displayHerbQtyPerCraft = 10.000000 }, -- Sanguithorn Pigment Q2
 }
 
 -- Crafted reagent cost derivations for "craft your own" reagent modes.
@@ -46,6 +46,11 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 251665 },         qty = 4.000000 }, -- Silverleaf Thread
         },
         yield = 1.000000,
+        displayIngredients = {
+            { itemIDs = { 236963, 236965 }, qty = 1.000000 },
+            { itemIDs = { 251665 },         qty = 4.000000 },
+        },
+        displayYieldPerCraft = 1.000000,
         formulaProfile = "tailoring",
     },
     [239701] = {
@@ -56,6 +61,11 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 251665 },         qty = 4.000000 },
         },
         yield = 1.000000,
+        displayIngredients = {
+            { itemIDs = { 236963, 236965 }, qty = 1.000000 },
+            { itemIDs = { 251665 },         qty = 4.000000 },
+        },
+        displayYieldPerCraft = 1.000000,
         formulaProfile = "tailoring",
     },
     -- Refulgent Copper Ingot Q1: 5xR1 ore + 2xflux -> 1 ingot (base)
@@ -70,6 +80,11 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 243060 }, qty = 0.400000 }, -- Luminant Flux
         },
         yield = 0.200000,
+        displayIngredients = {
+            { itemIDs = { 237359 }, qty = 5.000000 },
+            { itemIDs = { 243060 }, qty = 2.000000 },
+        },
+        displayYieldPerCraft = 1.000000,
         formulaProfile = "blacksmithing",
     },
     -- Refulgent Copper Ingot Q2: 3xR1 ore + 2xR2 ore + 2xflux -> 1 ingot (base)
@@ -83,6 +98,12 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 243060 }, qty = 0.666667 }, -- Luminant Flux
         },
         yield = 0.333333,
+        displayIngredients = {
+            { itemIDs = { 237359 }, qty = 3.000000 },
+            { itemIDs = { 237361 }, qty = 2.000000 },
+            { itemIDs = { 243060 }, qty = 2.000000 },
+        },
+        displayYieldPerCraft = 1.000000,
         formulaProfile = "blacksmithing",
     },
     -- Sienna Ink Q1: sheet pricing omits Songwater from the expected-value math.
@@ -98,6 +119,12 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
         },
         yield = 0.100000,
+        displayIngredients = {
+            { itemIDs = { 245807, 245808 }, qty = 20.000000 },
+            { itemIDs = { 245803, 245804 }, qty = 10.000000 },
+            { itemIDs = { 245867, 245866 }, qty = 5.000000 },
+        },
+        displayYieldPerCraft = 2.000000,
         formulaProfile = "insc_ink",
     },
     [245806] = { -- Sienna Ink Q2 -- same recipe
@@ -109,6 +136,12 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245867, 245866 }, qty = 0.250000 },
         },
         yield = 0.100000,
+        displayIngredients = {
+            { itemIDs = { 245807, 245808 }, qty = 20.000000 },
+            { itemIDs = { 245803, 245804 }, qty = 10.000000 },
+            { itemIDs = { 245867, 245866 }, qty = 5.000000 },
+        },
+        displayYieldPerCraft = 2.000000,
         formulaProfile = "insc_ink",
     },
     -- Munsell Ink Q1: sheet pricing omits Songwater from the expected-value math.
@@ -121,6 +154,12 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
         },
         yield = 0.100000,
+        displayIngredients = {
+            { itemIDs = { 245807, 245808 }, qty = 20.000000 },
+            { itemIDs = { 245865, 245864 }, qty = 10.000000 },
+            { itemIDs = { 245867, 245866 }, qty = 5.000000 },
+        },
+        displayYieldPerCraft = 2.000000,
         formulaProfile = "insc_ink",
     },
     [245802] = { -- Munsell Ink Q2 -- same recipe
@@ -132,6 +171,12 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245867, 245866 }, qty = 0.250000 },
         },
         yield = 0.100000,
+        displayIngredients = {
+            { itemIDs = { 245807, 245808 }, qty = 20.000000 },
+            { itemIDs = { 245865, 245864 }, qty = 10.000000 },
+            { itemIDs = { 245867, 245866 }, qty = 5.000000 },
+        },
+        displayYieldPerCraft = 2.000000,
         formulaProfile = "insc_ink",
     },
 }
@@ -320,4 +365,99 @@ function Derivation.ExpandReagentThroughChain(itemIDs, qty, patchTag, deps, dept
     end
 
     return {{ itemIDs = itemIDs, qty = qty }}
+end
+
+function Derivation.ExpandReagentForDisplayThroughChain(itemIDs, qty, patchTag, deps, depth)
+    depth = depth or 0
+    if depth > 5 or not itemIDs or #itemIDs == 0 or not deps or not deps.PickItemID then
+        return {{ itemIDs = itemIDs, qty = qty }}
+    end
+
+    local picked = deps.PickItemID(itemIDs, patchTag)
+    if not picked then
+        return {{ itemIDs = itemIDs, qty = qty }}
+    end
+
+    local craftInfo = CRAFTED_REAGENT_MAP[picked]
+    if craftInfo and (GetOpts()[craftInfo.optionKey] or "ah") == craftInfo.modeValue and craftInfo.displayIngredients and craftInfo.displayYieldPerCraft then
+        local displayYieldPerCraft = craftInfo.displayYieldPerCraft or 0
+        if displayYieldPerCraft <= 0 then
+            return {{ itemIDs = itemIDs, qty = qty }}
+        end
+
+        -- Display/shopping chain expansion must buy enough to execute the requested
+        -- chain, so it uses the deterministic base craft yield rather than the
+        -- expected-value sheet yield that includes MC/RS assumptions.
+        local craftsNeeded = math.max(1, math.ceil((qty / displayYieldPerCraft) - 1e-9))
+        local result = {}
+        for _, ing in ipairs(craftInfo.displayIngredients) do
+            local ingQty = craftsNeeded * ing.qty
+            local sub = Derivation.ExpandReagentForDisplayThroughChain(ing.itemIDs, ingQty, patchTag, deps, depth + 1)
+            for _, expanded in ipairs(sub) do
+                tinsert(result, expanded)
+            end
+        end
+        return result
+    end
+
+    local millInfo = PIGMENT_MILL_MAP[picked]
+    if millInfo and GetOpts().pigmentCostSource == "mill" and millInfo.displayYieldPerCraft and millInfo.displayHerbQtyPerCraft then
+        local displayYieldPerCraft = millInfo.displayYieldPerCraft or 0
+        if displayYieldPerCraft <= 0 then
+            return {{ itemIDs = itemIDs, qty = qty }}
+        end
+
+        local craftsNeeded = math.max(1, math.ceil((qty / displayYieldPerCraft) - 1e-9))
+        local herbQty = craftsNeeded * millInfo.displayHerbQtyPerCraft
+        return {{ itemIDs = millInfo.herbIDs, qty = herbQty }}
+    end
+
+    return {{ itemIDs = itemIDs, qty = qty }}
+end
+
+function Derivation.ExpandReagentForDisplayOneLevel(itemIDs, qty, patchTag, deps)
+    if not itemIDs or #itemIDs == 0 or not deps or not deps.PickItemID then
+        return { { itemIDs = itemIDs, qty = qty } }, false
+    end
+
+    local picked = deps.PickItemID(itemIDs, patchTag)
+    if not picked then
+        return { { itemIDs = itemIDs, qty = qty } }, false
+    end
+
+    local craftInfo = CRAFTED_REAGENT_MAP[picked]
+    if craftInfo and (GetOpts()[craftInfo.optionKey] or "ah") == craftInfo.modeValue and craftInfo.displayIngredients and craftInfo.displayYieldPerCraft then
+        local displayYieldPerCraft = craftInfo.displayYieldPerCraft or 0
+        if displayYieldPerCraft <= 0 then
+            return { { itemIDs = itemIDs, qty = qty } }, false
+        end
+
+        local craftsNeeded = math.max(1, math.ceil((qty / displayYieldPerCraft) - 1e-9))
+        local result = {}
+        for _, ing in ipairs(craftInfo.displayIngredients) do
+            result[#result + 1] = {
+                itemIDs = ing.itemIDs,
+                qty = craftsNeeded * ing.qty,
+            }
+        end
+        return result, true
+    end
+
+    local millInfo = PIGMENT_MILL_MAP[picked]
+    if millInfo and GetOpts().pigmentCostSource == "mill" and millInfo.displayYieldPerCraft and millInfo.displayHerbQtyPerCraft then
+        local displayYieldPerCraft = millInfo.displayYieldPerCraft or 0
+        if displayYieldPerCraft <= 0 then
+            return { { itemIDs = itemIDs, qty = qty } }, false
+        end
+
+        local craftsNeeded = math.max(1, math.ceil((qty / displayYieldPerCraft) - 1e-9))
+        return {
+            {
+                itemIDs = millInfo.herbIDs,
+                qty = craftsNeeded * millInfo.displayHerbQtyPerCraft,
+            },
+        }, true
+    end
+
+    return { { itemIDs = itemIDs, qty = qty } }, false
 end

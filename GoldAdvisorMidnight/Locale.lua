@@ -39,6 +39,7 @@ L["COL_TOTAL_COST"]        = "Total Cost"
 L["BTN_SCAN_ITEM"]         = "Scan"
 L["BTN_SCAN_ALL_ITEMS"]    = "Scan All Items"
 L["BTN_PUSH_CRAFTSIM"]     = "Push to CraftSim"
+L["BTN_CLOSE"]             = "Close"
 L["TT_CRAFTSIM_TITLE"]     = "Push Price Overrides to CraftSim"
 L["LBL_COST"]              = "Total Cost:"
 L["LBL_BUY_NOW_COST"]      = "Buy Now Cost:"
@@ -165,6 +166,7 @@ L["RANK_DD_HIGHEST"]       = "R2 Mats"
 
 -- Strategy Creator (edit mode title / validation errors)
 L["CREATOR_EDIT_TITLE"]    = "Edit Strategy"
+L["CREATOR_EDIT_SELECT"]   = "Edit Strategy:"
 L["CONFIRM_DELETE_BODY"]   = "Delete strategy:\n\"|cffffffff%s|r\"\n\nThis cannot be undone."
 L["BTN_REMOVE"]            = "x"
 L["CREATOR_INPUT_HINT"]    = "(all qtys below are per this many inputs)"
@@ -172,6 +174,7 @@ L["ERR_PROF_REQUIRED"]     = "Profession is required."
 L["ERR_NAME_REQUIRED"]     = "Strategy name is required."
 L["ERR_QTY_REQUIRED"]      = "Input quantity must be greater than 0."
 L["ERR_OUTPUT_REQUIRED"]   = "At least one output is required."
+L["MSG_NO_USER_STRATS"]    = "No user-created strategies found. Opening Create Strategy."
 
 -- Main Window (scan progress / strat count status)
 L["STATUS_SCANNING_PROG"]  = "scanning..."

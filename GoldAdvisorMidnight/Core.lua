@@ -950,6 +950,10 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
         if GAM.UI and GAM.UI.StratCreator then
             GAM.UI.StratCreator.Show()
         end
+    elseif cmd == "edit" then
+        if GAM.UI and GAM.UI.StratCreator and GAM.UI.StratCreator.ShowEditPicker then
+            GAM.UI.StratCreator.ShowEditPicker()
+        end
     elseif cmd == "quickbuy" then
         if GAM.quickBuyState.active then
             ResetQuickBuy()

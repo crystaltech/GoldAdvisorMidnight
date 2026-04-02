@@ -490,7 +490,7 @@ end
 
 -- ===== Creator frame =====
 
-local WIN_W, WIN_H = 520, 620
+local WIN_W, WIN_H = 520, 652
 local ROW_H        = 24
 local MAX_OUTPUTS  = 4
 local MAX_REAGENTS = 8
@@ -506,6 +506,12 @@ local function GetProfessions()
         profs[#profs + 1] = p
     end
     return profs
+end
+
+local function GetUserStratLabel(strat)
+    local profession = (strat and strat.profession) or "?"
+    local stratName = (strat and strat.stratName) or "?"
+    return string.format("%s — %s", profession, stratName)
 end
 
 -- ===== Row builder for output / reagent tables =====
@@ -581,6 +587,47 @@ local function Build()
     closeBtn:SetScript("OnClick", function() frame:Hide() end)
 
     local y = -46
+
+    local editPickLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    editPickLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
+    editPickLbl:SetText((L and L["CREATOR_EDIT_SELECT"]) or "Edit Strategy:")
+    editPickLbl:Hide()
+
+    local editPickDD = CreateFrame("Frame", "GAMCreatorEditDD", frame, "UIDropDownMenuTemplate")
+    editPickDD:SetPoint("TOPLEFT", editPickLbl, "TOPRIGHT", 4, 4)
+    UIDropDownMenu_SetWidth(editPickDD, 270)
+    editPickDD:Hide()
+
+    local function RefreshEditDropdown(selectedIndex)
+        UIDropDownMenu_Initialize(editPickDD, function()
+            for i, strat in ipairs(GetUserStrats()) do
+                local info = UIDropDownMenu_CreateInfo()
+                info.text = GetUserStratLabel(strat)
+                info.value = i
+                info.checked = (i == selectedIndex)
+                info.func = function()
+                    if SC.SelectEditIndex then
+                        SC.SelectEditIndex(i)
+                    end
+                end
+                UIDropDownMenu_AddButton(info)
+            end
+        end)
+
+        local selected = selectedIndex and GetUserStrats()[selectedIndex] or nil
+        UIDropDownMenu_SetSelectedValue(editPickDD, selectedIndex)
+        UIDropDownMenu_SetText(editPickDD, selected and GetUserStratLabel(selected) or ((L and L["CREATOR_EDIT_SELECT"]) or "Edit Strategy:"))
+    end
+
+    local function SetEditSelectorVisible(visible)
+        editPickLbl:SetShown(visible)
+        editPickDD:SetShown(visible)
+    end
+
+    frame.RefreshEditDropdown = RefreshEditDropdown
+    frame.SetEditSelectorVisible = SetEditSelectorVisible
+
+    y = y - 32
 
     -- ── Profession ──
     local profLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -950,31 +997,61 @@ function SC.Show()
     ClearForm()
     frame.titleText:SetText(GAM.L["CREATOR_TITLE"])
     frame.btnDelete:Hide()
+    if frame.SetEditSelectorVisible then frame.SetEditSelectorVisible(false) end
+    if frame.RefreshEditDropdown then frame.RefreshEditDropdown(nil) end
     frame:Show()
+end
+
+function SC.SelectEditIndex(index)
+    if not frame then Build() end
+    local userStrats = GetUserStrats()
+    local strat = index and userStrats[index] or nil
+    if not strat then
+        return false
+    end
+
+    editingIndex = index
+    PopulateForm(strat)
+    frame.titleText:SetText((GAM.L and GAM.L["CREATOR_EDIT_TITLE"]) or "Edit Strategy")
+    frame.btnDelete:Show()
+    if frame.SetEditSelectorVisible then frame.SetEditSelectorVisible(true) end
+    if frame.RefreshEditDropdown then frame.RefreshEditDropdown(index) end
+    frame:Show()
+    return true
+end
+
+function SC.ShowEditPicker()
+    local userStrats = GetUserStrats()
+    if #userStrats == 0 then
+        print("|cffff8800[GAM]|r " .. ((GAM.L and GAM.L["MSG_NO_USER_STRATS"]) or "No user-created strategies found. Opening Create Strategy."))
+        SC.Show()
+        return
+    end
+    if not frame then Build() end
+    if frame.SetEditSelectorVisible then frame.SetEditSelectorVisible(true) end
+    SC.SelectEditIndex(editingIndex or 1)
 end
 
 -- Open in edit mode for a user strat by its db.userStrats index.
 -- Called by StratDetail's "Edit" button.
 function SC.ShowEdit(strat)
-    if not frame then Build() end
-
-    -- Find the index in db.userStrats
-    editingIndex = nil
+    local resolvedIndex = nil
     if GAM.State and GAM.State.FindUserStratIndex then
-        editingIndex = GAM.State.FindUserStratIndex(strat)
+        resolvedIndex = GAM.State.FindUserStratIndex(strat)
     else
         for i, s in ipairs(GetUserStrats()) do
             if s == strat or (s.stratName == strat.stratName and s.profession == strat.profession) then
-                editingIndex = i
+                resolvedIndex = i
                 break
             end
         end
     end
 
-    PopulateForm(strat)
-    frame.titleText:SetText(L["CREATOR_EDIT_TITLE"])
-    frame.btnDelete:Show()
-    frame:Show()
+    if resolvedIndex then
+        SC.SelectEditIndex(resolvedIndex)
+    else
+        SC.ShowEditPicker()
+    end
 end
 
 function SC.Hide()
