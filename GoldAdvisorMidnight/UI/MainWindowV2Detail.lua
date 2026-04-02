@@ -10,6 +10,8 @@ GAM.UI.MainWindowV2Detail = Detail
 
 local DEFAULT_GOLD = { 1.0, 0.82, 0.0 }
 local DEFAULT_RULE = { 0.7, 0.57, 0.0, 0.7 }
+local CRUSHING_WINDOW_W = 430
+local CRUSHING_WINDOW_H = 272
 
 local function Noop()
 end
@@ -41,6 +43,207 @@ local function UpdateBodyAnchor(rpDetail)
     rpDetail.bodyRoot:SetPoint("TOPRIGHT", rpDetail.content, "TOPRIGHT", 0, bodyY)
 end
 
+local crushingWindow
+local crushingRows = {}
+
+local function HideCrushingWindow()
+    if crushingWindow then
+        crushingWindow:Hide()
+    end
+end
+
+local function EnsureCrushingWindow()
+    if crushingWindow then
+        return crushingWindow
+    end
+
+    crushingWindow = CreateFrame("Frame", "GAMCrushingAnalyzer", UIParent, "BackdropTemplate")
+    crushingWindow:SetSize(CRUSHING_WINDOW_W, CRUSHING_WINDOW_H)
+    crushingWindow:SetScale((GAM.GetOption and GAM:GetOption("uiScale", 1.0)) or 1.0)
+    crushingWindow:SetMovable(true)
+    crushingWindow:EnableMouse(true)
+    crushingWindow:RegisterForDrag("LeftButton")
+    crushingWindow:SetScript("OnDragStart", crushingWindow.StartMoving)
+    crushingWindow:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        self._userMoved = true
+    end)
+    crushingWindow:SetClampedToScreen(true)
+    crushingWindow:SetFrameStrata("DIALOG")
+    crushingWindow:SetToplevel(true)
+    crushingWindow:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 11, right = 12, top = 12, bottom = 11 },
+    })
+    crushingWindow:SetBackdropColor(0, 0, 0, 1)
+    crushingWindow:Hide()
+
+    local bgTex = crushingWindow:CreateTexture(nil, "BACKGROUND", nil, -8)
+    bgTex:SetAllPoints()
+    bgTex:SetColorTexture(0, 0, 0, 1)
+
+    local title = crushingWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", crushingWindow, "TOP", 0, -14)
+    title:SetText("Crushing Analyzer")
+    title:SetTextColor(DEFAULT_GOLD[1], DEFAULT_GOLD[2], DEFAULT_GOLD[3])
+    crushingWindow.titleFS = title
+
+    local subtitle = crushingWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    subtitle:SetPoint("TOP", title, "BOTTOM", 0, -4)
+    subtitle:SetWidth(CRUSHING_WINDOW_W - 40)
+    subtitle:SetJustifyH("CENTER")
+    subtitle:SetTextColor(0.75, 0.72, 0.64, 1)
+    crushingWindow.subtitleFS = subtitle
+
+    local closeBtn = CreateFrame("Button", nil, crushingWindow, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", crushingWindow, "TOPRIGHT", -4, -4)
+    closeBtn:SetScript("OnClick", function()
+        crushingWindow:Hide()
+    end)
+
+    local rule = crushingWindow:CreateTexture(nil, "ARTWORK")
+    rule:SetHeight(1)
+    rule:SetPoint("TOPLEFT", crushingWindow, "TOPLEFT", 12, -44)
+    rule:SetPoint("TOPRIGHT", crushingWindow, "TOPRIGHT", -12, -44)
+    rule:SetColorTexture(DEFAULT_RULE[1], DEFAULT_RULE[2], DEFAULT_RULE[3], 0.6)
+
+    local function MakeHdr(text, x, w, justify)
+        local fs = crushingWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        fs:SetPoint("TOPLEFT", crushingWindow, "TOPLEFT", x, -56)
+        fs:SetWidth(w)
+        fs:SetJustifyH(justify or "LEFT")
+        fs:SetText(text)
+        fs:SetTextColor(1.0, 0.84, 0.22, 1.0)
+        return fs
+    end
+
+    MakeHdr("Gem", 16, 132, "LEFT")
+    MakeHdr("Price", 150, 62, "LEFT")
+    MakeHdr("Profit", 214, 82, "LEFT")
+    MakeHdr("ROI", 298, 52, "LEFT")
+    MakeHdr("Break-even", 352, 62, "LEFT")
+
+    for i = 1, 10 do
+        local row = CreateFrame("Frame", nil, crushingWindow)
+        row:SetSize(CRUSHING_WINDOW_W - 32, 18)
+        row:SetPoint("TOPLEFT", crushingWindow, "TOPLEFT", 16, -76 - ((i - 1) * 18))
+
+        local bg = row:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.10, 0.10, 0.10, (i % 2 == 1) and 0.55 or 0.28)
+
+        local nameFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        nameFS:SetPoint("LEFT", row, "LEFT", 4, 0)
+        nameFS:SetWidth(128)
+        nameFS:SetJustifyH("LEFT")
+        nameFS:SetWordWrap(false)
+
+        local priceFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        priceFS:SetPoint("LEFT", row, "LEFT", 138, 0)
+        priceFS:SetWidth(60)
+        priceFS:SetJustifyH("LEFT")
+        priceFS:SetWordWrap(false)
+
+        local profitFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        profitFS:SetPoint("LEFT", row, "LEFT", 202, 0)
+        profitFS:SetWidth(78)
+        profitFS:SetJustifyH("LEFT")
+        profitFS:SetWordWrap(false)
+
+        local roiFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        roiFS:SetPoint("LEFT", row, "LEFT", 286, 0)
+        roiFS:SetWidth(48)
+        roiFS:SetJustifyH("LEFT")
+        roiFS:SetWordWrap(false)
+
+        local breakEvenFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        breakEvenFS:SetPoint("LEFT", row, "LEFT", 340, 0)
+        breakEvenFS:SetWidth(68)
+        breakEvenFS:SetJustifyH("LEFT")
+        breakEvenFS:SetWordWrap(false)
+
+        row.bg = bg
+        row.nameFS = nameFS
+        row.priceFS = priceFS
+        row.profitFS = profitFS
+        row.roiFS = roiFS
+        row.breakEvenFS = breakEvenFS
+        row:Hide()
+        crushingRows[i] = row
+    end
+
+    return crushingWindow
+end
+
+local function PositionCrushingWindow(anchor)
+    local win = EnsureCrushingWindow()
+    if not (anchor and win) or win._userMoved then
+        return
+    end
+
+    local screenW = UIParent:GetWidth() or 0
+    local anchorRight = anchor:GetRight() or 0
+    win:ClearAllPoints()
+    if anchorRight + 12 + CRUSHING_WINDOW_W <= screenW then
+        win:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 12, 0)
+    else
+        win:SetPoint("TOPRIGHT", anchor, "TOPLEFT", -12, 0)
+    end
+end
+
+local function RefreshCrushingWindow(anchor, strat, patchTag)
+    if not (strat and GAM.Pricing and GAM.Pricing.GetCrushingAnalyzerData) then
+        HideCrushingWindow()
+        return
+    end
+
+    local analyzer = GAM.Pricing.GetCrushingAnalyzerData(strat, patchTag)
+    if not (analyzer and analyzer.entries and #analyzer.entries > 0) then
+        HideCrushingWindow()
+        return
+    end
+
+    local win = EnsureCrushingWindow()
+    PositionCrushingWindow(anchor)
+    local selectedName = nil
+
+    for i, row in ipairs(crushingRows) do
+        local entry = analyzer.entries[i]
+        if entry then
+            local display = GAM.Pricing.GetItemDisplayData(entry.itemID, entry.name)
+            row.nameFS:SetText(display.displayText)
+            row.priceFS:SetText(entry.unitPrice and GAM.Pricing.FormatPrice(entry.unitPrice) or "|cffff8800—|r")
+            if entry.profit then
+                local color = entry.profit >= 0 and "|cff55ff55" or "|cffff5555"
+                row.profitFS:SetText(color .. GAM.Pricing.FormatPrice(entry.profit) .. "|r")
+            else
+                row.profitFS:SetText("|cff888888—|r")
+            end
+            if entry.roi then
+                local color = entry.roi >= 0 and "|cff55ff55" or "|cffff5555"
+                row.roiFS:SetText(color .. string.format("%.1f%%", entry.roi) .. "|r")
+            else
+                row.roiFS:SetText("|cff888888—|r")
+            end
+            row.breakEvenFS:SetText(entry.breakEvenSell and GAM.Pricing.FormatPrice(entry.breakEvenSell) or "|cff888888—|r")
+            if entry.isSelected then
+                row.bg:SetColorTexture(0.18, 0.14, 0.04, 0.92)
+                selectedName = entry.name
+            else
+                row.bg:SetColorTexture(0.10, 0.10, 0.10, (i % 2 == 1) and 0.55 or 0.28)
+            end
+            row:Show()
+        else
+            row:Hide()
+        end
+    end
+
+    win.subtitleFS:SetText(selectedName and ("Active auto-pick: " .. selectedName) or "Current rank-policy gem comparison")
+    win:Show()
+end
+
 function Detail.Hide(args)
     local rpDetail = args.rpDetail or {}
     local placeholder = GetPlaceholder(args)
@@ -65,6 +268,7 @@ function Detail.Hide(args)
     if args.selectedShoppingBtn then
         args.selectedShoppingBtn:Disable()
     end
+    HideCrushingWindow()
     if args.onAfterHide then
         args.onAfterHide()
     end
@@ -253,6 +457,11 @@ function Detail.Render(args)
         rpDetail.outputListHost:SetHeight(math.max(1, #outputItems * rowHeight))
     end
     rpDetail.root:Show()
+    if strat.id == "jewelcrafting__crushing__midnight_1" then
+        RefreshCrushingWindow(rpDetail.root, strat, patchTag)
+    else
+        HideCrushingWindow()
+    end
     if args.onAfterRender then
         args.onAfterRender(strat, patchTag, metrics, reagentMetrics, outputItems)
     end

@@ -955,7 +955,8 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     GAM.AHScan.StopScan()
     GAM.AHScan.ResetQueue()
 
-    local displayed = (GAM.Pricing and GAM.Pricing.GetDisplayedItemSet and GAM.Pricing.GetDisplayedItemSet(strat, pt)) or strat
+    local displayedMetrics = GetStratMetric(strat, pt)
+    local displayed = (GAM.Pricing and GAM.Pricing.GetDisplayedItemSet and GAM.Pricing.GetDisplayedItemSet(strat, pt, displayedMetrics)) or strat
     local seenIDs = {}
     local seenNames = {}
 

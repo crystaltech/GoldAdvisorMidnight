@@ -1,5 +1,16 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.19] — 2026-04-02
+
+### UX / Workflow
+- **Raw-chain VI display restored** — When `Use own items/crafts` is enabled, detail views, shopping lists, and selected-strategy scans now expand through raw herbs, ore + flux, and linen + thread again instead of stopping at intermediate pigments, ingots, and bolts.
+- **Movable Crushing analyzer** — `Crushing` now opens a separate movable analyzer window that compares each eligible gem’s price, profit, ROI, and break-even while highlighting the current auto-picked gem.
+- **`/gam edit` added** — User-created strategies can now be opened directly in edit mode through the slash command, with a dropdown picker that loads existing custom strats into the creator form.
+
+### Bug Fixes
+- **Spreadsheet parity preserved while restoring VI** — Pricing math still uses the workbook-aligned direct reagent model; only the user-facing display and shopping chain were changed.
+- **Inscription VI batch-planning fixed** — Herb shopping for inks, Soul Cipher, and missives now rounds through real craft and milling batches, preventing underbuy regressions and correctly merging shared intermediate chains.
+
 ## [1.7.18] — 2026-04-01
 
 ### Bug Fixes / Parity

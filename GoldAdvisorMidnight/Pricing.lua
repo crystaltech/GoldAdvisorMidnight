@@ -90,7 +90,7 @@ function Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
     if metrics and metrics.reagents and #metrics.reagents > 0 then
         for _, r in ipairs(metrics.reagents) do
             reagentItems[#reagentItems + 1] = {
-                itemIDs = r.itemID and { r.itemID } or {},
+                itemIDs = r.scanItemIDs or (r.itemID and { r.itemID } or {}),
                 name = r.name,
             }
         end
@@ -829,6 +829,8 @@ function Pricing.RunSmokeChecks()
             local derivedParityOK, derivedParityErr = pcall(function()
                 local parityOpts = {
                     pigmentCostSource = "mill",
+                    boltCostSource = "craft",
+                    ingotCostSource = "craft",
                     inscMillingRes = 30.1,
                     inscInkMulti = 29.7,
                     inscInkRes = 16.1,
@@ -938,6 +940,93 @@ function Pricing.RunSmokeChecks()
                 Pricing.GetUnitPrice = originalGetUnitPrice
                 GetItemCount = originalGetItemCount
                 assert(recyclingParityOK, recyclingParityErr)
+
+                local displayParityOK, displayParityErr = pcall(function()
+                    local originalGetUnitPrice = Pricing.GetUnitPrice
+                    local originalGetItemCount = GetItemCount
+                    Pricing.GetUnitPrice = function(itemID)
+                        local displayPrices = {
+                            [236761] = 27000,  -- Tranquility Bloom Q1
+                            [236776] = 239300, -- Argentleaf Q1
+                            [236778] = 120000, -- Mana Lily Q1
+                            [236770] = 10400,  -- Sanguithorn Q1
+                            [236963] = 81400,  -- Bright Linen Q1
+                            [251665] = 5000,   -- Silverleaf Thread
+                            [237359] = 31500,  -- Refulgent Copper Ore Q1
+                            [243060] = 5000,   -- Luminant Flux
+                            [245807] = 24800,  -- Powder Pigment Q1
+                            [243581] = 68900,  -- Evercore Q1
+                        }
+                        return displayPrices[itemID], false
+                    end
+                    GetItemCount = function()
+                        return 0
+                    end
+
+                    local function collectSeenIDs(metricRows)
+                        local seen = {}
+                        for _, row in ipairs(metricRows or {}) do
+                            if row.itemID then
+                                seen[row.itemID] = true
+                            end
+                        end
+                        return seen
+                    end
+
+                    local soulCipher = GAM.Importer.GetStratByID("inscription__soul_cipher__midnight_1")
+                    assert(soulCipher, "soul cipher strat unavailable")
+                    local soulMetrics = Pricing.CalculateStratMetrics(soulCipher, GAM.C.DEFAULT_PATCH, 1)
+                    local soulSeen = collectSeenIDs(soulMetrics and soulMetrics.reagents)
+                    assert((soulSeen[236761] or soulSeen[236767]), "soul cipher VI must expand to herbs")
+                    assert(not soulSeen[245805] and not soulSeen[245806] and not soulSeen[245801] and not soulSeen[245802],
+                        "soul cipher VI must not display ink rows")
+
+                    local peerless = GAM.Importer.GetStratByID("inscription__peerless_missive__midnight_1")
+                    assert(peerless, "peerless missive strat unavailable")
+                    local peerlessMetrics = Pricing.CalculateStratMetrics(peerless, GAM.C.DEFAULT_PATCH, 10)
+                    local displayQtyByID = {}
+                    for _, row in ipairs(peerlessMetrics and peerlessMetrics.reagents or {}) do
+                        if row.itemID then
+                            displayQtyByID[row.itemID] = row.required
+                        end
+                    end
+                    assert(displayQtyByID[236761] == 310, "peerless missive VI must plan 310 tranquility bloom for 10 crafts")
+                    assert(displayQtyByID[236776] == 80, "peerless missive VI must plan 80 argentleaf for 10 crafts")
+                    assert(displayQtyByID[236770] == 80, "peerless missive VI must plan 80 sanguithorn for 10 crafts")
+                    assert(displayQtyByID[236778] == 80, "peerless missive VI must plan 80 mana lily for 10 crafts")
+
+                    local imbuedBolt = GAM.Importer.GetStratByID("tailoring__imbued_bright_linen_bolt__midnight_1")
+                    assert(imbuedBolt, "imbued bright linen bolt strat unavailable")
+                    local boltMetrics = Pricing.CalculateStratMetrics(imbuedBolt, GAM.C.DEFAULT_PATCH, 1)
+                    local boltSeen = collectSeenIDs(boltMetrics and boltMetrics.reagents)
+                    assert((boltSeen[236963] or boltSeen[236965]) and boltSeen[251665],
+                        "imbued bright linen bolt VI must expand to linen + thread")
+                    assert(not boltSeen[239700] and not boltSeen[239701],
+                        "imbued bright linen bolt VI must not display direct bolt rows")
+
+                    local refulgentIngot = GAM.Importer.GetStratByID("blacksmithing__refulgent_copper_ingot__midnight_1")
+                    assert(refulgentIngot, "refulgent copper ingot strat unavailable")
+                    local ingotMetrics = Pricing.CalculateStratMetrics(refulgentIngot, GAM.C.DEFAULT_PATCH, 1)
+                    local ingotSeen = collectSeenIDs(ingotMetrics and ingotMetrics.reagents)
+                    assert(ingotSeen[237359] and ingotSeen[243060], "refulgent copper ingot VI must expand to ore + flux")
+                    assert(not ingotSeen[238197] and not ingotSeen[238198],
+                        "refulgent copper ingot VI must not display ingot rows")
+
+                    local recycling = GAM.Importer.GetStratByID("engineering__recycling_powder_pigment__midnight_1")
+                    assert(recycling, "engineering recycling powder pigment strat unavailable")
+                    local recyclingMetrics = Pricing.CalculateStratMetrics(recycling, GAM.C.DEFAULT_PATCH, 1)
+                    local recyclingSeen = collectSeenIDs(recyclingMetrics and recyclingMetrics.reagents)
+                    assert(recyclingSeen[245807] and not recyclingSeen[236761] and not recyclingSeen[236767],
+                        "engineering recycling VI display must remain direct")
+
+                    local crushing = GAM.Importer.GetStratByID("jewelcrafting__crushing__midnight_1")
+                    assert(crushing, "crushing strat unavailable")
+                    local analyzer = Pricing.GetCrushingAnalyzerData(crushing, GAM.C.DEFAULT_PATCH)
+                    assert(analyzer and analyzer.entries and #analyzer.entries > 0, "crushing analyzer data unavailable")
+                end)
+                Pricing.GetUnitPrice = originalGetUnitPrice
+                GetItemCount = originalGetItemCount
+                assert(displayParityOK, displayParityErr)
             end)
             GAM.GetOptions = originalGetOptions
             assert(derivedParityOK, derivedParityErr)
@@ -1547,6 +1636,7 @@ local function BuildReagentMetrics(ctx, missingPrices)
         reagentResults[#reagentResults + 1] = {
             name = displayName,
             itemID = itemID,
+            sourceItemIDs = entryIDs,
             scanItemIDs = GetCheapestAlternativeScanIDs(entry, ctx),
             unitPrice = price,
             required = required,
@@ -1556,6 +1646,8 @@ local function BuildReagentMetrics(ctx, missingPrices)
             totalCostFull = totalCostFull,
             isStale = stale,
             missingPrice = missingPrice,
+            excludeFromCost = excludeFromCost,
+            skipDerivation = entry.skipDerivation and true or false,
             selectedAlternativeName = entry.cheapestOf and displayName or nil,
             selectedAlternativeItemID = entry.cheapestOf and itemID or nil,
             selectionMode = entry.cheapestOf and "cheapest_pool" or nil,
@@ -1572,6 +1664,119 @@ local function BuildReagentMetrics(ctx, missingPrices)
         totalCostRequired = totalCostRequired,
         hasStale = hasStale,
         selectionNotes = selectionNotes,
+    }
+end
+
+local function BuildDisplayReagentMetrics(ctx, modelReagents)
+    local displayResults = {}
+    local hasStale = false
+    local inputPolicy = GetInputRankPolicy(ctx.strat)
+    local expansionDeps = {
+        PickItemID = function(itemIDs, patchTag)
+            return PickItemID(itemIDs, patchTag, inputPolicy)
+        end,
+    }
+
+    local function AddDisplayEntry(displayMap, displayOrder, itemIDs, qty, fallbackName, excludeFromCost, skipDerivation)
+        local pickedID = PickItemID(itemIDs, ctx.patchTag, inputPolicy) or (itemIDs and itemIDs[1]) or nil
+        local key = pickedID or fallbackName or tostring(#displayOrder + 1)
+        if displayMap[key] then
+            displayMap[key].qty = displayMap[key].qty + (qty or 0)
+            displayMap[key].excludeFromCost = displayMap[key].excludeFromCost or excludeFromCost
+            displayMap[key].skipDerivation = displayMap[key].skipDerivation or skipDerivation
+            return
+        end
+        displayMap[key] = {
+            itemIDs = itemIDs,
+            qty = qty or 0,
+            name = fallbackName or (pickedID and GetItemName(pickedID)) or "?",
+            excludeFromCost = excludeFromCost and true or false,
+            skipDerivation = skipDerivation and true or false,
+        }
+        displayOrder[#displayOrder + 1] = key
+    end
+
+    local currentMap = {}
+    local currentOrder = {}
+    for _, reagentMetric in ipairs(modelReagents or {}) do
+        local sourceIDs = reagentMetric.selectedAlternativeItemID and { reagentMetric.selectedAlternativeItemID }
+            or reagentMetric.sourceItemIDs
+            or (reagentMetric.itemID and { reagentMetric.itemID } or {})
+        AddDisplayEntry(
+            currentMap,
+            currentOrder,
+            sourceIDs,
+            reagentMetric.required or 0,
+            reagentMetric.selectedAlternativeName or reagentMetric.name,
+            reagentMetric.excludeFromCost,
+            reagentMetric.skipDerivation)
+    end
+
+    for _ = 1, 6 do
+        local nextMap = {}
+        local nextOrder = {}
+        local expandedAny = false
+
+        for _, key in ipairs(currentOrder) do
+            local entry = currentMap[key]
+            if entry.skipDerivation then
+                AddDisplayEntry(nextMap, nextOrder, entry.itemIDs, entry.qty, entry.name, entry.excludeFromCost, true)
+            else
+                local expanded, didExpand = Derivation.ExpandReagentForDisplayOneLevel(entry.itemIDs, entry.qty, ctx.patchTag, expansionDeps)
+                expandedAny = expandedAny or didExpand
+                for _, expandedEntry in ipairs(expanded or {}) do
+                    local entryIDs = expandedEntry.itemIDs or entry.itemIDs
+                    local pickedID = PickItemID(entryIDs, ctx.patchTag, inputPolicy)
+                    local fallbackName = expandedEntry.name or (pickedID and GetItemName(pickedID)) or entry.name
+                    AddDisplayEntry(nextMap, nextOrder, entryIDs, expandedEntry.qty, fallbackName, entry.excludeFromCost, false)
+                end
+            end
+        end
+
+        currentMap = nextMap
+        currentOrder = nextOrder
+        if not expandedAny then
+            break
+        end
+    end
+
+    for _, key in ipairs(currentOrder) do
+        local entry = currentMap[key]
+        local itemID = PickItemID(entry.itemIDs, ctx.patchTag, inputPolicy)
+        local required = math.floor((entry.qty or 0) + 0.5)
+        local price, stale = Pricing.GetEffectivePriceForItem({
+            itemIDs = itemID and { itemID } or entry.itemIDs,
+            name = entry.name,
+            skipDerivation = true,
+            rankPolicyOverride = inputPolicy,
+        }, ctx.patchTag, required)
+        local userHave = CountOwnedReagentItems(itemID, entry.itemIDs)
+        local needToBuy = math.max(0, required - userHave)
+        local totalCost = entry.excludeFromCost and 0 or ((needToBuy == 0) and 0 or (price and (needToBuy * price) or nil))
+        local totalCostFull = entry.excludeFromCost and 0 or (price and (required * price) or nil)
+
+        if stale then
+            hasStale = true
+        end
+
+        displayResults[#displayResults + 1] = {
+            name = entry.name,
+            itemID = itemID,
+            scanItemIDs = itemID and { itemID } or entry.itemIDs,
+            unitPrice = price,
+            required = required,
+            have = userHave,
+            needToBuy = needToBuy,
+            totalCost = totalCost,
+            totalCostFull = totalCostFull,
+            isStale = stale,
+            missingPrice = (not entry.excludeFromCost) and (needToBuy > 0) and not price,
+        }
+    end
+
+    return {
+        reagentResults = displayResults,
+        hasStale = hasStale,
     }
 end
 
@@ -1716,6 +1921,7 @@ local function BuildOutputMetrics(ctx, missingPrices)
 end
 
 local function BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
+    local displayReagentData = BuildDisplayReagentMetrics(ctx, reagentData.reagentResults)
     local profit = nil
     local roi = nil
     local breakEven = nil
@@ -1734,7 +1940,8 @@ local function BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
     return {
         startingAmount = ctx.startingAmt,
         crafts = ctx.crafts,
-        reagents = reagentData.reagentResults,
+        reagents = displayReagentData.reagentResults,
+        costReagents = reagentData.reagentResults,
         output = outputData.output,
         outputs = outputData.outputs,
         totalCostToBuy = reagentData.totalCostToBuy,
@@ -1744,7 +1951,7 @@ local function BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
         roi = roi,
         breakEvenSell = breakEven,
         missingPrices = missingPrices,
-        hasStale = reagentData.hasStale or outputData.hasStale,
+        hasStale = reagentData.hasStale or displayReagentData.hasStale or outputData.hasStale,
         selectionNotes = reagentData.selectionNotes,
     }
 end
@@ -1794,6 +2001,98 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     end
 
     return BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
+end
+
+local function ShallowCloneArrayOfTables(source)
+    local out = {}
+    for i, entry in ipairs(source or {}) do
+        local cloned = {}
+        for key, value in pairs(entry) do
+            if type(value) == "table" then
+                local inner = {}
+                for innerKey, innerValue in pairs(value) do
+                    if type(innerValue) == "table" then
+                        local nested = {}
+                        for nestedKey, nestedValue in pairs(innerValue) do
+                            nested[nestedKey] = nestedValue
+                        end
+                        inner[innerKey] = nested
+                    else
+                        inner[innerKey] = innerValue
+                    end
+                end
+                cloned[key] = inner
+            else
+                cloned[key] = value
+            end
+        end
+        out[i] = cloned
+    end
+    return out
+end
+
+function Pricing.GetCrushingAnalyzerData(strat, patchTag)
+    if not strat or strat.id ~= "jewelcrafting__crushing__midnight_1" then
+        return nil
+    end
+
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    local active = GetActiveRecipeView(strat)
+    local reagent = active and active.reagents and active.reagents[1] or nil
+    if not (reagent and reagent.cheapestOf and #reagent.cheapestOf > 0) then
+        return nil
+    end
+
+    local baseMetrics = Pricing.CalculateStratMetrics(strat, patchTag)
+    local selectedItemID = baseMetrics
+        and baseMetrics.costReagents
+        and baseMetrics.costReagents[1]
+        and baseMetrics.costReagents[1].selectedAlternativeItemID
+        or nil
+    local pdb = GetPatchDB(patchTag)
+    local inputPolicy = GetInputRankPolicy(strat)
+    local entries = {}
+
+    for _, alt in ipairs(reagent.cheapestOf) do
+        local altIDs = alt.itemIDs
+        if (not altIDs or #altIDs == 0) and alt.itemRef then
+            altIDs = pdb.rankGroups[alt.itemRef] or {}
+        end
+
+        local tempStrat = {}
+        for key, value in pairs(strat) do
+            tempStrat[key] = value
+        end
+        tempStrat.rankVariants = nil
+        tempStrat.reagents = ShallowCloneArrayOfTables(active.reagents)
+        tempStrat.outputs = ShallowCloneArrayOfTables(active.outputs or {})
+        tempStrat.output = tempStrat.outputs[1] or active.output or (active.outputs and active.outputs[1]) or strat.output
+
+        local altReagent = tempStrat.reagents[1] or {}
+        altReagent.cheapestOf = nil
+        altReagent.itemRef = alt.itemRef or altReagent.itemRef
+        altReagent.name = alt.itemRef or altReagent.name
+        altReagent.itemIDs = altIDs or {}
+        tempStrat.reagents[1] = altReagent
+
+        local altMetrics = Pricing.CalculateStratMetrics(tempStrat, patchTag)
+        local pickedAltID = PickItemID(altIDs, patchTag, inputPolicy)
+        local altCostReagent = altMetrics and altMetrics.costReagents and altMetrics.costReagents[1] or nil
+        entries[#entries + 1] = {
+            name = alt.itemRef or altReagent.name or "?",
+            itemID = pickedAltID,
+            unitPrice = altCostReagent and altCostReagent.unitPrice or nil,
+            profit = altMetrics and altMetrics.profit or nil,
+            roi = altMetrics and altMetrics.roi or nil,
+            breakEvenSell = altMetrics and altMetrics.breakEvenSell or nil,
+            isSelected = selectedItemID and pickedAltID and (selectedItemID == pickedAltID) or false,
+        }
+    end
+
+    return {
+        selectedItemID = selectedItemID,
+        entries = entries,
+    }
 end
 
 -- GetBestStrategy(patchTag, profFilter) — returns (strat, profit, roi) for the top
