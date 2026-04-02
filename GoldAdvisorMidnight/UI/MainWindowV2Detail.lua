@@ -12,6 +12,11 @@ local DEFAULT_GOLD = { 1.0, 0.82, 0.0 }
 local DEFAULT_RULE = { 0.7, 0.57, 0.0, 0.7 }
 local CRUSHING_WINDOW_W = 430
 local CRUSHING_WINDOW_H = 272
+local CRUSHING_WINDOW_MIN_W = 430
+local CRUSHING_WINDOW_MIN_H = 220
+local CRUSHING_ROW_H = 18
+local CRUSHING_ROWS_TOP = 76
+local CRUSHING_ROWS_BOTTOM_PAD = 16
 
 local function Noop()
 end
@@ -46,6 +51,141 @@ end
 local crushingWindow
 local crushingRows = {}
 
+local function GetVisibleCrushingRowCount(win)
+    local available = math.max(0, (win and win:GetHeight() or CRUSHING_WINDOW_H) - CRUSHING_ROWS_TOP - CRUSHING_ROWS_BOTTOM_PAD)
+    return math.max(1, math.min(#crushingRows, math.floor(available / CRUSHING_ROW_H)))
+end
+
+local function ApplyCrushingWindowLayout(win)
+    if not win then
+        return
+    end
+
+    local width = math.max(CRUSHING_WINDOW_MIN_W, math.floor((win:GetWidth() or CRUSHING_WINDOW_W) + 0.5))
+    local contentWidth = math.max(320, width - 32)
+    local gap = 6
+    local gemW = math.max(132, math.floor(contentWidth * 0.34))
+    local priceW = math.max(62, math.floor(contentWidth * 0.14))
+    local profitW = math.max(82, math.floor(contentWidth * 0.22))
+    local roiW = math.max(48, math.floor(contentWidth * 0.11))
+    local breakEvenW = math.max(68, contentWidth - gemW - priceW - profitW - roiW - (gap * 4))
+
+    local gemX = 16
+    local priceX = gemX + gemW + gap
+    local profitX = priceX + priceW + gap
+    local roiX = profitX + profitW + gap
+    local breakEvenX = roiX + roiW + gap
+
+    if win.subtitleFS then
+        win.subtitleFS:SetWidth(width - 40)
+    end
+
+    if win.headerGemFS then
+        win.headerGemFS:ClearAllPoints()
+        win.headerGemFS:SetPoint("TOPLEFT", win, "TOPLEFT", gemX, -56)
+        win.headerGemFS:SetWidth(gemW)
+    end
+    if win.headerPriceFS then
+        win.headerPriceFS:ClearAllPoints()
+        win.headerPriceFS:SetPoint("TOPLEFT", win, "TOPLEFT", priceX, -56)
+        win.headerPriceFS:SetWidth(priceW)
+    end
+    if win.headerProfitFS then
+        win.headerProfitFS:ClearAllPoints()
+        win.headerProfitFS:SetPoint("TOPLEFT", win, "TOPLEFT", profitX, -56)
+        win.headerProfitFS:SetWidth(profitW)
+    end
+    if win.headerROIFS then
+        win.headerROIFS:ClearAllPoints()
+        win.headerROIFS:SetPoint("TOPLEFT", win, "TOPLEFT", roiX, -56)
+        win.headerROIFS:SetWidth(roiW)
+    end
+    if win.headerBreakEvenFS then
+        win.headerBreakEvenFS:ClearAllPoints()
+        win.headerBreakEvenFS:SetPoint("TOPLEFT", win, "TOPLEFT", breakEvenX, -56)
+        win.headerBreakEvenFS:SetWidth(breakEvenW)
+    end
+
+    for i, row in ipairs(crushingRows) do
+        row:SetSize(contentWidth, CRUSHING_ROW_H)
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -CRUSHING_ROWS_TOP - ((i - 1) * CRUSHING_ROW_H))
+
+        row.nameFS:ClearAllPoints()
+        row.nameFS:SetPoint("LEFT", row, "LEFT", 4, 0)
+        row.nameFS:SetWidth(gemW - 8)
+
+        row.priceFS:ClearAllPoints()
+        row.priceFS:SetPoint("LEFT", row, "LEFT", priceX - gemX, 0)
+        row.priceFS:SetWidth(priceW)
+
+        row.profitFS:ClearAllPoints()
+        row.profitFS:SetPoint("LEFT", row, "LEFT", profitX - gemX, 0)
+        row.profitFS:SetWidth(profitW)
+
+        row.roiFS:ClearAllPoints()
+        row.roiFS:SetPoint("LEFT", row, "LEFT", roiX - gemX, 0)
+        row.roiFS:SetWidth(roiW)
+
+        row.breakEvenFS:ClearAllPoints()
+        row.breakEvenFS:SetPoint("LEFT", row, "LEFT", breakEvenX - gemX, 0)
+        row.breakEvenFS:SetWidth(breakEvenW)
+    end
+end
+
+local function ClampCrushingWindowSize(win)
+    if not win then
+        return
+    end
+    local width = math.max(CRUSHING_WINDOW_MIN_W, math.floor((win:GetWidth() or CRUSHING_WINDOW_W) + 0.5))
+    local height = math.max(CRUSHING_WINDOW_MIN_H, math.floor((win:GetHeight() or CRUSHING_WINDOW_H) + 0.5))
+    if width ~= (win:GetWidth() or 0) or height ~= (win:GetHeight() or 0) then
+        win:SetSize(width, height)
+    end
+end
+
+local function RenderCrushingAnalyzer(win, analyzer)
+    if not (win and analyzer and analyzer.entries) then
+        return nil
+    end
+
+    local selectedName = nil
+    local visibleRows = GetVisibleCrushingRowCount(win)
+
+    for i, row in ipairs(crushingRows) do
+        local entry = analyzer.entries[i]
+        if entry and i <= visibleRows then
+            local display = GAM.Pricing.GetItemDisplayData(entry.itemID, entry.name)
+            row.nameFS:SetText(display.displayText)
+            row.priceFS:SetText(entry.unitPrice and GAM.Pricing.FormatPrice(entry.unitPrice) or "|cffff8800—|r")
+            if entry.profit then
+                local color = entry.profit >= 0 and "|cff55ff55" or "|cffff5555"
+                row.profitFS:SetText(color .. GAM.Pricing.FormatPrice(entry.profit) .. "|r")
+            else
+                row.profitFS:SetText("|cff888888—|r")
+            end
+            if entry.roi then
+                local color = entry.roi >= 0 and "|cff55ff55" or "|cffff5555"
+                row.roiFS:SetText(color .. string.format("%.1f%%", entry.roi) .. "|r")
+            else
+                row.roiFS:SetText("|cff888888—|r")
+            end
+            row.breakEvenFS:SetText(entry.breakEvenSell and GAM.Pricing.FormatPrice(entry.breakEvenSell) or "|cff888888—|r")
+            if entry.isSelected then
+                row.bg:SetColorTexture(0.18, 0.14, 0.04, 0.92)
+                selectedName = entry.name
+            else
+                row.bg:SetColorTexture(0.10, 0.10, 0.10, (i % 2 == 1) and 0.55 or 0.28)
+            end
+            row:Show()
+        else
+            row:Hide()
+        end
+    end
+
+    return selectedName
+end
+
 local function HideCrushingWindow()
     if crushingWindow then
         crushingWindow:Hide()
@@ -59,6 +199,7 @@ local function EnsureCrushingWindow()
 
     crushingWindow = CreateFrame("Frame", "GAMCrushingAnalyzer", UIParent, "BackdropTemplate")
     crushingWindow:SetSize(CRUSHING_WINDOW_W, CRUSHING_WINDOW_H)
+    crushingWindow:SetResizable(true)
     crushingWindow:SetScale((GAM.GetOption and GAM:GetOption("uiScale", 1.0)) or 1.0)
     crushingWindow:SetMovable(true)
     crushingWindow:EnableMouse(true)
@@ -79,6 +220,27 @@ local function EnsureCrushingWindow()
     })
     crushingWindow:SetBackdropColor(0, 0, 0, 1)
     crushingWindow:Hide()
+    crushingWindow:SetScript("OnSizeChanged", function(self)
+        ClampCrushingWindowSize(self)
+        if not self.subtitleFS then
+            return
+        end
+        ApplyCrushingWindowLayout(self)
+        if self._lastAnalyzer then
+            local selectedName = RenderCrushingAnalyzer(self, self._lastAnalyzer)
+            local craftsText = nil
+            if self._lastAnalyzer.crafts and self._lastAnalyzer.crafts > 0 then
+                craftsText = tostring(math.floor((self._lastAnalyzer.crafts or 0) + 0.5))
+            end
+            if selectedName then
+                self.subtitleFS:SetText(craftsText and ("Active auto-pick: " .. selectedName .. " | Crafts: " .. craftsText)
+                    or ("Active auto-pick: " .. selectedName))
+            else
+                self.subtitleFS:SetText(craftsText and ("Current rank-policy gem comparison | Crafts: " .. craftsText)
+                    or "Current rank-policy gem comparison")
+            end
+        end
+    end)
 
     local bgTex = crushingWindow:CreateTexture(nil, "BACKGROUND", nil, -8)
     bgTex:SetAllPoints()
@@ -119,16 +281,16 @@ local function EnsureCrushingWindow()
         return fs
     end
 
-    MakeHdr("Gem", 16, 132, "LEFT")
-    MakeHdr("Price", 150, 62, "LEFT")
-    MakeHdr("Profit", 214, 82, "LEFT")
-    MakeHdr("ROI", 298, 52, "LEFT")
-    MakeHdr("Break-even", 352, 62, "LEFT")
+    crushingWindow.headerGemFS = MakeHdr("Gem", 16, 132, "LEFT")
+    crushingWindow.headerPriceFS = MakeHdr("Price", 150, 62, "LEFT")
+    crushingWindow.headerProfitFS = MakeHdr("Profit", 214, 82, "LEFT")
+    crushingWindow.headerROIFS = MakeHdr("ROI", 298, 52, "LEFT")
+    crushingWindow.headerBreakEvenFS = MakeHdr("Break-even", 352, 62, "LEFT")
 
     for i = 1, 10 do
         local row = CreateFrame("Frame", nil, crushingWindow)
-        row:SetSize(CRUSHING_WINDOW_W - 32, 18)
-        row:SetPoint("TOPLEFT", crushingWindow, "TOPLEFT", 16, -76 - ((i - 1) * 18))
+        row:SetSize(CRUSHING_WINDOW_W - 32, CRUSHING_ROW_H)
+        row:SetPoint("TOPLEFT", crushingWindow, "TOPLEFT", 16, -CRUSHING_ROWS_TOP - ((i - 1) * CRUSHING_ROW_H))
 
         local bg = row:CreateTexture(nil, "BACKGROUND")
         bg:SetAllPoints()
@@ -174,6 +336,25 @@ local function EnsureCrushingWindow()
         crushingRows[i] = row
     end
 
+    local resizeBtn = CreateFrame("Button", nil, crushingWindow)
+    resizeBtn:SetSize(16, 16)
+    resizeBtn:SetPoint("BOTTOMRIGHT", crushingWindow, "BOTTOMRIGHT", -8, 8)
+    resizeBtn:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    resizeBtn:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    resizeBtn:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    resizeBtn:SetScript("OnMouseDown", function()
+        crushingWindow:StartSizing("BOTTOMRIGHT")
+    end)
+    resizeBtn:SetScript("OnMouseUp", function()
+        crushingWindow:StopMovingOrSizing()
+        crushingWindow._userMoved = true
+        ApplyCrushingWindowLayout(crushingWindow)
+    end)
+    crushingWindow.resizeBtn = resizeBtn
+
+    ClampCrushingWindowSize(crushingWindow)
+    ApplyCrushingWindowLayout(crushingWindow)
+
     return crushingWindow
 end
 
@@ -193,13 +374,13 @@ local function PositionCrushingWindow(anchor)
     end
 end
 
-local function RefreshCrushingWindow(anchor, strat, patchTag)
+local function RefreshCrushingWindow(anchor, strat, patchTag, metrics)
     if not (strat and GAM.Pricing and GAM.Pricing.GetCrushingAnalyzerData) then
         HideCrushingWindow()
         return
     end
 
-    local analyzer = GAM.Pricing.GetCrushingAnalyzerData(strat, patchTag)
+    local analyzer = GAM.Pricing.GetCrushingAnalyzerData(strat, patchTag, metrics)
     if not (analyzer and analyzer.entries and #analyzer.entries > 0) then
         HideCrushingWindow()
         return
@@ -207,40 +388,20 @@ local function RefreshCrushingWindow(anchor, strat, patchTag)
 
     local win = EnsureCrushingWindow()
     PositionCrushingWindow(anchor)
-    local selectedName = nil
+    win._lastAnalyzer = analyzer
+    local selectedName = RenderCrushingAnalyzer(win, analyzer)
 
-    for i, row in ipairs(crushingRows) do
-        local entry = analyzer.entries[i]
-        if entry then
-            local display = GAM.Pricing.GetItemDisplayData(entry.itemID, entry.name)
-            row.nameFS:SetText(display.displayText)
-            row.priceFS:SetText(entry.unitPrice and GAM.Pricing.FormatPrice(entry.unitPrice) or "|cffff8800—|r")
-            if entry.profit then
-                local color = entry.profit >= 0 and "|cff55ff55" or "|cffff5555"
-                row.profitFS:SetText(color .. GAM.Pricing.FormatPrice(entry.profit) .. "|r")
-            else
-                row.profitFS:SetText("|cff888888—|r")
-            end
-            if entry.roi then
-                local color = entry.roi >= 0 and "|cff55ff55" or "|cffff5555"
-                row.roiFS:SetText(color .. string.format("%.1f%%", entry.roi) .. "|r")
-            else
-                row.roiFS:SetText("|cff888888—|r")
-            end
-            row.breakEvenFS:SetText(entry.breakEvenSell and GAM.Pricing.FormatPrice(entry.breakEvenSell) or "|cff888888—|r")
-            if entry.isSelected then
-                row.bg:SetColorTexture(0.18, 0.14, 0.04, 0.92)
-                selectedName = entry.name
-            else
-                row.bg:SetColorTexture(0.10, 0.10, 0.10, (i % 2 == 1) and 0.55 or 0.28)
-            end
-            row:Show()
-        else
-            row:Hide()
-        end
+    local craftsText = nil
+    if analyzer.crafts and analyzer.crafts > 0 then
+        craftsText = tostring(math.floor((analyzer.crafts or 0) + 0.5))
     end
-
-    win.subtitleFS:SetText(selectedName and ("Active auto-pick: " .. selectedName) or "Current rank-policy gem comparison")
+    if selectedName then
+        win.subtitleFS:SetText(craftsText and ("Active auto-pick: " .. selectedName .. " | Crafts: " .. craftsText)
+            or ("Active auto-pick: " .. selectedName))
+    else
+        win.subtitleFS:SetText(craftsText and ("Current rank-policy gem comparison | Crafts: " .. craftsText)
+            or "Current rank-policy gem comparison")
+    end
     win:Show()
 end
 
@@ -458,7 +619,7 @@ function Detail.Render(args)
     end
     rpDetail.root:Show()
     if strat.id == "jewelcrafting__crushing__midnight_1" then
-        RefreshCrushingWindow(rpDetail.root, strat, patchTag)
+        RefreshCrushingWindow(rpDetail.root, strat, patchTag, metrics)
     else
         HideCrushingWindow()
     end

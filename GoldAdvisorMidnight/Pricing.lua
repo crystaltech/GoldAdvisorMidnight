@@ -1023,6 +1023,19 @@ function Pricing.RunSmokeChecks()
                     assert(crushing, "crushing strat unavailable")
                     local analyzer = Pricing.GetCrushingAnalyzerData(crushing, GAM.C.DEFAULT_PATCH)
                     assert(analyzer and analyzer.entries and #analyzer.entries > 0, "crushing analyzer data unavailable")
+                    local scaledCrushingMetrics = Pricing.CalculateStratMetrics(crushing, GAM.C.DEFAULT_PATCH, 2)
+                    local scaledAnalyzer = Pricing.GetCrushingAnalyzerData(crushing, GAM.C.DEFAULT_PATCH, scaledCrushingMetrics)
+                    assert(scaledAnalyzer and scaledAnalyzer.crafts == scaledCrushingMetrics.crafts,
+                        "crushing analyzer must inherit current craft quantity")
+                    local selectedAnalyzerProfit = nil
+                    for _, entry in ipairs(scaledAnalyzer.entries or {}) do
+                        if entry.isSelected then
+                            selectedAnalyzerProfit = entry.profit
+                            break
+                        end
+                    end
+                    assertNear(selectedAnalyzerProfit or 0, scaledCrushingMetrics.profit or 0,
+                        "crushing analyzer selected profit must follow current craft quantity")
                 end)
                 Pricing.GetUnitPrice = originalGetUnitPrice
                 GetItemCount = originalGetItemCount
@@ -2031,7 +2044,7 @@ local function ShallowCloneArrayOfTables(source)
     return out
 end
 
-function Pricing.GetCrushingAnalyzerData(strat, patchTag)
+function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics)
     if not strat or strat.id ~= "jewelcrafting__crushing__midnight_1" then
         return nil
     end
@@ -2043,12 +2056,14 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag)
         return nil
     end
 
-    local baseMetrics = Pricing.CalculateStratMetrics(strat, patchTag)
-    local selectedItemID = baseMetrics
-        and baseMetrics.costReagents
-        and baseMetrics.costReagents[1]
-        and baseMetrics.costReagents[1].selectedAlternativeItemID
+    local currentMetrics = baseMetrics or Pricing.CalculateStratMetrics(strat, patchTag)
+    local selectedItemID = currentMetrics
+        and currentMetrics.costReagents
+        and currentMetrics.costReagents[1]
+        and currentMetrics.costReagents[1].selectedAlternativeItemID
         or nil
+    local selectedCrafts = currentMetrics and currentMetrics.crafts or nil
+    local selectedStartingAmount = currentMetrics and currentMetrics.startingAmount or nil
     local pdb = GetPatchDB(patchTag)
     local inputPolicy = GetInputRankPolicy(strat)
     local entries = {}
@@ -2067,6 +2082,12 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag)
         tempStrat.reagents = ShallowCloneArrayOfTables(active.reagents)
         tempStrat.outputs = ShallowCloneArrayOfTables(active.outputs or {})
         tempStrat.output = tempStrat.outputs[1] or active.output or (active.outputs and active.outputs[1]) or strat.output
+        if selectedStartingAmount and selectedStartingAmount > 0 then
+            tempStrat.defaultStartingAmount = selectedStartingAmount
+        end
+        if selectedCrafts and selectedCrafts > 0 then
+            tempStrat.defaultCrafts = selectedCrafts
+        end
 
         local altReagent = tempStrat.reagents[1] or {}
         altReagent.cheapestOf = nil
@@ -2091,6 +2112,8 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag)
 
     return {
         selectedItemID = selectedItemID,
+        crafts = selectedCrafts,
+        startingAmount = selectedStartingAmount,
         entries = entries,
     }
 end

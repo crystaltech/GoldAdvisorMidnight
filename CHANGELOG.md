@@ -1,5 +1,11 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.20] — 2026-04-02
+
+### Bug Fixes
+- **Crushing analyzer craft-qty sync fixed** — The analyzer now follows the current craft quantity from the detail pane instead of recalculating from the default baseline, so its prices, profit, ROI, and break-even stay aligned with the selected strategy view.
+- **Crushing analyzer resizable layout fixed** — The analyzer window can now be resized safely, with columns expanding to show larger values without clipping.
+
 ## [1.7.19] — 2026-04-02
 
 ### UX / Workflow
