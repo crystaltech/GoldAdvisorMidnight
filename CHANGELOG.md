@@ -1,5 +1,24 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.21] — 2026-04-07
+
+### Bug Fixes
+- **Live quantity-aware pricing restored** — Strategy pricing now uses live AH depth again when scan data is available, so changing `Crafts` updates reagent pricing, total cost, profit, ROI, and break-even together instead of sticking to a single cheapest unit.
+- **Non-commodity output pricing corrected** — Item-auction scans now weight listings by stack quantity instead of one listing = one vote, fixing inflated unit sell prices on outputs like `Thalassian Missive of the Quickblade`.
+- **Vertical-integration totals reconciled** — `Total Cost`, `Buy Now Cost`, and the visible reagent rows now share the same resolved reagent model when `Use own items/crafts` is enabled, fixing mismatches like the `Soul Cipher` detail view.
+- **Smoke-test load order fixed** — `/gam smoketest` no longer trips over nil local helpers during Pricing.lua initialization.
+- **Editable-field confirmation fixed** — Transient commit buttons now apply reliably on click instead of losing the edit during focus changes, and the same `OK` confirmation flow now covers the tools-panel editors too.
+- **Portuguese `My Professions` filter fixed** — Profession filtering now resolves player professions by stable skill-line IDs instead of localized profession names, so non-English clients no longer fall back to `All`.
+
+### Data
+- **Haranir Phial of Finesse reagent corrected** — The generated strategy now uses `Mana Lily` instead of `Argentleaf`.
+- **Scoped workbook refresh applied** — Updated the approved Blacksmithing and Engineering-generated blocks from the latest workbook, including the revised ingot expectations and current Engineering recycling data.
+
+### UI / Localization
+- **Contextual `OK` buttons added** — Editable quantity/stat fields now show an `OK` button only while the value is actively being changed.
+- **Short-label locale pass added** — Constrained UI labels now use shared short wording across all locales to reduce clipping and overflow in buttons, headers, and compact panels.
+- **Footer readability improved** — The bottom support/version bar now uses larger text, and clicking it opens a copy-ready Discord invite popup again.
+
 ## [1.7.20] — 2026-04-02
 
 ### Bug Fixes

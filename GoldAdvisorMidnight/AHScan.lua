@@ -168,6 +168,13 @@ function AHScan.RunSmokeChecks()
         assert(type(minP) == "number" and minP > 0, "min unavailable")
         assert(type(maxP) == "number" and maxP > 0, "max unavailable")
         assert(type(kept) == "number" and kept > 0, "kept unavailable")
+
+        local weightedAvg = ComputeStatsFromResults({
+            { unitPrice = 100, quantity = 1 },
+            { unitPrice = 1000, quantity = 10 },
+        }, 11)
+        assert(weightedAvg and weightedAvg > 800,
+            string.format("stack weighting regressed: got %s expected > 800", tostring(weightedAvg)))
     end)
     return ok, err
 end
@@ -558,16 +565,15 @@ function AHScan.OnItemResults(itemKey)
             OnItemFail(entry)
             return
         end
-        -- Collect per-unit prices with quantity=1 (equal weighting per listing),
-        -- then apply the same ARP-style fill+trim as commodities.
+        -- Collect per-unit prices and weight them by stack quantity so the
+        -- simulated fill reflects units available on the AH, not just listing count.
         local raw = {}
         for i = 1, numResults do
             local r = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
             if r and r.buyoutAmount and r.buyoutAmount > 0 then
                 -- buyoutAmount is the total stack price; divide by quantity for per-unit.
-                -- quantity=1 so fill+trim weights each listing equally, not by stack size.
                 local qty = r.quantity or 1
-                raw[#raw + 1] = { unitPrice = math.floor(r.buyoutAmount / qty), quantity = 1 }
+                raw[#raw + 1] = { unitPrice = math.floor(r.buyoutAmount / qty), quantity = qty }
             end
         end
         table.sort(raw, function(a, b) return a.unitPrice < b.unitPrice end)

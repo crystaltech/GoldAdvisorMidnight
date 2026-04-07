@@ -10,8 +10,8 @@ GAM.UI.MainWindowV2Detail = Detail
 
 local DEFAULT_GOLD = { 1.0, 0.82, 0.0 }
 local DEFAULT_RULE = { 0.7, 0.57, 0.0, 0.7 }
-local CRUSHING_WINDOW_W = 430
-local CRUSHING_WINDOW_H = 272
+local CRUSHING_WINDOW_W = 592
+local CRUSHING_WINDOW_H = 262
 local CRUSHING_WINDOW_MIN_W = 430
 local CRUSHING_WINDOW_MIN_H = 220
 local CRUSHING_ROW_H = 18
@@ -19,6 +19,88 @@ local CRUSHING_ROWS_TOP = 76
 local CRUSHING_ROWS_BOTTOM_PAD = 16
 
 local function Noop()
+end
+
+local function GetCommitButtonText(localizer)
+    return "OK"
+end
+
+local function RefreshCommitButton(editBox)
+    local button = editBox and editBox._gamCommitButton
+    if not button then
+        return
+    end
+    local committed = tostring(editBox._gamCommittedText or "")
+    local current = tostring(editBox:GetText() or "")
+    local keepVisible = editBox._gamCommitFromButton or editBox._gamCommitInProgress
+    local shouldShow = editBox:IsShown() and current ~= committed and (editBox:HasFocus() or keepVisible)
+    button:SetShown(shouldShow)
+end
+
+local function AttachTransientCommitButton(editBox, button, commitFn)
+    if not (editBox and button and commitFn) then
+        return
+    end
+
+    editBox._gamCommitButton = button
+    editBox._gamCommittedText = tostring(editBox:GetText() or "")
+
+    local function CommitCurrentValue(fromButton)
+        local text = tostring(editBox:GetText() or "")
+        editBox._gamCommitInProgress = true
+        if fromButton then
+            editBox._gamCommitFromButton = true
+        end
+        commitFn(text)
+        editBox._gamCommittedText = tostring(editBox:GetText() or text)
+        if editBox:HasFocus() then
+            editBox:ClearFocus()
+        end
+        editBox._gamCommitInProgress = nil
+        editBox._gamCommitFromButton = nil
+        RefreshCommitButton(editBox)
+    end
+
+    button:SetScript("OnMouseDown", function()
+        editBox._gamCommitFromButton = true
+        RefreshCommitButton(editBox)
+    end)
+    button:SetScript("OnClick", function()
+        CommitCurrentValue(true)
+    end)
+    button:SetScript("OnHide", function()
+        editBox._gamCommitFromButton = nil
+    end)
+
+    editBox:SetScript("OnEnterPressed", function(self)
+        CommitCurrentValue(false)
+    end)
+    editBox:SetScript("OnEscapePressed", function(self)
+        self:SetText(self._gamCommittedText or "")
+        self._gamCommitFromButton = nil
+        self:ClearFocus()
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnEditFocusGained", function(self)
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnTextChanged", function(self)
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnEditFocusLost", function(self)
+        if self._gamCommitFromButton or self._gamCommitInProgress
+            or (self._gamCommitButton and MouseIsOver and MouseIsOver(self._gamCommitButton)) then
+            self._gamCommitFromButton = self._gamCommitFromButton or true
+            return
+        end
+        local committed = tostring(self._gamCommittedText or "")
+        if tostring(self:GetText() or "") ~= committed then
+            self:SetText(committed)
+        end
+        RefreshCommitButton(self)
+    end)
+
+    button:Hide()
 end
 
 local function GetPlaceholder(args)
@@ -460,7 +542,10 @@ function Detail.Render(args)
 
     if rpDetail.craftsEB and not rpDetail.craftsEB:HasFocus() then
         local craftsVal = (metrics and metrics.crafts) and math.floor(metrics.crafts + 0.5) or 1
-        rpDetail.craftsEB:SetText(tostring(craftsVal))
+        local craftsText = tostring(craftsVal)
+        rpDetail.craftsEB:SetText(craftsText)
+        rpDetail.craftsEB._gamCommittedText = craftsText
+        RefreshCommitButton(rpDetail.craftsEB)
     end
 
     if placeholder then
@@ -562,6 +647,7 @@ function Detail.Render(args)
                 kind = "output",
                 unitPrice = outputItem.unitPrice,
                 expectedQty = outputItem.expectedQty,
+                expectedQtyRaw = outputItem.expectedQtyRaw,
                 netRevenue = outputItem.netRevenue,
             }
             row:Show()
@@ -833,17 +919,19 @@ function Detail.Build(args)
 
     local craftsEB = CreateFrame("EditBox", nil, bodyRoot, "InputBoxTemplate")
     craftsEB:SetSize(52, 18)
-    craftsEB:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, y + 1)
     craftsEB:SetAutoFocus(false)
     craftsEB:SetNumeric(true)
-    craftsEB:SetScript("OnEnterPressed", function(self)
-        onCommitCrafts(self:GetText())
-        self:ClearFocus()
-    end)
-    craftsEB:SetScript("OnEditFocusLost", function(self)
-        self:ClearFocus()
-    end)
     rpDetail.craftsEB = craftsEB
+
+    local craftsOKBtn = CreateFrame("Button", nil, bodyRoot, "UIPanelButtonTemplate")
+    craftsOKBtn:SetSize(28, 18)
+    craftsOKBtn:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, y + 1)
+    craftsOKBtn:SetText(GetCommitButtonText(L))
+    craftsOKBtn:Hide()
+    rpDetail.craftsOKBtn = craftsOKBtn
+
+    craftsEB:SetPoint("RIGHT", craftsOKBtn, "LEFT", -4, 0)
+    AttachTransientCommitButton(craftsEB, craftsOKBtn, onCommitCrafts)
 
     local craftsLabel = bodyRoot:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     craftsLabel:SetPoint("RIGHT", craftsEB, "LEFT", -4, 0)

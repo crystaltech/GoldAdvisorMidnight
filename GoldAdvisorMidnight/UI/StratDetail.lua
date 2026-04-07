@@ -104,6 +104,88 @@ local function LayoutButtonRowBottom(parent, buttons, cfg)
     }
 end
 
+local function GetCommitButtonText()
+    return "OK"
+end
+
+local function RefreshCommitButton(editBox)
+    local button = editBox and editBox._gamCommitButton
+    if not button then
+        return
+    end
+    local committed = tostring(editBox._gamCommittedText or "")
+    local current = tostring(editBox:GetText() or "")
+    local keepVisible = editBox._gamCommitFromButton or editBox._gamCommitInProgress
+    local shouldShow = editBox:IsShown() and current ~= committed and (editBox:HasFocus() or keepVisible)
+    button:SetShown(shouldShow)
+end
+
+local function AttachTransientCommitButton(editBox, button, commitFn)
+    if not (editBox and button and commitFn) then
+        return
+    end
+
+    editBox._gamCommitButton = button
+    editBox._gamCommittedText = tostring(editBox:GetText() or "")
+
+    local function CommitCurrentValue(fromButton)
+        local text = tostring(editBox:GetText() or "")
+        editBox._gamCommitInProgress = true
+        if fromButton then
+            editBox._gamCommitFromButton = true
+        end
+        commitFn(text)
+        editBox._gamCommittedText = tostring(editBox:GetText() or text)
+        if editBox:HasFocus() then
+            editBox:ClearFocus()
+        end
+        editBox._gamCommitInProgress = nil
+        editBox._gamCommitFromButton = nil
+        RefreshCommitButton(editBox)
+    end
+
+    button:SetScript("OnMouseDown", function()
+        editBox._gamCommitFromButton = true
+        RefreshCommitButton(editBox)
+    end)
+    button:SetScript("OnClick", function()
+        CommitCurrentValue(true)
+    end)
+    button:SetScript("OnHide", function()
+        editBox._gamCommitFromButton = nil
+    end)
+
+    editBox:SetScript("OnEnterPressed", function(self)
+        CommitCurrentValue(false)
+    end)
+    editBox:SetScript("OnEscapePressed", function(self)
+        self:SetText(self._gamCommittedText or "")
+        self._gamCommitFromButton = nil
+        self:ClearFocus()
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnEditFocusGained", function(self)
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnTextChanged", function(self)
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnEditFocusLost", function(self)
+        if self._gamCommitFromButton or self._gamCommitInProgress
+            or (self._gamCommitButton and MouseIsOver and MouseIsOver(self._gamCommitButton)) then
+            self._gamCommitFromButton = self._gamCommitFromButton or true
+            return
+        end
+        local committed = tostring(self._gamCommittedText or "")
+        if tostring(self:GetText() or "") ~= committed then
+            self:SetText(committed)
+        end
+        RefreshCommitButton(self)
+    end)
+
+    button:Hide()
+end
+
 -- ===== Delete confirmation (custom frame — avoids StaticPopup strata/close issues) =====
 local confirmFrame
 
@@ -236,6 +318,14 @@ local function ItemRowClick(self, button)
     end
 end
 
+local function FormatExpectedOutputTooltip(qty, qtyRaw)
+    local raw = tonumber(qtyRaw)
+    if raw and math.abs(raw - math.floor(raw + 0.5)) > 0.01 then
+        return string.format("%.2f", raw)
+    end
+    return string.format("%.0f", qty or 0)
+end
+
 local function ItemRowEnter(self)
     local display = self and self._itemDisplay
     local link = display and display.itemLink
@@ -256,7 +346,7 @@ local function ItemRowEnter(self)
             end
         elseif tt.kind == "output" then
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
-            GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", string.format("%.0f", tt.expectedQty or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", FormatExpectedOutputTooltip(tt.expectedQty, tt.expectedQtyRaw)), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_NET_REVENUE"]) or "Total Net Revenue: %s", tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
             GameTooltip:AddLine((L and L["TT_ROW_NET_NOTE"]) or "The visible Net column is craft-level net revenue, not a per-item price.", 1, 0.82, 0, true)
         end
@@ -399,21 +489,25 @@ local function MakeReagentRow(parent, idx)
     qtyEB:SetAutoFocus(false)
     qtyEB:SetNumeric(false)
     qtyEB:SetJustifyH("CENTER")
-    local function SaveInputQty(self)
+    local function SaveInputQty(text)
         if currentStrat then
-            SetInputQtyOverride(self:GetText())
+            SetInputQtyOverride(text)
             SD.Refresh()
         end
-        self:ClearFocus()
     end
-    -- Only commit on explicit Enter; OnEditFocusLost fires before row-click events
-    -- propagate, so calling SD.Refresh() there can eat the click and prevent switching strategies.
-    qtyEB:SetScript("OnEnterPressed", SaveInputQty)
-    qtyEB:SetScript("OnEditFocusLost", function(self) self:ClearFocus() end)
     qtyFS:Hide()
     qtyEB:Hide()
     row.qtyText = qtyFS   -- alias kept for non-primary path
     row.qtyEB   = qtyEB
+
+    local qtyOKBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    qtyOKBtn:SetSize(26, 18)
+    qtyOKBtn:SetPoint("TOPLEFT", row, "TOPLEFT", colX[4] - 28, 1)
+    qtyOKBtn:SetText(GetCommitButtonText())
+    qtyOKBtn:SetWidth(MeasureButtonWidth(row, qtyOKBtn:GetText(), 24, 40, 12))
+    qtyOKBtn:Hide()
+    row.qtyOKBtn = qtyOKBtn
+    AttachTransientCommitButton(qtyEB, qtyOKBtn, SaveInputQty)
 
     row.haveText  = MakeFontCell(colX[3], colX[4] - colX[3], "CENTER")  -- In Bags (read-only)
     row.needText  = MakeFontCell(colX[4], colX[5] - colX[4], "CENTER")
@@ -476,9 +570,14 @@ local function PopulateReagentRow(row, reagentMetric, isPrimary)
     if isPrimary then
         row.qtyEB:Show()
         row.qtyText:Hide()
-        if not row.qtyEB:HasFocus() then row.qtyEB:SetText(qtyStr) end
+        if not row.qtyEB:HasFocus() then
+            row.qtyEB:SetText(qtyStr)
+            row.qtyEB._gamCommittedText = qtyStr
+            RefreshCommitButton(row.qtyEB)
+        end
     else
         row.qtyEB:Hide()
+        if row.qtyOKBtn then row.qtyOKBtn:Hide() end
         row.qtyText:Show()
         row.qtyText:SetText(qtyStr)
     end
@@ -583,6 +682,7 @@ local function PopulateOutputRow(row, outputMetric, isPrimary)
         kind = "output",
         unitPrice = outputMetric.unitPrice,
         expectedQty = outputMetric.expectedQty,
+        expectedQtyRaw = outputMetric.expectedQtyRaw,
         netRevenue = outputMetric.netRevenue,
     }
     local display = GAM.Pricing.GetItemDisplayData(outputMetric.itemID, outputMetric.name)
@@ -1137,6 +1237,7 @@ function SD.Refresh()
         else
             BindItemRow(row, nil)
             row:Hide()
+            if row.qtyOKBtn then row.qtyOKBtn:Hide() end
             row.reagentData = nil
             row._metricTooltip = nil
         end

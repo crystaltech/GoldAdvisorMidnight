@@ -11,6 +11,88 @@ GAM.UI.MainWindowV2LeftPanel = LeftPanelUI
 local function Noop()
 end
 
+local function GetCommitButtonText(localizer)
+    return "OK"
+end
+
+local function RefreshCommitButton(editBox)
+    local button = editBox and editBox._gamCommitButton
+    if not button then
+        return
+    end
+    local committed = tostring(editBox._gamCommittedText or "")
+    local current = tostring(editBox:GetText() or "")
+    local keepVisible = editBox._gamCommitFromButton or editBox._gamCommitInProgress
+    local shouldShow = editBox:IsShown() and current ~= committed and (editBox:HasFocus() or keepVisible)
+    button:SetShown(shouldShow)
+end
+
+local function AttachTransientCommitButton(editBox, button, commitFn)
+    if not (editBox and button and commitFn) then
+        return
+    end
+
+    editBox._gamCommitButton = button
+    editBox._gamCommittedText = tostring(editBox:GetText() or "")
+
+    local function CommitCurrentValue(fromButton)
+        local text = tostring(editBox:GetText() or "")
+        editBox._gamCommitInProgress = true
+        if fromButton then
+            editBox._gamCommitFromButton = true
+        end
+        commitFn(text)
+        editBox._gamCommittedText = tostring(editBox:GetText() or text)
+        if editBox:HasFocus() then
+            editBox:ClearFocus()
+        end
+        editBox._gamCommitInProgress = nil
+        editBox._gamCommitFromButton = nil
+        RefreshCommitButton(editBox)
+    end
+
+    button:SetScript("OnMouseDown", function()
+        editBox._gamCommitFromButton = true
+        RefreshCommitButton(editBox)
+    end)
+    button:SetScript("OnClick", function()
+        CommitCurrentValue(true)
+    end)
+    button:SetScript("OnHide", function()
+        editBox._gamCommitFromButton = nil
+    end)
+
+    editBox:SetScript("OnEnterPressed", function()
+        CommitCurrentValue(false)
+    end)
+    editBox:SetScript("OnEscapePressed", function(self)
+        self:SetText(self._gamCommittedText or "")
+        self._gamCommitFromButton = nil
+        self:ClearFocus()
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnEditFocusGained", function(self)
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnTextChanged", function(self)
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnEditFocusLost", function(self)
+        if self._gamCommitFromButton or self._gamCommitInProgress
+            or (self._gamCommitButton and MouseIsOver and MouseIsOver(self._gamCommitButton)) then
+            self._gamCommitFromButton = self._gamCommitFromButton or true
+            return
+        end
+        local committed = tostring(self._gamCommittedText or "")
+        if tostring(self:GetText() or "") ~= committed then
+            self:SetText(committed)
+        end
+        RefreshCommitButton(self)
+    end)
+
+    button:Hide()
+end
+
 function LeftPanelUI.Build(args)
     local panel = args.panel
     local themeRefs = args.themeRefs or {}
@@ -58,6 +140,7 @@ function LeftPanelUI.Build(args)
     local softInk = layoutMode == "soft"
     local labelColor = softInk and bodyTextColor or { 0.9, 0.9, 0.9, 1.0 }
     local helperColor = softInk and mutedTextColor or { 0.65, 0.65, 0.65, 1.0 }
+    local allFilterText = (L and L["V2_ALL_FILTER"]) or "All"
 
     local charNameFS = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     charNameFS:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -40)
@@ -133,18 +216,19 @@ function LeftPanelUI.Build(args)
             table.insert(pool, 1, "All")
             for _, prof in ipairs(pool) do
                 local info = UIDropDownMenu_CreateInfo()
-                info.text = prof
+                info.text = (prof == "All") and allFilterText or prof
                 info.value = prof
                 info.func = function()
                     setFilterProfSingle(prof)
-                    UIDropDownMenu_SetText(ddProf, prof)
+                    UIDropDownMenu_SetText(ddProf, (prof == "All") and allFilterText or prof)
                     rebuildList()
                     refreshRows()
                 end
                 UIDropDownMenu_AddButton(info)
             end
         end)
-        UIDropDownMenu_SetText(ddProf, getFilterProfSingle())
+        local currentProf = getFilterProfSingle()
+        UIDropDownMenu_SetText(ddProf, (currentProf == "All") and allFilterText or currentProf)
     end
 
     panel.ddProf = ddProf
@@ -159,7 +243,6 @@ function LeftPanelUI.Build(args)
 
     local fillQtyBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
     fillQtyBox:SetSize(56, 20)
-    fillQtyBox:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -168)
     fillQtyBox:SetAutoFocus(false)
     fillQtyBox:SetNumeric(true)
     fillQtyBox:SetText(tostring(getOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
@@ -172,6 +255,13 @@ function LeftPanelUI.Build(args)
     fillQtyBox:SetScript("OnLeave", function()
         GameTooltip:Hide()
     end)
+
+    local fillQtyOKBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    fillQtyOKBtn:SetSize(28, 18)
+    fillQtyOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -168)
+    fillQtyOKBtn:SetText(GetCommitButtonText(L))
+    fillQtyOKBtn:Hide()
+    fillQtyBox:SetPoint("RIGHT", fillQtyOKBtn, "LEFT", -4, 0)
 
     local fillRangeFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fillRangeFS:SetPoint("TOPLEFT", fillLbl, "BOTTOMLEFT", 0, -4)
@@ -224,7 +314,6 @@ function LeftPanelUI.Build(args)
 
     local statResBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
     statResBox:SetSize(56, 20)
-    statResBox:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -312)
     statResBox:SetAutoFocus(false)
     statResBox:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -236,6 +325,13 @@ function LeftPanelUI.Build(args)
         GameTooltip:Hide()
     end)
 
+    local statResOKBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    statResOKBtn:SetSize(28, 18)
+    statResOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -312)
+    statResOKBtn:SetText(GetCommitButtonText(L))
+    statResOKBtn:Hide()
+    statResBox:SetPoint("RIGHT", statResOKBtn, "LEFT", -4, 0)
+
     local statMultiLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     statMultiLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -340)
     statMultiLbl:SetText((L and L["V2_STAT_MULTI_LABEL"]) or "Multi%")
@@ -244,7 +340,6 @@ function LeftPanelUI.Build(args)
 
     local statMultiBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
     statMultiBox:SetSize(56, 20)
-    statMultiBox:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -336)
     statMultiBox:SetAutoFocus(false)
     statMultiBox:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -255,6 +350,13 @@ function LeftPanelUI.Build(args)
     statMultiBox:SetScript("OnLeave", function()
         GameTooltip:Hide()
     end)
+
+    local statMultiOKBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    statMultiOKBtn:SetSize(28, 18)
+    statMultiOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -336)
+    statMultiOKBtn:SetText(GetCommitButtonText(L))
+    statMultiOKBtn:Hide()
+    statMultiBox:SetPoint("RIGHT", statMultiOKBtn, "LEFT", -4, 0)
 
     local RefreshVisiblePanels
     local rankLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -359,15 +461,20 @@ function LeftPanelUI.Build(args)
                 resVal = profileDef.defaultRes or 0
             end
             if not statResBox:HasFocus() then
-                statResBox:SetText(formatStatPercentValue(resVal))
+                local resText = formatStatPercentValue(resVal)
+                statResBox:SetText(resText)
+                statResBox._gamCommittedText = tostring(resText)
+                RefreshCommitButton(statResBox)
             end
             statResBox:SetEnabled(true)
             statResBox:SetAlpha(1)
             statResLbl:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
         else
             statResBox:SetText("")
+            statResBox._gamCommittedText = ""
             statResBox:SetEnabled(false)
             statResBox:SetAlpha(0.55)
+            statResOKBtn:Hide()
             statResLbl:SetTextColor(helperColor[1], helperColor[2], helperColor[3], 0.75)
         end
 
@@ -377,15 +484,20 @@ function LeftPanelUI.Build(args)
                 multiVal = profileDef.defaultMulti or 0
             end
             if not statMultiBox:HasFocus() then
-                statMultiBox:SetText(formatStatPercentValue(multiVal))
+                local multiText = formatStatPercentValue(multiVal)
+                statMultiBox:SetText(multiText)
+                statMultiBox._gamCommittedText = tostring(multiText)
+                RefreshCommitButton(statMultiBox)
             end
             statMultiBox:SetEnabled(true)
             statMultiBox:SetAlpha(1)
             statMultiLbl:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
         else
             statMultiBox:SetText("")
+            statMultiBox._gamCommittedText = ""
             statMultiBox:SetEnabled(false)
             statMultiBox:SetAlpha(0.55)
+            statMultiOKBtn:Hide()
             statMultiLbl:SetTextColor(helperColor[1], helperColor[2], helperColor[3], 0.75)
         end
 
@@ -407,11 +519,10 @@ function LeftPanelUI.Build(args)
         local opts = getOpts()
         opts.shallowFillQty = clampFillQtyValue(fillQtyBox:GetText())
         fillQtyBox:SetText(tostring(opts.shallowFillQty))
-        fillQtyBox:ClearFocus()
+        fillQtyBox._gamCommittedText = tostring(fillQtyBox:GetText() or "")
         RefreshVisiblePanels()
     end
-    fillQtyBox:SetScript("OnEnterPressed", CommitFillQty)
-    fillQtyBox:SetScript("OnEditFocusLost", CommitFillQty)
+    AttachTransientCommitButton(fillQtyBox, fillQtyOKBtn, CommitFillQty)
 
     local function CommitStatEditors()
         local opts = getOpts()
@@ -428,7 +539,7 @@ function LeftPanelUI.Build(args)
             end
             opts[profileDef.resKey] = clampStatPercentValue(statResBox:GetText(), fallbackRes)
             statResBox:SetText(formatStatPercentValue(opts[profileDef.resKey]))
-            statResBox:ClearFocus()
+            statResBox._gamCommittedText = tostring(statResBox:GetText() or "")
         end
 
         if profileDef.multiKey then
@@ -438,15 +549,13 @@ function LeftPanelUI.Build(args)
             end
             opts[profileDef.multiKey] = clampStatPercentValue(statMultiBox:GetText(), fallbackMulti)
             statMultiBox:SetText(formatStatPercentValue(opts[profileDef.multiKey]))
-            statMultiBox:ClearFocus()
+            statMultiBox._gamCommittedText = tostring(statMultiBox:GetText() or "")
         end
 
         RefreshVisiblePanels()
     end
-    statResBox:SetScript("OnEnterPressed", CommitStatEditors)
-    statResBox:SetScript("OnEditFocusLost", CommitStatEditors)
-    statMultiBox:SetScript("OnEnterPressed", CommitStatEditors)
-    statMultiBox:SetScript("OnEditFocusLost", CommitStatEditors)
+    AttachTransientCommitButton(statResBox, statResOKBtn, CommitStatEditors)
+    AttachTransientCommitButton(statMultiBox, statMultiOKBtn, CommitStatEditors)
 
     leftPanelChecks.viOwn = viOwn
 
@@ -488,7 +597,7 @@ function LeftPanelUI.Build(args)
         setFilterProfSet(nil)
         setFilterProfSingle("All")
         if panel.ddProf then
-            UIDropDownMenu_SetText(panel.ddProf, "All")
+            UIDropDownMenu_SetText(panel.ddProf, allFilterText)
         end
         setActiveColConfig(getActiveColumnConfig())
         UpdateSegBtnColors()
@@ -507,7 +616,7 @@ function LeftPanelUI.Build(args)
         end
         setFilterProfSingle("All")
         if panel.ddProf then
-            UIDropDownMenu_SetText(panel.ddProf, "All")
+            UIDropDownMenu_SetText(panel.ddProf, allFilterText)
         end
         setActiveColConfig(getActiveColumnConfig())
         UpdateSegBtnColors()

@@ -6,6 +6,7 @@ local ADDON_NAME, GAM = ...
 local Pricing = {}
 GAM.Pricing = Pricing
 local Derivation = GAM.PricingDerivation or {}
+local BuildCalcContext, BuildMergedReagentMap, BuildReagentMetrics, BuildDisplayReagentMetrics, BuildOutputMetrics
 
 -- ===== Internal helpers =====
 
@@ -379,10 +380,11 @@ function Pricing.GetUnitPrice(itemID)
 end
 
 -- GetEffectivePrice(itemID, patchTag, qty) → price in copper, or nil
--- Priority: override > vendor price > CraftSim > AH cache avg
--- qty is intentionally ignored for spreadsheet parity. The Google Sheet and
--- ARP export both use the cached/export unit price, not a per-call deep-fill
--- repricing at the strategy's full required quantity.
+-- Priority: override > vendor price > CraftSim > live AH depth > AH cache avg
+-- When live raw AH depth exists for the requested item, qty-aware repricing
+-- uses the current scanned order book so larger craft counts can reflect the
+-- real fill cost. If no live depth exists, we fall back to the cached/export
+-- unit price basis.
 function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     if not itemID then return nil end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
@@ -407,9 +409,16 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
         end
     end
 
-    -- 3. AH cache — spreadsheet parity uses the cached/export price basis.
-    -- Qty-aware repricing is temporarily disabled so addon Profit/ROI matches
-    -- the sheet when both are fed the same ARP export values.
+    -- 4. Live AH depth repricing when we have raw in-session scan data.
+    local targetQty = tonumber(qty)
+    if targetQty and targetQty > 0 and GAM.AHScan and GAM.AHScan.ComputePriceForQty then
+        local liveAvg = GAM.AHScan.ComputePriceForQty(itemID, math.max(1, math.floor(targetQty + 0.5)))
+        if liveAvg then
+            return math.floor(liveAvg), false
+        end
+    end
+
+    -- 5. AH cache fallback — used when only cached/export data exists.
     local cachedPrice, stale = Pricing.GetUnitPrice(itemID)
     return cachedPrice, stale
 end
@@ -598,8 +607,8 @@ function Pricing.RunSmokeChecks()
             }
 
             local price = Pricing.GetEffectivePrice(424242, GAM.C.DEFAULT_PATCH, 5000)
-            assert(price == 12345, string.format(
-                "qty-aware repricing still active in spreadsheet parity path: got %s expected 12345",
+            assert(price == 67890, string.format(
+                "qty-aware repricing failed: got %s expected 67890",
                 tostring(price)))
         end)
         Pricing.GetUnitPrice = originalGetUnitPrice
@@ -774,8 +783,7 @@ function Pricing.RunSmokeChecks()
             local ctx = BuildCalcContext(
                 drums, GetActiveRecipeView(drums), GAM.C.DEFAULT_PATCH, 1, GAM.GetOptions(),
                 GetPatchDB(GAM.C.DEFAULT_PATCH), GAM.C.AH_CUT)
-            local missing = {}
-            local reagents = BuildReagentMetrics(ctx, missing)
+            local reagents = BuildReagentMetrics(ctx)
             assert((reagents.reagentResults[4] and reagents.reagentResults[4].itemID) == 238511,
                 "Void-Touched Drums must force Q1 Void-Tempered Leather")
             assert((reagents.reagentResults[5] and reagents.reagentResults[5].itemID) == 238513,
@@ -929,11 +937,10 @@ function Pricing.RunSmokeChecks()
                             engRecycleRes = 36.0,
                             rankPolicy = "lowest",
                         }, GetPatchDB(GAM.C.DEFAULT_PATCH), GAM.C.AH_CUT)
-                    local recyclingMissing = {}
-                    local recyclingReagents = BuildReagentMetrics(recyclingCtx, recyclingMissing)
+                    local recyclingReagents = BuildReagentMetrics(recyclingCtx)
                     assertNear((recyclingReagents.reagentResults[1] and recyclingReagents.reagentResults[1].unitPrice) or 0,
                         24800, "engineering recycling powder pigment direct reagent price")
-                    local recyclingOutput = BuildOutputMetrics(recyclingCtx, recyclingMissing)
+                    local recyclingOutput = BuildOutputMetrics(recyclingCtx)
                     assertNear((recyclingOutput.output and recyclingOutput.output.unitPrice) or 0, 68900,
                         "engineering recycling powder pigment output price")
                 end)
@@ -1418,7 +1425,7 @@ local function ResolveStartingAmountAndCrafts(strat, active, pdb, craftQty)
     return startingAmt, crafts
 end
 
-local function BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
+BuildCalcContext = function(strat, active, patchTag, craftQty, opts, pdb, ahCut)
     local profile = BuildProfileContext(strat, opts)
     local startingAmt, crafts = ResolveStartingAmountAndCrafts(strat, active, pdb, craftQty)
 
@@ -1485,7 +1492,7 @@ local function AddMergedReagentEntry(mergedMap, mergedOrder, key, itemIDs, qty, 
     tinsert(mergedOrder, key)
 end
 
-local function BuildMergedReagentMap(ctx)
+BuildMergedReagentMap = function(ctx)
     local mergedMap = {}
     local mergedOrder = {}
 
@@ -1586,13 +1593,14 @@ local function GetCheapestAlternativeScanIDs(entry, ctx)
     return (#scanIDs > 0) and scanIDs or nil
 end
 
-local function BuildReagentMetrics(ctx, missingPrices)
+BuildReagentMetrics = function(ctx)
     local mergedOrder, mergedMap = BuildMergedReagentMap(ctx)
     local reagentResults = {}
     local totalCostToBuy = 0
     local totalCostRequired = 0
     local hasStale = false
     local selectionNotes = {}
+    local missingPrices = {}
     local inputPolicy = GetInputRankPolicy(ctx.strat)
 
     for _, key in ipairs(mergedOrder) do
@@ -1677,12 +1685,16 @@ local function BuildReagentMetrics(ctx, missingPrices)
         totalCostRequired = totalCostRequired,
         hasStale = hasStale,
         selectionNotes = selectionNotes,
+        missingPrices = missingPrices,
     }
 end
 
-local function BuildDisplayReagentMetrics(ctx, modelReagents)
+BuildDisplayReagentMetrics = function(ctx, modelReagents)
     local displayResults = {}
     local hasStale = false
+    local totalCostToBuy = 0
+    local totalCostRequired = 0
+    local missingPrices = {}
     local inputPolicy = GetInputRankPolicy(ctx.strat)
     local expansionDeps = {
         PickItemID = function(itemIDs, patchTag)
@@ -1767,9 +1779,17 @@ local function BuildDisplayReagentMetrics(ctx, modelReagents)
         local needToBuy = math.max(0, required - userHave)
         local totalCost = entry.excludeFromCost and 0 or ((needToBuy == 0) and 0 or (price and (needToBuy * price) or nil))
         local totalCostFull = entry.excludeFromCost and 0 or (price and (required * price) or nil)
+        local missingPrice = (not entry.excludeFromCost) and (needToBuy > 0) and not price
 
         if stale then
             hasStale = true
+        end
+
+        if missingPrice then
+            missingPrices[#missingPrices + 1] = entry.name
+        else
+            totalCostToBuy = totalCostToBuy + (totalCost or 0)
+            totalCostRequired = totalCostRequired + (totalCostFull or 0)
         end
 
         displayResults[#displayResults + 1] = {
@@ -1783,13 +1803,16 @@ local function BuildDisplayReagentMetrics(ctx, modelReagents)
             totalCost = totalCost,
             totalCostFull = totalCostFull,
             isStale = stale,
-            missingPrice = (not entry.excludeFromCost) and (needToBuy > 0) and not price,
+            missingPrice = missingPrice,
         }
     end
 
     return {
         reagentResults = displayResults,
         hasStale = hasStale,
+        totalCostToBuy = totalCostToBuy,
+        totalCostRequired = totalCostRequired,
+        missingPrices = missingPrices,
     }
 end
 
@@ -1877,6 +1900,7 @@ local function BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrice
             itemID = GetOutputItemIDForDisplay(outputDef, ctx.patchTag, outputPreferredQuality),
             unitPrice = price,
             expectedQty = outputQty,
+            expectedQtyRaw = outputQtyRaw,
             netRevenue = netRevenue,
             isStale = stale,
             missingPrice = not price,
@@ -1886,7 +1910,7 @@ local function BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrice
     return outResults, allHavePrices and totalRevenue or nil, hasStale
 end
 
-local function BuildOutputMetrics(ctx, missingPrices)
+BuildOutputMetrics = function(ctx)
     local primaryOut = GetPrimaryOutput(ctx)
     if not primaryOut.name and not primaryOut.itemRef and not primaryOut.itemIDs then
         if GAM.Log and GAM.Log.Warn then
@@ -1895,6 +1919,7 @@ local function BuildOutputMetrics(ctx, missingPrices)
         return nil
     end
 
+    local missingPrices = {}
     local outputQtyRaw, outputQty = ComputeOutputQuantity(
         primaryOut, ctx.strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, ctx.startingAmt, ctx.crafts)
     local primaryQuality = GetPrimaryInputQuality(ctx)
@@ -1922,6 +1947,7 @@ local function BuildOutputMetrics(ctx, missingPrices)
             itemID = outItemID,
             unitPrice = outPrice,
             expectedQty = outputQty,
+            expectedQtyRaw = outputQtyRaw,
             netRevenue = (not isMultiOutput) and netRevenue or nil,
             isStale = outStale,
             missingPrice = outMissingPrice,
@@ -1930,24 +1956,40 @@ local function BuildOutputMetrics(ctx, missingPrices)
         netRevenue = netRevenue,
         hasStale = outStale or extraStale,
         isMultiOutput = isMultiOutput,
+        missingPrices = missingPrices,
     }
 end
 
-local function BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
+local function BuildFinalMetrics(ctx, reagentData, outputData)
     local displayReagentData = BuildDisplayReagentMetrics(ctx, reagentData.reagentResults)
+    local summaryReagentData = ctx.chainActive and displayReagentData or reagentData
     local profit = nil
     local roi = nil
     local breakEven = nil
+    local missingPrices = {}
+    local seenMissing = {}
 
-    if outputData.netRevenue and #missingPrices == 0 then
-        profit = outputData.netRevenue - reagentData.totalCostRequired
-        if reagentData.totalCostRequired > 0 then
-            roi = (profit / reagentData.totalCostRequired) * 100
+    local function AddMissingNames(names)
+        for _, name in ipairs(names or {}) do
+            if name and not seenMissing[name] then
+                seenMissing[name] = true
+                missingPrices[#missingPrices + 1] = name
+            end
         end
     end
 
-    if reagentData.totalCostRequired > 0 and outputData.outputQtyRaw > 0 and not outputData.isMultiOutput then
-        breakEven = reagentData.totalCostRequired / (outputData.outputQtyRaw * (1 - ctx.ahCut))
+    AddMissingNames(summaryReagentData.missingPrices)
+    AddMissingNames(outputData.missingPrices)
+
+    if outputData.netRevenue and #missingPrices == 0 then
+        profit = outputData.netRevenue - summaryReagentData.totalCostRequired
+        if summaryReagentData.totalCostRequired > 0 then
+            roi = (profit / summaryReagentData.totalCostRequired) * 100
+        end
+    end
+
+    if summaryReagentData.totalCostRequired > 0 and outputData.outputQtyRaw > 0 and not outputData.isMultiOutput then
+        breakEven = summaryReagentData.totalCostRequired / (outputData.outputQtyRaw * (1 - ctx.ahCut))
     end
 
     return {
@@ -1957,8 +1999,8 @@ local function BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
         costReagents = reagentData.reagentResults,
         output = outputData.output,
         outputs = outputData.outputs,
-        totalCostToBuy = reagentData.totalCostToBuy,
-        totalCostFull = reagentData.totalCostRequired,
+        totalCostToBuy = summaryReagentData.totalCostToBuy,
+        totalCostFull = summaryReagentData.totalCostRequired,
         netRevenue = outputData.netRevenue,
         profit = profit,
         roi = roi,
@@ -2006,14 +2048,13 @@ function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     end
 
     local ctx = BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
-    local missingPrices = {}
-    local reagentData = BuildReagentMetrics(ctx, missingPrices)
-    local outputData = BuildOutputMetrics(ctx, missingPrices)
+    local reagentData = BuildReagentMetrics(ctx)
+    local outputData = BuildOutputMetrics(ctx)
     if not outputData then
         return nil
     end
 
-    return BuildFinalMetrics(ctx, reagentData, outputData, missingPrices)
+    return BuildFinalMetrics(ctx, reagentData, outputData)
 end
 
 local function ShallowCloneArrayOfTables(source)

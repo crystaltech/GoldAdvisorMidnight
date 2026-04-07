@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: Gold Advisor Midnight
 ## Notes: Crafting profit advisor for WoW Midnight. Scans AH, computes ROI per strategy.
-## Version: 1.7.20
+## Version: 1.7.21
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled
@@ -20,6 +20,7 @@ Locale\zhTW.lua
 Locale\koKR.lua
 Locale\itIT.lua
 Locale\ptBR.lua
+Locale\ShortUI.lua
 Log.lua
 Core.lua
 State.lua

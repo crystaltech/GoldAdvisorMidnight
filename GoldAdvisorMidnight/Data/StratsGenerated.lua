@@ -593,8 +593,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 6000.000000,
     },
     {
-      itemRef = "Argentleaf",
-      itemIDs = { 236776, 236777 },
+      itemRef = "Mana Lily",
+      itemIDs = { 236778, 236779 },
       qtyPerCraft = 3.000000,
       qtyPerStart = 1.500000,
       workbookTotalQty = 3000.000000,
@@ -2200,8 +2200,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   stratName = "Refulgent Copper Ingot",
   sourceTab = "Blacksmithing",
   sourceBlock = "B4",
-  defaultStartingAmount = 5.000000,
-  defaultCrafts = 1.000000,
+  defaultStartingAmount = 5000.000000,
+  defaultCrafts = 1000.000000,
   formulaProfile = "blacksmithing",
   calcMode = "formula",
   qualityPolicy = "normal",
@@ -2209,14 +2209,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   notes = "",
   rankVariants = {
     lowest = {
-      defaultStartingAmount = 5.000000,
-      defaultCrafts = 1.000000,
+      defaultStartingAmount = 5000.000000,
+      defaultCrafts = 1000.000000,
       outputs = {
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238197, 238198 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 1.428912,
+          workbookExpectedQty = 1548.892891,
         },
       },
       reagents = {
@@ -2224,13 +2224,13 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Refulgent Copper Ore",
           itemIDs = { 237359 },
           qtyPerCraft = 5.000000,
-          workbookTotalQty = 5.000000,
+          workbookTotalQty = 5000.000000,
         },
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
           qtyPerCraft = 2.000000,
-          workbookTotalQty = 2.000000,
+          workbookTotalQty = 2000.000000,
         },
       },
     },
@@ -2242,7 +2242,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238197, 238198 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 1428.911961,
+          workbookExpectedQty = 1548.892891,
         },
       },
       reagents = {
@@ -2273,7 +2273,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 238197, 238198 },
       baseYieldPerCraft = 1.000000,
       baseYield = 0.200000,
-      workbookExpectedQty = 1.428912,
+      workbookExpectedQty = 1548.892891,
     },
   },
   reagents = {
@@ -2282,14 +2282,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 237359 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 5.000000,
+      workbookTotalQty = 5000.000000,
     },
     {
       itemRef = "Luminant Flux",
       itemIDs = { 243060 },
       qtyPerCraft = 2.000000,
       qtyPerStart = 0.400000,
-      workbookTotalQty = 2.000000,
+      workbookTotalQty = 2000.000000,
     },
   },
 }
@@ -2317,7 +2317,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Gloaming Alloy",
           itemIDs = { 238202, 238203 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 142.891196,
+          workbookExpectedQty = 154.889289,
         },
       },
       reagents = {
@@ -2349,7 +2349,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Gloaming Alloy",
           itemIDs = { 238202, 238203 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 142.891196,
+          workbookExpectedQty = 154.889289,
         },
       },
       reagents = {
@@ -2386,7 +2386,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 238202, 238203 },
       baseYieldPerCraft = 1.000000,
       baseYield = 0.166667,
-      workbookExpectedQty = 142.891196,
+      workbookExpectedQty = 154.889289,
     },
   },
   reagents = {
@@ -2437,7 +2437,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Sterling Alloy",
           itemIDs = { 238204, 238205 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 1428.911961,
+          workbookExpectedQty = 1548.892891,
         },
       },
       reagents = {
@@ -2462,14 +2462,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       },
     },
     highest = {
-      defaultStartingAmount = 600.000000,
-      defaultCrafts = 100.000000,
+      defaultStartingAmount = 1590.000000,
+      defaultCrafts = 265.000000,
       outputs = {
         {
           itemRef = "Sterling Alloy",
           itemIDs = { 238204, 238205 },
           baseYieldPerCraft = 1.000000,
-          workbookExpectedQty = 142.891196,
+          workbookExpectedQty = 410.456616,
         },
       },
       reagents = {
@@ -2477,25 +2477,25 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
           itemRef = "Brilliant Silver Ore",
           itemIDs = { 237364 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 300.000000,
+          workbookTotalQty = 795.000000,
         },
         {
           itemRef = "Brilliant Silver Ore",
           itemIDs = { 237365 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 300.000000,
+          workbookTotalQty = 795.000000,
         },
         {
           itemRef = "Luminant Flux",
           itemIDs = { 243060 },
           qtyPerCraft = 4.000000,
-          workbookTotalQty = 400.000000,
+          workbookTotalQty = 1060.000000,
         },
         {
           itemRef = "Refulgent Copper Ingot",
           itemIDs = { 238198 },
           qtyPerCraft = 3.000000,
-          workbookTotalQty = 300.000000,
+          workbookTotalQty = 795.000000,
         },
       },
     },
@@ -2506,7 +2506,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemIDs = { 238204, 238205 },
       baseYieldPerCraft = 1.000000,
       baseYield = 0.166667,
-      workbookExpectedQty = 1428.911961,
+      workbookExpectedQty = 1548.892891,
     },
   },
   reagents = {
@@ -2552,9 +2552,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Evercore",
       itemIDs = { 243581, 243582 },
-      baseYieldPerCraft = 3.000000,
-      baseYield = 0.600000,
-      workbookExpectedQty = 3557.031065,
+      baseYieldPerCraft = 2.776595,
+      baseYield = 2.776595,
+      workbookExpectedQty = 3292.144942,
     },
   },
   reagents = {
@@ -2587,9 +2587,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Evercore",
       itemIDs = { 243581, 243582 },
-      baseYieldPerCraft = 3.000000,
-      baseYield = 0.600000,
-      workbookExpectedQty = 3557.031065,
+      baseYieldPerCraft = 2.776595,
+      baseYield = 2.776595,
+      workbookExpectedQty = 3292.144942,
     },
   },
   reagents = {
@@ -2622,9 +2622,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Aetherlume",
       itemIDs = { 243578, 243579 },
-      baseYieldPerCraft = 3.000000,
-      baseYield = 0.600000,
-      workbookExpectedQty = 3557.031065,
+      baseYieldPerCraft = 2.776595,
+      baseYield = 2.776595,
+      workbookExpectedQty = 3292.144942,
     },
   },
   reagents = {
@@ -2657,9 +2657,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Aetherlume",
       itemIDs = { 243578, 243579 },
-      baseYieldPerCraft = 3.000000,
-      baseYield = 0.600000,
-      workbookExpectedQty = 3557.031065,
+      baseYieldPerCraft = 2.776595,
+      baseYield = 2.776595,
+      workbookExpectedQty = 3292.144942,
     },
   },
   reagents = {
@@ -2692,9 +2692,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Evercore",
       itemIDs = { 243581, 243582 },
-      baseYieldPerCraft = 3.000000,
-      baseYield = 0.600000,
-      workbookExpectedQty = 3557.031065,
+      baseYieldPerCraft = 2.776595,
+      baseYield = 2.776595,
+      workbookExpectedQty = 3292.144942,
     },
   },
   reagents = {
@@ -3081,7 +3081,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Aurora",
@@ -3137,7 +3137,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Feverflare",
@@ -3193,7 +3193,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Fireflash",
@@ -3249,7 +3249,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Harmonious",
@@ -3305,7 +3305,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Peerless",
@@ -3424,7 +3424,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   calcMode = "formula",
   qualityPolicy = "normal",
   outputQualityMode = "rank_policy",
-  notes = "R1/R2 supported; add R3 when IDs are available. Mill own herbs VI works via existing CRAFTED_REAGENT_MAP.",
+  notes = "",
   outputs = {
     {
       itemRef = "Thalassian Missive of the Quickblade",

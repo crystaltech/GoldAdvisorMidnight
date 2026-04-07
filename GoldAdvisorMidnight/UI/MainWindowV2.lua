@@ -26,6 +26,10 @@ local DetailUI = GAM.UI.MainWindowV2Detail
 local LeftPanelUI = GAM.UI.MainWindowV2LeftPanel
 local CenterUI = GAM.UI.MainWindowV2Center
 local THIN_BACKDROP = Common.THIN_BACKDROP
+local DISCORD_INVITE_CODE = "discord.gg/v7vsCKCsFh"
+local DISCORD_INVITE_URL = "https://discord.gg/v7vsCKCsFh"
+local FOOTER_TEXT_SIZE = 11
+local FOOTER_MIN_HEIGHT = 24
 
 local function GetOpts()
     return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
@@ -47,6 +51,14 @@ end
 
 local function GetThemeKey()
     return Common.GetThemeKey(GetOpts())
+end
+
+local function GetUIScale()
+    return GetOpts().uiScale or 1.0
+end
+
+local function GetTickerHeight(C)
+    return math.max((C and C.TICKER_H) or 18, FOOTER_MIN_HEIGHT)
 end
 
 local function IsSoftThemeLayout()
@@ -190,6 +202,7 @@ local shoppingSync = {
     pending = false,
 }
 local shoppingSyncFrame
+local discordPopup
 local leftPanelChecks = {}  -- refs for left-panel cost source checkboxes
 local compactBtn      = nil -- compact mode toggle button ref
 local compactActive   = false -- tracks whether compact mode layout is currently applied
@@ -455,6 +468,90 @@ local function ApplyTheme()
     end
 end
 
+local function PresentTop(frameObj)
+    if not frameObj then
+        return
+    end
+    frameObj:SetFrameStrata("TOOLTIP")
+    frameObj:SetToplevel(true)
+    frameObj:Raise()
+end
+
+local function BuildDiscordPopup(L)
+    discordPopup = CreateFrame("Frame", "GAMDiscordPopup", UIParent, "BackdropTemplate")
+    discordPopup:SetSize(440, 150)
+    discordPopup:SetPoint("CENTER")
+    discordPopup:SetScale(GetUIScale())
+    discordPopup:SetMovable(true)
+    discordPopup:EnableMouse(true)
+    discordPopup:RegisterForDrag("LeftButton")
+    discordPopup:SetScript("OnDragStart", discordPopup.StartMoving)
+    discordPopup:SetScript("OnDragStop", discordPopup.StopMovingOrSizing)
+    discordPopup:SetClampedToScreen(true)
+    discordPopup:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 11, right = 12, top = 12, bottom = 11 },
+    })
+    discordPopup:SetBackdropColor(0, 0, 0, 1)
+    discordPopup:Hide()
+
+    local title = discordPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOP", discordPopup, "TOP", 0, -14)
+    title:SetText("Discord")
+
+    local closeX = CreateFrame("Button", nil, discordPopup, "UIPanelCloseButton")
+    closeX:SetPoint("TOPRIGHT", discordPopup, "TOPRIGHT", -4, -4)
+    closeX:SetScript("OnClick", function()
+        discordPopup:Hide()
+    end)
+
+    local prompt = discordPopup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    prompt:SetPoint("TOPLEFT", discordPopup, "TOPLEFT", 18, -44)
+    prompt:SetPoint("TOPRIGHT", discordPopup, "TOPRIGHT", -18, -44)
+    prompt:SetJustifyH("LEFT")
+    prompt:SetText("Copy or share this Discord invite link:")
+
+    local editBox = CreateFrame("EditBox", nil, discordPopup, "InputBoxTemplate")
+    editBox:SetSize(392, 32)
+    editBox:SetPoint("TOPLEFT", discordPopup, "TOPLEFT", 24, -72)
+    editBox:SetAutoFocus(false)
+    editBox:SetMultiLine(false)
+    editBox:SetFontObject("GameFontHighlight")
+    editBox:SetTextInsets(6, 6, 0, 0)
+    editBox:SetScript("OnEscapePressed", function()
+        discordPopup:Hide()
+    end)
+    editBox:SetScript("OnEnterPressed", function(self)
+        self:HighlightText()
+    end)
+    editBox:SetScript("OnEditFocusGained", function(self)
+        self:HighlightText()
+    end)
+    discordPopup.editBox = editBox
+
+    local closeBtn = CreateFrame("Button", nil, discordPopup, "UIPanelButtonTemplate")
+    closeBtn:SetSize(80, 22)
+    closeBtn:SetPoint("BOTTOMRIGHT", discordPopup, "BOTTOMRIGHT", -14, 10)
+    closeBtn:SetText((L and L["BTN_CLOSE"]) or "Close")
+    closeBtn:SetScript("OnClick", function()
+        discordPopup:Hide()
+    end)
+end
+
+local function ShowDiscordPopup(L)
+    if not discordPopup then
+        BuildDiscordPopup(L)
+    end
+    discordPopup:SetScale(GetUIScale())
+    discordPopup.editBox:SetText(DISCORD_INVITE_URL)
+    discordPopup:Show()
+    PresentTop(discordPopup)
+    discordPopup.editBox:SetFocus()
+    discordPopup.editBox:HighlightText()
+end
+
 local function CreateShell(parent, variant, insets)
     return Common.CreateShell(parent, variant, insets, themeRefs.shells)
 end
@@ -568,10 +665,11 @@ local function BuildFrameHeader(L, C, HDR_PX)
 end
 
 local function BuildStatusAndTicker(L, C, SB_H)
+    local tickerHeight = GetTickerHeight(C)
     statusBarShell, statusBarFrame = CreateShell(frame, "status", { left = 4, right = 4, top = 4, bottom = 4 })
     statusBarShell:SetHeight(SB_H)
-    statusBarShell:SetPoint("BOTTOMLEFT",  frame, "BOTTOMLEFT",  14, C.TICKER_H + 8)
-    statusBarShell:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, C.TICKER_H + 8)
+    statusBarShell:SetPoint("BOTTOMLEFT",  frame, "BOTTOMLEFT",  14, tickerHeight + 8)
+    statusBarShell:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, tickerHeight + 8)
 
     local statusCountText = statusBarFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     statusCountText:SetPoint("LEFT", statusBarFrame, "LEFT", 10, 0)
@@ -606,7 +704,7 @@ local function BuildStatusAndTicker(L, C, SB_H)
     scanBtnStatus:SetScript("OnClick", DoScan)
     scanBtnStatus:Hide()
 
-    local TICK_H  = C.TICKER_H
+    local TICK_H  = tickerHeight
     local tickerClip = CreateFrame("Frame", nil, frame)
     tickerClip:SetHeight(TICK_H)
     tickerClip:SetPoint("BOTTOMLEFT",  frame, "BOTTOMLEFT",  14, 6)
@@ -633,13 +731,31 @@ local function BuildStatusAndTicker(L, C, SB_H)
     tickerFS:SetText(
         "\124cffffcc00[Gold Advisor Midnight]\124r" ..
         SEP .. "For support and community:" ..
-        SEP .. "\124cff7289daDiscord:\124r  discord.gg/v7vsCKCsFh" ..
+        SEP .. "\124cff7289daDiscord:\124r  " .. DISCORD_INVITE_CODE ..
         SEP .. "\124cff666666v" .. (GAM.version or "?") .. "\124r"
     )
-    ApplyFontSize(tickerFS, 9)
+    ApplyFontSize(tickerFS, FOOTER_TEXT_SIZE)
     tickerFS:SetTextColor(0.75, 0.75, 0.75, 1)
     tickerFS:SetShadowOffset(1, -1)
     tickerFS:SetShadowColor(0, 0, 0, 0.9)
+
+    local tickerButton = CreateFrame("Button", nil, tickerClip)
+    tickerButton:SetAllPoints(tickerClip)
+    tickerButton:RegisterForClicks("LeftButtonUp")
+    tickerButton:SetScript("OnClick", function()
+        ShowDiscordPopup(L)
+    end)
+    tickerButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Discord", 1, 1, 1)
+        GameTooltip:AddLine("Click to copy the invite link.", 1, 0.82, 0, true)
+        GameTooltip:AddLine(DISCORD_INVITE_URL, 0.75, 0.75, 0.75, true)
+        GameTooltip:Show()
+    end)
+    tickerButton:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
     themeRefs.tickerText = tickerFS
     frame.tickerClip = tickerClip
 end
@@ -749,6 +865,14 @@ local function ItemRowClick(self, button)
     end
 end
 
+local function FormatExpectedOutputTooltip(qty, qtyRaw)
+    local raw = tonumber(qtyRaw)
+    if raw and math.abs(raw - math.floor(raw + 0.5)) > 0.01 then
+        return string.format("%.2f", raw)
+    end
+    return string.format("%.0f", qty or 0)
+end
+
 local function ItemRowEnter(self)
     local display = self and self._itemDisplay
     local link = display and display.itemLink
@@ -769,7 +893,7 @@ local function ItemRowEnter(self)
             end
         elseif tt.kind == "output" then
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
-            GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", string.format("%.0f", tt.expectedQty or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", FormatExpectedOutputTooltip(tt.expectedQty, tt.expectedQtyRaw)), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_NET_REVENUE"]) or "Total Net Revenue: %s", tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
             GameTooltip:AddLine((L and L["TT_ROW_NET_NOTE"]) or "The visible Net column is craft-level net revenue, not a per-item price.", 1, 0.82, 0, true)
         end
@@ -1711,6 +1835,7 @@ end
 local function InitializeMainFrame(L, C, layout)
     local HDR_PX = C.HEADER_H
     local SB_H = C.STATUS_BAR_H + 6
+    local tickerHeight = GetTickerHeight(C)
 
     frame = CreateFrame("Frame", "GoldAdvisorMidnightMainWindowV2", UIParent, "BackdropTemplate")
     frame:SetSize(layout.windowWidth, layout.windowHeight)
@@ -1738,7 +1863,7 @@ local function InitializeMainFrame(L, C, layout)
 
     dividerContainer = CreateFrame("Frame", nil, frame)
     dividerContainer:SetPoint("TOPLEFT",     frame, "TOPLEFT",     14,  -(HDR_PX + 2))
-    dividerContainer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14,  SB_H + C.TICKER_H + 14)
+    dividerContainer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14,  SB_H + tickerHeight + 14)
 
     if layout.key == "soft" then
         softBoard = CreateFrame("Frame", nil, dividerContainer, "BackdropTemplate")

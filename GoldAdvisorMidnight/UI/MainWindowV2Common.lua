@@ -8,6 +8,22 @@ GAM.UI = GAM.UI or {}
 local Common = {}
 GAM.UI.MainWindowV2Common = Common
 
+local PROFESSION_SKILL_LINES = {
+    Alchemy = 171,
+    Blacksmithing = 164,
+    Enchanting = 333,
+    Engineering = 202,
+    Inscription = 773,
+    Jewelcrafting = 755,
+    Leatherworking = 165,
+    Tailoring = 197,
+}
+
+local PROFESSION_NAME_BY_SKILL_LINE = {}
+for professionName, skillLineID in pairs(PROFESSION_SKILL_LINES) do
+    PROFESSION_NAME_BY_SKILL_LINE[skillLineID] = professionName
+end
+
 local C_GR, C_GG, C_GB = 1.0, 0.82, 0.0
 local C_DR, C_DG, C_DB, C_DA = 0.7, 0.57, 0.0, 0.7
 
@@ -513,8 +529,11 @@ function Common.BuildPlayerProfessionSet(filterPatch)
     local indices = { GetProfessions() }
     for _, index in ipairs(indices) do
         if index then
-            local professionName = GetProfessionInfo(index)
-            if professionName and supported[professionName] then
+            local professionName, _, _, _, _, _, skillLine = GetProfessionInfo(index)
+            local canonicalProfession = PROFESSION_NAME_BY_SKILL_LINE[skillLine]
+            if canonicalProfession and supported[canonicalProfession] then
+                set[canonicalProfession] = true
+            elseif professionName and supported[professionName] then
                 set[professionName] = true
             end
         end
