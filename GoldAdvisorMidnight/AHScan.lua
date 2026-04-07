@@ -110,6 +110,44 @@ function AHScan.GetCachedResults(itemID)
     return commodityCache[itemID]
 end
 
+function AHScan.GetRawScanSnapshot(itemID)
+    if not itemID then return nil end
+
+    local source, cached
+    if commodityCache[itemID] and commodityCache[itemID].prices and #commodityCache[itemID].prices > 0 then
+        source = "commodity"
+        cached = commodityCache[itemID]
+    elseif itemCache[itemID] and itemCache[itemID].prices and #itemCache[itemID].prices > 0 then
+        source = "item"
+        cached = itemCache[itemID]
+    end
+
+    if not cached then
+        return nil
+    end
+
+    local prices = {}
+    for i, row in ipairs(cached.prices or {}) do
+        prices[i] = {
+            unitPrice = row.unitPrice,
+            quantity = row.quantity or 0,
+        }
+    end
+    table.sort(prices, function(a, b)
+        if a.unitPrice == b.unitPrice then
+            return (a.quantity or 0) > (b.quantity or 0)
+        end
+        return a.unitPrice < b.unitPrice
+    end)
+
+    return {
+        itemID = itemID,
+        source = source,
+        ts = cached.ts,
+        prices = prices,
+    }
+end
+
 -- ===== Price computation =====
 
 local function ExpandResultsToUnitPrices(results, targetQty)

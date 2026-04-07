@@ -1,5 +1,15 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.22] — 2026-04-07
+
+### Bug Fixes
+- **Vertical-integration economics corrected** — `Total Cost`, `Buy Now Cost`, `Profit`, `ROI`, and `Break-even` now stay anchored to the expected-value reagent model while `Use own items/crafts` display rows continue to round through real craft and milling batches for shopping accuracy.
+- **Manual missive output inflation removed** — All six manual Thalassian missives now use a conservative fixed-output `1 craft = 1 missive` model instead of borrowing the `insc_ink` expected-value formula, so unexpected multicraft upside stays a bonus instead of being pre-baked into profit.
+
+### Debugging / Workflow
+- **Selected-strategy scan dump added** — `/gam scandump` opens the debug log and prints the selected strategy's output/input item IDs, cached prices, fill-sensitive averages, and raw scanned rows so incorrect AH expectations can be traced quickly.
+- **Missive + VI smoke coverage added** — Pricing smoke tests now guard both the vertical-integration economics split and the new conservative missive output path.
+
 ## [1.7.21] — 2026-04-07
 
 ### Bug Fixes

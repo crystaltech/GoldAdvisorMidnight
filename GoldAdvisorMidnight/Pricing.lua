@@ -6,7 +6,7 @@ local ADDON_NAME, GAM = ...
 local Pricing = {}
 GAM.Pricing = Pricing
 local Derivation = GAM.PricingDerivation or {}
-local BuildCalcContext, BuildMergedReagentMap, BuildReagentMetrics, BuildDisplayReagentMetrics, BuildOutputMetrics
+local BuildCalcContext, BuildMergedReagentMap, BuildReagentMetrics, BuildDisplayReagentMetrics, BuildOutputMetrics, BuildFinalMetrics
 
 -- ===== Internal helpers =====
 
@@ -804,6 +804,85 @@ function Pricing.RunSmokeChecks()
         local score = Pricing.GetStrategyScore({ profit = 2500, roi = 9, totalCostFull = 1000 })
         assert(type(score) == "number", "strategy score unavailable")
 
+        local viEconomicsOK, viEconomicsErr = pcall(function()
+            local originalBuildDisplayReagentMetrics = BuildDisplayReagentMetrics
+            local ok, err = pcall(function()
+                BuildDisplayReagentMetrics = function()
+                    return {
+                        reagentResults = {
+                            {
+                                name = "Tranquility Bloom",
+                                itemID = 236761,
+                                required = 40,
+                                needToBuy = 40,
+                                totalCost = 120000,
+                                totalCostFull = 120000,
+                            },
+                        },
+                        hasStale = false,
+                        totalCostToBuy = 120000,
+                        totalCostRequired = 120000,
+                        missingPrices = {},
+                    }
+                end
+
+                local metrics = BuildFinalMetrics(
+                    {
+                        ahCut = GAM.C.AH_CUT,
+                        crafts = 1,
+                        startingAmt = 1,
+                        chainActive = true,
+                    },
+                    {
+                        reagentResults = {
+                            {
+                                name = "Munsell Ink",
+                                itemID = 245801,
+                                required = 2,
+                                needToBuy = 2,
+                                totalCost = 60000,
+                                totalCostFull = 60000,
+                            },
+                        },
+                        hasStale = false,
+                        totalCostToBuy = 60000,
+                        totalCostRequired = 60000,
+                        missingPrices = {},
+                        selectionNotes = {},
+                    },
+                    {
+                        output = {
+                            name = "Thalassian Missive of the Fireflash",
+                            itemID = 245785,
+                            expectedQty = 2,
+                            expectedQtyRaw = 2,
+                            unitPrice = 50000,
+                            netRevenue = 95000,
+                        },
+                        outputs = nil,
+                        netRevenue = 95000,
+                        outputQtyRaw = 2,
+                        hasStale = false,
+                        isMultiOutput = false,
+                        missingPrices = {},
+                    })
+
+                assert(metrics.reagents and metrics.reagents[1] and metrics.reagents[1].required == 40,
+                    "VI display rows must keep rounded shopping quantities")
+                assert(metrics.totalCostFull == 60000,
+                    string.format("VI total cost must use expected-value reagent cost, got %s", tostring(metrics.totalCostFull)))
+                assert(metrics.totalCostToBuy == 60000,
+                    string.format("VI buy-now cost must use expected-value reagent cost, got %s", tostring(metrics.totalCostToBuy)))
+                local expectedBreakEven = 60000 / (2 * (1 - GAM.C.AH_CUT))
+                assert(math.abs((metrics.breakEvenSell or 0) - expectedBreakEven) < 0.001,
+                    string.format("VI break-even regression: got %.6f expected %.6f",
+                        metrics.breakEvenSell or 0, expectedBreakEven))
+            end)
+            BuildDisplayReagentMetrics = originalBuildDisplayReagentMetrics
+            assert(ok, err)
+        end)
+        assert(viEconomicsOK, viEconomicsErr)
+
         -- ── Spreadsheet-parity checks ─────────────────────────────────────────
         -- Verify formula profiles reproduce workbookExpectedQty at default stats.
         local profiles = GetFormulaProfiles()
@@ -991,6 +1070,8 @@ function Pricing.RunSmokeChecks()
                     local peerless = GAM.Importer.GetStratByID("inscription__peerless_missive__midnight_1")
                     assert(peerless, "peerless missive strat unavailable")
                     local peerlessMetrics = Pricing.CalculateStratMetrics(peerless, GAM.C.DEFAULT_PATCH, 10)
+                    assertNear((peerlessMetrics and peerlessMetrics.output and peerlessMetrics.output.expectedQtyRaw) or 0, 10,
+                        "peerless missive expected output must remain 1:1 per craft")
                     local displayQtyByID = {}
                     for _, row in ipairs(peerlessMetrics and peerlessMetrics.reagents or {}) do
                         if row.itemID then
@@ -1960,9 +2041,12 @@ BuildOutputMetrics = function(ctx)
     }
 end
 
-local function BuildFinalMetrics(ctx, reagentData, outputData)
+BuildFinalMetrics = function(ctx, reagentData, outputData)
     local displayReagentData = BuildDisplayReagentMetrics(ctx, reagentData.reagentResults)
-    local summaryReagentData = ctx.chainActive and displayReagentData or reagentData
+    -- Rounded display rows are for shopping/execution planning. Expected-value
+    -- economics must continue using the direct reagent model so break-even,
+    -- profit, ROI, and summary costs are not inflated by whole-batch overbuy.
+    local economicReagentData = reagentData
     local profit = nil
     local roi = nil
     local breakEven = nil
@@ -1978,18 +2062,19 @@ local function BuildFinalMetrics(ctx, reagentData, outputData)
         end
     end
 
-    AddMissingNames(summaryReagentData.missingPrices)
+    AddMissingNames(economicReagentData.missingPrices)
+    AddMissingNames(displayReagentData.missingPrices)
     AddMissingNames(outputData.missingPrices)
 
     if outputData.netRevenue and #missingPrices == 0 then
-        profit = outputData.netRevenue - summaryReagentData.totalCostRequired
-        if summaryReagentData.totalCostRequired > 0 then
-            roi = (profit / summaryReagentData.totalCostRequired) * 100
+        profit = outputData.netRevenue - economicReagentData.totalCostRequired
+        if economicReagentData.totalCostRequired > 0 then
+            roi = (profit / economicReagentData.totalCostRequired) * 100
         end
     end
 
-    if summaryReagentData.totalCostRequired > 0 and outputData.outputQtyRaw > 0 and not outputData.isMultiOutput then
-        breakEven = summaryReagentData.totalCostRequired / (outputData.outputQtyRaw * (1 - ctx.ahCut))
+    if economicReagentData.totalCostRequired > 0 and outputData.outputQtyRaw > 0 and not outputData.isMultiOutput then
+        breakEven = economicReagentData.totalCostRequired / (outputData.outputQtyRaw * (1 - ctx.ahCut))
     end
 
     return {
@@ -1999,8 +2084,8 @@ local function BuildFinalMetrics(ctx, reagentData, outputData)
         costReagents = reagentData.reagentResults,
         output = outputData.output,
         outputs = outputData.outputs,
-        totalCostToBuy = summaryReagentData.totalCostToBuy,
-        totalCostFull = summaryReagentData.totalCostRequired,
+        totalCostToBuy = economicReagentData.totalCostToBuy,
+        totalCostFull = economicReagentData.totalCostRequired,
         netRevenue = outputData.netRevenue,
         profit = profit,
         roi = roi,

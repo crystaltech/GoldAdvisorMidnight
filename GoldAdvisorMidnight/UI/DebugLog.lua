@@ -502,6 +502,147 @@ local function Build()
     end)
 end
 
+local function GetQualityTag(itemID)
+    if not itemID or itemID == 0 then return nil end
+    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+    local q = api and api(itemID) or nil
+    if q and q > 0 then
+        return "Q" .. tostring(q)
+    end
+    return nil
+end
+
+local function FormatPriceSafe(copper)
+    if copper == nil then
+        return "n/a"
+    end
+    if GAM.Pricing and GAM.Pricing.FormatPrice then
+        return GAM.Pricing.FormatPrice(copper)
+    end
+    return tostring(copper)
+end
+
+local function GetCurrentDetailContext()
+    local mw = GAM.UI and GAM.UI.MainWindowV2
+    if not (mw and mw.GetCurrentDetailContext) then
+        return nil, nil, nil
+    end
+    return mw.GetCurrentDetailContext()
+end
+
+local function DumpSelectedStrategyScans()
+    local strat, patchTag, metrics = GetCurrentDetailContext()
+    if not strat then
+        GAM.Log.Warn("DumpSelectedStrategyScans: no selected strategy in the main window")
+        return
+    end
+
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    metrics = metrics or (GAM.Pricing and GAM.Pricing.CalculateStratMetrics and GAM.Pricing.CalculateStratMetrics(strat, patchTag))
+    if not metrics then
+        GAM.Log.Warn("DumpSelectedStrategyScans: metrics unavailable for '%s'", tostring(strat.stratName or strat.id or "?"))
+        return
+    end
+
+    local opts = (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
+    local fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+    local rankPolicy = opts.rankPolicy or "lowest"
+    local output = metrics.output or {}
+    local outputQtyRaw = tonumber(output.expectedQtyRaw) or 0
+    local outputQtyRounded = tonumber(output.expectedQty) or math.max(1, math.floor(outputQtyRaw + 0.5))
+    local saleQty = math.max(1, outputQtyRounded)
+
+    local outputAllIDs = {}
+    local seenOutputIDs = {}
+    local displayed = GAM.Pricing and GAM.Pricing.GetDisplayedItemSet
+        and GAM.Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
+        or nil
+    for _, id in ipairs((displayed and displayed.output and displayed.output.itemIDs) or {}) do
+        if id and not seenOutputIDs[id] then
+            seenOutputIDs[id] = true
+            outputAllIDs[#outputAllIDs + 1] = id
+        end
+    end
+    if output.itemID and not seenOutputIDs[output.itemID] then
+        outputAllIDs[#outputAllIDs + 1] = output.itemID
+    end
+
+    local function DumpItem(section, name, itemID, qtyHint)
+        local qTag = GetQualityTag(itemID)
+        local itemLabel = name or ("item:" .. tostring(itemID or 0))
+        local storedPrice, storedStale = nil, false
+        if GAM.Pricing and GAM.Pricing.GetUnitPrice then
+            storedPrice, storedStale = GAM.Pricing.GetUnitPrice(itemID)
+        end
+        local raw = GAM.AHScan and GAM.AHScan.GetRawScanSnapshot and GAM.AHScan.GetRawScanSnapshot(itemID) or nil
+
+        GAM.Log.Info("[%s] %s [item:%s%s]",
+            section,
+            itemLabel,
+            tostring(itemID or 0),
+            qTag and (" " .. qTag) or "")
+        GAM.Log.Info("  qty=%s stored=%s%s",
+            tostring(qtyHint or "-"),
+            FormatPriceSafe(storedPrice),
+            storedStale and " (stale)" or "")
+
+        if raw and raw.prices and #raw.prices > 0 then
+            local avgHint = qtyHint and GAM.AHScan and GAM.AHScan.ComputePriceForQty
+                and GAM.AHScan.ComputePriceForQty(itemID, math.max(1, math.floor((qtyHint or 1) + 0.5)))
+                or nil
+            local avgFill = GAM.AHScan and GAM.AHScan.ComputePriceForQty
+                and GAM.AHScan.ComputePriceForQty(itemID, fillQty)
+                or nil
+            GAM.Log.Info("  source=%s rows=%d avg@qty=%s avg@fill(%d)=%s",
+                tostring(raw.source),
+                #raw.prices,
+                FormatPriceSafe(avgHint),
+                fillQty,
+                FormatPriceSafe(avgFill))
+
+            local maxRows = 12
+            for i, row in ipairs(raw.prices) do
+                if i > maxRows then
+                    GAM.Log.Info("  ... %d more row(s)", #raw.prices - maxRows)
+                    break
+                end
+                GAM.Log.Info("  row %02d: %s x %d",
+                    i,
+                    FormatPriceSafe(row.unitPrice),
+                    row.quantity or 0)
+            end
+        else
+            local vendorPrice = GAM.C and GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID] or nil
+            if vendorPrice then
+                GAM.Log.Info("  source=vendor unit=%s", FormatPriceSafe(vendorPrice))
+            else
+                GAM.Log.Info("  source=no live scan rows cached")
+            end
+        end
+    end
+
+    GAM.Log.Info("=== GAM Scan Dump: %s ===", tostring(strat.stratName or strat.id or "?"))
+    GAM.Log.Info("patch=%s rankPolicy=%s crafts=%s expectedRaw=%.3f rounded=%d saleQty=%d fillQty=%d",
+        tostring(patchTag),
+        tostring(rankPolicy),
+        tostring(metrics.crafts or "?"),
+        outputQtyRaw,
+        outputQtyRounded,
+        saleQty,
+        fillQty)
+
+    if #outputAllIDs == 0 and output.itemID then
+        outputAllIDs[1] = output.itemID
+    end
+    for _, itemID in ipairs(outputAllIDs) do
+        DumpItem(itemID == output.itemID and "output" or "output-alt", output.name, itemID, saleQty)
+    end
+    for _, row in ipairs(metrics.reagents or {}) do
+        DumpItem("input", row.name, row.itemID, row.required)
+    end
+    GAM.Log.Info("=== End Scan Dump ===")
+end
+
 -- ===== Public API =====
 function DebugLog.ShowARPExport()
     ShowARPExportPopup(GenerateARPExport())
@@ -510,6 +651,11 @@ end
 function DebugLog.DumpItemIDs()
     if not frame then Build() end
     DumpItemIDs()
+end
+
+function DebugLog.DumpSelectedStrategyScans()
+    if not frame then Build() end
+    DumpSelectedStrategyScans()
 end
 
 function DebugLog.Show()

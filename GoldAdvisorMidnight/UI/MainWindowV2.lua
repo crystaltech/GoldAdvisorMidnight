@@ -2223,3 +2223,7 @@ end
 function MW2.IsShown()
     return frame and frame:IsShown()
 end
+
+function MW2.GetCurrentDetailContext()
+    return rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.metrics
+end

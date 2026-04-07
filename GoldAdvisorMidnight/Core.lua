@@ -911,6 +911,11 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             GAM.UI.DebugLog.Show()
             GAM.UI.DebugLog.DumpItemIDs()
         end
+    elseif cmd == "scans" or cmd == "scandump" then
+        if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.DumpSelectedStrategyScans then
+            GAM.UI.DebugLog.Show()
+            GAM.UI.DebugLog.DumpSelectedStrategyScans()
+        end
     elseif cmd == "smoketest" then
         local pricingOK, pricingErr
         if GAM.Pricing and GAM.Pricing.RunSmokeChecks then
