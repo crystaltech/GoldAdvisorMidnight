@@ -550,7 +550,7 @@ local function DumpSelectedStrategyScans()
     local output = metrics.output or {}
     local outputQtyRaw = tonumber(output.expectedQtyRaw) or 0
     local outputQtyRounded = tonumber(output.expectedQty) or math.max(1, math.floor(outputQtyRaw + 0.5))
-    local saleQty = math.max(1, outputQtyRounded)
+    local pricingQty = math.max(1, math.floor((tonumber(fillQty) or GAM.C.DEFAULT_FILL_QTY) + 0.5))
 
     local outputAllIDs = {}
     local seenOutputIDs = {}
@@ -622,20 +622,20 @@ local function DumpSelectedStrategyScans()
     end
 
     GAM.Log.Info("=== GAM Scan Dump: %s ===", tostring(strat.stratName or strat.id or "?"))
-    GAM.Log.Info("patch=%s rankPolicy=%s crafts=%s expectedRaw=%.3f rounded=%d saleQty=%d fillQty=%d",
+    GAM.Log.Info("patch=%s rankPolicy=%s crafts=%s expectedRaw=%.3f rounded=%d pricingQty=%d fillQty=%d",
         tostring(patchTag),
         tostring(rankPolicy),
         tostring(metrics.crafts or "?"),
         outputQtyRaw,
         outputQtyRounded,
-        saleQty,
+        pricingQty,
         fillQty)
 
     if #outputAllIDs == 0 and output.itemID then
         outputAllIDs[1] = output.itemID
     end
     for _, itemID in ipairs(outputAllIDs) do
-        DumpItem(itemID == output.itemID and "output" or "output-alt", output.name, itemID, saleQty)
+        DumpItem(itemID == output.itemID and "output" or "output-alt", output.name, itemID, pricingQty)
     end
     for _, row in ipairs(metrics.reagents or {}) do
         DumpItem("input", row.name, row.itemID, row.required)

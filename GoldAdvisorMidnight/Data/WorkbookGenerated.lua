@@ -148,6 +148,18 @@ GAM_WORKBOOK_GENERATED = {
       sheetMCm = 2.500,  -- 1.25 * (1 + 100/100)
       sheetRs  = 0.465,  -- 0.30 * (1 + 55/100)
     },
+    insc_missive_estimated = {
+      multiKey = "inscInkMulti",
+      resKey = "inscInkRes",
+      mcNodeKey = "inscMcNode",
+      rsNodeKey = "inscRsNode",
+      defaultMulti = 29.700,
+      defaultRes = 16.100,
+      defaultMcNode = 100,
+      defaultRsNode = 55,
+      sheetMCm = 2.500,  -- conservative missive estimate mirrors insc_ink
+      sheetRs  = 0.465,
+    },
     insc_codified = {
       multiKey = "inscInkMulti",
       resKey = "inscInkRes",

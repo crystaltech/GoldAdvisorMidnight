@@ -122,6 +122,7 @@ function LeftPanelUI.Build(args)
     local relayoutPanels = args.relayoutPanels or Noop
     local refreshBestStratCard = args.refreshBestStratCard or Noop
     local refreshVisibleDetail = args.refreshVisibleDetail or Noop
+    local hideBreakdownWindow = args.hideBreakdownWindow or Noop
     local doScan = args.doScan or Noop
     local scanSelectedStrat = args.scanSelectedStrat or Noop
     local toggleShoppingSync = args.toggleShoppingSync or Noop
@@ -293,8 +294,41 @@ function LeftPanelUI.Build(args)
         (L and L["TT_VI_BODY"]) or "Price your intermediate materials from raw inputs (herbs \226\134\146 pigments, ore \226\134\146 ingots, linen \226\134\146 bolts). Disable to use AH prices for those items."
     )
 
+    local viBreakdownOwn = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    viBreakdownOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP + 10, -234)
+
+    local viBreakdownLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    viBreakdownLbl:SetPoint("LEFT", viBreakdownOwn, "RIGHT", 0, 0)
+    viBreakdownLbl:SetWidth(panelWidth - LP * 2 - 30)
+    viBreakdownLbl:SetJustifyH("LEFT")
+    viBreakdownLbl:SetText((L and L["V2_VI_BREAKDOWN"]) or "Show VI breakdown")
+    viBreakdownLbl:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
+    applyFontSize(viBreakdownLbl, softInk and 10 or 9)
+    attachButtonTooltip(
+        viBreakdownOwn,
+        (L and L["TT_VI_BREAKDOWN_TITLE"]) or "Show VI Breakdown",
+        (L and L["TT_VI_BREAKDOWN_BODY"]) or "Opens the VI breakdown window for the selected strategy while Use own items/crafts is enabled."
+    )
+
+    local function RefreshVIBreakdownToggle()
+        local opts = getOpts()
+        local viEnabled = (opts.pigmentCostSource == "mill")
+            or (opts.boltCostSource == "craft")
+            or (opts.ingotCostSource == "craft")
+        local showBreakdown = opts.showVIBreakdown and true or false
+        viBreakdownOwn:SetChecked(viEnabled and showBreakdown)
+        viBreakdownOwn:SetEnabled(viEnabled)
+        viBreakdownOwn:SetAlpha(viEnabled and 1 or 0.45)
+        viBreakdownLbl:SetTextColor(
+            labelColor[1],
+            labelColor[2],
+            labelColor[3],
+            viEnabled and (labelColor[4] or 1) or 0.55
+        )
+    end
+
     local statSectionLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    statSectionLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -286)
+    statSectionLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -310)
     statSectionLbl:SetText((L and L["V2_CRAFT_STATS"]) or "Craft Stats")
     statSectionLbl:SetTextColor(gold[1], gold[2], gold[3])
     applyFontSize(statSectionLbl, 11)
@@ -307,7 +341,7 @@ function LeftPanelUI.Build(args)
     applyFontSize(statProfileFS, softInk and 10 or 9)
 
     local statResLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statResLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -316)
+    statResLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -340)
     statResLbl:SetText((L and L["V2_STAT_RES_LABEL"]) or "Res%")
     statResLbl:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
     applyFontSize(statResLbl, softInk and 11 or 10)
@@ -327,13 +361,13 @@ function LeftPanelUI.Build(args)
 
     local statResOKBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     statResOKBtn:SetSize(28, 18)
-    statResOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -312)
+    statResOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -336)
     statResOKBtn:SetText(GetCommitButtonText(L))
     statResOKBtn:Hide()
     statResBox:SetPoint("RIGHT", statResOKBtn, "LEFT", -4, 0)
 
     local statMultiLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statMultiLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -340)
+    statMultiLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -364)
     statMultiLbl:SetText((L and L["V2_STAT_MULTI_LABEL"]) or "Multi%")
     statMultiLbl:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
     applyFontSize(statMultiLbl, softInk and 11 or 10)
@@ -353,7 +387,7 @@ function LeftPanelUI.Build(args)
 
     local statMultiOKBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     statMultiOKBtn:SetSize(28, 18)
-    statMultiOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -336)
+    statMultiOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -360)
     statMultiOKBtn:SetText(GetCommitButtonText(L))
     statMultiOKBtn:Hide()
     statMultiBox:SetPoint("RIGHT", statMultiOKBtn, "LEFT", -4, 0)
@@ -512,6 +546,7 @@ function LeftPanelUI.Build(args)
         RefreshRankDropdown()
         refreshVisibleDetail()
         RefreshStatEditors()
+        RefreshVIBreakdownToggle()
     end
     panel.refreshVisiblePanels = RefreshVisiblePanels
 
@@ -558,6 +593,7 @@ function LeftPanelUI.Build(args)
     AttachTransientCommitButton(statMultiBox, statMultiOKBtn, CommitStatEditors)
 
     leftPanelChecks.viOwn = viOwn
+    leftPanelChecks.viBreakdownOwn = viBreakdownOwn
 
     viOwn:SetScript("OnClick", function(self)
         local opts = getOpts()
@@ -570,9 +606,25 @@ function LeftPanelUI.Build(args)
             opts.boltCostSource    = newState and "craft" or "ah"
             opts.ingotCostSource   = newState and "craft" or "ah"
             viOwn:SetChecked(newState)
+            if not newState then
+                hideBreakdownWindow()
+            end
+            RefreshVIBreakdownToggle()
             RefreshVisiblePanels()
         end)
     end)
+
+    viBreakdownOwn:SetScript("OnClick", function(self)
+        local showBreakdown = self:GetChecked() and true or false
+        setOption("showVIBreakdown", showBreakdown)
+        if not showBreakdown then
+            hideBreakdownWindow()
+        end
+        RefreshVIBreakdownToggle()
+        refreshVisibleDetail()
+    end)
+
+    RefreshVIBreakdownToggle()
 
     local function UpdateSegBtnColors()
         local isAll = getFilterMode() == "all"

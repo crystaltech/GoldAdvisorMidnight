@@ -17,6 +17,7 @@ Gold Advisor Midnight is a World of Warcraft Retail addon for Auction House craf
 - Fill Qty simulation for large-batch pricing
 - Dynamic reagent-pool selection for flexible recipes such as Jewelcrafting Crushing
 - Vertical integration with `Use own items/crafts`
+- Optional `Show VI breakdown` popup for step-by-step VI chain tracing
 - Auctionator shopping-list support and Quick Buy helper flow
 - Optional CraftSim stat sync
 - Selected-strategy scan dumps for verifying live scanned prices
@@ -47,6 +48,7 @@ Gold Advisor Midnight is a World of Warcraft Retail addon for Auction House craf
 
 - The addon ships with checked-in data files in `GoldAdvisorMidnight/Data/`.
 - Crushing is priced against the cheapest eligible gem in its shipped reagent pool at runtime rather than a fixed gem baseline.
-- Manual Thalassian missives currently use conservative fixed `1 craft = 1 output` economics until enough real craft data exists to validate an expected-value proc model.
+- Manual Thalassian missives currently use a conservative estimated inscription output profile rather than a fixed `1 craft = 1 output` assumption.
+- `Show VI breakdown` appears under `Use own items/crafts` and opens a resizable step-by-step view of the active VI chain for the selected strategy.
 - The install folder name must remain `GoldAdvisorMidnight/`.
 - See `CHANGELOG.md` for recent addon changes.

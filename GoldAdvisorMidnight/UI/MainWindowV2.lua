@@ -192,7 +192,7 @@ local scanBtnLeft, scanBtnStatus
 local activeColConfig = LIST_COLUMNS_ALL
 local rpDetail      = {}   -- inline right-panel detail widget refs
 local suppressScrollCallback = false
-local selectedCraftSimBtn, selectedShoppingBtn, selectedScanBtn
+local selectedCraftSimBtn, selectedVIBreakdownBtn, selectedShoppingBtn, selectedScanBtn
 local themeRefs = NewThemeRefs()
 local shoppingSync = {
     active = false,
@@ -252,6 +252,10 @@ local function RememberWindowState(isOpen)
 end
 
 local function ApplyTheme()
+    if not frame then
+        return
+    end
+
     local theme = GetThemeDef()
     if not theme then return end
 
@@ -847,6 +851,28 @@ local function FormatStatPercentValue(value)
     return Common.FormatStatPercentValue(value)
 end
 
+local function AddThousandsSeparators(text)
+    local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.%d+)?$")
+    if not digits then
+        return tostring(text or "")
+    end
+    return sign .. digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "") .. (frac or "")
+end
+
+local function FormatQuantityValue(value, decimals)
+    if value == nil then
+        return "0"
+    end
+    local number = tonumber(value) or 0
+    local rounded = math.floor(number + 0.5)
+    if math.abs(number - rounded) < 0.05 then
+        return AddThousandsSeparators(tostring(rounded))
+    end
+    local places = decimals or 1
+    local text = string.format("%." .. tostring(places) .. "f", number):gsub("0+$", ""):gsub("%.$", "")
+    return AddThousandsSeparators(text)
+end
+
 local function BindItemRow(frameObj, display)
     frameObj._itemDisplay = display
     frameObj:EnableMouse(display and display.hasSafeLink and display.itemLink and true or false)
@@ -868,9 +894,9 @@ end
 local function FormatExpectedOutputTooltip(qty, qtyRaw)
     local raw = tonumber(qtyRaw)
     if raw and math.abs(raw - math.floor(raw + 0.5)) > 0.01 then
-        return string.format("%.2f", raw)
+        return FormatQuantityValue(raw, 2)
     end
-    return string.format("%.0f", qty or 0)
+    return FormatQuantityValue(qty or 0)
 end
 
 local function ItemRowEnter(self)
@@ -885,8 +911,8 @@ local function ItemRowEnter(self)
         GameTooltip:AddLine(" ")
         if tt.kind == "reagent" then
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_PRICE"]) or "Unit Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
-            GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_REQUIRED"]) or "Total Required: %s", string.format("%.0f", tt.required or 0)), 1, 0.82, 0)
-            GameTooltip:AddLine(string.format((L and L["TT_ROW_NEED_TO_BUY"]) or "Need to Buy: %s", string.format("%.0f", tt.needToBuy or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_REQUIRED"]) or "Total Required: %s", FormatQuantityValue(tt.required or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_NEED_TO_BUY"]) or "Need to Buy: %s", FormatQuantityValue(tt.needToBuy or 0)), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_FULL_COST"]) or "Full Cost: %s", tt.totalCostFull and GAM.Pricing.FormatPrice(tt.totalCostFull) or "|cff888888—|r"), 1, 0.82, 0)
             if tt.totalCost and tt.totalCostFull and tt.totalCost ~= tt.totalCostFull then
                 GameTooltip:AddLine(string.format((L and L["TT_ROW_BUY_NOW_COST"]) or "Buy Now Cost: %s", GAM.Pricing.FormatPrice(tt.totalCost)), 1, 0.82, 0)
@@ -1564,6 +1590,7 @@ local function HideInlineDetail()
         rightPanel = rightPanel,
         selectedScanBtn = selectedScanBtn,
         selectedCraftSimBtn = selectedCraftSimBtn,
+        selectedVIBreakdownBtn = selectedVIBreakdownBtn,
         selectedShoppingBtn = selectedShoppingBtn,
         onAfterHide = function()
             if leftPanel and leftPanel.refreshStatEditors then
@@ -1573,13 +1600,25 @@ local function HideInlineDetail()
     })
 end
 
+local function IsVerticalIntegrationEnabled()
+    local opts = GetOpts()
+    return (opts.pigmentCostSource == "mill")
+        or (opts.boltCostSource == "craft")
+        or (opts.ingotCostSource == "craft")
+end
+
+local function ShouldShowVIBreakdown()
+    local opts = GetOpts()
+    return (opts.showVIBreakdown and true or false) and IsVerticalIntegrationEnabled()
+end
+
 ShowInlineDetail = function(strat, patchTag)
     if not rpDetail.root then return end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     GAM.Pricing.PreloadStratItemData(strat, patchTag)
     RefreshBestStratCard()
     local metrics = GetStratMetric(strat, patchTag)
-    return DetailUI.Render({
+    local rendered = DetailUI.Render({
         rpDetail = rpDetail,
         strat = strat,
         patchTag = patchTag,
@@ -1592,6 +1631,7 @@ ShowInlineDetail = function(strat, patchTag)
         formatPrice = GAM.Pricing.FormatPrice,
         selectedScanBtn = selectedScanBtn,
         selectedCraftSimBtn = selectedCraftSimBtn,
+        selectedVIBreakdownBtn = selectedVIBreakdownBtn,
         selectedShoppingBtn = selectedShoppingBtn,
         refreshCompactButtonEnabledState = RefreshCompactButtonEnabledState,
         rowHeight = ROW_H,
@@ -1601,6 +1641,12 @@ ShowInlineDetail = function(strat, patchTag)
             end
         end,
     })
+    if DetailUI and DetailUI.ShowBreakdownWindow and ShouldShowVIBreakdown() then
+        DetailUI.ShowBreakdownWindow(strat, patchTag, rendered)
+    elseif DetailUI and DetailUI.HideBreakdownWindow then
+        DetailUI.HideBreakdownWindow()
+    end
+    return rendered
 end
 
 local function BuildInlineDetail(panel)
@@ -1699,6 +1745,11 @@ local function BuildInlineDetail(panel)
         onToggleShopping = function()
             ToggleShoppingSync(rpDetail.currentStrat, rpDetail.currentPatch)
         end,
+        onShowBreakdown = function()
+            if rpDetail.currentStrat and DetailUI and DetailUI.ShowBreakdownWindow then
+                DetailUI.ShowBreakdownWindow(rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.metrics)
+            end
+        end,
         onEditSelected = function()
             if rpDetail.currentStrat and GAM.UI.StratCreator then
                 GAM.UI.StratCreator.ShowEdit(rpDetail.currentStrat)
@@ -1766,6 +1817,13 @@ local function BuildLeftPanelContent(L, C, LP)
                     rpDetail.currentStrat = refreshed
                     ShowInlineDetail(refreshed, rpDetail.currentPatch)
                 end
+            elseif DetailUI and DetailUI.HideBreakdownWindow then
+                DetailUI.HideBreakdownWindow()
+            end
+        end,
+        hideBreakdownWindow = function()
+            if DetailUI and DetailUI.HideBreakdownWindow then
+                DetailUI.HideBreakdownWindow()
             end
         end,
         doScan = DoScan,
@@ -1828,6 +1886,7 @@ local function BuildLeftPanelContent(L, C, LP)
 
     scanBtnLeft = refs.scanBtnLeft
     selectedCraftSimBtn = refs.selectedCraftSimBtn
+    selectedVIBreakdownBtn = refs.selectedVIBreakdownBtn
     selectedShoppingBtn = refs.selectedShoppingBtn
     selectedScanBtn = refs.selectedScanBtn
 end
@@ -2159,6 +2218,9 @@ function MW2.OnScanComplete()
 end
 
 function MW2.ApplyTheme()
+    if not frame then
+        return
+    end
     if frame and builtThemeKey and builtThemeKey ~= GetThemeKey() then
         print("|cffff8800[GAM]|r Reload the UI to rebuild the selected theme layout.")
         return

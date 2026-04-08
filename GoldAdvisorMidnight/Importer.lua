@@ -10,6 +10,7 @@ local stratsByID = {}
 local stratsByPatch = {}
 local stratsByProfession = {}
 local allStrats = {}
+local producerIndexByPatch = {}
 
 local function NormStr(s)
     return (s or ""):lower():gsub("[^a-z0-9]", "_"):gsub("_+", "_"):gsub("^_", ""):gsub("_$", "")
@@ -334,6 +335,97 @@ local function IndexStrat(s)
     stratsByProfession[pr][#stratsByProfession[pr] + 1] = s
 end
 
+local function BuildRecipeView(strat, variant)
+    if not strat then
+        return nil
+    end
+    variant = variant or {}
+    return {
+        defaultStartingAmount = variant.defaultStartingAmount or strat.defaultStartingAmount,
+        defaultCrafts = variant.defaultCrafts or strat.defaultCrafts or strat.defaultStartingAmount,
+        outputs = variant.outputs or strat.outputs,
+        output = (variant.outputs and variant.outputs[1]) or variant.output or strat.output,
+        reagents = variant.reagents or strat.reagents,
+    }
+end
+
+local function IsEligibleProducerView(view)
+    if not view or type(view.outputs) ~= "table" or #view.outputs ~= 1 then
+        return false
+    end
+    for _, reagent in ipairs(view.reagents or {}) do
+        if reagent.skipDerivation then
+            return false
+        end
+    end
+    return true
+end
+
+local function AddProducerCandidate(patchTag, itemID, stratID, variantKey)
+    if not patchTag or not itemID or itemID == 0 or not stratID then
+        return
+    end
+    producerIndexByPatch[patchTag] = producerIndexByPatch[patchTag] or {}
+    producerIndexByPatch[patchTag][itemID] = producerIndexByPatch[patchTag][itemID] or {}
+    producerIndexByPatch[patchTag][itemID][#producerIndexByPatch[patchTag][itemID] + 1] = {
+        stratID = stratID,
+        variantKey = variantKey,
+    }
+end
+
+local function IndexProducerView(strat, view, variantKey)
+    if not IsEligibleProducerView(view) then
+        return
+    end
+    local output = (view.outputs and view.outputs[1]) or view.output
+    for _, itemID in ipairs((output and output.itemIDs) or {}) do
+        AddProducerCandidate(strat.patchTag, itemID, strat.id, variantKey)
+    end
+end
+
+local function GetOrderedVariantKeys(rankVariants)
+    local ordered = {}
+    if type(rankVariants) ~= "table" then
+        return ordered
+    end
+
+    if rankVariants.lowest then
+        ordered[#ordered + 1] = "lowest"
+    end
+    if rankVariants.highest then
+        ordered[#ordered + 1] = "highest"
+    end
+
+    local extras = {}
+    for variantKey in pairs(rankVariants) do
+        if variantKey ~= "lowest" and variantKey ~= "highest" then
+            extras[#extras + 1] = variantKey
+        end
+    end
+    table.sort(extras, function(a, b)
+        return tostring(a) < tostring(b)
+    end)
+    for _, variantKey in ipairs(extras) do
+        ordered[#ordered + 1] = variantKey
+    end
+
+    return ordered
+end
+
+local function RebuildProducerIndex()
+    wipe(producerIndexByPatch)
+
+    for _, strat in ipairs(allStrats) do
+        if strat.rankVariants then
+            for _, variantKey in ipairs(GetOrderedVariantKeys(strat.rankVariants)) do
+                IndexProducerView(strat, BuildRecipeView(strat, strat.rankVariants[variantKey]), variantKey)
+            end
+        else
+            IndexProducerView(strat, BuildRecipeView(strat), nil)
+        end
+    end
+end
+
 local function LoadRecipeList(list, src, isUser)
     local loaded = 0
     local skipped = 0
@@ -358,6 +450,7 @@ function Importer.Init()
     wipe(stratsByPatch)
     wipe(stratsByProfession)
     wipe(allStrats)
+    wipe(producerIndexByPatch)
 
     local loaded = 0
     local skipped = 0
@@ -390,6 +483,7 @@ function Importer.Init()
         GAM.db.userStrats = migrated
     end
 
+    RebuildProducerIndex()
     GAM.Log.Info("Importer: loaded %d strats, skipped %d", loaded, skipped)
 end
 
@@ -442,4 +536,13 @@ function Importer.GetStratCount(patchTag)
         return #(stratsByPatch[patchTag] or {})
     end
     return #allStrats
+end
+
+function Importer.GetProducerCandidates(itemID, patchTag)
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    local byPatch = producerIndexByPatch[patchTag]
+    if not byPatch then
+        return {}
+    end
+    return byPatch[itemID] or {}
 end

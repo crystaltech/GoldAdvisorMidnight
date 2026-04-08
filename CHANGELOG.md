@@ -1,5 +1,21 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.7.23] — 2026-04-08
+
+### VI / Pricing
+- **Generic vertical-integration graph shipped** — `Use own items/crafts` now recurses through loaded single-output producer strategies instead of only the old hardcoded pigment / bolt / ingot families, so chains like `Soul Cipher` and `Codified Azeroot` can resolve through their real craft trees when VI is enabled.
+- **Economic vs execution VI math split finalized** — Summary economics now use fractional expected-value leaves for `Total Cost`, `Buy Now Cost`, `Profit`, `ROI`, and `Break-even`, while visible reagent rows, shopping lists, and scan helpers keep rounded execution counts for practical buying.
+- **Manual missives moved to conservative estimated output math** — All six manual Thalassian missives now use a dedicated conservative inscription formula profile instead of fixed `1:1` output, so missive profitability no longer ignores resourcefulness / multicraft entirely.
+- **Selected output pricing now respects fill-sensitive AH depth** — Unit sell pricing and debug scan dumps now stay aligned with the active fill quantity instead of drifting toward a different order-book slice.
+
+### UI / Workflow
+- **Resizable VI breakdown window added** — A dedicated popup now shows step-by-step VI chain expansion with branch-local costs, economic vs execution craft counts, direct AH comparisons, and clearer quantity formatting for large batch plans.
+- **VI breakdown is now user-controlled** — The popup is toggled by a new `Show VI breakdown` checkbox under `Use own items/crafts`, so it follows selected strategies only when you want it on.
+- **VI readability pass** — Breakdown headers, captions, and tooltips now explain the difference between merged header totals and branch-local row steps in shorter wording.
+
+### Bug Fixes
+- **Theme apply is safe before the main window exists** — Changing settings no longer throws a nil-frame Lua error if the V2 main window has not been built yet.
+
 ## [1.7.22] — 2026-04-07
 
 ### Bug Fixes
