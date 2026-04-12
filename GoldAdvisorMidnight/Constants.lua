@@ -15,9 +15,35 @@ local function ProfileDefault(profileKey, field, fallback)
 end
 
 GAM.C = {
-    ADDON_VERSION        = "1.7.23",
-    DATA_VERSION         = 12,
+    ADDON_VERSION        = "1.8.0",
+    DATA_VERSION         = 13,
     DEFAULT_PATCH        = "midnight-1",
+
+    -- Canonical profession names used by filters, creator dropdowns, and
+    -- skill-line matching. Professions may exist here before any shipped strats
+    -- are added so the UI can be scaffolded ahead of data imports.
+    SUPPORTED_PROFESSIONS = {
+        "Alchemy",
+        "Blacksmithing",
+        "Cooking",
+        "Enchanting",
+        "Engineering",
+        "Inscription",
+        "Jewelcrafting",
+        "Leatherworking",
+        "Tailoring",
+    },
+    PROFESSION_SKILL_LINES = {
+        Alchemy = 171,
+        Blacksmithing = 164,
+        Cooking = 185,
+        Enchanting = 333,
+        Engineering = 202,
+        Inscription = 773,
+        Jewelcrafting = 755,
+        Leatherworking = 165,
+        Tailoring = 197,
+    },
 
     -- Base crafting-stat multipliers (game-level, before talent/spec node bonuses)
     BASE_MCM             = 1.25,   -- Multicraft multiplier base (MCm before any node bonus)

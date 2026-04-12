@@ -208,12 +208,42 @@ function Derivation.GetEffectiveCraftYield(craftInfo)
     end
 
     local opts = GetOpts()
+    local function GetNodeValue(key, defaultValue)
+        if not key then
+            return 0
+        end
+        local value = opts[key]
+        if value == nil then
+            return defaultValue or 0
+        end
+        return value
+    end
+    local function ScaleSheetBonus(sheetValue, defaultNodeValue, actualNodeValue)
+        local baseline = tonumber(sheetValue)
+        if baseline == nil then
+            return nil
+        end
+        local defaultFactor = 1 + ((tonumber(defaultNodeValue) or 0) / 100)
+        local actualFactor = 1 + ((tonumber(actualNodeValue) or 0) / 100)
+        if defaultFactor <= 0 then
+            return baseline
+        end
+        return baseline * (actualFactor / defaultFactor)
+    end
     local statMCp = profileDef.multiKey and ((opts[profileDef.multiKey] or 0) / 100) or 0
     local statRp = profileDef.resKey and ((opts[profileDef.resKey] or 0) / 100) or 0
-    -- Node influence is temporarily disabled for spreadsheet parity.
-    -- sheetMCm/sheetRs are fixed sheet-authoritative effective multipliers.
-    local statMCm_tot = profileDef.multiKey and (profileDef.sheetMCm or GAM.C.BASE_MCM) or 0
-    local statRs_tot = profileDef.sheetRs or GAM.C.BASE_RS
+    local statMCm_tot = profileDef.multiKey and (
+        ScaleSheetBonus(
+            profileDef.sheetMCm or GAM.C.BASE_MCM,
+            profileDef.defaultMcNode or 0,
+            GetNodeValue(profileDef.mcNodeKey, profileDef.defaultMcNode))
+        or (profileDef.sheetMCm or GAM.C.BASE_MCM)
+    ) or 0
+    local statRs_tot = ScaleSheetBonus(
+        profileDef.sheetRs or GAM.C.BASE_RS,
+        profileDef.defaultRsNode or 0,
+        GetNodeValue(profileDef.rsNodeKey, profileDef.defaultRsNode))
+        or (profileDef.sheetRs or GAM.C.BASE_RS)
     local statDenom = 1 - statRp * statRs_tot
     if statDenom <= 0 then
         statDenom = 1

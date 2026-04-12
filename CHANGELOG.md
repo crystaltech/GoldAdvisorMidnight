@@ -1,5 +1,28 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.8.0] — 2026-04-12
+
+### UI / Workflow
+- **V2 polish pass shipped across both themes** — The main window now uses tighter card spacing, calmer separators, improved row striping, stronger selected-row treatment, clearer placeholder copy, and more consistent type rhythm across the header, list, detail, and footer surfaces.
+- **VI breakdown now reads summary-first** — The popup keeps the same workflow and placement, but the summary block is more prominent, stage rows are easier to distinguish from child steps, and branch depth is clearer at a glance.
+- **VI wording cleaned up** — Visible VI labels now use plain-language headers like `Amount`, `Plan Crafts`, `Actual Crafts`, and `Source`, with helper copy updated to explain the plan in user-facing terms instead of spreadsheet shorthand.
+
+## [1.7.25] — 2026-04-09
+
+### Bug Fixes
+- **VI breakdown render path hardened again** — The VI popup now applies its row/header layout immediately instead of relying on later size callbacks, and it logs a clear debug warning plus visible fallback message if client-specific UI state still prevents the detailed panel from rendering.
+- **Sunglass Vial reagent count corrected** — The Jewelcrafting strategy now requires 1 Duskshrouded Stone per craft again, so craft totals no longer show the halved stone requirement.
+- **CraftSim node scaling restored on top of workbook baselines** — Formula strategies now keep spreadsheet parity at default nodes, then scale from those baked baselines to the player’s synced specialization bonuses when CraftSim cache data is available.
+- **Blacksmithing baseline refreshed from live workbook formulas** — Refulgent Copper Ingot, Gloaming Alloy, and Sterling Alloy now use the sheet’s current Blacksmithing crafting baseline (`33%` Multi with effective `sheetMCm=1.4`), fixing undercounted output totals like Refulgent Copper Ingot showing `1496` instead of `1549` for 1000 crafts.
+
+### UI / Workflow
+- **Cooking profession scaffold added** — `Cooking` is now part of the canonical supported profession list and skill-line mapping, so it can appear in profession-aware filters and creator dropdowns even before any Cooking strategies are shipped.
+
+## [1.7.24] — 2026-04-08
+
+### Bug Fixes
+- **VI breakdown blank-window fallback added** — The VI popup now anchors its scroll content more defensively, shows a clear empty-state instead of a silent black panel, and falls back to merged reagent rows when detailed branch steps are unavailable for a user/client state.
+
 ## [1.7.23] — 2026-04-08
 
 ### VI / Pricing

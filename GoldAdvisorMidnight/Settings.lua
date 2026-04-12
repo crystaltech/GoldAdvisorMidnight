@@ -611,10 +611,10 @@ local function BuildPanel()
 
     y = y - 4
 
-    -- ── CraftSim node bonus sync (temporarily disabled for spreadsheet parity) ─
+    -- ── CraftSim node bonus sync status ─
     local lblNodeSync = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lblNodeSync:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
-    lblNodeSync:SetText("|cff808080Node sync disabled (spreadsheet parity mode)|r")
+    lblNodeSync:SetText("|cff808080CraftSim node bonuses auto-sync when cached recipe data is available|r")
     y = y - 20
 
     -- ── Actions ────────────────────────────────────────────────────────────

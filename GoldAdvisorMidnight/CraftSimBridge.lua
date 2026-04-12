@@ -50,6 +50,12 @@ end
 local function OnLoad()
     if CraftSimAvailable() then
         GAM.Log.Info("CraftSimBridge: CraftSim detected — integration active.")
+        local syncedCount = Bridge.SyncNodeBonusesFromCraftSim and Bridge.SyncNodeBonusesFromCraftSim() or 0
+        if syncedCount and syncedCount > 0 then
+            GAM.Log.Info("CraftSimBridge: synced node bonuses for %d profession(s).", syncedCount)
+        else
+            GAM.Log.Debug("CraftSimBridge: no cached node bonuses were available to sync at login.")
+        end
     else
         GAM.Log.Info("CraftSimBridge: CraftSim not found — running standalone.")
     end
@@ -61,7 +67,7 @@ bridgeFrame:RegisterEvent("PLAYER_LOGIN")
 bridgeFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
         OnLoad()
-        GAM.Log.Debug("CraftSimBridge: workbook defaults remain authoritative; cached CraftSim stats can be imported for compare/sync.")
+        GAM.Log.Debug("CraftSimBridge: workbook baselines remain authoritative; CraftSim node bonuses scale them when available.")
         bridgeFrame:UnregisterAllEvents()
     end
 end)
@@ -401,10 +407,11 @@ function Bridge.SyncOptionsFromCraftSim()
 end
 
 -- SyncNodeBonusesFromCraftSim() → count (number of professions updated)
--- Temporarily disabled for spreadsheet parity: node influence is mathematically
--- inert until parity is verified and node support is re-enabled.
+-- Imports CraftSim's cached node bonuses so runtime output can scale from the
+-- workbook's baked default nodes to the player's actual specialization tree.
 function Bridge.SyncNodeBonusesFromCraftSim()
-    return 0
+    local count = Bridge.SyncOptionsFromCraftSim()
+    return count or 0
 end
 
 -- PushStratPrices(strat, patchTag) → pushed (number), err (string or nil)

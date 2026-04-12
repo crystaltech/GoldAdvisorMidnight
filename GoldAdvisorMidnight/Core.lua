@@ -264,6 +264,29 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        -- dataVersion 13: Refresh Blacksmithing to the live workbook baseline
+        -- without overwriting clearly user-customized values.
+        dataVersion = 13,
+        migrate = function(db)
+            if type(db.options) ~= "table" then
+                return
+            end
+
+            local opts = db.options
+            local function approxEqual(value, expected)
+                local num = tonumber(value)
+                return num ~= nil and math.abs(num - expected) < 0.001
+            end
+
+            if approxEqual(opts.bsMulti, 27.9) then
+                opts.bsMulti = 33.0
+            end
+            if opts.bsMcNode == nil or approxEqual(opts.bsMcNode, 0.0) then
+                opts.bsMcNode = 12
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)
@@ -633,6 +656,9 @@ end
 handlers["PLAYER_LOGIN"] = function(self)
     self:GetRealmKey()
     self.Log.Debug("Realm key: %s", self.realmKey)
+    if self.DataBroker and self.DataBroker.Init then
+        self.DataBroker.Init()
+    end
 
     -- Hidden button for QuickBuy macro support.
     -- Users create an in-game macro with:  /click GAMQuickBuyBtn

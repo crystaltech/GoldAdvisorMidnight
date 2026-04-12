@@ -12,6 +12,10 @@ local stratsByProfession = {}
 local allStrats = {}
 local producerIndexByPatch = {}
 
+local function GetSupportedProfessionSeed()
+    return (GAM.C and GAM.C.SUPPORTED_PROFESSIONS) or {}
+end
+
 local function NormStr(s)
     return (s or ""):lower():gsub("[^a-z0-9]", "_"):gsub("_+", "_"):gsub("^_", ""):gsub("_$", "")
 end
@@ -520,6 +524,12 @@ end
 function Importer.GetAllProfessions(patchTag)
     local profs = {}
     local seen = {}
+    for _, profession in ipairs(GetSupportedProfessionSeed()) do
+        if type(profession) == "string" and profession ~= "" and not seen[profession] then
+            seen[profession] = true
+            profs[#profs + 1] = profession
+        end
+    end
     local src = patchTag and (stratsByPatch[patchTag] or {}) or allStrats
     for _, s in ipairs(src) do
         if not seen[s.profession] then

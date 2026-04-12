@@ -50,11 +50,20 @@ local SHORT_UI_OVERRIDES = {
     V2_CRAFT_STATS = "Craft Stats",
     V2_MATERIAL_RANK = "Mat Rank",
     V2_SELECT_FORMULA = "Select formula",
+    V2_PLACEHOLDER_DETAIL = "Select a strategy to review\ncost, output, and next steps.",
     BTN_SCAN_SELECTED = "Scan Strat",
     BTN_SCAN_STRAT = "Scan Strat",
     BTN_OPEN_STRAT = "Open Strat",
     BTN_CRAFTSIM_SHORT = "CraftSim",
     BTN_SHOPPING_SHORT = "Shopping",
+    VI_STATUS_ENABLED = "VI on",
+    VI_STATUS_DISABLED = "VI off",
+    VI_HDR_STEP = "Step",
+    VI_HDR_AMOUNT = "Amount",
+    VI_HDR_PLAN_CRAFTS = "Plan",
+    VI_HDR_ACTUAL_CRAFTS = "Actual",
+    VI_HDR_USED_COST = "Used Cost",
+    VI_HDR_SOURCE = "Source",
 }
 
 for key, value in pairs(SHORT_UI_OVERRIDES) do

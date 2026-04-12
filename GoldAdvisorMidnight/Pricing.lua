@@ -1060,6 +1060,12 @@ function Pricing.RunSmokeChecks()
         assert(lwProfile, "leatherworking profile missing")
         assert(math.abs((lwProfile.defaultMulti or 0) - 32.0) < 0.01,
             string.format("leatherworking defaultMulti parity fail: got %.3f expected 32.0", lwProfile.defaultMulti or 0))
+        local bsProfile = profiles["blacksmithing"]
+        assert(bsProfile, "blacksmithing profile missing")
+        assert(math.abs((bsProfile.defaultMulti or 0) - 33.0) < 0.01,
+            string.format("blacksmithing defaultMulti parity fail: got %.3f expected 33.0", bsProfile.defaultMulti or 0))
+        assert(math.abs((bsProfile.sheetMCm or 0) - 1.4) < 0.01,
+            string.format("blacksmithing sheetMCm parity fail: got %.3f expected 1.4", bsProfile.sheetMCm or 0))
 
         -- Engineering profiles must be split
         assert(profiles["engineering_recycling"], "engineering_recycling profile missing")
@@ -1391,14 +1397,14 @@ function Pricing.RunSmokeChecks()
 
             local refulgent = GAM.Importer.GetStratByID("blacksmithing__refulgent_copper_ingot__midnight_1")
             if refulgent then
-                assertNear(refulgent.defaultStartingAmount or 0, 5.0, "Refulgent Copper Ingot defaultStartingAmount")
-                assertNear(refulgent.defaultCrafts or 0, 1.0, "Refulgent Copper Ingot defaultCrafts")
+                assertNear(refulgent.defaultStartingAmount or 0, 5000.0, "Refulgent Copper Ingot defaultStartingAmount")
+                assertNear(refulgent.defaultCrafts or 0, 1000.0, "Refulgent Copper Ingot defaultCrafts")
                 assertNear((refulgent.rankVariants and refulgent.rankVariants.lowest
                     and refulgent.rankVariants.lowest.defaultStartingAmount) or 0,
-                    5.0, "Refulgent Copper Ingot lowest defaultStartingAmount")
+                    5000.0, "Refulgent Copper Ingot lowest defaultStartingAmount")
                 assertNear((refulgent.rankVariants and refulgent.rankVariants.lowest
                     and refulgent.rankVariants.lowest.defaultCrafts) or 0,
-                    1.0, "Refulgent Copper Ingot lowest defaultCrafts")
+                    1000.0, "Refulgent Copper Ingot lowest defaultCrafts")
                 assertNear((refulgent.rankVariants and refulgent.rankVariants.highest
                     and refulgent.rankVariants.highest.defaultStartingAmount) or 0,
                     5000.0, "Refulgent Copper Ingot highest defaultStartingAmount")
@@ -1406,9 +1412,9 @@ function Pricing.RunSmokeChecks()
                     and refulgent.rankVariants.highest.defaultCrafts) or 0,
                     1000.0, "Refulgent Copper Ingot highest defaultCrafts")
             end
-            checkVariantWorkbookParity("blacksmithing__refulgent_copper_ingot__midnight_1", "lowest", 1, 1.428911961,
+            checkVariantWorkbookParity("blacksmithing__refulgent_copper_ingot__midnight_1", "lowest", 1, 1548.892891,
                 "Blacksmithing Refulgent Copper Ingot Q1")
-            checkVariantWorkbookParity("blacksmithing__refulgent_copper_ingot__midnight_1", "highest", 1, 1428.911961,
+            checkVariantWorkbookParity("blacksmithing__refulgent_copper_ingot__midnight_1", "highest", 1, 1548.892891,
                 "Blacksmithing Refulgent Copper Ingot Q2")
 
             local gloaming = GAM.Importer.GetStratByID("blacksmithing__gloaming_alloy__midnight_1")
@@ -1428,9 +1434,9 @@ function Pricing.RunSmokeChecks()
                     and gloaming.rankVariants.highest.defaultCrafts) or 0,
                     100.0, "Gloaming Alloy highest defaultCrafts")
             end
-            checkVariantWorkbookParity("blacksmithing__gloaming_alloy__midnight_1", "lowest", 1, 142.8911961,
+            checkVariantWorkbookParity("blacksmithing__gloaming_alloy__midnight_1", "lowest", 1, 154.8892891,
                 "Blacksmithing Gloaming Alloy Q1")
-            checkVariantWorkbookParity("blacksmithing__gloaming_alloy__midnight_1", "highest", 1, 142.8911961,
+            checkVariantWorkbookParity("blacksmithing__gloaming_alloy__midnight_1", "highest", 1, 154.8892891,
                 "Blacksmithing Gloaming Alloy Q2")
 
             local sterling = GAM.Importer.GetStratByID("blacksmithing__sterling_alloy__midnight_1")
@@ -1445,14 +1451,14 @@ function Pricing.RunSmokeChecks()
                     1000.0, "Sterling Alloy lowest defaultCrafts")
                 assertNear((sterling.rankVariants and sterling.rankVariants.highest
                     and sterling.rankVariants.highest.defaultStartingAmount) or 0,
-                    600.0, "Sterling Alloy highest defaultStartingAmount")
+                    1590.0, "Sterling Alloy highest defaultStartingAmount")
                 assertNear((sterling.rankVariants and sterling.rankVariants.highest
                     and sterling.rankVariants.highest.defaultCrafts) or 0,
-                    100.0, "Sterling Alloy highest defaultCrafts")
+                    265.0, "Sterling Alloy highest defaultCrafts")
             end
-            checkVariantWorkbookParity("blacksmithing__sterling_alloy__midnight_1", "lowest", 1, 1428.911961,
+            checkVariantWorkbookParity("blacksmithing__sterling_alloy__midnight_1", "lowest", 1, 1548.892891,
                 "Blacksmithing Sterling Alloy Q1")
-            checkVariantWorkbookParity("blacksmithing__sterling_alloy__midnight_1", "highest", 1, 142.8911961,
+            checkVariantWorkbookParity("blacksmithing__sterling_alloy__midnight_1", "highest", 1, 410.456616,
                 "Blacksmithing Sterling Alloy Q2")
 
             local dawn = GAM.Importer.GetStratByID("enchanting__dawn_shatter_q2__midnight_1")
@@ -1559,6 +1565,15 @@ function Pricing.RunSmokeChecks()
 
             checkWorkbookParity("jewelcrafting__sin_dorei_lens_crafting__midnight_1", 1, 1873.492159,
                 "Jewelcrafting lens crafting")
+            local jcSunglass = GAM.Importer.GetStratByID("jewelcrafting__sunglass_vial_crafting__midnight_1")
+            if jcSunglass then
+                assertNear((jcSunglass.reagents and jcSunglass.reagents[1] and jcSunglass.reagents[1].qtyPerCraft) or 0, 5.0,
+                    "Jewelcrafting sunglass glass qtyPerCraft")
+                assertNear((jcSunglass.reagents and jcSunglass.reagents[2] and jcSunglass.reagents[2].qtyPerCraft) or 0, 1.0,
+                    "Jewelcrafting sunglass stone qtyPerCraft")
+                assertNear((jcSunglass.reagents and jcSunglass.reagents[2] and jcSunglass.reagents[2].qtyPerStart) or 0, 0.2,
+                    "Jewelcrafting sunglass stone qtyPerStart")
+            end
             checkWorkbookParity("jewelcrafting__sunglass_vial_crafting__midnight_1", 1, 337.2285887,
                 "Jewelcrafting sunglass vial crafting")
             local amani = GAM.Importer.GetStratByID("alchemy__amani_extract__midnight_1")
@@ -1637,13 +1652,45 @@ local function BuildProfileContext(strat, opts)
     local statMCp, statRp, statMCm_tot, statRs_tot, statDenom
 
     if strat.calcMode == "formula" and profileDef then
+        local function GetNodeValue(key, defaultValue)
+            if not key then
+                return 0
+            end
+            local value = opts[key]
+            if value == nil then
+                return defaultValue or 0
+            end
+            return value
+        end
+        local function ScaleSheetBonus(sheetValue, defaultNodeValue, actualNodeValue)
+            local baseline = tonumber(sheetValue)
+            if baseline == nil then
+                return nil
+            end
+            local defaultFactor = 1 + ((tonumber(defaultNodeValue) or 0) / 100)
+            local actualFactor = 1 + ((tonumber(actualNodeValue) or 0) / 100)
+            if defaultFactor <= 0 then
+                return baseline
+            end
+            return baseline * (actualFactor / defaultFactor)
+        end
+
         statMCp = profileDef.multiKey and ((opts[profileDef.multiKey] or 0) / 100) or 0
         statRp = profileDef.resKey and ((opts[profileDef.resKey] or 0) / 100) or 0
-        -- Node influence is temporarily disabled for spreadsheet parity.
-        -- sheetMCm/sheetRs are fixed sheet-authoritative effective multipliers;
-        -- node SavedVariables remain stored but are mathematically inert.
-        statMCm_tot = profileDef.multiKey and (profileDef.sheetMCm or GAM.C.BASE_MCM) or 0
-        statRs_tot = profileDef.sheetRs or GAM.C.BASE_RS
+        -- Preserve workbook parity at the sheet's default node bonuses, then
+        -- scale those baked effective multipliers to the player's live node values.
+        statMCm_tot = profileDef.multiKey and (
+            ScaleSheetBonus(
+                profileDef.sheetMCm or GAM.C.BASE_MCM,
+                profileDef.defaultMcNode or 0,
+                GetNodeValue(profileDef.mcNodeKey, profileDef.defaultMcNode))
+            or (profileDef.sheetMCm or GAM.C.BASE_MCM)
+        ) or 0
+        statRs_tot = ScaleSheetBonus(
+            profileDef.sheetRs or GAM.C.BASE_RS,
+            profileDef.defaultRsNode or 0,
+            GetNodeValue(profileDef.rsNodeKey, profileDef.defaultRsNode))
+            or (profileDef.sheetRs or GAM.C.BASE_RS)
         statDenom = 1 - statRp * statRs_tot
         if statDenom <= 0 then
             statDenom = 1
@@ -2254,6 +2301,7 @@ local function BuildVIBreakdownData(ctx, metrics)
         entries = {},
         rootIndices = {},
     }
+    local usedFallbackRows = false
 
     local function AddEntry(entry)
         entry.index = #state.entries + 1
@@ -2403,6 +2451,44 @@ local function BuildVIBreakdownData(ctx, metrics)
         end
     end
 
+    if #state.entries == 0 and metrics and type(metrics.reagents) == "table" then
+        for _, reagent in ipairs(metrics.reagents) do
+            local itemIDs = reagent.sourceItemIDs or (reagent.itemID and { reagent.itemID }) or {}
+            local scanItemIDs = reagent.scanItemIDs or (reagent.itemID and { reagent.itemID }) or itemIDs
+            local entry = AddEntry({
+                parentIndex = nil,
+                childIndices = {},
+                depth = 0,
+                kind = "leaf",
+                name = reagent.name,
+                itemID = reagent.itemID,
+                itemIDs = itemIDs,
+                scanItemIDs = scanItemIDs,
+                requiredRaw = reagent.requiredRaw or reagent.required or 0,
+                required = reagent.required or 0,
+                have = reagent.have,
+                needToBuy = reagent.needToBuy,
+                excludeFromCost = reagent.excludeFromCost and true or false,
+                skipDerivation = reagent.skipDerivation and true or false,
+                stopReason = "fallback_metrics",
+                effectiveUnitPrice = reagent.unitPrice,
+                effectiveTotalCostToBuy = reagent.totalCost,
+                effectiveTotalCostFull = reagent.totalCostFull,
+                effectiveMissingPrice = reagent.missingPrice and true or false,
+                directUnitPrice = reagent.unitPrice,
+                directTotalCostToBuy = reagent.totalCost,
+                directTotalCostFull = reagent.totalCostFull,
+                directMissingPrice = reagent.missingPrice and true or false,
+                hasStale = reagent.isStale and true or false,
+                chainTotalCostFull = reagent.totalCostFull or 0,
+                chainTotalCostToBuy = reagent.totalCost or 0,
+                hasMissingPrice = reagent.missingPrice and true or false,
+            })
+            state.rootIndices[#state.rootIndices + 1] = entry.index
+        end
+        usedFallbackRows = (#state.entries > 0)
+    end
+
     return {
         stratID = ctx.strat and ctx.strat.id or nil,
         stratName = ctx.strat and ctx.strat.stratName or nil,
@@ -2418,6 +2504,7 @@ local function BuildVIBreakdownData(ctx, metrics)
         breakEvenSell = metrics and metrics.breakEvenSell or nil,
         rootIndices = state.rootIndices,
         entries = state.entries,
+        usedFallbackRows = usedFallbackRows,
     }
 end
 

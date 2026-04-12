@@ -249,11 +249,11 @@ GAM_WORKBOOK_GENERATED = {
       resKey = "bsRes",
       mcNodeKey = "bsMcNode",
       rsNodeKey = "bsRsNode",
-      defaultMulti = 27.900,
+      defaultMulti = 33.000,
       defaultRes = 18.700,
-      defaultMcNode = 0,
+      defaultMcNode = 12,
       defaultRsNode = 0,
-      sheetMCm = 1.250,  -- 1.25 * (1 + 0/100)
+      sheetMCm = 1.400,  -- 1.25 * (1 + 12/100)
       sheetRs  = 0.300,  -- 0.30 * (1 + 0/100)
     },
     leatherworking = {

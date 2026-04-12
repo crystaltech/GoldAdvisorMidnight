@@ -1624,9 +1624,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Duskshrouded Stone",
       itemIDs = { 242788, 242789 },
-      qtyPerCraft = 0.500000,
-      qtyPerStart = 0.100000,
-      workbookTotalQty = 90.000000,
+      qtyPerCraft = 1.000000,
+      qtyPerStart = 0.200000,
+      workbookTotalQty = 180.000000,
     },
   },
 }

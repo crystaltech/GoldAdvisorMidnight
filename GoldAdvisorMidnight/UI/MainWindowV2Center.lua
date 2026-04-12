@@ -29,6 +29,20 @@ function CenterUI.MakeRowFrame(args, parent, idx)
     row:SetHeight(rowHeight)
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(idx - 1) * rowHeight)
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestLogTitleHighlight", "ADD")
+    row._rowIndex = idx
+
+    local bg = row:CreateTexture(nil, "BACKGROUND")
+    bg:SetPoint("TOPLEFT", row, "TOPLEFT", 2, -1)
+    bg:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -4, 1)
+    bg:SetColorTexture(0.10, 0.10, 0.10, (idx % 2 == 1) and 0.55 or 0.28)
+    row.bg = bg
+
+    local accent = row:CreateTexture(nil, "ARTWORK")
+    accent:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
+    accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 1)
+    accent:SetWidth(3)
+    accent:SetColorTexture(1.0, 0.82, 0.0, 0.0)
+    row.accent = accent
 
     local star = row:CreateTexture(nil, "OVERLAY")
     star:SetSize(14, 14)
@@ -159,9 +173,11 @@ function CenterUI.PopulateRow(args, row, strat)
     local getListMetric = args.getListMetric or function() return nil end
     local formatPrice = args.formatPrice or tostring
     local selectedStratID = args.getSelectedStratID and args.getSelectedStratID() or nil
+    local theme = args.getThemeDef and args.getThemeDef() or nil
 
     row.stratID = strat.id
     local favorite = isFavorite(strat.id)
+    local selected = strat.id == selectedStratID
     row.star:SetVertexColor(favorite and 1 or 0.5, favorite and 0.85 or 0.5, favorite and 0 or 0.5, 1)
     row.star:SetAlpha(favorite and 1 or 0.35)
 
@@ -192,7 +208,24 @@ function CenterUI.PopulateRow(args, row, strat)
         row.missingPriceList = {}
     end
 
-    if strat.id == selectedStratID then
+    if row.bg and theme then
+        local color = selected and theme.listRowSelected
+            or ((row._rowIndex or 1) % 2 == 1 and theme.listRowOdd or theme.listRowEven)
+        if color then
+            row.bg:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
+        end
+    end
+    if row.accent then
+        if selected then
+            row.accent:SetColorTexture(1.0, 0.82, 0.0, 0.90)
+        elseif favorite then
+            row.accent:SetColorTexture(1.0, 0.82, 0.0, 0.42)
+        else
+            row.accent:SetColorTexture(1.0, 0.82, 0.0, 0.0)
+        end
+    end
+
+    if selected then
         row:LockHighlight()
     else
         row:UnlockHighlight()
@@ -334,7 +367,7 @@ function CenterUI.Build(args)
     infoBody:SetJustifyH("LEFT")
     infoBody:SetJustifyV("TOP")
     infoBody:SetWordWrap(true)
-    infoBody:SetText((L and L["V2_GUIDE_BODY"]) or "Profit uses average outcomes from the current setup.\nSmall craft counts can swing above or below these numbers.\nCheck prices, ranks, and missing inputs before you commit.")
+    infoBody:SetText((L and L["V2_GUIDE_BODY"]) or "Profit uses average outcomes from your current setup.\nSmall craft counts can land above or below these estimates.\nCheck prices, ranks, and missing inputs before you commit.")
     infoBody:SetTextColor(bodyTextColor[1], bodyTextColor[2], bodyTextColor[3], bodyTextColor[4] or 1)
     applyFontSize(infoBody, (layoutMode == "soft") and 11 or 11)
     applyTextShadow(infoBody, (layoutMode == "soft") and 0.12 or 0.75)
@@ -425,14 +458,14 @@ function CenterUI.Build(args)
 
     local owTitle = onboardingOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     owTitle:SetPoint("TOP", onboardingOverlay, "TOP", 0, -40)
-    owTitle:SetText("Welcome to Gold Advisor Midnight")
+    owTitle:SetText((L and L["V2_ONBOARD_TITLE"]) or "Welcome to Gold Advisor Midnight")
     owTitle:SetTextColor(gold[1], gold[2], gold[3])
 
     local prevAnchor = owTitle
     for _, stepText in ipairs({
-        "1.  Open the Auction House.",
-        "2.  Click  Scan Auction House  to fetch prices.",
-        "3.  Browse strategies sorted by ROI or profit.",
+        (L and L["V2_ONBOARD_STEP_1"]) or "1. Open the Auction House.",
+        (L and L["V2_ONBOARD_STEP_2"]) or "2. Click Scan Auction House to fetch prices.",
+        (L and L["V2_ONBOARD_STEP_3"]) or "3. Browse strategies sorted by ROI or profit.",
     }) do
         local fs = onboardingOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         fs:SetPoint("TOP", prevAnchor, "BOTTOM", 0, -14)
@@ -445,7 +478,7 @@ function CenterUI.Build(args)
     local owBtnGotIt = CreateFrame("Button", nil, onboardingOverlay, "UIPanelButtonTemplate")
     owBtnGotIt:SetSize(100, 26)
     owBtnGotIt:SetPoint("BOTTOM", onboardingOverlay, "BOTTOM", -60, 30)
-    owBtnGotIt:SetText("Got It")
+    owBtnGotIt:SetText((L and L["BTN_GOT_IT"]) or "Got It")
     owBtnGotIt:SetScript("OnClick", dismissOnboarding)
 
     local owBtnScan = CreateFrame("Button", nil, onboardingOverlay, "UIPanelButtonTemplate")

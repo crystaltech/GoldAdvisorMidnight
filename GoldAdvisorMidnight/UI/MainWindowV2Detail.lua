@@ -22,8 +22,13 @@ local VI_WINDOW_H = 420
 local VI_WINDOW_MIN_W = 720
 local VI_WINDOW_MIN_H = 280
 local VI_ROW_H = 22
+local DEFAULT_ITEM_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local function Noop()
+end
+
+local function GetL()
+    return GAM.L or {}
 end
 
 local function AddThousandsSeparators(text)
@@ -49,6 +54,22 @@ end
 
 local function GetCommitButtonText(localizer)
     return "OK"
+end
+
+local function GetItemIconTexture(itemID)
+    if itemID and itemID > 0 then
+        if C_Item and C_Item.GetItemIconByID then
+            local icon = C_Item.GetItemIconByID(itemID)
+            if icon then
+                return icon
+            end
+        end
+        local icon = select(5, GetItemInfoInstant(itemID))
+        if icon then
+            return icon
+        end
+    end
+    return DEFAULT_ITEM_ICON
 end
 
 local function RefreshCommitButton(editBox)
@@ -348,22 +369,39 @@ local function BuildOrderedBreakdownEntries(breakdown)
 end
 
 local function GetBreakdownActionText(entry)
+    local L = GetL()
     if not entry then
-        return "Review"
+        return L["VI_ROW_ACTION_REVIEW"] or "Review"
     end
     if entry.excludeFromCost then
-        return "Ignore"
+        return L["VI_ROW_ACTION_IGNORE"] or "Ignore"
     end
     if entry.kind == "craft" then
-        return "Craft"
+        return L["VI_ROW_ACTION_CRAFT"] or "Craft"
     end
-    return "Get"
+    return L["VI_ROW_ACTION_BUY"] or "Buy"
+end
+
+local function IsPrimaryBreakdownStage(entry)
+    return entry and entry.kind == "craft" and ((tonumber(entry.depth) or 0) == 0)
+end
+
+local function GetBreakdownStepInset(entry)
+    local depth = tonumber(entry and entry.depth) or 0
+    if depth <= 0 then
+        return 0
+    end
+    return math.min(depth, 4) * 14
 end
 
 local function FormatBreakdownStep(entry)
+    local L = GetL()
     local stepLabel = entry and entry._displayStepLabel or "?"
     local action = GetBreakdownActionText(entry)
     local name = (entry and entry.name) or "Unknown"
+    if IsPrimaryBreakdownStage(entry) then
+        return string.format(L["VI_STAGE_FORMAT"] or "Stage %s: %s %s", stepLabel, action, name)
+    end
     return string.format("%s %s %s", stepLabel, action, name)
 end
 
@@ -393,47 +431,36 @@ local function BuildBreakdownUsedCostText(entry)
 end
 
 local function BuildBreakdownModeText(entry)
+    local L = GetL()
     if not entry then
         return "—"
     end
     if entry.excludeFromCost then
-        return "|cff888888Excluded|r"
+        return L["VI_SOURCE_IGNORED"] or "Ignored"
     end
     if entry.kind == "craft" then
-        local parts = {}
-        if entry.profileKey then
-            parts[#parts + 1] = tostring(entry.profileKey)
-        end
         if entry.directUnitPrice then
-            parts[#parts + 1] = "AH " .. GAM.Pricing.FormatPrice(entry.directUnitPrice)
+            return L["VI_SOURCE_CRAFTED_AH_CHECKED"] or "Crafted, AH checked"
         elseif entry.directMissingPrice then
-            parts[#parts + 1] = "AH missing"
+            return L["VI_SOURCE_CRAFTED_AH_MISSING"] or "Crafted, AH missing"
         end
-        return (#parts > 0) and table.concat(parts, " | ") or "Craft chain"
+        return L["VI_SOURCE_CRAFTED"] or "Crafted"
     end
 
-    local mode = "Direct"
+    local mode = L["VI_SOURCE_BOUGHT"] or "Bought"
     if entry.stopReason == "vi_disabled" then
-        mode = "VI off"
+        mode = L["VI_SOURCE_BOUGHT_VI_OFF"] or "Bought, VI off"
     elseif entry.stopReason == "skip_derivation" then
-        mode = "Skip"
+        mode = L["VI_SOURCE_BOUGHT_SKIPPED"] or "Bought, skipped"
     elseif entry.stopReason == "invalid_output" then
-        mode = "Invalid"
+        mode = L["VI_SOURCE_BOUGHT_INVALID"] or "Bought, invalid output"
     end
-    if entry.effectiveUnitPrice then
-        if entry.directUnitPrice and entry.directUnitPrice ~= entry.effectiveUnitPrice then
-            return mode .. " " .. GAM.Pricing.FormatPrice(entry.effectiveUnitPrice)
-                .. " | AH " .. GAM.Pricing.FormatPrice(entry.directUnitPrice)
-        end
-        return mode .. " " .. GAM.Pricing.FormatPrice(entry.effectiveUnitPrice)
-    end
-    if entry.effectiveMissingPrice then
-        return mode .. " missing"
-    end
-    return mode
+    local missing = L["VI_SOURCE_PRICE_MISSING"] or "price missing"
+    return entry.effectiveMissingPrice and (mode .. ", " .. missing) or mode
 end
 
 local function ShowBreakdownTooltip(self)
+    local L = GetL()
     local entry = self and self._viEntry
     if not entry then
         return
@@ -441,47 +468,184 @@ local function ShowBreakdownTooltip(self)
 
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText(FormatBreakdownStep(entry), 1, 1, 1)
-    GameTooltip:AddLine("Row: branch step", 0.82, 0.82, 0.82)
-    GameTooltip:AddLine("Header: merged total", 0.82, 0.82, 0.82)
-    GameTooltip:AddLine(string.format("Need: %s", FormatTraceCount(entry.requiredRaw or entry.required or 0)), 1, 0.82, 0)
+    GameTooltip:AddLine(L["VI_TT_SUMMARY"] or "Top summary: full VI plan", 0.82, 0.82, 0.82)
+    GameTooltip:AddLine(L["VI_TT_ROW"] or "This row: one craft or buy step", 0.82, 0.82, 0.82)
+    GameTooltip:AddLine(string.format(L["VI_TT_AMOUNT_NEEDED"] or "Amount needed: %s", FormatTraceCount(entry.requiredRaw or entry.required or 0)), 1, 0.82, 0)
     if entry.kind == "craft" then
-        GameTooltip:AddLine(string.format("Economic crafts: %s", FormatTraceCount(entry.craftsEconomic)), 1, 0.82, 0)
-        GameTooltip:AddLine(string.format("Execution crafts: %s", FormatTraceCount(entry.craftsExecution)), 1, 0.82, 0)
+        GameTooltip:AddLine(string.format(L["VI_TT_PLAN_CRAFTS"] or "Plan crafts: %s", FormatTraceCount(entry.craftsEconomic)), 1, 0.82, 0)
+        GameTooltip:AddLine(string.format(L["VI_TT_ACTUAL_CRAFTS"] or "Actual crafts: %s", FormatTraceCount(entry.craftsExecution)), 1, 0.82, 0)
         if entry.expectedOutputPerCraft then
-            GameTooltip:AddLine(string.format("Expected output/craft: %.4f", entry.expectedOutputPerCraft), 1, 0.82, 0)
-        end
-        if entry.profileKey then
-            GameTooltip:AddLine("Profile: " .. tostring(entry.profileKey), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format(L["VI_TT_AVG_OUTPUT"] or "Average output/craft: %.4f", entry.expectedOutputPerCraft), 1, 0.82, 0)
         end
         if entry.chainTotalCostFull and entry.chainTotalCostFull > 0 then
-            GameTooltip:AddLine("Chain cost: " .. GAM.Pricing.FormatPrice(entry.chainTotalCostFull), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format(L["VI_TT_USED_CHAIN_COST"] or "Used craft-chain cost: %s", GAM.Pricing.FormatPrice(entry.chainTotalCostFull)), 1, 0.82, 0)
         end
         if entry.directUnitPrice then
-            GameTooltip:AddLine("Direct AH unit: " .. GAM.Pricing.FormatPrice(entry.directUnitPrice), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format(L["VI_TT_DIRECT_AH_UNIT"] or "Direct AH unit: %s", GAM.Pricing.FormatPrice(entry.directUnitPrice)), 1, 0.82, 0)
         end
     else
-        GameTooltip:AddLine(string.format("Have: %s", FormatTraceCount(entry.have or 0)), 1, 0.82, 0)
-        GameTooltip:AddLine(string.format("Need to buy: %s", FormatTraceCount(entry.needToBuy or 0)), 1, 0.82, 0)
+        GameTooltip:AddLine(string.format(L["VI_TT_ALREADY_HAVE"] or "Already have: %s", FormatTraceCount(entry.have or 0)), 1, 0.82, 0)
+        GameTooltip:AddLine(string.format(L["VI_TT_NEED_TO_BUY"] or "Need to buy: %s", FormatTraceCount(entry.needToBuy or 0)), 1, 0.82, 0)
         if entry.effectiveUnitPrice then
-            GameTooltip:AddLine("Used unit price: " .. GAM.Pricing.FormatPrice(entry.effectiveUnitPrice), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format(L["VI_TT_USED_UNIT_PRICE"] or "Used unit price: %s", GAM.Pricing.FormatPrice(entry.effectiveUnitPrice)), 1, 0.82, 0)
         end
         if entry.effectiveTotalCostFull then
-            GameTooltip:AddLine("Used full cost: " .. GAM.Pricing.FormatPrice(entry.effectiveTotalCostFull), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format(L["VI_TT_USED_TOTAL_COST"] or "Used total cost: %s", GAM.Pricing.FormatPrice(entry.effectiveTotalCostFull)), 1, 0.82, 0)
         end
         if entry.directUnitPrice and entry.directUnitPrice ~= entry.effectiveUnitPrice then
-            GameTooltip:AddLine("Direct AH unit: " .. GAM.Pricing.FormatPrice(entry.directUnitPrice), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format(L["VI_TT_DIRECT_AH_UNIT"] or "Direct AH unit: %s", GAM.Pricing.FormatPrice(entry.directUnitPrice)), 1, 0.82, 0)
         end
     end
     if entry.excludeFromCost then
-        GameTooltip:AddLine("This node is excluded from cost math.", 1, 0.82, 0, true)
+        GameTooltip:AddLine(L["VI_TT_EXCLUDED"] or "This step is excluded from cost math.", 1, 0.82, 0, true)
     elseif entry.hasMissingPrice or entry.effectiveMissingPrice then
-        GameTooltip:AddLine("Some pricing data is missing for this node or its children.", 1, 0.82, 0, true)
+        GameTooltip:AddLine(L["VI_TT_MISSING_PRICE"] or "Some price data is still missing for this step or its children.", 1, 0.82, 0, true)
     end
     GameTooltip:Show()
 end
 
 local function HideBreakdownTooltip()
     GameTooltip:Hide()
+end
+
+local function GetVIBreakdownContentWidth(width)
+    return math.max(660, width - 58)
+end
+
+local function SetVIBreakdownHeaderVisibility(win, shown)
+    if not win then
+        return
+    end
+    local function ApplyVisibility(fs)
+        if not fs then
+            return
+        end
+        if shown then
+            fs:Show()
+        else
+            fs:Hide()
+        end
+    end
+    ApplyVisibility(win.headerStepFS)
+    ApplyVisibility(win.headerNeedFS)
+    ApplyVisibility(win.headerEconomicFS)
+    ApplyVisibility(win.headerExecutionFS)
+    ApplyVisibility(win.headerUsedCostFS)
+    ApplyVisibility(win.headerNoteFS)
+end
+
+local function ApplyVIBreakdownLayout(win)
+    if not win then
+        return
+    end
+
+    local width = math.max(VI_WINDOW_MIN_W, math.floor((win:GetWidth() or VI_WINDOW_W) + 0.5))
+    local height = math.max(VI_WINDOW_MIN_H, math.floor((win:GetHeight() or VI_WINDOW_H) + 0.5))
+    if width ~= (win:GetWidth() or 0) or height ~= (win:GetHeight() or 0) then
+        win:SetSize(width, height)
+        return
+    end
+
+    local contentWidth = GetVIBreakdownContentWidth(width)
+    local amountW = 72
+    local planW = 86
+    local actualW = 86
+    local usedCostW = math.max(122, math.floor(contentWidth * 0.17))
+    local noteW = math.max(152, math.floor(contentWidth * 0.17))
+    local reservedWidth = amountW + planW + actualW + usedCostW + noteW + 34
+    local stepW = math.max(220, contentWidth - reservedWidth)
+    local xNeed = stepW + 10
+    local xEconomic = xNeed + amountW + 6
+    local xExecution = xEconomic + planW + 6
+    local xUsedCost = xExecution + actualW + 6
+    local xNote = xUsedCost + usedCostW + 6
+
+    win.subtitleFS:SetWidth(width - 40)
+    win.emptyFS:SetWidth(contentWidth - 16)
+    if win.summaryCard then
+        win.summaryCard:ClearAllPoints()
+        win.summaryCard:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -54)
+        win.summaryCard:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -54)
+        win.summaryCard:SetHeight(60)
+    end
+    if win.summaryRule then
+        win.summaryRule:ClearAllPoints()
+        win.summaryRule:SetPoint("TOPLEFT", win, "TOPLEFT", 12, -122)
+        win.summaryRule:SetPoint("TOPRIGHT", win, "TOPRIGHT", -12, -122)
+    end
+    win.headerStepFS:ClearAllPoints()
+    win.headerStepFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18, -136)
+    win.headerStepFS:SetWidth(stepW)
+    win.headerNeedFS:ClearAllPoints()
+    win.headerNeedFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xNeed, -136)
+    win.headerNeedFS:SetWidth(amountW)
+    win.headerEconomicFS:ClearAllPoints()
+    win.headerEconomicFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xEconomic, -136)
+    win.headerEconomicFS:SetWidth(planW)
+    win.headerExecutionFS:ClearAllPoints()
+    win.headerExecutionFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xExecution, -136)
+    win.headerExecutionFS:SetWidth(actualW)
+    win.headerUsedCostFS:ClearAllPoints()
+    win.headerUsedCostFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xUsedCost, -136)
+    win.headerUsedCostFS:SetWidth(usedCostW)
+    win.headerNoteFS:ClearAllPoints()
+    win.headerNoteFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xNote, -136)
+    win.headerNoteFS:SetWidth(noteW)
+    if win.scrollFrame then
+        win.scrollFrame:ClearAllPoints()
+        win.scrollFrame:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -150)
+        win.scrollFrame:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -30, 18)
+    end
+
+    win.listHost:SetWidth(contentWidth)
+    for _, row in ipairs(viBreakdownRows) do
+        row:SetWidth(contentWidth)
+        local stepInset = row._stepInset or 0
+        row.stepFS:ClearAllPoints()
+        row.stepFS:SetPoint("LEFT", row, "LEFT", 8 + stepInset, 0)
+        row.stepFS:SetWidth(math.max(80, stepW - stepInset - 12))
+        row.needFS:ClearAllPoints()
+        row.needFS:SetPoint("LEFT", row, "LEFT", xNeed, 0)
+        row.needFS:SetWidth(amountW)
+        row.economicFS:ClearAllPoints()
+        row.economicFS:SetPoint("LEFT", row, "LEFT", xEconomic, 0)
+        row.economicFS:SetWidth(planW)
+        row.executionFS:ClearAllPoints()
+        row.executionFS:SetPoint("LEFT", row, "LEFT", xExecution, 0)
+        row.executionFS:SetWidth(actualW)
+        row.usedCostFS:ClearAllPoints()
+        row.usedCostFS:SetPoint("LEFT", row, "LEFT", xUsedCost, 0)
+        row.usedCostFS:SetWidth(usedCostW)
+        row.noteFS:ClearAllPoints()
+        row.noteFS:SetPoint("LEFT", row, "LEFT", xNote, 0)
+        row.noteFS:SetWidth(noteW - 6)
+    end
+end
+
+local function ShowVIBreakdownMessage(win, breakdown, message, detail)
+    if not win then
+        return
+    end
+
+    local L = GetL()
+    win._breakdown = breakdown
+    win._stratID = breakdown and breakdown.stratID or nil
+    win._patchTag = breakdown and breakdown.patchTag or nil
+    win.titleFS:SetText(L["VI_BREAKDOWN_TITLE"] or "VI Breakdown")
+    win.subtitleFS:SetText((breakdown and breakdown.stratName or (L["VI_SELECTED_STRAT"] or "Selected Strategy"))
+        .. " | "
+        .. (((breakdown and breakdown.chainActive) and (L["VI_STATUS_ENABLED"] or "VI on")) or (L["VI_STATUS_DISABLED"] or "VI off")))
+    win.summaryFS:SetText(detail or "")
+    win.summaryNoteFS:SetText(message or "")
+    SetVIBreakdownHeaderVisibility(win, false)
+    for index = 1, #viBreakdownRows do
+        viBreakdownRows[index]._viEntry = nil
+        viBreakdownRows[index]:Hide()
+    end
+    win.listHost:SetHeight(1)
+    win.emptyFS:SetText(message or "")
+    win.emptyFS:Show()
+    ApplyVIBreakdownLayout(win)
 end
 
 local function EnsureVIBreakdownWindow()
@@ -519,7 +683,7 @@ local function EnsureVIBreakdownWindow()
 
     local title = viBreakdownWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", viBreakdownWindow, "TOP", 0, -14)
-    title:SetText("VI Breakdown")
+    title:SetText((GetL()["VI_BREAKDOWN_TITLE"]) or "VI Breakdown")
     title:SetTextColor(DEFAULT_GOLD[1], DEFAULT_GOLD[2], DEFAULT_GOLD[3])
     viBreakdownWindow.titleFS = title
 
@@ -530,17 +694,30 @@ local function EnsureVIBreakdownWindow()
     subtitle:SetTextColor(0.75, 0.72, 0.64, 1)
     viBreakdownWindow.subtitleFS = subtitle
 
-    local summary = viBreakdownWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    summary:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 18, -58)
-    summary:SetPoint("TOPRIGHT", viBreakdownWindow, "TOPRIGHT", -18, -58)
-    summary:SetJustifyH("LEFT")
-    summary:SetWordWrap(true)
+    local summaryCard = CreateFrame("Frame", nil, viBreakdownWindow, "BackdropTemplate")
+    summaryCard:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    summaryCard:SetBackdropColor(0.09, 0.07, 0.04, 0.96)
+    summaryCard:SetBackdropBorderColor(DEFAULT_RULE[1], DEFAULT_RULE[2], DEFAULT_RULE[3], 0.46)
+    viBreakdownWindow.summaryCard = summaryCard
+
+    local summary = summaryCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    summary:SetPoint("TOPLEFT", summaryCard, "TOPLEFT", 12, -8)
+    summary:SetPoint("TOPRIGHT", summaryCard, "TOPRIGHT", -12, -8)
+    summary:SetJustifyH("CENTER")
+    summary:SetWordWrap(false)
     summary:SetTextColor(1.0, 0.82, 0.0, 1.0)
     viBreakdownWindow.summaryFS = summary
 
-    local summaryNote = viBreakdownWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    summaryNote:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 18, -72)
-    summaryNote:SetPoint("TOPRIGHT", viBreakdownWindow, "TOPRIGHT", -18, -72)
+    local summaryNote = summaryCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    summaryNote:SetPoint("TOPLEFT", summaryCard, "TOPLEFT", 12, -28)
+    summaryNote:SetPoint("TOPRIGHT", summaryCard, "TOPRIGHT", -12, -28)
+    summaryNote:SetPoint("BOTTOMLEFT", summaryCard, "BOTTOMLEFT", 12, 8)
+    summaryNote:SetPoint("BOTTOMRIGHT", summaryCard, "BOTTOMRIGHT", -12, 8)
     summaryNote:SetJustifyH("LEFT")
     summaryNote:SetWordWrap(true)
     summaryNote:SetTextColor(0.78, 0.78, 0.78, 1.0)
@@ -554,9 +731,10 @@ local function EnsureVIBreakdownWindow()
 
     local rule = viBreakdownWindow:CreateTexture(nil, "ARTWORK")
     rule:SetHeight(1)
-    rule:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 12, -92)
-    rule:SetPoint("TOPRIGHT", viBreakdownWindow, "TOPRIGHT", -12, -92)
+    rule:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 12, -122)
+    rule:SetPoint("TOPRIGHT", viBreakdownWindow, "TOPRIGHT", -12, -122)
     rule:SetColorTexture(DEFAULT_RULE[1], DEFAULT_RULE[2], DEFAULT_RULE[3], 0.6)
+    viBreakdownWindow.summaryRule = rule
 
     local function MakeHdr(text)
         local fs = viBreakdownWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -566,22 +744,34 @@ local function EnsureVIBreakdownWindow()
         return fs
     end
 
-    viBreakdownWindow.headerStepFS = MakeHdr("Step / Action")
-    viBreakdownWindow.headerNeedFS = MakeHdr("Need")
-    viBreakdownWindow.headerEconomicFS = MakeHdr("Econ")
-    viBreakdownWindow.headerExecutionFS = MakeHdr("Exec")
-    viBreakdownWindow.headerUsedCostFS = MakeHdr("Used Cost")
-    viBreakdownWindow.headerNoteFS = MakeHdr("How Priced")
+    viBreakdownWindow.headerStepFS = MakeHdr((GetL()["VI_HDR_STEP"]) or "Step")
+    viBreakdownWindow.headerNeedFS = MakeHdr((GetL()["VI_HDR_AMOUNT"]) or "Amount")
+    viBreakdownWindow.headerEconomicFS = MakeHdr((GetL()["VI_HDR_PLAN_CRAFTS"]) or "Plan Crafts")
+    viBreakdownWindow.headerExecutionFS = MakeHdr((GetL()["VI_HDR_ACTUAL_CRAFTS"]) or "Actual Crafts")
+    viBreakdownWindow.headerUsedCostFS = MakeHdr((GetL()["VI_HDR_USED_COST"]) or "Used Cost")
+    viBreakdownWindow.headerNoteFS = MakeHdr((GetL()["VI_HDR_SOURCE"]) or "Source")
 
     local scroll = CreateFrame("ScrollFrame", nil, viBreakdownWindow, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 16, -114)
+    scroll:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 16, -150)
     scroll:SetPoint("BOTTOMRIGHT", viBreakdownWindow, "BOTTOMRIGHT", -30, 18)
     viBreakdownWindow.scrollFrame = scroll
 
     local listHost = CreateFrame("Frame", nil, scroll)
+    listHost:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
+    listHost:SetWidth(GetVIBreakdownContentWidth(VI_WINDOW_W))
     listHost:SetHeight(1)
     scroll:SetScrollChild(listHost)
     viBreakdownWindow.listHost = listHost
+
+    local emptyFS = viBreakdownWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    emptyFS:SetPoint("TOPLEFT", scroll, "TOPLEFT", 8, -10)
+    emptyFS:SetPoint("TOPRIGHT", scroll, "TOPRIGHT", -8, -10)
+    emptyFS:SetJustifyH("CENTER")
+    emptyFS:SetJustifyV("TOP")
+    emptyFS:SetWordWrap(true)
+    emptyFS:SetTextColor(0.78, 0.78, 0.78, 1.0)
+    emptyFS:Hide()
+    viBreakdownWindow.emptyFS = emptyFS
 
     listHost:EnableMouseWheel(true)
     listHost:SetScript("OnMouseWheel", function(_, delta)
@@ -591,69 +781,7 @@ local function EnsureVIBreakdownWindow()
     end)
 
     viBreakdownWindow:SetScript("OnSizeChanged", function(self)
-        local width = math.max(VI_WINDOW_MIN_W, math.floor((self:GetWidth() or VI_WINDOW_W) + 0.5))
-        local height = math.max(VI_WINDOW_MIN_H, math.floor((self:GetHeight() or VI_WINDOW_H) + 0.5))
-        if width ~= (self:GetWidth() or 0) or height ~= (self:GetHeight() or 0) then
-            self:SetSize(width, height)
-            return
-        end
-
-        local contentWidth = math.max(620, width - 58)
-        local needW = 62
-        local econW = 62
-        local execW = 62
-        local usedCostW = 120
-        local noteW = math.max(150, math.floor(contentWidth * 0.20))
-        local reservedWidth = needW + econW + execW + usedCostW + noteW + 28
-        local stepW = math.max(180, contentWidth - reservedWidth)
-        local xNeed = stepW + 8
-        local xEconomic = xNeed + needW + 6
-        local xExecution = xEconomic + econW + 6
-        local xUsedCost = xExecution + execW + 6
-        local xNote = xUsedCost + usedCostW + 6
-
-        self.subtitleFS:SetWidth(width - 40)
-        self.summaryFS:SetWidth(width - 36)
-        self.summaryNoteFS:SetWidth(width - 36)
-        self.headerStepFS:ClearAllPoints()
-        self.headerStepFS:SetPoint("TOPLEFT", self, "TOPLEFT", 18, -100)
-        self.headerStepFS:SetWidth(stepW)
-        self.headerNeedFS:ClearAllPoints()
-        self.headerNeedFS:SetPoint("TOPLEFT", self, "TOPLEFT", 18 + xNeed, -100)
-        self.headerNeedFS:SetWidth(needW)
-        self.headerEconomicFS:ClearAllPoints()
-        self.headerEconomicFS:SetPoint("TOPLEFT", self, "TOPLEFT", 18 + xEconomic, -100)
-        self.headerEconomicFS:SetWidth(econW)
-        self.headerExecutionFS:ClearAllPoints()
-        self.headerExecutionFS:SetPoint("TOPLEFT", self, "TOPLEFT", 18 + xExecution, -100)
-        self.headerExecutionFS:SetWidth(execW)
-        self.headerUsedCostFS:ClearAllPoints()
-        self.headerUsedCostFS:SetPoint("TOPLEFT", self, "TOPLEFT", 18 + xUsedCost, -100)
-        self.headerUsedCostFS:SetWidth(usedCostW)
-        self.headerNoteFS:ClearAllPoints()
-        self.headerNoteFS:SetPoint("TOPLEFT", self, "TOPLEFT", 18 + xNote, -100)
-        self.headerNoteFS:SetWidth(noteW)
-
-        self.listHost:SetWidth(contentWidth)
-        for _, row in ipairs(viBreakdownRows) do
-            row:SetWidth(contentWidth)
-            row.stepFS:SetWidth(stepW - 8)
-            row.needFS:ClearAllPoints()
-            row.needFS:SetPoint("LEFT", row, "LEFT", xNeed, 0)
-            row.needFS:SetWidth(needW)
-            row.economicFS:ClearAllPoints()
-            row.economicFS:SetPoint("LEFT", row, "LEFT", xEconomic, 0)
-            row.economicFS:SetWidth(econW)
-            row.executionFS:ClearAllPoints()
-            row.executionFS:SetPoint("LEFT", row, "LEFT", xExecution, 0)
-            row.executionFS:SetWidth(execW)
-            row.usedCostFS:ClearAllPoints()
-            row.usedCostFS:SetPoint("LEFT", row, "LEFT", xUsedCost, 0)
-            row.usedCostFS:SetWidth(usedCostW)
-            row.noteFS:ClearAllPoints()
-            row.noteFS:SetPoint("LEFT", row, "LEFT", xNote, 0)
-            row.noteFS:SetWidth(noteW - 6)
-        end
+        ApplyVIBreakdownLayout(self)
     end)
 
     local resizeBtn = CreateFrame("Button", nil, viBreakdownWindow)
@@ -668,9 +796,11 @@ local function EnsureVIBreakdownWindow()
     resizeBtn:SetScript("OnMouseUp", function()
         viBreakdownWindow:StopMovingOrSizing()
         viBreakdownWindow._userMoved = true
-        viBreakdownWindow:GetScript("OnSizeChanged")(viBreakdownWindow)
+        ApplyVIBreakdownLayout(viBreakdownWindow)
     end)
     viBreakdownWindow.resizeBtn = resizeBtn
+    SetVIBreakdownHeaderVisibility(viBreakdownWindow, true)
+    ApplyVIBreakdownLayout(viBreakdownWindow)
 
     return viBreakdownWindow
 end
@@ -683,12 +813,27 @@ local function EnsureVIBreakdownRow(index)
     local win = EnsureVIBreakdownWindow()
     local row = CreateFrame("Button", nil, win.listHost)
     row:SetHeight(VI_ROW_H)
+    row:SetWidth(GetVIBreakdownContentWidth(win:GetWidth() or VI_WINDOW_W))
     row:SetPoint("TOPLEFT", win.listHost, "TOPLEFT", 0, -((index - 1) * VI_ROW_H))
 
     local bg = row:CreateTexture(nil, "BACKGROUND")
     bg:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
     bg:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -6, 1)
     bg:SetColorTexture(0.10, 0.10, 0.10, (index % 2 == 1) and 0.55 or 0.28)
+
+    local topRule = row:CreateTexture(nil, "ARTWORK")
+    topRule:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+    topRule:SetPoint("TOPRIGHT", row, "TOPRIGHT", -6, 0)
+    topRule:SetHeight(1)
+    topRule:SetColorTexture(DEFAULT_RULE[1], DEFAULT_RULE[2], DEFAULT_RULE[3], 0.48)
+    topRule:Hide()
+
+    local stageAccent = row:CreateTexture(nil, "ARTWORK")
+    stageAccent:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
+    stageAccent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 1)
+    stageAccent:SetWidth(3)
+    stageAccent:SetColorTexture(1.0, 0.82, 0.0, 0.88)
+    stageAccent:Hide()
 
     local stepFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     stepFS:SetPoint("LEFT", row, "LEFT", 4, 0)
@@ -716,6 +861,8 @@ local function EnsureVIBreakdownRow(index)
     noteFS:SetWordWrap(false)
 
     row.bg = bg
+    row.topRule = topRule
+    row.stageAccent = stageAccent
     row.stepFS = stepFS
     row.needFS = needFS
     row.economicFS = economicFS
@@ -726,7 +873,7 @@ local function EnsureVIBreakdownRow(index)
     row:SetScript("OnLeave", HideBreakdownTooltip)
     viBreakdownRows[index] = row
 
-    win:GetScript("OnSizeChanged")(win)
+    ApplyVIBreakdownLayout(win)
     return row
 end
 
@@ -735,12 +882,15 @@ local function RenderVIBreakdownWindow(win, breakdown)
         return
     end
 
+    local L = GetL()
     local orderedEntries = BuildOrderedBreakdownEntries(breakdown)
     win._breakdown = breakdown
     win._stratID = breakdown.stratID
     win._patchTag = breakdown.patchTag
-    win.titleFS:SetText("VI Breakdown")
-    win.subtitleFS:SetText((breakdown.stratName or "Selected Strategy") .. (breakdown.chainActive and " | VI enabled" or " | VI disabled"))
+    win.titleFS:SetText(L["VI_BREAKDOWN_TITLE"] or "VI Breakdown")
+    win.subtitleFS:SetText((breakdown.stratName or (L["VI_SELECTED_STRAT"] or "Selected Strategy"))
+        .. " | "
+        .. ((breakdown.chainActive and (L["VI_STATUS_ENABLED"] or "VI on")) or (L["VI_STATUS_DISABLED"] or "VI off")))
 
     local metricParts = {}
     if breakdown.totalCostFull then
@@ -756,11 +906,19 @@ local function RenderVIBreakdownWindow(win, breakdown)
         metricParts[#metricParts + 1] = string.format("ROI %.1f%%", breakdown.roi)
     end
     win.summaryFS:SetText(table.concat(metricParts, "   "))
-    win.summaryNoteFS:SetText("Header = merged total   Rows = branch steps")
+    if breakdown.usedFallbackRows then
+        win.summaryNoteFS:SetText(L["VI_SUMMARY_FALLBACK"] or "Showing the combined shopping view because branch-by-branch VI steps are not available for this strategy.")
+    else
+        win.summaryNoteFS:SetText(L["VI_SUMMARY_NORMAL"] or "Top summary shows the full plan. Rows below show each craft and buy step.")
+    end
+    SetVIBreakdownHeaderVisibility(win, #orderedEntries > 0)
+    ApplyVIBreakdownLayout(win)
 
     for index, entry in ipairs(orderedEntries) do
         local row = EnsureVIBreakdownRow(index)
         row._viEntry = entry
+        row._stepInset = GetBreakdownStepInset(entry)
+        row._isStage = IsPrimaryBreakdownStage(entry)
         row.stepFS:SetText(FormatBreakdownStep(entry))
         row.needFS:SetText(FormatTraceCount(entry.requiredRaw or entry.required))
         row.economicFS:SetText((entry.kind == "craft") and FormatTraceCount(entry.craftsEconomic) or "—")
@@ -771,26 +929,43 @@ local function RenderVIBreakdownWindow(win, breakdown)
             row.stepFS:SetTextColor(0.62, 0.62, 0.62, 1)
             row.usedCostFS:SetTextColor(0.62, 0.62, 0.62, 1)
             row.noteFS:SetTextColor(0.62, 0.62, 0.62, 1)
-            row.bg:SetColorTexture(0.08, 0.08, 0.08, 0.28)
+            row.bg:SetColorTexture(0.08, 0.08, 0.08, 0.30)
+            row.stageAccent:Hide()
+            row.topRule:Hide()
         elseif entry.kind == "craft" then
-            row.stepFS:SetTextColor(1.0, 0.84, 0.22, 1.0)
             row.usedCostFS:SetTextColor(1.0, 0.84, 0.22, 1.0)
-            row.noteFS:SetTextColor(0.86, 0.80, 0.60, 1.0)
-            if entry.depth == 0 then
-                row.bg:SetColorTexture(0.18, 0.14, 0.04, 0.62)
+            if row._isStage then
+                row.stepFS:SetTextColor(1.0, 0.90, 0.42, 1.0)
+                row.noteFS:SetTextColor(0.92, 0.86, 0.66, 1.0)
+                row.bg:SetColorTexture(0.20, 0.15, 0.05, 0.86)
+                row.stageAccent:Show()
+                row.topRule:SetShown(index > 1)
             else
-                row.bg:SetColorTexture(0.12, 0.10, 0.04, (index % 2 == 1) and 0.52 or 0.34)
+                row.stepFS:SetTextColor(1.0, 0.84, 0.22, 1.0)
+                row.noteFS:SetTextColor(0.84, 0.80, 0.68, 1.0)
+                row.bg:SetColorTexture(0.12, 0.10, 0.04, (index % 2 == 1) and 0.54 or 0.38)
+                row.stageAccent:Hide()
+                row.topRule:Hide()
             end
         else
             row.stepFS:SetTextColor(0.95, 0.95, 0.95, 1)
             row.usedCostFS:SetTextColor(0.92, 0.92, 0.92, 1)
             row.noteFS:SetTextColor(0.78, 0.78, 0.78, 1)
             row.bg:SetColorTexture(0.10, 0.10, 0.10, (index % 2 == 1) and 0.55 or 0.28)
+            row.stageAccent:Hide()
+            row.topRule:Hide()
         end
         row.needFS:SetTextColor(0.92, 0.92, 0.92, 1)
         row.economicFS:SetTextColor(0.88, 0.88, 0.88, 1)
         row.executionFS:SetTextColor(0.76, 0.92, 0.76, 1)
         row:Show()
+    end
+
+    if #orderedEntries > 0 then
+        win.emptyFS:Hide()
+    else
+        win.emptyFS:SetText(L["VI_NO_ROWS"] or "No VI rows were generated for this strategy.")
+        win.emptyFS:Show()
     end
 
     for index = #orderedEntries + 1, #viBreakdownRows do
@@ -800,7 +975,7 @@ local function RenderVIBreakdownWindow(win, breakdown)
 
     win.listHost:SetHeight(math.max(1, #orderedEntries * VI_ROW_H))
     win.scrollFrame:SetVerticalScroll(0)
-    win:GetScript("OnSizeChanged")(win)
+    ApplyVIBreakdownLayout(win)
     if not win._userMoved then
         win:ClearAllPoints()
         win:SetPoint("CENTER")
@@ -818,11 +993,63 @@ local function ShowVIBreakdownWindow(strat, patchTag, metrics)
         return
     end
     local win = EnsureVIBreakdownWindow()
-    local breakdown = GAM.Pricing.GetVIBreakdownData(strat, patchTag, metrics)
-    if not breakdown then
+    local function HandleBreakdownError(message)
+        local L = GetL()
+        local stack = debugstack and debugstack(2, 6, 6) or ""
+        local combined = tostring(message) .. (stack ~= "" and ("\n" .. stack) or "")
+        if GAM.Log and GAM.Log.Warn then
+            GAM.Log.Warn("VI breakdown render failed for '%s': %s",
+                tostring(strat and (strat.stratName or strat.id) or "?"), tostring(combined))
+        end
+        ShowVIBreakdownMessage(
+            win,
+            {
+                stratID = strat and strat.id or nil,
+                stratName = strat and strat.stratName or nil,
+                patchTag = patchTag,
+                chainActive = true,
+            },
+            L["VI_RENDER_ERROR"] or "Unable to render VI breakdown for this strategy on the current client state.",
+            L["VI_RENDER_ERROR_DETAIL"] or "Use /gam log to capture the underlying UI error."
+        )
+        win:Show()
+    end
+
+    local ok, breakdownOrErr = xpcall(function()
+        local breakdown = GAM.Pricing.GetVIBreakdownData(strat, patchTag, metrics)
+        if not breakdown then
+            return nil
+        end
+        RenderVIBreakdownWindow(win, breakdown)
+        if GAM.Log and GAM.Log.Debug then
+            GAM.Log.Debug("VI breakdown ready for '%s': %d rows%s",
+                tostring(breakdown.stratName or breakdown.stratID or "?"),
+                #(breakdown.entries or {}),
+                breakdown.usedFallbackRows and " (fallback)" or "")
+        end
+        return breakdown
+    end, function(message)
+        HandleBreakdownError(message)
+        return tostring(message)
+    end)
+
+    if not ok then
         return
     end
-    RenderVIBreakdownWindow(win, breakdown)
+    if not breakdownOrErr then
+        local L = GetL()
+        ShowVIBreakdownMessage(
+            win,
+            {
+                stratID = strat and strat.id or nil,
+                stratName = strat and strat.stratName or nil,
+                patchTag = patchTag,
+                chainActive = true,
+            },
+            L["VI_NO_ROWS"] or "No VI rows were generated for this strategy.",
+            L["VI_NO_ROWS_DETAIL"] or "If this keeps happening, use /gam log and share the latest entries."
+        )
+    end
     win:Show()
 end
 
@@ -1115,8 +1342,42 @@ function Detail.Render(args)
         placeholder:Hide()
     end
 
+    local outputItems = {}
+    if metrics and metrics.outputs and #metrics.outputs > 0 then
+        for _, outputItem in ipairs(metrics.outputs) do
+            outputItems[#outputItems + 1] = outputItem
+        end
+    elseif metrics and metrics.output then
+        outputItems[1] = metrics.output
+    end
+
     rpDetail.nameFS:SetText(strat.stratName)
     rpDetail.profFS:SetText(strat.profession)
+    if rpDetail.outputSummaryFrame then
+        local primaryOutput = outputItems[1]
+        if primaryOutput then
+            local display = getItemDisplayData(primaryOutput.itemID, primaryOutput.name)
+            rpDetail.outputSummaryNameFS:SetText(display.displayText)
+            rpDetail.outputSummaryIcon:SetTexture(GetItemIconTexture(primaryOutput.itemID))
+            bindItemRow(rpDetail.outputSummaryFrame, display)
+            rpDetail.outputSummaryFrame._metricTooltip = {
+                kind = "output",
+                unitPrice = primaryOutput.unitPrice,
+                expectedQty = primaryOutput.expectedQty,
+                expectedQtyRaw = primaryOutput.expectedQtyRaw,
+                netRevenue = primaryOutput.netRevenue,
+            }
+            rpDetail.outputSummaryLabelFS:Show()
+            rpDetail.outputSummaryFrame:Show()
+        else
+            bindItemRow(rpDetail.outputSummaryFrame, nil)
+            rpDetail.outputSummaryFrame._metricTooltip = nil
+            rpDetail.outputSummaryNameFS:SetText("")
+            rpDetail.outputSummaryIcon:SetTexture(DEFAULT_ITEM_ICON)
+            rpDetail.outputSummaryFrame:Hide()
+            rpDetail.outputSummaryLabelFS:Hide()
+        end
+    end
     if strat.notes and strat.notes ~= "" then
         rpDetail.notesFS:SetText(strat.notes)
         rpDetail.notesFS:Show()
@@ -1187,14 +1448,6 @@ function Detail.Render(args)
         end
     end
 
-    local outputItems = {}
-    if metrics and metrics.outputs and #metrics.outputs > 0 then
-        for _, outputItem in ipairs(metrics.outputs) do
-            outputItems[#outputItems + 1] = outputItem
-        end
-    elseif metrics and metrics.output then
-        outputItems[1] = metrics.output
-    end
     for i, row in ipairs(rpDetail.outputRows or {}) do
         local outputItem = outputItems[i]
         if outputItem then
@@ -1361,6 +1614,42 @@ function Detail.Build(args)
     applyTextShadow(nameFS)
     rpDetail.nameFS = nameFS
     y = y - 34
+
+    local outputSummaryLabelFS = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    outputSummaryLabelFS:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)
+    outputSummaryLabelFS:SetWidth(48)
+    outputSummaryLabelFS:SetText((L and L["DETAIL_OUTPUT"]) or "Output:")
+    outputSummaryLabelFS:SetTextColor(mutedTextColor[1], mutedTextColor[2], mutedTextColor[3], mutedTextColor[4] or 1)
+    applyFontSize(outputSummaryLabelFS, 10)
+    applyTextShadow(outputSummaryLabelFS, 0.75)
+    rpDetail.outputSummaryLabelFS = outputSummaryLabelFS
+
+    local outputSummaryFrame = CreateFrame("Frame", nil, content)
+    outputSummaryFrame:SetPoint("TOPLEFT", outputSummaryLabelFS, "TOPRIGHT", 6, 0)
+    outputSummaryFrame:SetPoint("TOPRIGHT", content, "TOPRIGHT", 0, 0)
+    outputSummaryFrame:SetHeight(18)
+    outputSummaryFrame:SetScript("OnMouseUp", itemRowClick)
+    outputSummaryFrame:SetScript("OnEnter", itemRowEnter)
+    outputSummaryFrame:SetScript("OnLeave", itemRowLeave)
+    rpDetail.outputSummaryFrame = outputSummaryFrame
+
+    local outputSummaryIcon = outputSummaryFrame:CreateTexture(nil, "ARTWORK")
+    outputSummaryIcon:SetPoint("LEFT", outputSummaryFrame, "LEFT", 0, 0)
+    outputSummaryIcon:SetSize(18, 18)
+    outputSummaryIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    outputSummaryIcon:SetTexture(DEFAULT_ITEM_ICON)
+    rpDetail.outputSummaryIcon = outputSummaryIcon
+
+    local outputSummaryNameFS = outputSummaryFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    outputSummaryNameFS:SetPoint("LEFT", outputSummaryIcon, "RIGHT", 6, 0)
+    outputSummaryNameFS:SetPoint("RIGHT", outputSummaryFrame, "RIGHT", 0, 0)
+    outputSummaryNameFS:SetJustifyH("LEFT")
+    outputSummaryNameFS:SetWordWrap(false)
+    outputSummaryNameFS:SetTextColor(bodyTextColor[1], bodyTextColor[2], bodyTextColor[3], bodyTextColor[4] or 1)
+    applyFontSize(outputSummaryNameFS, softInk and 10 or 11)
+    applyTextShadow(outputSummaryNameFS, 0.75)
+    rpDetail.outputSummaryNameFS = outputSummaryNameFS
+    y = y - 22
 
     local profFS = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     profFS:SetPoint("TOPLEFT", content, "TOPLEFT", 0, y)

@@ -153,6 +153,8 @@ local function NewThemeRefs()
         versionText = nil,
         statusCountText = nil,
         progressText = nil,
+        progressBar = nil,
+        progressBarBg = nil,
         bestCardBanner = nil,
         bestCardRuleLeft = nil,
         bestCardRuleRight = nil,
@@ -348,6 +350,12 @@ local function ApplyTheme()
     if themeRefs.progressText then
         themeRefs.progressText:SetTextColor(theme.progressText[1], theme.progressText[2], theme.progressText[3], theme.progressText[4])
     end
+    if themeRefs.progressBar and theme.progressBar then
+        themeRefs.progressBar:SetStatusBarColor(theme.progressBar[1], theme.progressBar[2], theme.progressBar[3], theme.progressBar[4] or 1)
+    end
+    if themeRefs.progressBarBg and theme.progressBarBg then
+        themeRefs.progressBarBg:SetColorTexture(theme.progressBarBg[1], theme.progressBarBg[2], theme.progressBarBg[3], theme.progressBarBg[4] or 1)
+    end
     if themeRefs.compactBtn then
         themeRefs.compactBtn:SetBackdrop(THIN_BACKDROP)
         SetBackdropColors(themeRefs.compactBtn, theme.compactBackdrop, theme.compactBorder)
@@ -404,6 +412,23 @@ local function ApplyTheme()
             if theme == Common.THEMES.soft and rpDetail.profFS.SetShadowColor then
                 rpDetail.profFS:SetShadowOffset(1, -1)
                 rpDetail.profFS:SetShadowColor(0, 0, 0, 0.06)
+            end
+        end
+        if rpDetail.outputSummaryLabelFS then
+            local muted = theme.mutedText or theme.bodyText
+            rpDetail.outputSummaryLabelFS:SetTextColor(muted[1], muted[2], muted[3], muted[4] or 1)
+            ApplyFontSize(rpDetail.outputSummaryLabelFS, theme == Common.THEMES.soft and 10 or 11)
+            if theme == Common.THEMES.soft and rpDetail.outputSummaryLabelFS.SetShadowColor then
+                rpDetail.outputSummaryLabelFS:SetShadowOffset(1, -1)
+                rpDetail.outputSummaryLabelFS:SetShadowColor(0, 0, 0, 0.06)
+            end
+        end
+        if rpDetail.outputSummaryNameFS then
+            rpDetail.outputSummaryNameFS:SetTextColor(theme.bodyText[1], theme.bodyText[2], theme.bodyText[3], theme.bodyText[4] or 1)
+            ApplyFontSize(rpDetail.outputSummaryNameFS, theme == Common.THEMES.soft and 10 or 11)
+            if theme == Common.THEMES.soft and rpDetail.outputSummaryNameFS.SetShadowColor then
+                rpDetail.outputSummaryNameFS:SetShadowOffset(1, -1)
+                rpDetail.outputSummaryNameFS:SetShadowColor(0, 0, 0, 0.06)
             end
         end
         if rpDetail.notesFS then
@@ -614,6 +639,7 @@ local function HasAnyEntries(set)
 end
 
 local function BuildFrameHeader(L, C, HDR_PX)
+    local softInk = IsSoftThemeLayout()
     local headerBg = frame:CreateTexture(nil, "BACKGROUND")
     headerBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -4)
     headerBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -4)
@@ -621,10 +647,10 @@ local function BuildFrameHeader(L, C, HDR_PX)
     themeRefs.headerBg = headerBg
 
     local titleFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    titleFS:SetPoint("TOP", frame, "TOP", 0, -6)
+    titleFS:SetPoint("TOP", frame, "TOP", 0, softInk and -7 or -6)
     titleFS:SetText(L["ADDON_TITLE"])
     titleFS:SetTextColor(C_GR, C_GG, C_GB)
-    ApplyFontSize(titleFS, 14)
+    ApplyFontSize(titleFS, softInk and 15 or 14)
     ApplyTextShadow(titleFS)
     themeRefs.titleText = titleFS
 
@@ -632,7 +658,7 @@ local function BuildFrameHeader(L, C, HDR_PX)
     verFS:SetPoint("TOP", titleFS, "BOTTOM", 0, -1)
     verFS:SetText("v" .. (GAM.C.ADDON_VERSION or "?"))
     verFS:SetTextColor(0.55, 0.45, 0.0, 1)
-    ApplyFontSize(verFS, 9)
+    ApplyFontSize(verFS, 10)
     ApplyTextShadow(verFS, 0.75)
     themeRefs.versionText = verFS
 
@@ -659,6 +685,7 @@ local function BuildFrameHeader(L, C, HDR_PX)
     cBtnLbl:SetJustifyH("CENTER")
     cBtnLbl:SetText("DETAIL")
     cBtnLbl:SetTextColor(C_GR * 0.4, C_GG * 0.4, C_GB * 0.4)
+    ApplyFontSize(cBtnLbl, 11)
     ApplyTextShadow(cBtnLbl)
     compactBtn.labelFS = cBtnLbl
     compactBtn:Disable()
@@ -677,6 +704,7 @@ local function BuildStatusAndTicker(L, C, SB_H)
 
     local statusCountText = statusBarFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     statusCountText:SetPoint("LEFT", statusBarFrame, "LEFT", 10, 0)
+    ApplyFontSize(statusCountText, 11)
     ApplyTextShadow(statusCountText, 0.75)
     frame.statusCountText = statusCountText
     themeRefs.statusCountText = statusCountText
@@ -684,7 +712,7 @@ local function BuildStatusAndTicker(L, C, SB_H)
     local progBar = CreateFrame("StatusBar", nil, statusBarFrame)
     progBar:SetPoint("TOPLEFT",  statusBarFrame, "TOPLEFT",  108, -6)
     progBar:SetPoint("TOPRIGHT", statusBarFrame, "TOPRIGHT", -12, -6)
-    progBar:SetHeight(14)
+    progBar:SetHeight(15)
     progBar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     progBar:SetStatusBarColor(0.22, 0.62, 0.24, 1)
     progBar:SetMinMaxValues(0, 1)
@@ -700,6 +728,8 @@ local function BuildStatusAndTicker(L, C, SB_H)
     frame.progBar   = progBar
     frame.progLabel = progLabel
     themeRefs.progressText = progLabel
+    themeRefs.progressBar = progBar
+    themeRefs.progressBarBg = progBg
 
     scanBtnStatus = CreateFrame("Button", nil, statusBarFrame, "UIPanelButtonTemplate")
     scanBtnStatus:SetSize(82, 18)
@@ -1347,6 +1377,7 @@ local function PopulateRow(row, strat)
         isFavorite = IsFavorite,
         getListMetric = GetListMetric,
         formatPrice = GAM.Pricing.FormatPrice,
+        getThemeDef = GetThemeDef,
         getSelectedStratID = function()
             return selectedStratID
         end,
@@ -1950,7 +1981,7 @@ local function BuildPanelSurfaces(L, layout)
     leftTitle:SetPoint("TOP", leftPanel, "TOP", 0, -12)
     leftTitle:SetText((L and L["V2_TOOLS_TITLE"]) or "Strategy Tools")
     leftTitle:SetTextColor(C_GR, C_GG, C_GB)
-    ApplyFontSize(leftTitle, 13)
+    ApplyFontSize(leftTitle, layout.key == "soft" and 14 or 13)
     ApplyTextShadow(leftTitle)
 
     if layout.key == "soft" then
@@ -1968,7 +1999,7 @@ local function BuildPanelSurfaces(L, layout)
     rpPlaceholder:SetWidth(layout.rightWidth - 40)
     rpPlaceholder:SetJustifyH("CENTER")
     rpPlaceholder:SetTextColor(0.5, 0.5, 0.5, 1)
-    rpPlaceholder:SetText("Select a strategy to view\ncosts, outputs, and actions.")
+    rpPlaceholder:SetText((L and L["V2_PLACEHOLDER_DETAIL"]) or "Select a strategy to review\ncosts, output, and next actions.")
     ApplyFontSize(rpPlaceholder, 11)
     ApplyTextShadow(rpPlaceholder, 0.70)
     rightPanel.placeholder = rpPlaceholder
@@ -1993,7 +2024,7 @@ end
 
 local function MakeCollapseToggle(anchorSide, anchorX, labelDefault, isLeft)
     local btn = CreateFrame("Button", nil, dividerContainer, "BackdropTemplate")
-    btn:SetSize(16, 60)
+    btn:SetSize(18, 64)
     if anchorSide == "LEFT" then
         btn:SetPoint("LEFT", dividerContainer, "LEFT", anchorX, 0)
     else
@@ -2011,12 +2042,16 @@ local function MakeCollapseToggle(anchorSide, anchorX, labelDefault, isLeft)
     lbl:SetJustifyH("CENTER")
     lbl:SetText(labelDefault)
     lbl:SetTextColor(C_GR, C_GG, C_GB)
+    ApplyFontSize(lbl, 11)
     btn.labelFS = lbl
 
-    local tipTitle = isLeft and "Collapse Left Panel" or "Collapse Right Panel"
+    local L = GetL()
+    local tipTitle = isLeft
+        and ((L and L["TT_COLLAPSE_LEFT_TITLE"]) or "Collapse Left Panel")
+        or ((L and L["TT_COLLAPSE_RIGHT_TITLE"]) or "Collapse Right Panel")
     local tipBody  = isLeft
-        and "Hide or show the tools and scan panel."
-        or  "Hide or show the strategy detail panel."
+        and ((L and L["TT_COLLAPSE_LEFT_BODY"]) or "Hide or show the tools panel.")
+        or  ((L and L["TT_COLLAPSE_RIGHT_BODY"]) or "Hide or show the detail panel.")
 
     btn:SetScript("OnEnter", function(self)
         self:SetBackdropBorderColor(C_GR, C_GG, C_GB, 1.0)
