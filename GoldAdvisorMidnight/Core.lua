@@ -48,6 +48,8 @@ local DB_DEFAULTS = {
         enchCraftRes     = GAM.C.DEFAULT_ENCH_CRAFT_RES,
         alchMulti        = GAM.C.DEFAULT_ALCH_MULTI,
         alchRes          = GAM.C.DEFAULT_ALCH_RES,
+        cookMulti        = GAM.C.DEFAULT_COOK_MULTI,
+        cookRes          = GAM.C.DEFAULT_COOK_RES,
         tailMulti        = GAM.C.DEFAULT_TAIL_MULTI,
         tailRes          = GAM.C.DEFAULT_TAIL_RES,
         bsMulti          = GAM.C.DEFAULT_BS_MULTI,
@@ -964,7 +966,14 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             stateOK, stateErr = false, "State smoke checks unavailable"
         end
 
-        if pricingOK and scanOK and stateOK then
+        local creatorOK, creatorErr
+        if GAM.UI and GAM.UI.StratCreator and GAM.UI.StratCreator.RunSmokeChecks then
+            creatorOK, creatorErr = GAM.UI.StratCreator.RunSmokeChecks()
+        else
+            creatorOK, creatorErr = false, "Strategy creator smoke checks unavailable"
+        end
+
+        if pricingOK and scanOK and stateOK and creatorOK then
             print("|cffff8800[GAM]|r Smoke tests passed.")
         else
             if not pricingOK then
@@ -975,6 +984,9 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             end
             if not stateOK then
                 print("|cffff0000[GAM]|r State smoke test failed: " .. tostring(stateErr))
+            end
+            if not creatorOK then
+                print("|cffff0000[GAM]|r Strategy creator smoke test failed: " .. tostring(creatorErr))
             end
         end
     elseif cmd == "create" then

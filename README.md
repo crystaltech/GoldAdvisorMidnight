@@ -2,7 +2,7 @@
 
 Gold Advisor Midnight is a World of Warcraft Retail addon for Auction House crafting analysis in Midnight. It scans AH prices, prices strategies against the current market, and helps you compare profit before you commit materials.
 
-This repository contains the full addon source, generated strategy data, and release history for the public GitHub build.
+This repository contains the full addon source, generated strategy data, development tooling, and release history for the public GitHub build.
 
 ## What It Does
 
@@ -18,10 +18,11 @@ This repository contains the full addon source, generated strategy data, and rel
 
 ## Shipped Strategy Scope
 
-The addon currently ships with `62` built-in strategies across `8` professions:
+The addon currently ships with `73` built-in strategies across `9` professions:
 
 - `Alchemy`: 15
 - `Blacksmithing`: 3
+- `Cooking`: 11
 - `Enchanting`: 5
 - `Engineering`: 12
 - `Inscription`: 14
@@ -29,13 +30,13 @@ The addon currently ships with `62` built-in strategies across `8` professions:
 - `Leatherworking`: 4
 - `Tailoring`: 2
 
-`Cooking` is scaffolded in the profession filters and creator dropdowns, but there are no shipped Cooking strategies yet.
-
 Notable shipped behavior:
 
 - `Crushing` uses dynamic cheapest-eligible gem selection at runtime
+- `Dazzling Thorium Prospecting` keeps full ranked output item IDs so runtime quality resolution can pick the correct output tier
 - Manual Thalassian missives use a conservative estimated inscription output profile
-- Vertical integration can recurse through intermediate crafts like inks and `Soul Cipher`
+- Cooking ships `11` workbook-backed meals and teas, with static vendor pricing for Cooking vendor mats
+- Vertical integration can recurse through intermediate crafts like inks, `Soul Cipher`, and Cooking tea chains
 
 ## Current UI Workflow
 
@@ -99,6 +100,7 @@ The addon folder must remain named `GoldAdvisorMidnight/`.
 
 - `GoldAdvisorMidnight/`: installable addon folder
 - `GoldAdvisorMidnight/Data/`: checked-in generated strategy and workbook data
+- `docs/reports/strategy_coverage_report.md`: generated shipped-strategy coverage snapshot
 - `CHANGELOG.md`: release history
 - `releases/`: packaged release zips
 - `LICENSE`: usage terms
@@ -122,8 +124,14 @@ The addon folder must remain named `GoldAdvisorMidnight/`.
 Useful local checks:
 
 - `luac -p GoldAdvisorMidnight/...` for syntax validation
+- `python3 tools/compare_strats.py <workbook.xlsx>` for workbook parity checks
+- `python3 tools/audit_strategy_coverage.py` to refresh the shipped strategy coverage report
 - `/gam smoketest` for in-game smoke checks
 - `/gam scandump` for selected-strategy pricing traces
+
+Release helpers:
+
+- `./Release_GitHub.command [patch|minor|major|x.y.z]` bumps the addon version, builds the zip, commits, pushes, and creates a GitHub release
 
 Release metadata is tracked in:
 

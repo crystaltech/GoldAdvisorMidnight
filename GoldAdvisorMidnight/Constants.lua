@@ -15,7 +15,7 @@ local function ProfileDefault(profileKey, field, fallback)
 end
 
 GAM.C = {
-    ADDON_VERSION        = "1.8.0",
+    ADDON_VERSION        = "1.8.2",
     DATA_VERSION         = 13,
     DEFAULT_PATCH        = "midnight-1",
 
@@ -92,6 +92,9 @@ GAM.C = {
     -- Alchemy
     DEFAULT_ALCH_MULTI         = ProfileDefault("alchemy", "defaultMulti", 30),
     DEFAULT_ALCH_RES           = ProfileDefault("alchemy", "defaultRes", 15),
+    -- Cooking
+    DEFAULT_COOK_MULTI         = ProfileDefault("cooking", "defaultMulti", 2.7),
+    DEFAULT_COOK_RES           = ProfileDefault("cooking", "defaultRes", 8.8),
     -- Tailoring
     DEFAULT_TAIL_MULTI         = ProfileDefault("tailoring", "defaultMulti", 21.4),
     DEFAULT_TAIL_RES           = ProfileDefault("tailoring", "defaultRes", 12.1),
@@ -141,5 +144,11 @@ GAM.C = {
         [245882] = 3595,   -- Thalassian Songwater  (35s 95c)
         [243060] = 5000,   -- Luminant Flux         (50s)
         [251665] = 5000,   -- Silverleaf Thread     (50s)
+        [242643] = 860,    -- A Big Ol' Stick of Butter (8s 60c)
+        [242641] = 1010,   -- Cooking Spirits          (10s 10c)
+        [242644] = 770,    -- Mana-Wyrm Essence        (7s 70c)
+        [242645] = 1125,   -- Ripened Vegetable Assortment (11s 25c)
+        [242646] = 1075,   -- Pouch of Spices          (10s 75c)
+        [242647] = 1000,   -- Tavern Fixings           (10s)
     },
 }

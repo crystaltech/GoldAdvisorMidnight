@@ -124,6 +124,18 @@ GAM_WORKBOOK_GENERATED = {
       sheetMCm = 1.500,  -- 1.25 * (1 + 20/100)
       sheetRs  = 0.300,  -- 0.30 * (1 + 0/100)
     },
+    cooking = {
+      multiKey = "cookMulti",
+      resKey = "cookRes",
+      mcNodeKey = nil,
+      rsNodeKey = nil,
+      defaultMulti = 2.700,
+      defaultRes = 8.800,
+      defaultMcNode = 0,
+      defaultRsNode = 0,
+      sheetMCm = 1.250,
+      sheetRs  = 0.300,
+    },
     insc_milling = {
       multiKey = nil,
       resKey = "inscMillingRes",

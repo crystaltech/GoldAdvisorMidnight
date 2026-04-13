@@ -574,6 +574,13 @@ local function BuildPanel()
         defaultRes = GAM.C.DEFAULT_ALCH_RES,
     })
     MakeStatRow({
+        label = "Cooking:",
+        multiKey = "cookMulti",
+        resKey = "cookRes",
+        defaultMulti = GAM.C.DEFAULT_COOK_MULTI,
+        defaultRes = GAM.C.DEFAULT_COOK_RES,
+    })
+    MakeStatRow({
         label = "Tailoring:",
         multiKey = "tailMulti",
         resKey = "tailRes",
@@ -650,7 +657,6 @@ local function BuildPanel()
     })
     y = y - actionsRow1.usedHeight - 10
 
-    --[[ DISABLED: Create Custom Strategy / Import Strategy
     -- Row 2: strategy actions (auto-sized, centered, wrapped if needed)
     local btnCreate = MakeButton(content, L["BTN_CREATE_STRAT"], 150)
     btnCreate:SetScript("OnClick", function()
@@ -670,7 +676,6 @@ local function BuildPanel()
         left = 14, right = 546, gap = 8, rowGap = 4, align = "center",
     })
     y = y - actionsRow2.usedHeight - 14
-    -- END DISABLED ]]
 
     -- ── Credits & Thanks ───────────────────────────────────────────────────
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_CREDITS"], y)

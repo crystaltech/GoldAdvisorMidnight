@@ -1,5 +1,17 @@
 # Changelog — Gold Advisor Midnight
 
+## [Unreleased]
+
+### Data / Workbook
+- **Cooking workbook import shipped** — The addon now includes `11` workbook-backed Cooking strategies, covering meals, feasts, and tea chains across the new `Cooking` sheet.
+- **Cooking stat defaults and vendor pricing added** — Cooking now has its own workbook formula profile, saved stat defaults, settings-row controls, and static vendor pricing for core Cooking vendor mats.
+- **Coverage/docs refreshed for shipped data** — The README and strategy coverage report now reflect the current `73` built-in strategies across `9` professions.
+
+### Tooling
+- **Seed-based workbook import path added** — New workbook-backed strategies can now be introduced from checked-in seed records instead of hand-editing generated Lua blocks.
+- **Dazzling Thorium validation corrected** — The strategy comparer now accepts the intended full ranked output ID arrays for `Dazzling Thorium Prospecting`, matching runtime pricing behavior.
+- **One-step GitHub release helper added** — `Release_GitHub.command` can bump the addon version, package the zip, commit, push, and create the GitHub release in one flow.
+
 ## [1.8.0] — 2026-04-12
 
 ### UI / Workflow

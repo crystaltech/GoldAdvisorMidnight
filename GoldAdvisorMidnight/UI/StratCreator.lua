@@ -490,22 +490,170 @@ end
 
 -- ===== Creator frame =====
 
-local WIN_W, WIN_H = 520, 652
-local ROW_H        = 24
-local MAX_OUTPUTS  = 4
-local MAX_REAGENTS = 8
+local WIN_W, WIN_H = 620, 794
+local ROW_H = 38
+local MAX_OUTPUTS = 12
+local MAX_REAGENTS = 16
+local MIN_VISIBLE_OUTPUTS = 1
+local MIN_VISIBLE_REAGENTS = 1
+local ROW_NAME_W = 286
+local ROW_ID_W = 92
+local ROW_QTY_W = 60
 
 local frame
-local editingIndex  = nil   -- index in db.userStrats being edited; nil = new strat
-local outputRows    = {}    -- { nameEB, idEB, qtyEB, removeBtn, visible }
-local reagentRows   = {}    -- same
+local editingIndex = nil
+local outputRows = {}
+local reagentRows = {}
+local itemLookupCache = nil
+
+local RefreshFormValidation
+local RemoveVisibleRow
+
+local function TrimText(s)
+    return (tostring(s or "")):match("^%s*(.-)%s*$")
+end
+
+local function SetEditText(editBox, text)
+    if not editBox then return end
+    text = text or ""
+    if editBox:GetText() == text then return end
+    editBox._gamSetText = true
+    editBox:SetText(text)
+    editBox._gamSetText = nil
+end
+
+local function CopyArray(src)
+    local out = {}
+    if type(src) == "table" then
+        for i, value in ipairs(src) do
+            out[i] = value
+        end
+    end
+    return out
+end
+
+local function NormalizeLookupName(name)
+    return TrimText(name):lower():gsub("%s+", " ")
+end
+
+local function GetPreferredNameScore(name)
+    if type(name) ~= "string" or name == "" then
+        return math.huge
+    end
+    local penalty = name:find("%b()") and 1000 or 0
+    return penalty + #name
+end
+
+local function GetItemLookupCache()
+    if itemLookupCache then
+        return itemLookupCache
+    end
+
+    local catalog = (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.itemCatalog) or {}
+    local byNameKey = {}
+    local preferredNameByID = {}
+
+    for itemName, ids in pairs(catalog) do
+        if type(itemName) == "string" and itemName ~= "" and type(ids) == "table" then
+            local key = NormalizeLookupName(itemName)
+            local entry = byNameKey[key]
+            if not entry then
+                entry = { ids = {}, seen = {} }
+                byNameKey[key] = entry
+            end
+
+            for _, itemID in ipairs(ids) do
+                if type(itemID) == "number" and itemID > 0 and not entry.seen[itemID] then
+                    entry.seen[itemID] = true
+                    entry.ids[#entry.ids + 1] = itemID
+                end
+
+                if type(itemID) == "number" and itemID > 0 then
+                    local currentName = preferredNameByID[itemID]
+                    if not currentName or GetPreferredNameScore(itemName) < GetPreferredNameScore(currentName) then
+                        preferredNameByID[itemID] = itemName
+                    end
+                end
+            end
+        end
+    end
+
+    for _, entry in pairs(byNameKey) do
+        table.sort(entry.ids)
+        entry.seen = nil
+    end
+
+    itemLookupCache = {
+        byNameKey = byNameKey,
+        preferredNameByID = preferredNameByID,
+    }
+    return itemLookupCache
+end
+
+local function LookupLocalItemIDs(name)
+    local key = NormalizeLookupName(name)
+    if key == "" then
+        return { kind = "none" }
+    end
+
+    local entry = GetItemLookupCache().byNameKey[key]
+    if not entry or #entry.ids == 0 then
+        return { kind = "none" }
+    end
+    if #entry.ids == 1 then
+        return { kind = "single", id = entry.ids[1], ids = CopyArray(entry.ids) }
+    end
+    return { kind = "ambiguous", ids = CopyArray(entry.ids) }
+end
+
+local function ResolveLocalItemName(itemID)
+    itemID = tonumber(itemID)
+    if not itemID or itemID <= 0 then
+        return nil
+    end
+
+    if type(GetItemInfo) == "function" then
+        local itemName = GetItemInfo(itemID)
+        if type(itemName) == "string" and itemName ~= "" then
+            return itemName
+        end
+    end
+
+    if C_Item and type(C_Item.GetItemNameByID) == "function" then
+        local ok, itemName = pcall(C_Item.GetItemNameByID, itemID)
+        if ok and type(itemName) == "string" and itemName ~= "" then
+            return itemName
+        end
+    end
+
+    if type(GetItemInfoInstant) == "function" then
+        local itemName = select(1, GetItemInfoInstant(itemID))
+        if type(itemName) == "string" and itemName ~= "" then
+            return itemName
+        end
+    end
+
+    return GetItemLookupCache().preferredNameByID[itemID]
+end
 
 local function GetProfessions()
     local profs = {}
-    for _, p in ipairs(GAM.Importer.GetAllProfessions(GAM.C.DEFAULT_PATCH)) do
+    for _, p in ipairs((GAM.Importer and GAM.Importer.GetAllProfessions and GAM.Importer.GetAllProfessions(GAM.C.DEFAULT_PATCH)) or {}) do
         profs[#profs + 1] = p
     end
     return profs
+end
+
+local function IsKnownProfession(profession)
+    if not profession or profession == "" then
+        return false
+    end
+    for _, p in ipairs(GetProfessions()) do
+        if p == profession then
+            return true
+        end
+    end
+    return false
 end
 
 local function GetUserStratLabel(strat)
@@ -514,26 +662,288 @@ local function GetUserStratLabel(strat)
     return string.format("%s — %s", profession, stratName)
 end
 
--- ===== Row builder for output / reagent tables =====
+local function MakeInsetBox(parent)
+    local box = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    box:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+    })
+    box:SetBackdropColor(0.05, 0.05, 0.05, 0.96)
+    box:SetBackdropBorderColor(0.34, 0.34, 0.34, 1)
+    return box
+end
 
-local function MakeItemRow(parent, yOff, onRemove)
+local function AnalyzeRowValues(fields)
+    local name = TrimText(fields.nameText)
+    local idText = TrimText(fields.idText)
+    local qtyText = TrimText(fields.qtyText)
+    local itemID = tonumber(idText)
+    local qty = tonumber(qtyText)
+    local hasName = name ~= ""
+    local idEntered = idText ~= ""
+    local qtyEntered = qtyText ~= ""
+    local hasID = itemID ~= nil and itemID > 0
+    local hasQty = qty ~= nil and qty > 0
+    local any = hasName or idEntered or qtyEntered
+    local lookupResult = fields.lookupResult or { kind = "none" }
+    local resolvedName = fields.resolvedName
+
+    local state = {
+        any = any,
+        valid = false,
+        countable = false,
+        name = name,
+        idText = idText,
+        itemID = hasID and itemID or nil,
+        qty = hasQty and qty or nil,
+        lookupResult = lookupResult,
+        resolvedName = resolvedName,
+    }
+
+    if not any then
+        state.valid = true
+        state.kind = "empty"
+        return state
+    end
+
+    if qtyEntered and not hasQty then
+        state.kind = "invalid_qty"
+        state.invalidReason = "qty"
+        return state
+    end
+
+    if idEntered and not hasID then
+        state.kind = "invalid_id"
+        state.invalidReason = "id"
+        return state
+    end
+
+    if not hasName and not hasID then
+        state.kind = "invalid_item"
+        state.invalidReason = "item"
+        return state
+    end
+
+    if not hasQty then
+        state.kind = "invalid_finish"
+        state.invalidReason = "finish"
+        return state
+    end
+
+    state.valid = true
+    state.countable = true
+    if hasName and not hasID then
+        if lookupResult.kind == "ambiguous" then
+            state.kind = "ambiguous"
+        else
+            state.kind = "freeform"
+        end
+    elseif hasID and not hasName then
+        if resolvedName and resolvedName ~= "" then
+            state.kind = "resolved_id"
+        else
+            state.kind = "id_only"
+        end
+    elseif lookupResult.kind == "single" and lookupResult.id == itemID then
+        state.kind = "matched"
+    else
+        state.kind = "ready"
+    end
+
+    return state
+end
+
+local function GetRowStatusPresentation(state)
+    local L = GAM.L or {}
+    if not state or state.kind == "empty" then
+        return "", 0.72, 0.72, 0.72
+    end
+
+    if state.kind == "invalid_qty" then
+        return (L["CREATOR_ERR_ROW_QTY"] or "Qty must be greater than 0."), 1.0, 0.35, 0.35
+    elseif state.kind == "invalid_id" then
+        return (L["CREATOR_ERR_ROW_ID"] or "Item ID must be greater than 0."), 1.0, 0.35, 0.35
+    elseif state.kind == "invalid_item" then
+        return (L["CREATOR_ERR_ROW_ITEM"] or "Enter an item name or Item ID."), 1.0, 0.35, 0.35
+    elseif state.kind == "invalid_finish" then
+        return (L["CREATOR_STATUS_CLEAR_OR_FINISH"] or "Finish this row or clear it."), 1.0, 0.35, 0.35
+    elseif state.kind == "ambiguous" then
+        return (L["CREATOR_STATUS_NAME_AMBIG"] or
+            "Multiple local Item IDs match this name; keeping name-only unless you choose an Item ID."),
+            1.0, 0.82, 0.18
+    elseif state.kind == "freeform" then
+        return (L["CREATOR_STATUS_FREEFORM"] or "Freeform name entry."), 0.75, 0.75, 0.75
+    elseif state.kind == "resolved_id" then
+        return string.format((L["CREATOR_STATUS_ID_MATCH"] or "Resolved name locally: %s."), tostring(state.resolvedName or "?")),
+            0.45, 0.95, 0.45
+    elseif state.kind == "id_only" then
+        return (L["CREATOR_STATUS_ID_ONLY"] or "Item ID entered; no local name available yet."), 1.0, 0.82, 0.18
+    elseif state.kind == "matched" then
+        return string.format((L["CREATOR_STATUS_NAME_MATCH"] or "Matched local Item ID: %d."), tonumber(state.itemID or 0)),
+            0.45, 0.95, 0.45
+    end
+
+    return (L["CREATOR_STATUS_READY"] or "Ready."), 0.45, 0.95, 0.45
+end
+
+local function GetVisibleRowCount(rows)
+    local count = 0
+    for _, row in ipairs(rows) do
+        if row.frame:IsShown() then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+local function GetRowTexts(row)
+    return {
+        nameText = TrimText(row.nameEB:GetText()),
+        idText = TrimText(row.idEB:GetText()),
+        qtyText = TrimText(row.qtyEB:GetText()),
+        autoFilledName = row.autoFilledName and true or false,
+        autoFilledID = row.autoFilledID and true or false,
+    }
+end
+
+local function ApplyRowTexts(row, values)
+    row._gamUpdating = true
+    SetEditText(row.nameEB, values.nameText or "")
+    SetEditText(row.idEB, values.idText or "")
+    SetEditText(row.qtyEB, values.qtyText or "")
+    row.autoFilledName = values.autoFilledName and true or false
+    row.autoFilledID = values.autoFilledID and true or false
+    row._gamUpdating = nil
+end
+
+local function ClearRow(row)
+    ApplyRowTexts(row, {
+        nameText = "",
+        idText = "",
+        qtyText = "",
+        autoFilledName = false,
+        autoFilledID = false,
+    })
+    row.state = nil
+    row.statusFS:SetText("")
+end
+
+local function UpdateRowState(row)
+    if not row then return end
+
+    local nameText = TrimText(row.nameEB:GetText())
+    local idText = TrimText(row.idEB:GetText())
+    local qtyText = TrimText(row.qtyEB:GetText())
+
+    if nameText == "" and idText == "" and qtyText == "" then
+        row.autoFilledName = false
+        row.autoFilledID = false
+    end
+
+    row._gamUpdating = true
+
+    local lookupResult = { kind = "none" }
+    if nameText ~= "" then
+        lookupResult = LookupLocalItemIDs(nameText)
+        if lookupResult.kind == "single" and (idText == "" or row.autoFilledID) then
+            SetEditText(row.idEB, tostring(lookupResult.id))
+            row.autoFilledID = true
+        elseif lookupResult.kind ~= "single" and row.autoFilledID and idText ~= "" then
+            SetEditText(row.idEB, "")
+            row.autoFilledID = false
+        end
+    elseif row.autoFilledID and idText ~= "" then
+        SetEditText(row.idEB, "")
+        row.autoFilledID = false
+    end
+
+    idText = TrimText(row.idEB:GetText())
+    local itemID = tonumber(idText)
+    local resolvedName = nil
+    if itemID and itemID > 0 then
+        resolvedName = ResolveLocalItemName(itemID)
+        if resolvedName and (nameText == "" or row.autoFilledName) then
+            SetEditText(row.nameEB, resolvedName)
+            row.autoFilledName = true
+        elseif not resolvedName and row.autoFilledName and nameText ~= "" then
+            SetEditText(row.nameEB, "")
+            row.autoFilledName = false
+        end
+    elseif row.autoFilledName and nameText ~= "" then
+        SetEditText(row.nameEB, "")
+        row.autoFilledName = false
+    end
+
+    row._gamUpdating = nil
+
+    nameText = TrimText(row.nameEB:GetText())
+    idText = TrimText(row.idEB:GetText())
+    itemID = tonumber(idText)
+    if nameText ~= "" then
+        lookupResult = LookupLocalItemIDs(nameText)
+    else
+        lookupResult = { kind = "none" }
+    end
+    if itemID and itemID > 0 then
+        resolvedName = ResolveLocalItemName(itemID)
+    else
+        resolvedName = nil
+    end
+
+    row.state = AnalyzeRowValues({
+        nameText = nameText,
+        idText = idText,
+        qtyText = qtyText,
+        lookupResult = lookupResult,
+        resolvedName = resolvedName,
+    })
+
+    local statusText, r, g, b = GetRowStatusPresentation(row.state)
+    row.statusFS:SetText(statusText or "")
+    row.statusFS:SetTextColor(r or 1, g or 1, b or 1)
+end
+
+RemoveVisibleRow = function(rows, rowIndex, minVisible)
+    local visibleCount = GetVisibleRowCount(rows)
+    if visibleCount == 0 or not rows[rowIndex] or not rows[rowIndex].frame:IsShown() then
+        return
+    end
+
+    if visibleCount <= (minVisible or 1) then
+        ClearRow(rows[rowIndex])
+        if RefreshFormValidation then RefreshFormValidation() end
+        return
+    end
+
+    for i = rowIndex, visibleCount - 1 do
+        ApplyRowTexts(rows[i], GetRowTexts(rows[i + 1]))
+    end
+
+    ClearRow(rows[visibleCount])
+    rows[visibleCount].frame:Hide()
+    if RefreshFormValidation then RefreshFormValidation() end
+end
+
+local function MakeItemRow(parent, index, rows, minVisible)
     local row = CreateFrame("Frame", nil, parent)
-    row:SetSize(WIN_W - 40, ROW_H)
-    row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, yOff)
+    row:SetHeight(ROW_H)
+    row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -((index - 1) * ROW_H))
+    row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -((index - 1) * ROW_H))
 
     local nameEB = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-    nameEB:SetSize(200, 20)
-    nameEB:SetPoint("LEFT", row, "LEFT", 0, 0)
+    nameEB:SetSize(ROW_NAME_W, 20)
+    nameEB:SetPoint("TOPLEFT", row, "TOPLEFT", 2, -2)
     nameEB:SetAutoFocus(false)
 
     local idEB = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-    idEB:SetSize(90, 20)
+    idEB:SetSize(ROW_ID_W, 20)
     idEB:SetPoint("LEFT", nameEB, "RIGHT", 6, 0)
     idEB:SetAutoFocus(false)
     idEB:SetNumeric(true)
 
     local qtyEB = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
-    qtyEB:SetSize(70, 20)
+    qtyEB:SetSize(ROW_QTY_W, 20)
     qtyEB:SetPoint("LEFT", idEB, "RIGHT", 6, 0)
     qtyEB:SetAutoFocus(false)
     qtyEB:SetNumeric(true)
@@ -543,12 +953,176 @@ local function MakeItemRow(parent, yOff, onRemove)
     removeBtn:SetPoint("LEFT", qtyEB, "RIGHT", 4, 0)
     removeBtn:SetText(GAM.L["BTN_REMOVE"])
     removeBtn:SetWidth(MeasureButtonWidth(parent, removeBtn:GetText(), 22, 90, 14))
-    removeBtn:SetScript("OnClick", onRemove)
+    removeBtn:SetScript("OnClick", function()
+        RemoveVisibleRow(rows, index, minVisible)
+    end)
 
-    return { nameEB = nameEB, idEB = idEB, qtyEB = qtyEB, btn = removeBtn, frame = row }
+    local statusFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statusFS:SetPoint("TOPLEFT", nameEB, "BOTTOMLEFT", 2, -4)
+    statusFS:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+    statusFS:SetJustifyH("LEFT")
+    statusFS:SetText("")
+    statusFS:SetTextColor(0.75, 0.75, 0.75)
+
+    row.nameEB = nameEB
+    row.idEB = idEB
+    row.qtyEB = qtyEB
+    row.btn = removeBtn
+    row.frame = row
+    row.statusFS = statusFS
+    row.autoFilledName = false
+    row.autoFilledID = false
+
+    local function HandleChange(editBox, userInput)
+        if row._gamUpdating or editBox._gamSetText then
+            return
+        end
+        if editBox == nameEB and userInput then
+            row.autoFilledName = false
+        elseif editBox == idEB and userInput then
+            row.autoFilledID = false
+        end
+        if RefreshFormValidation then RefreshFormValidation() end
+    end
+
+    nameEB:SetScript("OnTextChanged", HandleChange)
+    idEB:SetScript("OnTextChanged", HandleChange)
+    qtyEB:SetScript("OnTextChanged", HandleChange)
+
+    nameEB:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    idEB:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    qtyEB:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+    return row
 end
 
--- ===== Build the creator frame =====
+local function CreateItemSection(parent, topY, boxHeight, titleText, helpText, addText, rows, maxRows, minVisible)
+    local titleFS = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    titleFS:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, topY)
+    titleFS:SetText(titleText)
+
+    local addBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    addBtn:SetSize(96, 20)
+    addBtn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -20, topY + 2)
+    addBtn:SetText(addText)
+    addBtn:SetWidth(MeasureButtonWidth(parent, addBtn:GetText(), 96, 190, 20))
+
+    local helpFS = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    helpFS:SetPoint("TOPLEFT", titleFS, "BOTTOMLEFT", 0, -3)
+    helpFS:SetWidth(WIN_W - 40)
+    helpFS:SetJustifyH("LEFT")
+    helpFS:SetText(helpText)
+    helpFS:SetTextColor(0.72, 0.72, 0.72)
+
+    local box = MakeInsetBox(parent)
+    box:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, topY - 32)
+    box:SetSize(WIN_W - 40, boxHeight)
+
+    local function MakeColHeader(xOff, width, text)
+        local fs = box:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        fs:SetPoint("TOPLEFT", box, "TOPLEFT", xOff, -10)
+        fs:SetWidth(width)
+        fs:SetJustifyH("LEFT")
+        fs:SetText(text)
+        fs:SetTextColor(0.82, 0.82, 0.82)
+        return fs
+    end
+
+    MakeColHeader(10, ROW_NAME_W, GAM.L["CREATOR_COL_NAME"])
+    MakeColHeader(10 + ROW_NAME_W + 6, ROW_ID_W, GAM.L["CREATOR_COL_ITEMID"])
+    MakeColHeader(10 + ROW_NAME_W + 6 + ROW_ID_W + 6, ROW_QTY_W, GAM.L["CREATOR_COL_QTY"])
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, box, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", box, "TOPLEFT", 8, -28)
+    scrollFrame:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -26, 8)
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local cur = self:GetVerticalScroll()
+        local max = self:GetVerticalScrollRange()
+        self:SetVerticalScroll(math.max(0, math.min(max, cur - delta * 18)))
+    end)
+
+    local host = CreateFrame("Frame", nil, scrollFrame)
+    host:SetWidth(scrollFrame:GetWidth() or (box:GetWidth() - 34))
+    host:SetHeight(maxRows * ROW_H)
+    scrollFrame:SetScrollChild(host)
+    scrollFrame:SetScript("OnSizeChanged", function(self)
+        host:SetWidth(math.max(1, (self:GetWidth() or 0) - 8))
+    end)
+
+    for i = 1, maxRows do
+        rows[i] = MakeItemRow(host, i, rows, minVisible)
+        rows[i].frame:Hide()
+    end
+
+    addBtn:SetScript("OnClick", function()
+        for i = 1, maxRows do
+            if not rows[i].frame:IsShown() then
+                rows[i].frame:Show()
+                rows[i].nameEB:SetFocus()
+                scrollFrame:SetVerticalScroll(scrollFrame:GetVerticalScrollRange())
+                break
+            end
+        end
+        if RefreshFormValidation then RefreshFormValidation() end
+    end)
+
+    return {
+        titleFS = titleFS,
+        helpFS = helpFS,
+        addBtn = addBtn,
+        box = box,
+        scrollFrame = scrollFrame,
+        host = host,
+        rows = rows,
+        minVisible = minVisible,
+    }
+end
+
+local function SetVisibleRows(rows, count)
+    count = math.max(0, math.min(#rows, count or 0))
+    for i, row in ipairs(rows) do
+        row.frame:SetShown(i <= count)
+        if i > count then
+            ClearRow(row)
+        end
+    end
+end
+
+local function ResetScrollPositions()
+    if frame and frame.outputSection and frame.outputSection.scrollFrame then
+        frame.outputSection.scrollFrame:SetVerticalScroll(0)
+    end
+    if frame and frame.reagentSection and frame.reagentSection.scrollFrame then
+        frame.reagentSection.scrollFrame:SetVerticalScroll(0)
+    end
+end
+
+local function CollectProfessionValue()
+    if not frame then
+        return ""
+    end
+
+    local prof = frame.GetProf and frame.GetProf() or ""
+    if prof == GAM.L["CREATOR_CUSTOM_PROF"] then
+        prof = TrimText(frame.customProfEB:GetText())
+    end
+    return TrimText(prof)
+end
+
+local function CollectItemsFromRows(rows, inputQty)
+    local items = {}
+    for _, row in ipairs(rows) do
+        if row.frame:IsShown() and row.state and row.state.countable then
+            items[#items + 1] = {
+                name = row.state.name or "",
+                itemIDs = row.state.itemID and { row.state.itemID } or {},
+                qtyMultiplier = (row.state.qty or 0) / inputQty,
+            }
+        end
+    end
+    return items
+end
 
 local function Build()
     local L = GAM.L
@@ -569,7 +1143,7 @@ local function Build()
         bgFile   = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
         tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left=11, right=12, top=12, bottom=11 },
+        insets = { left = 11, right = 12, top = 12, bottom = 11 },
     })
     frame:SetBackdropColor(0, 0, 0, 1)
     local bgTex = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
@@ -586,16 +1160,22 @@ local function Build()
     closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
     closeBtn:SetScript("OnClick", function() frame:Hide() end)
 
-    local y = -46
+    local setupLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    setupLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, -46)
+    setupLbl:SetText((L and L["CREATOR_SETUP"]) or "Strategy Setup")
 
-    local editPickLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    editPickLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
+    local metaBox = MakeInsetBox(frame)
+    metaBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, -64)
+    metaBox:SetSize(WIN_W - 40, 148)
+
+    local editPickLbl = metaBox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    editPickLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -16)
     editPickLbl:SetText((L and L["CREATOR_EDIT_SELECT"]) or "Edit Strategy:")
     editPickLbl:Hide()
 
-    local editPickDD = CreateFrame("Frame", "GAMCreatorEditDD", frame, "UIDropDownMenuTemplate")
-    editPickDD:SetPoint("TOPLEFT", editPickLbl, "TOPRIGHT", 4, 4)
-    UIDropDownMenu_SetWidth(editPickDD, 270)
+    local editPickDD = CreateFrame("Frame", "GAMCreatorEditDD", metaBox, "UIDropDownMenuTemplate")
+    editPickDD:SetPoint("TOPLEFT", editPickLbl, "TOPRIGHT", 0, 4)
+    UIDropDownMenu_SetWidth(editPickDD, 260)
     editPickDD:Hide()
 
     local function RefreshEditDropdown(selectedIndex)
@@ -616,7 +1196,8 @@ local function Build()
 
         local selected = selectedIndex and GetUserStrats()[selectedIndex] or nil
         UIDropDownMenu_SetSelectedValue(editPickDD, selectedIndex)
-        UIDropDownMenu_SetText(editPickDD, selected and GetUserStratLabel(selected) or ((L and L["CREATOR_EDIT_SELECT"]) or "Edit Strategy:"))
+        UIDropDownMenu_SetText(editPickDD,
+            selected and GetUserStratLabel(selected) or ((L and L["CREATOR_EDIT_SELECT"]) or "Edit Strategy:"))
     end
 
     local function SetEditSelectorVisible(visible)
@@ -627,275 +1208,178 @@ local function Build()
     frame.RefreshEditDropdown = RefreshEditDropdown
     frame.SetEditSelectorVisible = SetEditSelectorVisible
 
-    y = y - 32
-
-    -- ── Profession ──
-    local profLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    profLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
+    local profLbl = metaBox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    profLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -48)
     profLbl:SetText(L["CREATOR_PROFESSION"])
 
-    -- Dropdown (UIDropDownMenu)
-    local profDD = CreateFrame("Frame", "GAMCreatorProfDD", frame, "UIDropDownMenuTemplate")
-    profDD:SetPoint("TOPLEFT", profLbl, "TOPRIGHT", 4, 4)
-    UIDropDownMenu_SetWidth(profDD, 160)
+    local profDD = CreateFrame("Frame", "GAMCreatorProfDD", metaBox, "UIDropDownMenuTemplate")
+    profDD:SetPoint("TOPLEFT", profLbl, "TOPRIGHT", 0, 4)
+    UIDropDownMenu_SetWidth(profDD, 170)
 
+    local customProfEB
     local currentProf = ""
     local function SetProf(val)
-        currentProf = val
-        UIDropDownMenu_SetSelectedValue(profDD, val)
-        UIDropDownMenu_SetText(profDD, val)
+        currentProf = val or ""
+        UIDropDownMenu_SetSelectedValue(profDD, currentProf)
+        UIDropDownMenu_SetText(profDD, currentProf ~= "" and currentProf or (L["CREATOR_PROFESSION_PLACEHOLDER"] or "Select..."))
+        if customProfEB then
+            customProfEB:SetShown(currentProf == L["CREATOR_CUSTOM_PROF"])
+        end
     end
+
     UIDropDownMenu_Initialize(profDD, function()
         local profs = GetProfessions()
         profs[#profs + 1] = L["CREATOR_CUSTOM_PROF"]
         for _, p in ipairs(profs) do
             local info = UIDropDownMenu_CreateInfo()
-            info.text    = p
-            info.value   = p
+            info.text = p
+            info.value = p
             info.checked = (p == currentProf)
-            info.func    = function() SetProf(p) end
+            info.func = function()
+                SetProf(p)
+                if p == L["CREATOR_CUSTOM_PROF"] and customProfEB then
+                    customProfEB:SetFocus()
+                end
+                if RefreshFormValidation then RefreshFormValidation() end
+            end
             UIDropDownMenu_AddButton(info)
         end
     end)
-    frame.profDD   = profDD
-    frame.SetProf  = SetProf
-    frame.GetProf  = function() return currentProf end
 
-    -- Custom profession text box (shown when "(Custom...)" is selected)
-    local customProfEB = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    customProfEB:SetSize(160, 20)
+    frame.profDD = profDD
+    frame.SetProf = SetProf
+    frame.GetProf = function() return currentProf end
+
+    customProfEB = CreateFrame("EditBox", nil, metaBox, "InputBoxTemplate")
+    customProfEB:SetSize(180, 20)
     customProfEB:SetPoint("LEFT", profDD, "RIGHT", 4, 0)
     customProfEB:SetAutoFocus(false)
     customProfEB:Hide()
+    customProfEB:SetScript("OnTextChanged", function()
+        if RefreshFormValidation then RefreshFormValidation() end
+    end)
     frame.customProfEB = customProfEB
 
-    profDD:SetScript("OnShow", function()
-        -- If selection is custom, show the custom editbox
-        local isCustom = (currentProf == L["CREATOR_CUSTOM_PROF"])
-        customProfEB:SetShown(isCustom)
-    end)
-
-    y = y - 32
-
-    -- ── Strategy Name ──
-    local nameLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    nameLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
+    local nameLbl = metaBox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    nameLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -82)
     nameLbl:SetText(L["CREATOR_NAME"])
 
-    local nameEB = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    nameEB:SetSize(300, 20)
+    local nameEB = CreateFrame("EditBox", nil, metaBox, "InputBoxTemplate")
+    nameEB:SetSize(352, 20)
     nameEB:SetPoint("LEFT", nameLbl, "RIGHT", 6, 0)
     nameEB:SetAutoFocus(false)
+    nameEB:SetScript("OnTextChanged", function()
+        if RefreshFormValidation then RefreshFormValidation() end
+    end)
     frame.nameEB = nameEB
 
-    y = y - 32
-
-    -- ── Input Quantity ──
-    local qtyLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    qtyLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
+    local qtyLbl = metaBox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    qtyLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -116)
     qtyLbl:SetText(L["CREATOR_INPUT_QTY"])
 
-    local inputQtyEB = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+    local inputQtyEB = CreateFrame("EditBox", nil, metaBox, "InputBoxTemplate")
     inputQtyEB:SetSize(80, 20)
     inputQtyEB:SetPoint("LEFT", qtyLbl, "RIGHT", 6, 0)
     inputQtyEB:SetAutoFocus(false)
     inputQtyEB:SetNumeric(true)
     inputQtyEB:SetText("1000")
+    inputQtyEB:SetScript("OnTextChanged", function()
+        if RefreshFormValidation then RefreshFormValidation() end
+    end)
     frame.inputQtyEB = inputQtyEB
 
-    local qtyTip = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    local qtyTip = metaBox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     qtyTip:SetPoint("LEFT", inputQtyEB, "RIGHT", 6, 0)
+    qtyTip:SetWidth(300)
+    qtyTip:SetJustifyH("LEFT")
     qtyTip:SetText(L["CREATOR_INPUT_HINT"])
     qtyTip:SetTextColor(0.6, 0.6, 0.6)
 
-    y = y - 36
+    frame.outputSection = CreateItemSection(
+        frame,
+        -222,
+        164,
+        L["CREATOR_OUTPUTS"],
+        (L["CREATOR_ROW_HELP"] or "Type an item name or Item ID. Qty is required."),
+        L["BTN_CREATOR_ADD_OUT"],
+        outputRows,
+        MAX_OUTPUTS,
+        MIN_VISIBLE_OUTPUTS
+    )
 
-    -- ── Column headers ──
-    local function MakeColHeader(xOff, w, text)
-        local fs = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        fs:SetPoint("TOPLEFT", frame, "TOPLEFT", xOff, y)
-        fs:SetWidth(w)
-        fs:SetJustifyH("LEFT")
-        fs:SetText(text)
-        fs:SetTextColor(0.8, 0.8, 0.8)
-    end
+    frame.reagentSection = CreateItemSection(
+        frame,
+        -428,
+        228,
+        L["CREATOR_REAGENTS"],
+        (L["CREATOR_ROW_HELP"] or "Type an item name or Item ID. Qty is required."),
+        L["BTN_CREATOR_ADD_REAG"],
+        reagentRows,
+        MAX_REAGENTS,
+        MIN_VISIBLE_REAGENTS
+    )
 
-    -- ── Outputs section ──
-    local outLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    outLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
-    outLbl:SetText(L["CREATOR_OUTPUTS"])
-
-    local addOutBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    addOutBtn:SetSize(80, 20)
-    addOutBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -20, y + 2)
-    addOutBtn:SetText(L["BTN_CREATOR_ADD_OUT"])
-    addOutBtn:SetWidth(MeasureButtonWidth(frame, addOutBtn:GetText(), 80, 170, 20))
-
-    y = y - 22
-    MakeColHeader(20, 200, L["CREATOR_COL_NAME"])
-    MakeColHeader(226, 90, L["CREATOR_COL_ITEMID"])
-    MakeColHeader(322, 70, L["CREATOR_COL_QTY"])
-    y = y - 20
-
-    local outputHost = CreateFrame("Frame", nil, frame)
-    outputHost:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
-    outputHost:SetSize(WIN_W - 40, MAX_OUTPUTS * ROW_H)
-
-    local outputRowY = 0
-    for i = 1, MAX_OUTPUTS do
-        local row = MakeItemRow(outputHost, outputRowY, function()
-            outputRows[i].frame:Hide()
-        end)
-        outputRows[i] = row
-        outputRows[i].frame:Hide()
-        outputRowY = outputRowY - ROW_H
-    end
-
-    addOutBtn:SetScript("OnClick", function()
-        for i = 1, MAX_OUTPUTS do
-            if not outputRows[i].frame:IsShown() then
-                outputRows[i].frame:Show()
-                outputRows[i].nameEB:SetFocus()
-                break
-            end
-        end
-    end)
-
-    y = y - (MAX_OUTPUTS * ROW_H) - 8
-
-    -- ── Reagents section ──
-    local reagLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    reagLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
-    reagLbl:SetText(L["CREATOR_REAGENTS"])
-
-    local addReagBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    addReagBtn:SetSize(80, 20)
-    addReagBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -20, y + 2)
-    addReagBtn:SetText(L["BTN_CREATOR_ADD_REAG"])
-    addReagBtn:SetWidth(MeasureButtonWidth(frame, addReagBtn:GetText(), 80, 170, 20))
-
-    y = y - 22
-    MakeColHeader(20, 200, L["CREATOR_COL_NAME"])
-    MakeColHeader(226, 90, L["CREATOR_COL_ITEMID"])
-    MakeColHeader(322, 70, L["CREATOR_COL_QTY"])
-    y = y - 20
-
-    local reagHost = CreateFrame("Frame", nil, frame)
-    reagHost:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, y)
-    reagHost:SetSize(WIN_W - 40, MAX_REAGENTS * ROW_H)
-
-    local reagRowY = 0
-    for i = 1, MAX_REAGENTS do
-        local row = MakeItemRow(reagHost, reagRowY, function()
-            reagentRows[i].frame:Hide()
-        end)
-        reagentRows[i] = row
-        reagentRows[i].frame:Hide()
-        reagRowY = reagRowY - ROW_H
-    end
-
-    addReagBtn:SetScript("OnClick", function()
-        for i = 1, MAX_REAGENTS do
-            if not reagentRows[i].frame:IsShown() then
-                reagentRows[i].frame:Show()
-                reagentRows[i].nameEB:SetFocus()
-                break
-            end
-        end
-    end)
-
-    y = y - (MAX_REAGENTS * ROW_H) - 8
-
-    -- ── Notes ── (fixed above the button row, independent of y cursor)
     local notesLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    notesLbl:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 20, 42)
+    notesLbl:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 20, 82)
     notesLbl:SetText(L["CREATOR_NOTES"])
 
     local notesEB = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    notesEB:SetSize(340, 20)
+    notesEB:SetSize(432, 20)
     notesEB:SetPoint("LEFT", notesLbl, "RIGHT", 6, 0)
     notesEB:SetAutoFocus(false)
     frame.notesEB = notesEB
 
-    -- ── Bottom buttons ──
+    local validationFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    validationFS:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 20, 48)
+    validationFS:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -20, 48)
+    validationFS:SetJustifyH("LEFT")
+    validationFS:SetJustifyV("TOP")
+    validationFS:SetText("")
+    frame.validationFS = validationFS
+
     local function CollectAndSave()
-        -- Resolve profession
-        local prof = frame.GetProf()
-        if prof == GAM.L["CREATOR_CUSTOM_PROF"] then
-            prof = (frame.customProfEB:GetText() or ""):match("^%s*(.-)%s*$")
-        end
-        local stratName  = (frame.nameEB:GetText() or ""):match("^%s*(.-)%s*$")
-        local inputQty   = tonumber(frame.inputQtyEB:GetText()) or 1000
-        local notes      = frame.notesEB:GetText() or ""
-
-        if prof == "" then
-            print("|cffff8800[GAM]|r " .. L["ERR_PROF_REQUIRED"]) return
-        end
-        if stratName == "" then
-            print("|cffff8800[GAM]|r " .. L["ERR_NAME_REQUIRED"]) return
-        end
-        if inputQty <= 0 then
-            print("|cffff8800[GAM]|r " .. L["ERR_QTY_REQUIRED"]) return
+        if not frame._formValid then
+            print("|cffff8800[GAM]|r " .. tostring(frame._validationSummary or (L["CREATOR_STATUS_CLEAR_OR_FINISH"] or "Finish this row or clear it.")))
+            return
         end
 
-        -- Collect outputs
-        local outputs = {}
-        for _, r in ipairs(outputRows) do
-            if r.frame:IsShown() then
-                local name = (r.nameEB:GetText() or ""):match("^%s*(.-)%s*$")
-                if name ~= "" then
-                    local id  = tonumber(r.idEB:GetText())
-                    local qty = tonumber(r.qtyEB:GetText()) or 0
-                    outputs[#outputs + 1] = {
-                        name          = name,
-                        itemIDs       = id and { id } or {},
-                        qtyMultiplier = qty / inputQty,
-                    }
-                end
-            end
-        end
-        if #outputs == 0 then
-            print("|cffff8800[GAM]|r " .. L["ERR_OUTPUT_REQUIRED"]) return
-        end
+        local prof = CollectProfessionValue()
+        local stratName = TrimText(frame.nameEB:GetText())
+        local inputQty = tonumber(frame.inputQtyEB:GetText()) or 1000
+        local notes = frame.notesEB:GetText() or ""
+        local outputs = CollectItemsFromRows(outputRows, inputQty)
+        local reagents = CollectItemsFromRows(reagentRows, inputQty)
 
-        -- Collect reagents
-        local reagents = {}
-        for _, r in ipairs(reagentRows) do
-            if r.frame:IsShown() then
-                local name = (r.nameEB:GetText() or ""):match("^%s*(.-)%s*$")
-                if name ~= "" then
-                    local id  = tonumber(r.idEB:GetText())
-                    local qty = tonumber(r.qtyEB:GetText()) or 0
-                    reagents[#reagents + 1] = {
-                        name          = name,
-                        itemIDs       = id and { id } or {},
-                        qtyMultiplier = qty / inputQty,
-                    }
-                end
-            end
+        if #outputs == 0 or #reagents == 0 then
+            if RefreshFormValidation then RefreshFormValidation() end
+            print("|cffff8800[GAM]|r " .. tostring(frame._validationSummary or (L["CREATOR_STATUS_CLEAR_OR_FINISH"] or "Finish this row or clear it.")))
+            return
         end
 
         local strat = {
-            profession            = prof,
-            stratName             = stratName,
-            patchTag              = GAM.C.DEFAULT_PATCH,
+            profession = prof,
+            stratName = stratName,
+            patchTag = GAM.C.DEFAULT_PATCH,
             defaultStartingAmount = inputQty,
-            output                = outputs[1],
-            reagents              = reagents,
-            notes                 = notes,
+            output = outputs[1],
+            reagents = reagents,
+            notes = notes,
         }
-        if #outputs > 1 then strat.outputs = outputs end
+        if #outputs > 1 then
+            strat.outputs = outputs
+        end
 
-        -- Save to db
         if editingIndex then
             ReplaceUserStrat(editingIndex, strat)
         else
             AddUserStrat(strat)
         end
 
-        -- Reload importer so strat appears immediately
         GAM.Importer.Init()
-        GAM:GetActiveMainWindow().Refresh()
+        local mainWindow = GAM.GetActiveMainWindow and GAM:GetActiveMainWindow() or nil
+        if mainWindow and mainWindow.Refresh then
+            mainWindow.Refresh()
+        end
 
         print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_SAVED"], stratName))
         frame:Hide()
@@ -905,6 +1389,7 @@ local function Build()
     btnSave:SetSize(80, 22)
     btnSave:SetText(GAM.L["BTN_CREATOR_SAVE"])
     btnSave:SetScript("OnClick", CollectAndSave)
+    frame.btnSave = btnSave
 
     local btnDelete = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     btnDelete:SetSize(80, 22)
@@ -915,7 +1400,10 @@ local function Build()
             local name = userStrats[editingIndex].stratName or "?"
             DeleteUserStratAt(editingIndex)
             GAM.Importer.Init()
-            GAM:GetActiveMainWindow().Refresh()
+            local mainWindow = GAM.GetActiveMainWindow and GAM:GetActiveMainWindow() or nil
+            if mainWindow and mainWindow.Refresh then
+                mainWindow.Refresh()
+            end
             print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_DELETED"], name))
         end
         frame:Hide()
@@ -930,63 +1418,207 @@ local function Build()
     btnSave:SetWidth(MeasureButtonWidth(frame, btnSave:GetText(), 80, 180, 24))
     btnDelete:SetWidth(MeasureButtonWidth(frame, btnDelete:GetText(), 80, 220, 24))
     btnCancel:SetWidth(MeasureButtonWidth(frame, btnCancel:GetText(), 80, 180, 24))
-    LayoutButtonRowBottom(frame, { btnSave, btnDelete, btnCancel }, {
-        left = 14, right = WIN_W - 14, bottom = 10, gap = 8, rowGap = 4, align = "left",
-    })
+    frame.RelayoutButtons = function()
+        local buttons = { btnSave }
+        if btnDelete:IsShown() then
+            buttons[#buttons + 1] = btnDelete
+        end
+        buttons[#buttons + 1] = btnCancel
+        LayoutButtonRowBottom(frame, buttons, {
+            left = 14, right = WIN_W - 14, bottom = 12, gap = 8, rowGap = 4, align = "left",
+        })
+    end
+    frame.RelayoutButtons()
+end
+
+RefreshFormValidation = function()
+    if not frame then return end
+
+    for _, row in ipairs(outputRows) do
+        if row.frame:IsShown() then
+            UpdateRowState(row)
+        else
+            row.state = nil
+            row.statusFS:SetText("")
+        end
+    end
+
+    for _, row in ipairs(reagentRows) do
+        if row.frame:IsShown() then
+            UpdateRowState(row)
+        else
+            row.state = nil
+            row.statusFS:SetText("")
+        end
+    end
+
+    local prof = CollectProfessionValue()
+    local stratName = TrimText(frame.nameEB:GetText())
+    local inputQty = tonumber(frame.inputQtyEB:GetText())
+
+    local outputCount = 0
+    local reagentCount = 0
+    local firstOutputIssue = nil
+    local firstReagentIssue = nil
+
+    for _, row in ipairs(outputRows) do
+        if row.frame:IsShown() and row.state then
+            if row.state.countable then
+                outputCount = outputCount + 1
+            elseif row.state.any and not row.state.valid and not firstOutputIssue then
+                local issueText = select(1, GetRowStatusPresentation(row.state))
+                firstOutputIssue = string.format("%s: %s", GAM.L["CREATOR_OUTPUTS"] or "Outputs", issueText)
+            end
+        end
+    end
+
+    for _, row in ipairs(reagentRows) do
+        if row.frame:IsShown() and row.state then
+            if row.state.countable then
+                reagentCount = reagentCount + 1
+            elseif row.state.any and not row.state.valid and not firstReagentIssue then
+                local issueText = select(1, GetRowStatusPresentation(row.state))
+                firstReagentIssue = string.format("%s: %s", GAM.L["CREATOR_REAGENTS"] or "Reagents", issueText)
+            end
+        end
+    end
+
+    local ok = false
+    local summary
+    if prof == "" then
+        summary = GAM.L["CREATOR_SUMMARY_PROF"] or "Choose a profession."
+    elseif stratName == "" then
+        summary = GAM.L["CREATOR_SUMMARY_NAME"] or "Enter a strategy name."
+    elseif not inputQty or inputQty <= 0 then
+        summary = GAM.L["CREATOR_SUMMARY_QTY"] or "Input quantity must be greater than 0."
+    elseif firstOutputIssue then
+        summary = firstOutputIssue
+    elseif outputCount == 0 then
+        summary = GAM.L["CREATOR_SUMMARY_OUTPUT"] or "Add at least one complete output row."
+    elseif firstReagentIssue then
+        summary = firstReagentIssue
+    elseif reagentCount == 0 then
+        summary = GAM.L["CREATOR_SUMMARY_REAGENT"] or "Add at least one complete reagent row."
+    else
+        ok = true
+        summary = string.format((GAM.L["CREATOR_SUMMARY_READY"] or "Ready to save. %d outputs, %d reagents."),
+            outputCount, reagentCount)
+    end
+
+    frame._formValid = ok
+    frame._validationSummary = summary
+    frame.validationFS:SetText(summary or "")
+    if ok then
+        frame.validationFS:SetTextColor(0.45, 0.95, 0.45)
+        frame.btnSave:Enable()
+    else
+        frame.validationFS:SetTextColor(1.0, 0.35, 0.35)
+        frame.btnSave:Disable()
+    end
+
+    if frame.outputSection and frame.outputSection.addBtn then
+        if GetVisibleRowCount(outputRows) >= MAX_OUTPUTS then
+            frame.outputSection.addBtn:Disable()
+        else
+            frame.outputSection.addBtn:Enable()
+        end
+    end
+
+    if frame.reagentSection and frame.reagentSection.addBtn then
+        if GetVisibleRowCount(reagentRows) >= MAX_REAGENTS then
+            frame.reagentSection.addBtn:Disable()
+        else
+            frame.reagentSection.addBtn:Enable()
+        end
+    end
 end
 
 -- ===== Clear all form fields =====
 
 local function ClearForm()
     if not frame then return end
-    frame.nameEB:SetText("")
-    frame.inputQtyEB:SetText("1000")
-    frame.notesEB:SetText("")
-    frame.customProfEB:SetText("")
+
+    frame.SetProf("")
+    SetEditText(frame.nameEB, "")
+    SetEditText(frame.inputQtyEB, "1000")
+    SetEditText(frame.notesEB, "")
+    SetEditText(frame.customProfEB, "")
     frame.customProfEB:Hide()
-    for _, r in ipairs(outputRows)  do r.nameEB:SetText(""); r.idEB:SetText(""); r.qtyEB:SetText(""); r.frame:Hide() end
-    for _, r in ipairs(reagentRows) do r.nameEB:SetText(""); r.idEB:SetText(""); r.qtyEB:SetText(""); r.frame:Hide() end
-    -- Show first output row by default
-    if outputRows[1] then outputRows[1].frame:Show() end
-    -- Show two reagent rows by default
-    if reagentRows[1] then reagentRows[1].frame:Show() end
-    if reagentRows[2] then reagentRows[2].frame:Show() end
+
+    for _, row in ipairs(outputRows) do
+        ClearRow(row)
+        row.frame:Hide()
+    end
+    for _, row in ipairs(reagentRows) do
+        ClearRow(row)
+        row.frame:Hide()
+    end
+
+    SetVisibleRows(outputRows, 1)
+    SetVisibleRows(reagentRows, 2)
+    ResetScrollPositions()
+    RefreshFormValidation()
 end
 
 -- ===== Populate form from existing strat =====
 
 local function PopulateForm(strat)
     if not frame then return end
+
     ClearForm()
-    frame.SetProf(strat.profession or "")
-    frame.nameEB:SetText(strat.stratName or "")
-    frame.inputQtyEB:SetText(tostring(strat.defaultStartingAmount or 1000))
-    frame.notesEB:SetText(strat.notes or "")
 
-    -- Outputs
+    local profession = strat.profession or ""
+    if profession ~= "" and not IsKnownProfession(profession) then
+        frame.SetProf(GAM.L["CREATOR_CUSTOM_PROF"])
+        SetEditText(frame.customProfEB, profession)
+        frame.customProfEB:Show()
+    else
+        frame.SetProf(profession)
+        SetEditText(frame.customProfEB, "")
+    end
+
+    SetEditText(frame.nameEB, strat.stratName or "")
+    SetEditText(frame.inputQtyEB, tostring(strat.defaultStartingAmount or 1000))
+    SetEditText(frame.notesEB, strat.notes or "")
+
     local outs = strat.outputs or (strat.output and { strat.output } or {})
-    for i, o in ipairs(outs) do
-        if outputRows[i] then
-            outputRows[i].frame:Show()
-            outputRows[i].nameEB:SetText(o.name or "")
-            local id = o.itemIDs and o.itemIDs[1]
-            outputRows[i].idEB:SetText(id and tostring(id) or "")
-            local qty = math.floor((o.qtyMultiplier or 0) * (strat.defaultStartingAmount or 1000) + 0.5)
-            outputRows[i].qtyEB:SetText(qty > 0 and tostring(qty) or "")
+    local outCount = math.max(1, math.min(MAX_OUTPUTS, #outs))
+    SetVisibleRows(outputRows, outCount)
+    for i = 1, outCount do
+        local output = outs[i]
+        if output then
+            local itemID = output.itemIDs and output.itemIDs[1]
+            local qty = math.floor((output.qtyMultiplier or 0) * (strat.defaultStartingAmount or 1000) + 0.5)
+            ApplyRowTexts(outputRows[i], {
+                nameText = output.name or "",
+                idText = itemID and tostring(itemID) or "",
+                qtyText = qty > 0 and tostring(qty) or "",
+                autoFilledName = false,
+                autoFilledID = false,
+            })
         end
     end
 
-    -- Reagents
-    for i, r in ipairs(strat.reagents or {}) do
-        if reagentRows[i] then
-            reagentRows[i].frame:Show()
-            reagentRows[i].nameEB:SetText(r.name or "")
-            local id = r.itemIDs and r.itemIDs[1]
-            reagentRows[i].idEB:SetText(id and tostring(id) or "")
-            local qty = math.floor((r.qtyMultiplier or 0) * (strat.defaultStartingAmount or 1000) + 0.5)
-            reagentRows[i].qtyEB:SetText(qty > 0 and tostring(qty) or "")
+    local reags = strat.reagents or {}
+    local reagentCount = math.max(1, math.min(MAX_REAGENTS, math.max(#reags, 2)))
+    SetVisibleRows(reagentRows, reagentCount)
+    for i = 1, reagentCount do
+        local reagent = reags[i]
+        if reagent then
+            local itemID = reagent.itemIDs and reagent.itemIDs[1]
+            local qty = math.floor((reagent.qtyMultiplier or 0) * (strat.defaultStartingAmount or 1000) + 0.5)
+            ApplyRowTexts(reagentRows[i], {
+                nameText = reagent.name or "",
+                idText = itemID and tostring(itemID) or "",
+                qtyText = qty > 0 and tostring(qty) or "",
+                autoFilledName = false,
+                autoFilledID = false,
+            })
         end
     end
+
+    ResetScrollPositions()
+    RefreshFormValidation()
 end
 
 -- ===== Public API =====
@@ -997,6 +1629,7 @@ function SC.Show()
     ClearForm()
     frame.titleText:SetText(GAM.L["CREATOR_TITLE"])
     frame.btnDelete:Hide()
+    if frame.RelayoutButtons then frame.RelayoutButtons() end
     if frame.SetEditSelectorVisible then frame.SetEditSelectorVisible(false) end
     if frame.RefreshEditDropdown then frame.RefreshEditDropdown(nil) end
     frame:Show()
@@ -1014,6 +1647,7 @@ function SC.SelectEditIndex(index)
     PopulateForm(strat)
     frame.titleText:SetText((GAM.L and GAM.L["CREATOR_EDIT_TITLE"]) or "Edit Strategy")
     frame.btnDelete:Show()
+    if frame.RelayoutButtons then frame.RelayoutButtons() end
     if frame.SetEditSelectorVisible then frame.SetEditSelectorVisible(true) end
     if frame.RefreshEditDropdown then frame.RefreshEditDropdown(index) end
     frame:Show()
@@ -1023,7 +1657,8 @@ end
 function SC.ShowEditPicker()
     local userStrats = GetUserStrats()
     if #userStrats == 0 then
-        print("|cffff8800[GAM]|r " .. ((GAM.L and GAM.L["MSG_NO_USER_STRATS"]) or "No user-created strategies found. Opening Create Strategy."))
+        print("|cffff8800[GAM]|r " .. ((GAM.L and GAM.L["MSG_NO_USER_STRATS"]) or
+            "No user-created strategies found. Opening Create Strategy."))
         SC.Show()
         return
     end
@@ -1056,4 +1691,73 @@ end
 
 function SC.Hide()
     if frame then frame:Hide() end
+end
+
+function SC.RunSmokeChecks()
+    local ok, err = pcall(function()
+        local single = LookupLocalItemIDs("Mote of Light")
+        assert(single.kind == "single" and single.id == 236949, "single-match local lookup failed")
+
+        local ambiguous = LookupLocalItemIDs("Dawn Crystal")
+        assert(ambiguous.kind == "ambiguous" and type(ambiguous.ids) == "table" and #ambiguous.ids >= 2,
+            "ambiguous local lookup failed")
+
+        local unknown = LookupLocalItemIDs("Definitely Not A Real Item")
+        assert(unknown.kind == "none", "unknown local lookup should be none")
+
+        local resolvedName = ResolveLocalItemName(236949)
+        assert(resolvedName == "Mote of Light", "itemID -> name lookup failed")
+
+        local freeform = AnalyzeRowValues({
+            nameText = "Custom Herb Mix",
+            idText = "",
+            qtyText = "5",
+            lookupResult = { kind = "none" },
+            resolvedName = nil,
+        })
+        assert(freeform.valid and freeform.countable and freeform.kind == "freeform",
+            "freeform row should be valid")
+
+        local partial = AnalyzeRowValues({
+            nameText = "Mote of Light",
+            idText = "",
+            qtyText = "",
+            lookupResult = { kind = "single", id = 236949 },
+            resolvedName = nil,
+        })
+        assert(partial.any and not partial.valid and partial.invalidReason == "finish",
+            "partial row should be invalid")
+
+        local qtyInvalid = AnalyzeRowValues({
+            nameText = "Mote of Light",
+            idText = "",
+            qtyText = "0",
+            lookupResult = { kind = "single", id = 236949 },
+            resolvedName = nil,
+        })
+        assert(not qtyInvalid.valid and qtyInvalid.invalidReason == "qty",
+            "qty validation failed")
+
+        local encoded = SC.EncodeStrat({
+            profession = "Alchemy",
+            stratName = "Smoke Test",
+            patchTag = GAM.C.DEFAULT_PATCH,
+            defaultStartingAmount = 1000,
+            outputs = {
+                { name = "Mote of Light", itemIDs = { 236949 }, qtyMultiplier = 0.1 },
+            },
+            reagents = {
+                { name = "Custom Herb Mix", itemIDs = {}, qtyMultiplier = 1.25 },
+            },
+            notes = "Smoke",
+        })
+
+        local decoded = SC.DecodeStrat(encoded)
+        assert(decoded and decoded.stratName == "Smoke Test", "encode/decode stratName mismatch")
+        assert(decoded.output and decoded.output.itemIDs and decoded.output.itemIDs[1] == 236949,
+            "encode/decode output mismatch")
+        assert(decoded.reagents and decoded.reagents[1] and decoded.reagents[1].name == "Custom Herb Mix",
+            "encode/decode reagent mismatch")
+    end)
+    return ok, err
 end
