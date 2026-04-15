@@ -21,6 +21,7 @@ local PANEL_TOGGLE_GAP = 10   -- px gap between left/right panels and center for
 -- Color constants (module-local)
 local C_GR, C_GG, C_GB = 1.0, 0.82, 0.0        -- gold
 local C_DR, C_DG, C_DB, C_DA = 0.7, 0.57, 0.0, 0.7  -- dimmed gold (rules)
+local WindowManager = GAM.UI.WindowManager
 local Common = GAM.UI.MainWindowV2Common
 local DetailUI = GAM.UI.MainWindowV2Detail
 local LeftPanelUI = GAM.UI.MainWindowV2LeftPanel
@@ -221,6 +222,8 @@ local RefreshBestStratCard
 local RelayoutPanels
 local ToggleCompactMode
 local RefreshCompactButtonEnabledState
+local RefreshScanButtonLabels
+local ScanVisibleFavoriteStrats
 local ShowInlineDetail
 local SelectStrategyByID
 
@@ -248,6 +251,10 @@ local function ToggleFavorite(id)
 end
 
 local function GetL() return GAM.L end
+
+local function IsShiftScanModifierActive()
+    return IsShiftKeyDown and IsShiftKeyDown()
+end
 
 local function RememberWindowState(isOpen)
     SetOption("lastAHWindowOpen", isOpen and true or false)
@@ -497,15 +504,6 @@ local function ApplyTheme()
     end
 end
 
-local function PresentTop(frameObj)
-    if not frameObj then
-        return
-    end
-    frameObj:SetFrameStrata("TOOLTIP")
-    frameObj:SetToplevel(true)
-    frameObj:Raise()
-end
-
 local function BuildDiscordPopup(L)
     discordPopup = CreateFrame("Frame", "GAMDiscordPopup", UIParent, "BackdropTemplate")
     discordPopup:SetSize(440, 150)
@@ -525,6 +523,7 @@ local function BuildDiscordPopup(L)
     })
     discordPopup:SetBackdropColor(0, 0, 0, 1)
     discordPopup:Hide()
+    WindowManager.Register(discordPopup, "modal")
 
     local title = discordPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", discordPopup, "TOP", 0, -14)
@@ -576,7 +575,7 @@ local function ShowDiscordPopup(L)
     discordPopup:SetScale(GetUIScale())
     discordPopup.editBox:SetText(DISCORD_INVITE_URL)
     discordPopup:Show()
-    PresentTop(discordPopup)
+    WindowManager.Present(discordPopup)
     discordPopup.editBox:SetFocus()
     discordPopup.editBox:HighlightText()
 end
@@ -811,6 +810,9 @@ local function FinalizeBuildOnShow(sb, C)
         end
         if leftPanel and leftPanel.refreshStatEditors then
             leftPanel.refreshStatEditors()
+        end
+        if RefreshScanButtonLabels then
+            RefreshScanButtonLabels()
         end
         RefreshCompactButtonEnabledState()
         if not opts.hasSeenOnboarding then
@@ -1170,6 +1172,17 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     GAM.AHScan.StartScan()
 end
 
+local function ScanSelectedStrategyAction(strat, patchTag, callback)
+    if not strat then
+        return
+    end
+    if IsShiftScanModifierActive() then
+        ScanVisibleFavoriteStrats()
+        return
+    end
+    ScanSingleStrategy(strat, patchTag, callback)
+end
+
 UpdateCollapseButtonAnchors = function()
     if not frame or not centerPanelShell then return end
     local opts = GetOpts()
@@ -1261,6 +1274,9 @@ RebuildList = function()
         GetListMetric(s)
     end
     scrollOffset = 0
+    if RefreshScanButtonLabels then
+        RefreshScanButtonLabels()
+    end
 end
 
 -- ===== DoScan =====
@@ -1283,6 +1299,66 @@ local function DoScan()
     GAM.AHScan.StartScan()
 end
 
+local function GetVisibleFavoriteStrats()
+    local favorites = {}
+    for _, strat in ipairs(filteredList or {}) do
+        if strat and strat.id and IsFavorite(strat.id) then
+            favorites[#favorites + 1] = strat
+        end
+    end
+    return favorites
+end
+
+ScanVisibleFavoriteStrats = function()
+    local L = GetL()
+    if not GAM.AHScan then
+        return
+    end
+    if not GAM.ahOpen then
+        print("|cffff8800[GAM]|r " .. (L and L["ERR_NO_AH"] or "Open the Auction House first."))
+        return
+    end
+
+    local favorites = GetVisibleFavoriteStrats()
+    if #favorites == 0 then
+        print("|cffff8800[GAM]|r " .. ((L and L["MSG_NO_VISIBLE_FAVORITES_TO_SCAN"]) or "No visible favorites to scan."))
+        return
+    end
+
+    GAM.AHScan.StopScan()
+    GAM.AHScan.ResetQueue()
+    GAM.AHScan.QueueStratListItems(favorites, filterPatch)
+    GAM.AHScan.StartScan()
+end
+
+RefreshScanButtonLabels = function()
+    local L = GetL()
+    local shiftActive = IsShiftScanModifierActive()
+
+    if scanBtnLeft then
+        local mainLabel = scanning
+            and ((L and L["BTN_SCAN_STOP"]) or "Stop Scan")
+            or (shiftActive
+                and ((L and L["BTN_SCAN_EVERYTHING"]) or "Scan Everything")
+                or ((L and L["BTN_SCAN_ALL"]) or "Scan All"))
+        scanBtnLeft:SetText(mainLabel)
+    end
+
+    if selectedScanBtn then
+        local selectedLabel = shiftActive
+            and ((L and L["BTN_SCAN_FAVS"]) or "Scan Favs")
+            or ((L and L["BTN_SCAN_SELECTED"]) or "Scan Selected Strat")
+        selectedScanBtn:SetText(selectedLabel)
+    end
+
+    if rpDetail and rpDetail.btnScanStrat then
+        local detailLabel = shiftActive
+            and ((L and L["BTN_SCAN_FAVS"]) or "Scan Favs")
+            or ((L and L["BTN_SCAN_STRAT"]) or "Scan Strat")
+        rpDetail.btnScanStrat:SetText(detailLabel)
+    end
+end
+
 local function SetScanningState(isScanning)
     scanning = isScanning
     local L = GetL()
@@ -1290,12 +1366,14 @@ local function SetScanningState(isScanning)
         and (L and L["BTN_SCAN_STOP"] or "Stop")
         or  (L and L["BTN_SCAN_ALL"]  or "Scan AH")
     if scanBtnLeft then
-        scanBtnLeft:SetText(lbl)
         scanBtnLeft:Enable()
     end
     if scanBtnStatus then
         scanBtnStatus:SetText(lbl)
         scanBtnStatus:Enable()
+    end
+    if RefreshScanButtonLabels then
+        RefreshScanButtonLabels()
     end
 end
 
@@ -1627,6 +1705,9 @@ local function HideInlineDetail()
             if leftPanel and leftPanel.refreshStatEditors then
                 leftPanel.refreshStatEditors()
             end
+            if RefreshScanButtonLabels then
+                RefreshScanButtonLabels()
+            end
         end,
     })
 end
@@ -1670,12 +1751,18 @@ ShowInlineDetail = function(strat, patchTag)
             if leftPanel and leftPanel.refreshStatEditors then
                 leftPanel.refreshStatEditors()
             end
+            if RefreshScanButtonLabels then
+                RefreshScanButtonLabels()
+            end
         end,
     })
     if DetailUI and DetailUI.ShowBreakdownWindow and ShouldShowVIBreakdown() then
         DetailUI.ShowBreakdownWindow(strat, patchTag, rendered)
     elseif DetailUI and DetailUI.HideBreakdownWindow then
         DetailUI.HideBreakdownWindow()
+    end
+    if RefreshScanButtonLabels then
+        RefreshScanButtonLabels()
     end
     return rendered
 end
@@ -1720,53 +1807,17 @@ local function BuildInlineDetail(panel)
         end,
         onScanSelected = function()
             if not rpDetail.currentStrat then return end
-            local strat = rpDetail.currentStrat
-            local patchTag = rpDetail.currentPatch
-            local displayedMetrics = rpDetail.metrics
-            if displayedMetrics and displayedMetrics.reagents and #displayedMetrics.reagents > 0 then
-                if not GAM.ahOpen then
-                    local L = GetL()
-                    print("|cffff8800[GAM]|r " .. (L and L["ERR_NO_AH"] or "Open the Auction House first."))
-                    return
-                end
-                GAM.AHScan.StopScan()
-                GAM.AHScan.ResetQueue()
-                local seenIDs = {}
-                local seenNames = {}
-                local function queueDisplayed(item)
-                    if not item then return end
-                    local itemName = item.name or item.itemRef
-                    local ids = item.itemIDs
-                    if ids and #ids > 0 then
-                        for _, id in ipairs(ids) do
-                            if not seenIDs[id] then
-                                seenIDs[id] = true
-                                GAM.AHScan.QueueItemScan(id, function() ShowInlineDetail(strat, patchTag) end)
-                            end
-                        end
-                    else
-                        if not itemName then return end
-                        local nameKey = itemName .. "@" .. tostring(patchTag or GAM.C.DEFAULT_PATCH)
-                        if not seenNames[nameKey] then
-                            seenNames[nameKey] = true
-                            GAM.AHScan.QueueNameScan(itemName, patchTag, function() ShowInlineDetail(strat, patchTag) end)
-                        end
-                    end
-                end
-                local displayed = (GAM.Pricing and GAM.Pricing.GetDisplayedItemSet and GAM.Pricing.GetDisplayedItemSet(strat, patchTag, displayedMetrics)) or strat
-                queueDisplayed(displayed.output)
-                for _, output in ipairs(displayed.outputs or {}) do queueDisplayed(output) end
-                for _, reagent in ipairs(displayed.reagents or {}) do queueDisplayed(reagent) end
-                local extraScanItems = (GAM.Pricing and GAM.Pricing.GetExtraScanItems and GAM.Pricing.GetExtraScanItems(strat, patchTag)) or {}
-                for _, extra in ipairs(extraScanItems) do queueDisplayed(extra) end
-                GAM.AHScan.StartScan()
-                return
-            end
-            ScanSingleStrategy(strat, patchTag, function() ShowInlineDetail(strat, patchTag) end)
+            ScanSelectedStrategyAction(
+                rpDetail.currentStrat,
+                rpDetail.currentPatch,
+                function() ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch) end)
         end,
         onPushCraftSim = function()
             if not rpDetail.currentStrat then return end
-            local pushed, err = GAM.CraftSimBridge.PushStratPrices(rpDetail.currentStrat, rpDetail.currentPatch)
+            local pushed, err = GAM.CraftSimBridge.PushStratPrices(
+                rpDetail.currentStrat,
+                rpDetail.currentPatch,
+                rpDetail.metrics)
             if err then
                 print("|cffff8800[GAM]|r CraftSim: " .. tostring(err))
             else
@@ -1860,7 +1911,7 @@ local function BuildLeftPanelContent(L, C, LP)
         doScan = DoScan,
         scanSelectedStrat = function()
             if not rpDetail.currentStrat then return end
-            ScanSingleStrategy(
+            ScanSelectedStrategyAction(
                 rpDetail.currentStrat,
                 rpDetail.currentPatch,
                 function() ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch) end
@@ -1871,7 +1922,10 @@ local function BuildLeftPanelContent(L, C, LP)
         end,
         pushSelectedToCraftSim = function()
             if not rpDetail.currentStrat then return end
-            local pushed, err = GAM.CraftSimBridge.PushStratPrices(rpDetail.currentStrat, rpDetail.currentPatch)
+            local pushed, err = GAM.CraftSimBridge.PushStratPrices(
+                rpDetail.currentStrat,
+                rpDetail.currentPatch,
+                rpDetail.metrics)
             if err then
                 print("|cffff8800[GAM]|r CraftSim: " .. tostring(err))
             else
@@ -1933,16 +1987,21 @@ local function InitializeMainFrame(L, C, layout)
     frame:SetScale(GetOpts().uiScale or 1.0)
     frame:SetMovable(true)
     frame:EnableMouse(true)
+    frame:RegisterEvent("MODIFIER_STATE_CHANGED")
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
     frame:SetScript("OnHide", function()
         DisableShoppingSync(true)
     end)
-    frame:SetFrameStrata("MEDIUM")
-    frame:SetToplevel(true)
+    frame:SetScript("OnEvent", function(_, event)
+        if event == "MODIFIER_STATE_CHANGED" and RefreshScanButtonLabels then
+            RefreshScanButtonLabels()
+        end
+    end)
     frame:SetClampedToScreen(true)
     frame:Hide()
+    WindowManager.Register(frame, "main")
 
     SafeBuildSection("Frame header", function()
         BuildFrameHeader(L, C, HDR_PX)
@@ -2298,6 +2357,7 @@ function MW2.Show()
     end
     RememberWindowState(true)
     frame:Show()
+    WindowManager.Present(frame)
 end
 
 function MW2.Hide(preserveRememberedState)

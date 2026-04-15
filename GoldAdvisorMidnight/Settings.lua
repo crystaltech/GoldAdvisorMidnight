@@ -10,6 +10,7 @@ local BlizzardSettingsAPI = Settings
 
 local SettingsMod = {}
 GAM.Settings = SettingsMod
+local WindowManager = GAM.UI.WindowManager
 
 local panel          -- plain canvas frame (registered with Blizzard)
 local wrapper        -- standalone popup wrapper (only built on Blizzard API failure)
@@ -913,7 +914,6 @@ function SettingsMod.Init()
         wrapper:RegisterForDrag("LeftButton")
         wrapper:SetScript("OnDragStart", wrapper.StartMoving)
         wrapper:SetScript("OnDragStop",  wrapper.StopMovingOrSizing)
-        wrapper:SetFrameStrata("DIALOG")
         wrapper:SetBackdrop({
             bgFile   = "Interface\\Buttons\\WHITE8X8",
             edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -925,6 +925,7 @@ function SettingsMod.Init()
         wbg:SetAllPoints()
         wbg:SetColorTexture(0, 0, 0, 1)
         wrapper:Hide()
+        WindowManager.Register(wrapper, "dialog")
 
         local wTitle = wrapper:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
         wTitle:SetPoint("TOP", wrapper, "TOP", 0, -14)
@@ -952,7 +953,12 @@ function SettingsMod.Toggle()
         return
     end
     if wrapper then
-        if wrapper:IsShown() then wrapper:Hide() else wrapper:Show() end
+        if wrapper:IsShown() then
+            wrapper:Hide()
+        else
+            wrapper:Show()
+            WindowManager.Present(wrapper)
+        end
     elseif panel then
         if panel:IsShown() then panel:Hide() else panel:Show() end
     end
@@ -965,6 +971,7 @@ function SettingsMod.Show()
     end
     if wrapper then
         wrapper:Show()
+        WindowManager.Present(wrapper)
     elseif panel then
         panel:Show()
     end
@@ -1013,6 +1020,7 @@ function SettingsMod.OpenPanel()
     -- Fallback: show standalone directly (no Toggle call — avoids any recursion)
     if wrapper then
         wrapper:Show()
+        WindowManager.Present(wrapper)
     elseif panel then
         panel:Show()
     end

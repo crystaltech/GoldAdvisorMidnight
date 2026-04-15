@@ -973,7 +973,14 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             creatorOK, creatorErr = false, "Strategy creator smoke checks unavailable"
         end
 
-        if pricingOK and scanOK and stateOK and creatorOK then
+        local bridgeOK, bridgeErr
+        if GAM.CraftSimBridge and GAM.CraftSimBridge.RunSmokeChecks then
+            bridgeOK, bridgeErr = GAM.CraftSimBridge.RunSmokeChecks()
+        else
+            bridgeOK, bridgeErr = false, "CraftSim bridge smoke checks unavailable"
+        end
+
+        if pricingOK and scanOK and stateOK and creatorOK and bridgeOK then
             print("|cffff8800[GAM]|r Smoke tests passed.")
         else
             if not pricingOK then
@@ -987,6 +994,9 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             end
             if not creatorOK then
                 print("|cffff0000[GAM]|r Strategy creator smoke test failed: " .. tostring(creatorErr))
+            end
+            if not bridgeOK then
+                print("|cffff0000[GAM]|r CraftSim bridge smoke test failed: " .. tostring(bridgeErr))
             end
         end
     elseif cmd == "create" then

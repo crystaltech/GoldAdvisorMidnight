@@ -593,8 +593,8 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 6000.000000,
     },
     {
-      itemRef = "Mana Lily",
-      itemIDs = { 236778, 236779 },
+      itemRef = "Argentleaf",
+      itemIDs = { 236776, 236777 },
       qtyPerCraft = 3.000000,
       qtyPerStart = 1.500000,
       workbookTotalQty = 3000.000000,

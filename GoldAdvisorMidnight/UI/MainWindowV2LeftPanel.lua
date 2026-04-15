@@ -703,6 +703,11 @@ function LeftPanelUI.Build(args)
     selectedScanBtn:Disable()
     selectedScanBtn:SetAlpha(0.45)
     selectedScanBtn:SetScript("OnClick", scanSelectedStrat)
+    attachButtonTooltip(
+        selectedScanBtn,
+        (L and L["TT_SCAN_SELECTED_TITLE"]) or "Scan Selected Strategy",
+        (L and L["TT_SCAN_SELECTED_BODY"]) or "Queue the selected strategy's reagents and output items for AH price lookups. Shift-click to scan only the currently visible favorites."
+    )
 
     local filterProfSet = buildPlayerProfessionSet()
     if hasAnyEntries(filterProfSet) then

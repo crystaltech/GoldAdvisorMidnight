@@ -7,6 +7,7 @@
 local ADDON_NAME, GAM = ...
 local SD = {}
 GAM.UI.StratDetail = SD
+local WindowManager = GAM.UI.WindowManager
 
 local WIN_W, WIN_H = 720, 720
 local ROW_H        = 22
@@ -194,8 +195,6 @@ local function BuildConfirmFrame()
     confirmFrame:SetSize(300, 130)
     confirmFrame:SetPoint("CENTER")
     confirmFrame:SetScale(GetUIScale())
-    confirmFrame:SetFrameStrata("TOOLTIP")
-    confirmFrame:SetToplevel(true)
     confirmFrame:EnableMouse(true)
     confirmFrame:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
@@ -208,6 +207,7 @@ local function BuildConfirmFrame()
     bgTex:SetAllPoints()
     bgTex:SetColorTexture(0, 0, 0, 1)
     confirmFrame:Hide()
+    WindowManager.Register(confirmFrame, "modal")
 
     local msg = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     msg:SetPoint("TOP", confirmFrame, "TOP", 0, -22)
@@ -268,6 +268,7 @@ local function ShowDeleteConfirm(strat)
         if frame then frame:Hide() end
     end)
     confirmFrame:Show()
+    WindowManager.Present(confirmFrame)
 end
 
 function SD.ConfirmDeleteStrat(strat)
@@ -725,10 +726,6 @@ local function Build()
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
-    -- DIALOG renders above HIGH (where Blizzard widget frames live).
-    -- SetToplevel raises frame level within DIALOG when clicked.
-    frame:SetFrameStrata("DIALOG")
-    frame:SetToplevel(true)
     frame:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -741,6 +738,7 @@ local function Build()
     bgTex:SetAllPoints()
     bgTex:SetColorTexture(0, 0, 0, 1)
     frame:Hide()
+    WindowManager.Register(frame, "dialog")
 
     -- Title
     local titleFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -993,7 +991,7 @@ local function Build()
     btnCraftSim:SetText(L["BTN_PUSH_CRAFTSIM"])
     btnCraftSim:SetScript("OnClick", function()
         if not currentStrat then return end
-        local pushed, err = GAM.CraftSimBridge.PushStratPrices(currentStrat, currentPatch)
+        local pushed, err = GAM.CraftSimBridge.PushStratPrices(currentStrat, currentPatch, metricsCache)
         if err then
             print("|cffff8800[GAM]|r CraftSim push failed: " .. err)
         elseif pushed == 0 then
@@ -1183,6 +1181,7 @@ function SD.Show(strat, patchTag)
     end
     SD.Refresh()
     frame:Show()
+    WindowManager.Present(frame)
 end
 
 function SD.Refresh()

@@ -414,19 +414,129 @@ function Bridge.SyncNodeBonusesFromCraftSim()
     return count or 0
 end
 
--- PushStratPrices(strat, patchTag) → pushed (number), err (string or nil)
--- Writes every cached AH price for this strat's items into CraftSim's global
--- price overrides (CraftSimDB.priceOverrideDB.data.globalOverrides).
--- Covers all reagent itemIDs and all output itemIDs (all ranks).
-function Bridge.PushStratPrices(strat, patchTag)
+local function GetResolvedItemIDs(item, pdb)
+    if not item then return {} end
+    local ids = item.itemIDs
+    local label = item.name or item.itemRef
+    if (not ids or #ids == 0) and label then
+        ids = pdb.rankGroups[label] or {}
+    end
+    return ids or {}
+end
+
+local function NormalizeQuantity(qty)
+    local n = tonumber(qty)
+    if not n or n <= 0 then
+        return nil
+    end
+    return math.max(1, math.floor(n + 0.5))
+end
+
+local function GetDirectOverridePrice(itemID, patchTag, qty)
+    if not itemID then return nil end
+
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    local pdb = GAM:GetPatchDB(patchTag)
+    if pdb.priceOverrides and pdb.priceOverrides[itemID] ~= nil then
+        return pdb.priceOverrides[itemID]
+    end
+
+    if GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID] then
+        return GAM.C.VENDOR_PRICES[itemID]
+    end
+
+    local targetQty = NormalizeQuantity(qty)
+    if targetQty and GAM.AHScan and GAM.AHScan.ComputePriceForQty then
+        local liveAvg = GAM.AHScan.ComputePriceForQty(itemID, targetQty)
+        if liveAvg then
+            return math.floor(liveAvg)
+        end
+    end
+
+    if GAM.Pricing and GAM.Pricing.GetUnitPrice then
+        return GAM.Pricing.GetUnitPrice(itemID)
+    end
+    return nil
+end
+
+local function AddPushOverrideEntry(entries, seen, itemID, price)
+    if not itemID or seen[itemID] or not price or price <= 0 then
+        return false
+    end
+
+    seen[itemID] = true
+    entries[#entries + 1] = {
+        itemID = itemID,
+        price = price,
+    }
+    return true
+end
+
+local function GetOutputPushQty()
+    local fillQty = tonumber(GetOpts().shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
+    return math.max(1, math.floor(fillQty + 0.5))
+end
+
+local function BuildPushOverrideEntries(strat, patchTag, metrics)
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    local pdb = GAM:GetPatchDB(patchTag)
+    local active = (GAM.Pricing and GAM.Pricing.GetActiveRecipeView and GAM.Pricing.GetActiveRecipeView(strat)) or strat
+    local entries = {}
+    local seen = {}
+
+    local function PushIDs(itemIDs, qty)
+        for _, id in ipairs(itemIDs or {}) do
+            AddPushOverrideEntry(entries, seen, id, GetDirectOverridePrice(id, patchTag, qty))
+        end
+    end
+
+    local reagentRows = metrics and metrics.costReagents
+    if reagentRows and #reagentRows > 0 then
+        for _, reagent in ipairs(reagentRows) do
+            local itemIDs = reagent.sourceItemIDs
+            if (not itemIDs or #itemIDs == 0) and reagent.itemID then
+                itemIDs = { reagent.itemID }
+            end
+            PushIDs(itemIDs, reagent.required)
+        end
+    else
+        for _, reagent in ipairs(active.reagents or {}) do
+            PushIDs(GetResolvedItemIDs(reagent, pdb), nil)
+        end
+    end
+
+    local outputQty = GetOutputPushQty()
+    local function PushOutput(item)
+        PushIDs(GetResolvedItemIDs(item, pdb), outputQty)
+    end
+
+    PushOutput(active.output)
+    if active.outputs and #active.outputs > 0 then
+        for _, output in ipairs(active.outputs) do
+            PushOutput(output)
+        end
+    else
+        PushOutput(active.output)
+    end
+
+    return entries
+end
+
+-- PushStratPrices(strat, patchTag, metrics) → pushed (number), err (string or nil)
+-- Writes direct AH-backed prices for this strat's active items into CraftSim's
+-- global overrides (CraftSimDB.priceOverrideDB.data.globalOverrides).
+-- Reagents use the resolved displayed reagent set plus their required quantities;
+-- outputs keep broad rank coverage using the current fill-qty pricing basis.
+function Bridge.PushStratPrices(strat, patchTag, metrics)
     if not CraftSimDBAvailable() then
         return 0, "CraftSim not loaded"
     end
     if not strat then return 0, "no strat" end
 
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    local pdb = GAM:GetPatchDB(patchTag)
-    local active = (GAM.Pricing and GAM.Pricing.GetActiveRecipeView and GAM.Pricing.GetActiveRecipeView(strat)) or strat
+    if not metrics and GAM.Pricing and GAM.Pricing.CalculateStratMetrics then
+        metrics = GAM.Pricing.CalculateStratMetrics(strat, patchTag)
+    end
 
     -- Ensure DB structure exists
     CraftSimDB.priceOverrideDB            = CraftSimDB.priceOverrideDB or {}
@@ -435,45 +545,183 @@ function Bridge.PushStratPrices(strat, patchTag)
     CraftSimDB.priceOverrideDB.data.globalOverrides = overrides
 
     local pushed = 0
-    local pushedIDs = {}
 
-    local function PushItem(item)
-        if not item then return end
-        local ids = item.itemIDs
-        if (not ids or #ids == 0) and item.name then
-            ids = pdb.rankGroups[item.name] or {}
-        end
-        if not ids then return end
-        for _, id in ipairs(ids) do
-            if not pushedIDs[id] then
-                -- Respect manual price overrides so CraftSim receives the same price
-                -- GAM used in its calculations, not just the raw AH cache value.
-                local price
-                if pdb.priceOverrides and pdb.priceOverrides[id] ~= nil then
-                    price = pdb.priceOverrides[id]
-                else
-                    price = GAM.Pricing.GetUnitPrice(id)
-                end
-                if price and price > 0 then
-                    pushedIDs[id] = true
-                    overrides[id] = { itemID = id, price = price }
-                    pushed = pushed + 1
-                end
-            end
-        end
-    end
-
-    -- Push the active strat item set (respecting rank policy), not expanded raw-mat
-    -- metrics, so CraftSim overrides stay attached to the strat's actual reagent items.
-    for _, r in ipairs(active.reagents or {}) do
-        PushItem(r)
-    end
-    PushItem(active.output)
-    if active.outputs and #active.outputs > 0 then
-        for _, o in ipairs(active.outputs) do PushItem(o) end
-    else
-        PushItem(active.output)
+    for _, entry in ipairs(BuildPushOverrideEntries(strat, patchTag, metrics)) do
+        overrides[entry.itemID] = {
+            itemID = entry.itemID,
+            price = entry.price,
+        }
+        pushed = pushed + 1
     end
 
     return pushed, nil
+end
+
+local function FindPushOverrideEntry(entries, itemID)
+    for _, entry in ipairs(entries or {}) do
+        if entry.itemID == itemID then
+            return entry
+        end
+    end
+    return nil
+end
+
+function Bridge.RunSmokeChecks()
+    local originalGetPatchDB = GAM.GetPatchDB
+    local originalGetOptions = GAM.GetOptions
+    local originalAHScan = GAM.AHScan
+    local originalGetUnitPrice = GAM.Pricing and GAM.Pricing.GetUnitPrice
+    local originalGetActiveRecipeView = GAM.Pricing and GAM.Pricing.GetActiveRecipeView
+    local originalVendorPrices = GAM.C.VENDOR_PRICES
+    local fakePDB = {
+        rankGroups = {},
+        priceOverrides = {},
+    }
+    local fakeOpts = {
+        shallowFillQty = 50,
+        priceSource = "craftsim",
+    }
+    local cachedPrices = {
+        [51001] = 111,
+        [51002] = 112,
+        [52001] = 211,
+        [52002] = 212,
+        [53001] = 311,
+        [53101] = 411,
+    }
+    local livePrices = {
+        [51001] = { [1000] = 4101 },
+        [51002] = { [1000] = 4102 },
+        [52001] = { [50] = 5201 },
+        [52002] = { [50] = 5202 },
+        [53001] = { [25] = 6301 },
+        [53002] = { [25] = 6302 },
+    }
+
+    local function RestoreState()
+        GAM.GetPatchDB = originalGetPatchDB
+        GAM.GetOptions = originalGetOptions
+        GAM.AHScan = originalAHScan
+        if GAM.Pricing then
+            GAM.Pricing.GetUnitPrice = originalGetUnitPrice
+            GAM.Pricing.GetActiveRecipeView = originalGetActiveRecipeView
+        end
+        GAM.C.VENDOR_PRICES = originalVendorPrices
+    end
+
+    local ok, err = pcall(function()
+        GAM.GetPatchDB = function() return fakePDB end
+        GAM.GetOptions = function() return fakeOpts end
+        GAM.AHScan = {
+            ComputePriceForQty = function(itemID, qty)
+                local byQty = livePrices[itemID]
+                return byQty and byQty[qty] or nil
+            end,
+        }
+        GAM.C.VENDOR_PRICES = {}
+        if not GAM.Pricing then
+            error("Pricing module unavailable")
+        end
+        GAM.Pricing.GetUnitPrice = function(itemID)
+            return cachedPrices[itemID], false
+        end
+        GAM.Pricing.GetActiveRecipeView = function(strat)
+            return strat
+        end
+
+        local strat = {
+            id = "bridge_smoke",
+            reagents = {
+                { itemRef = "Original Reagent", itemIDs = { 51001, 51002 } },
+            },
+            output = { itemRef = "Output", itemIDs = { 52001, 52002 } },
+            outputs = {
+                { itemRef = "Output", itemIDs = { 52001, 52002 } },
+            },
+        }
+        local metrics = {
+            costReagents = {
+                {
+                    name = "Original Reagent",
+                    itemID = 51001,
+                    sourceItemIDs = { 51001, 51002 },
+                    required = 1000,
+                },
+            },
+            reagents = {
+                {
+                    name = "Expanded Leaf",
+                    itemID = 59999,
+                    sourceItemIDs = { 59999 },
+                    required = 4000,
+                },
+            },
+        }
+
+        local entries = BuildPushOverrideEntries(strat, GAM.C.DEFAULT_PATCH, metrics)
+        assert((FindPushOverrideEntry(entries, 51001) or {}).price == 4101,
+            "qty-aware reagent push failed")
+        assert((FindPushOverrideEntry(entries, 51002) or {}).price == 4102,
+            "qty-aware reagent rank coverage failed")
+        assert((FindPushOverrideEntry(entries, 52001) or {}).price == 5201,
+            "output fill-qty push failed")
+        assert((FindPushOverrideEntry(entries, 52002) or {}).price == 5202,
+            "output rank coverage failed")
+        assert(not FindPushOverrideEntry(entries, 59999),
+            "VI leaf rows leaked into CraftSim push")
+
+        fakePDB.priceOverrides[51001] = 9901
+        entries = BuildPushOverrideEntries(strat, GAM.C.DEFAULT_PATCH, metrics)
+        assert((FindPushOverrideEntry(entries, 51001) or {}).price == 9901,
+            "manual override precedence failed")
+        fakePDB.priceOverrides[51001] = nil
+
+        GAM.C.VENDOR_PRICES[51001] = 8801
+        entries = BuildPushOverrideEntries(strat, GAM.C.DEFAULT_PATCH, metrics)
+        assert((FindPushOverrideEntry(entries, 51001) or {}).price == 8801,
+            "vendor precedence failed")
+        GAM.C.VENDOR_PRICES[51001] = nil
+
+        local cheapestStrat = {
+            id = "bridge_smoke_cheapest",
+            reagents = {
+                { itemRef = "Cheapest Pool", itemIDs = { 54001, 54002 } },
+            },
+            output = { itemRef = "Cheapest Output", itemIDs = { 53101 } },
+            outputs = {
+                { itemRef = "Cheapest Output", itemIDs = { 53101 } },
+            },
+        }
+        local cheapestMetrics = {
+            costReagents = {
+                {
+                    name = "Chosen Alternative",
+                    itemID = 53001,
+                    sourceItemIDs = { 53001, 53002 },
+                    required = 25,
+                    selectedAlternativeItemID = 53001,
+                },
+            },
+            reagents = {
+                {
+                    name = "Expanded Cheapest Leaf",
+                    itemID = 54999,
+                    sourceItemIDs = { 54999 },
+                    required = 100,
+                },
+            },
+        }
+        entries = BuildPushOverrideEntries(cheapestStrat, GAM.C.DEFAULT_PATCH, cheapestMetrics)
+        assert((FindPushOverrideEntry(entries, 53001) or {}).price == 6301,
+            "selected cheapest alternative price failed")
+        assert((FindPushOverrideEntry(entries, 53002) or {}).price == 6302,
+            "selected cheapest alternative rank coverage failed")
+        assert(not FindPushOverrideEntry(entries, 54001) and not FindPushOverrideEntry(entries, 54002),
+            "unselected cheapest pool entries leaked into push")
+        assert(not FindPushOverrideEntry(entries, 54999),
+            "expanded cheapest leaf leaked into push")
+    end)
+
+    RestoreState()
+    return ok, err
 end

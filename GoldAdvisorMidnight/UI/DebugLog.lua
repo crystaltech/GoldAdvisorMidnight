@@ -5,19 +5,14 @@
 local ADDON_NAME, GAM = ...
 local DebugLog = {}
 GAM.UI.DebugLog = DebugLog
+local WindowManager = GAM.UI.WindowManager
 
 local WIN_W, WIN_H = 620, 400
 local frame
 local scrollFrame
 local editBox
 local isPaused = false
-
-local function PresentTop(frameObj)
-    if not frameObj then return end
-    frameObj:SetFrameStrata("FULLSCREEN_DIALOG")
-    frameObj:SetToplevel(true)
-    frameObj:Raise()
-end
+local Build  -- forward declaration (ShowARPExportPopup references Build before its definition)
 
 local function GetUIScale()
     return (GAM.db and GAM.db.options and GAM.db.options.uiScale) or 1.0
@@ -313,16 +308,17 @@ local function BuildARPExportPopup()
     arpPopup:RegisterForDrag("LeftButton")
     arpPopup:SetScript("OnDragStart", arpPopup.StartMoving)
     arpPopup:SetScript("OnDragStop",  arpPopup.StopMovingOrSizing)
-    PresentTop(arpPopup)
     arpPopup:SetClampedToScreen(true)
     arpPopup:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left=11, right=12, top=12, bottom=11 },
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 2,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
     arpPopup:SetBackdropColor(0, 0, 0, 1)
+    arpPopup:SetBackdropBorderColor(0.7, 0.57, 0.0, 0.62)
     arpPopup:Hide()
+    WindowManager.Register(arpPopup, "debug", { owner = frame, levelOffset = 8 })
 
     -- Title
     local title = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
@@ -372,18 +368,19 @@ local function BuildARPExportPopup()
 end
 
 local function ShowARPExportPopup(text)
+    if not frame then Build() end
     if not arpPopup then BuildARPExportPopup() end
     arpPopupSF:SetVerticalScroll(0)
     arpPopupEB:SetText(text or "")
     RefreshARPExportPopupLayout()
     arpPopup:Show()
-    PresentTop(arpPopup)
+    WindowManager.Present(arpPopup, nil, { owner = frame, levelOffset = 8 })
     arpPopupEB:SetFocus()
     arpPopupEB:HighlightText()
 end
 
 -- ===== Build frame =====
-local function Build()
+Build = function()
     frame = CreateFrame("Frame", "GoldAdvisorMidnightDebugLog", UIParent,
                         "BackdropTemplate")
     frame:SetSize(WIN_W, WIN_H)
@@ -394,16 +391,17 @@ local function Build()
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
-    PresentTop(frame)
     frame:SetClampedToScreen(true)
     frame:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left=11, right=12, top=12, bottom=11 },
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 2,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
     frame:SetBackdropColor(0, 0, 0, 1)
+    frame:SetBackdropBorderColor(0.7, 0.57, 0.0, 0.62)
     frame:Hide()
+    WindowManager.Register(frame, "debug")
 
     -- Title
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -494,7 +492,7 @@ local function Build()
 
     -- On show: populate from ring buffer
     frame:SetScript("OnShow", function()
-        PresentTop(frame)
+        WindowManager.Present(frame)
         local txt = GAM.Log.GetAllText()
         editBox:SetText(txt)
         local max = scrollFrame:GetVerticalScrollRange()
@@ -661,7 +659,7 @@ end
 function DebugLog.Show()
     if not frame then Build() end
     frame:Show()
-    PresentTop(frame)
+    WindowManager.Present(frame)
 end
 
 function DebugLog.Hide()
@@ -670,7 +668,7 @@ end
 
 function DebugLog.Toggle()
     if not frame then Build() end
-    if frame:IsShown() then frame:Hide() else frame:Show(); PresentTop(frame) end
+    if frame:IsShown() then frame:Hide() else frame:Show(); WindowManager.Present(frame) end
 end
 
 function DebugLog.IsShown()

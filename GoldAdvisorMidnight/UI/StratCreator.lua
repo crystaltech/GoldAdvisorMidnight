@@ -7,6 +7,7 @@
 local ADDON_NAME, GAM = ...
 local SC = {}
 GAM.UI.StratCreator = SC
+local WindowManager = GAM.UI.WindowManager
 
 local function GetUIScale()
     return (GAM.GetOption and GAM:GetOption("uiScale", 1.0)) or 1.0
@@ -99,6 +100,48 @@ local function LayoutButtonRowBottom(parent, buttons, cfg)
             x = x + btn:GetWidth() + ((bi < #row) and gap or 0)
         end
     end
+end
+
+local function ShowHelpTooltip(owner, title, body)
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    GameTooltip:SetText(title or "Help", 1, 1, 1)
+    if body and body ~= "" then
+        GameTooltip:AddLine(body, 1, 0.82, 0, true)
+    end
+    GameTooltip:Show()
+end
+
+local function CreateHelpButton(parent, title, body)
+    local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    btn:SetSize(16, 16)
+    btn:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true,
+        tileSize = 8,
+        edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    btn:SetBackdropColor(0.11, 0.09, 0.06, 0.94)
+    btn:SetBackdropBorderColor(0.62, 0.50, 0.14, 0.90)
+
+    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    label:SetText("?")
+    label:SetTextColor(1.0, 0.84, 0.22, 1.0)
+    btn.labelFS = label
+
+    btn:SetScript("OnEnter", function(self)
+        self:SetBackdropBorderColor(1.0, 0.84, 0.22, 1.0)
+        self.labelFS:SetTextColor(1, 1, 1, 1)
+        ShowHelpTooltip(self, title, body)
+    end)
+    btn:SetScript("OnLeave", function(self)
+        self:SetBackdropBorderColor(0.62, 0.50, 0.14, 0.90)
+        self.labelFS:SetTextColor(1.0, 0.84, 0.22, 1.0)
+        GameTooltip:Hide()
+    end)
+    return btn
 end
 
 -- ===== Base64 encoder / decoder =====
@@ -343,8 +386,6 @@ local function BuildExportPopup()
     exportPopup:RegisterForDrag("LeftButton")
     exportPopup:SetScript("OnDragStart", exportPopup.StartMoving)
     exportPopup:SetScript("OnDragStop",  exportPopup.StopMovingOrSizing)
-    exportPopup:SetFrameStrata("TOOLTIP")
-    exportPopup:SetToplevel(true)
     exportPopup:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -356,6 +397,7 @@ local function BuildExportPopup()
     bgTex:SetAllPoints()
     bgTex:SetColorTexture(0, 0, 0, 1)
     exportPopup:Hide()
+    WindowManager.Register(exportPopup, "modal")
 
     local L = GAM.L
 
@@ -394,6 +436,7 @@ function SC.ShowExportPopup(strat)
     exportPopup.ebEncoded:SetText(SC.EncodeStrat(strat) or "")
     exportPopup.ebLua:SetText(SerializeToLua(strat))
     exportPopup:Show()
+    WindowManager.Present(exportPopup)
     exportPopup.ebEncoded:SetFocus()
     exportPopup.ebEncoded:HighlightText()
 end
@@ -413,8 +456,6 @@ local function BuildImportPopup()
     importPopup:RegisterForDrag("LeftButton")
     importPopup:SetScript("OnDragStart", importPopup.StartMoving)
     importPopup:SetScript("OnDragStop",  importPopup.StopMovingOrSizing)
-    importPopup:SetFrameStrata("TOOLTIP")
-    importPopup:SetToplevel(true)
     importPopup:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -426,6 +467,7 @@ local function BuildImportPopup()
     bgTex:SetAllPoints()
     bgTex:SetColorTexture(0, 0, 0, 1)
     importPopup:Hide()
+    WindowManager.Register(importPopup, "modal")
 
     local title = importPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", importPopup, "TOP", 0, -14)
@@ -485,6 +527,7 @@ function SC.ShowImport()
     if not importPopup then BuildImportPopup() end
     importPopup.ebImport:SetText("")
     importPopup:Show()
+    WindowManager.Present(importPopup)
     importPopup.ebImport:SetFocus()
 end
 
@@ -770,17 +813,17 @@ local function GetRowStatusPresentation(state)
         return (L["CREATOR_STATUS_CLEAR_OR_FINISH"] or "Finish this row or clear it."), 1.0, 0.35, 0.35
     elseif state.kind == "ambiguous" then
         return (L["CREATOR_STATUS_NAME_AMBIG"] or
-            "Multiple local Item IDs match this name; keeping name-only unless you choose an Item ID."),
+            "Name matches multiple local Item IDs. Enter an Item ID to pin the exact item."),
             1.0, 0.82, 0.18
     elseif state.kind == "freeform" then
-        return (L["CREATOR_STATUS_FREEFORM"] or "Freeform name entry."), 0.75, 0.75, 0.75
+        return (L["CREATOR_STATUS_FREEFORM"] or "Name-only entry; no Item ID pinned."), 0.75, 0.75, 0.75
     elseif state.kind == "resolved_id" then
-        return string.format((L["CREATOR_STATUS_ID_MATCH"] or "Resolved name locally: %s."), tostring(state.resolvedName or "?")),
+        return string.format((L["CREATOR_STATUS_ID_MATCH"] or "Pinned by Item ID: %s."), tostring(state.resolvedName or "?")),
             0.45, 0.95, 0.45
     elseif state.kind == "id_only" then
-        return (L["CREATOR_STATUS_ID_ONLY"] or "Item ID entered; no local name available yet."), 1.0, 0.82, 0.18
+        return (L["CREATOR_STATUS_ID_ONLY"] or "Pinned by Item ID; name is not cached locally yet."), 1.0, 0.82, 0.18
     elseif state.kind == "matched" then
-        return string.format((L["CREATOR_STATUS_NAME_MATCH"] or "Matched local Item ID: %d."), tonumber(state.itemID or 0)),
+        return string.format((L["CREATOR_STATUS_NAME_MATCH"] or "Name and Item ID agree locally: %d."), tonumber(state.itemID or 0)),
             0.45, 0.95, 0.45
     end
 
@@ -996,10 +1039,13 @@ local function MakeItemRow(parent, index, rows, minVisible)
     return row
 end
 
-local function CreateItemSection(parent, topY, boxHeight, titleText, helpText, addText, rows, maxRows, minVisible)
+local function CreateItemSection(parent, topY, boxHeight, titleText, helpText, addText, rows, maxRows, minVisible, titleTooltipBody)
     local titleFS = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     titleFS:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, topY)
     titleFS:SetText(titleText)
+
+    local titleHelpBtn = CreateHelpButton(parent, titleText, titleTooltipBody or helpText)
+    titleHelpBtn:SetPoint("LEFT", titleFS, "RIGHT", 6, 0)
 
     local addBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     addBtn:SetSize(96, 20)
@@ -1018,18 +1064,22 @@ local function CreateItemSection(parent, topY, boxHeight, titleText, helpText, a
     box:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, topY - 32)
     box:SetSize(WIN_W - 40, boxHeight)
 
-    local function MakeColHeader(xOff, width, text)
+    local function MakeColHeader(xOff, width, text, tooltipBody)
         local fs = box:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         fs:SetPoint("TOPLEFT", box, "TOPLEFT", xOff, -10)
         fs:SetWidth(width)
         fs:SetJustifyH("LEFT")
         fs:SetText(text)
         fs:SetTextColor(0.82, 0.82, 0.82)
+        if tooltipBody and tooltipBody ~= "" then
+            local btn = CreateHelpButton(box, text, tooltipBody)
+            btn:SetPoint("LEFT", fs, "RIGHT", 2, 0)
+        end
         return fs
     end
 
-    MakeColHeader(10, ROW_NAME_W, GAM.L["CREATOR_COL_NAME"])
-    MakeColHeader(10 + ROW_NAME_W + 6, ROW_ID_W, GAM.L["CREATOR_COL_ITEMID"])
+    MakeColHeader(10,                           ROW_NAME_W, GAM.L["CREATOR_COL_NAME"])
+    MakeColHeader(10 + ROW_NAME_W + 6,          ROW_ID_W,   GAM.L["CREATOR_COL_ITEMID"])
     MakeColHeader(10 + ROW_NAME_W + 6 + ROW_ID_W + 6, ROW_QTY_W, GAM.L["CREATOR_COL_QTY"])
 
     local scrollFrame = CreateFrame("ScrollFrame", nil, box, "UIPanelScrollFrameTemplate")
@@ -1069,6 +1119,7 @@ local function CreateItemSection(parent, topY, boxHeight, titleText, helpText, a
 
     return {
         titleFS = titleFS,
+        titleHelpBtn = titleHelpBtn,
         helpFS = helpFS,
         addBtn = addBtn,
         box = box,
@@ -1136,20 +1187,20 @@ local function Build()
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
-    frame:SetFrameStrata("DIALOG")
-    frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
     frame:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 },
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 2,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
     frame:SetBackdropColor(0, 0, 0, 1)
+    frame:SetBackdropBorderColor(0.7, 0.57, 0.0, 0.62)
     local bgTex = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     bgTex:SetAllPoints()
     bgTex:SetColorTexture(0, 0, 0, 1)
     frame:Hide()
+    WindowManager.Register(frame, "dialog")
 
     local title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", frame, "TOP", 0, -14)
@@ -1212,8 +1263,15 @@ local function Build()
     profLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -48)
     profLbl:SetText(L["CREATOR_PROFESSION"])
 
+    local profHelpBtn = CreateHelpButton(
+        metaBox,
+        L["CREATOR_PROFESSION"],
+        "Sets which profession this strategy belongs to in Gold Advisor Midnight. Use Custom only if the shipped profession list does not fit."
+    )
+    profHelpBtn:SetPoint("LEFT", profLbl, "RIGHT", 6, 0)
+
     local profDD = CreateFrame("Frame", "GAMCreatorProfDD", metaBox, "UIDropDownMenuTemplate")
-    profDD:SetPoint("TOPLEFT", profLbl, "TOPRIGHT", 0, 4)
+    profDD:SetPoint("TOPLEFT", profHelpBtn, "TOPRIGHT", 2, 4)
     UIDropDownMenu_SetWidth(profDD, 170)
 
     local customProfEB
@@ -1264,9 +1322,16 @@ local function Build()
     nameLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -82)
     nameLbl:SetText(L["CREATOR_NAME"])
 
+    local nameHelpBtn = CreateHelpButton(
+        metaBox,
+        L["CREATOR_NAME"],
+        "Display name shown in the strategy list and detail view. Pick something descriptive enough to recognize later."
+    )
+    nameHelpBtn:SetPoint("LEFT", nameLbl, "RIGHT", 6, 0)
+
     local nameEB = CreateFrame("EditBox", nil, metaBox, "InputBoxTemplate")
-    nameEB:SetSize(352, 20)
-    nameEB:SetPoint("LEFT", nameLbl, "RIGHT", 6, 0)
+    nameEB:SetSize(334, 20)
+    nameEB:SetPoint("LEFT", nameHelpBtn, "RIGHT", 6, 0)
     nameEB:SetAutoFocus(false)
     nameEB:SetScript("OnTextChanged", function()
         if RefreshFormValidation then RefreshFormValidation() end
@@ -1277,9 +1342,16 @@ local function Build()
     qtyLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -116)
     qtyLbl:SetText(L["CREATOR_INPUT_QTY"])
 
+    local qtyHelpBtn = CreateHelpButton(
+        metaBox,
+        L["CREATOR_INPUT_QTY"],
+        "Baseline input batch for this strategy. Every output and reagent Qty below is the total for this many base inputs."
+    )
+    qtyHelpBtn:SetPoint("LEFT", qtyLbl, "RIGHT", 6, 0)
+
     local inputQtyEB = CreateFrame("EditBox", nil, metaBox, "InputBoxTemplate")
     inputQtyEB:SetSize(80, 20)
-    inputQtyEB:SetPoint("LEFT", qtyLbl, "RIGHT", 6, 0)
+    inputQtyEB:SetPoint("LEFT", qtyHelpBtn, "RIGHT", 6, 0)
     inputQtyEB:SetAutoFocus(false)
     inputQtyEB:SetNumeric(true)
     inputQtyEB:SetText("1000")
@@ -1290,42 +1362,60 @@ local function Build()
 
     local qtyTip = metaBox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     qtyTip:SetPoint("LEFT", inputQtyEB, "RIGHT", 6, 0)
-    qtyTip:SetWidth(300)
+    qtyTip:SetWidth(280)
     qtyTip:SetJustifyH("LEFT")
-    qtyTip:SetText(L["CREATOR_INPUT_HINT"])
+    qtyTip:SetText("Sets the baseline batch size. Qty values below are totals for this many inputs.")
     qtyTip:SetTextColor(0.6, 0.6, 0.6)
+
+    local fixedModeNoteFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    fixedModeNoteFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, -218)
+    fixedModeNoteFS:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -20, -218)
+    fixedModeNoteFS:SetJustifyH("LEFT")
+    fixedModeNoteFS:SetWordWrap(true)
+    fixedModeNoteFS:SetText("Custom strategies save fixed ratios only in this pass. Formula pricing is not configurable here yet.")
+    fixedModeNoteFS:SetTextColor(0.72, 0.72, 0.72)
+    frame.fixedModeNoteFS = fixedModeNoteFS
 
     frame.outputSection = CreateItemSection(
         frame,
-        -222,
+        -248,
         164,
         L["CREATOR_OUTPUTS"],
-        (L["CREATOR_ROW_HELP"] or "Type an item name or Item ID. Qty is required."),
+        "Add every item this strategy produces for the Input Quantity batch above. Qty is the total output for that batch.",
         L["BTN_CREATOR_ADD_OUT"],
         outputRows,
         MAX_OUTPUTS,
-        MIN_VISIBLE_OUTPUTS
+        MIN_VISIBLE_OUTPUTS,
+        "Outputs are the items this strategy creates for the chosen input batch. Use Item IDs when you want an exact item pinned."
     )
 
     frame.reagentSection = CreateItemSection(
         frame,
-        -428,
+        -454,
         228,
         L["CREATOR_REAGENTS"],
-        (L["CREATOR_ROW_HELP"] or "Type an item name or Item ID. Qty is required."),
+        "Add every ingredient this strategy consumes for the Input Quantity batch above. Qty is the total requirement for that batch.",
         L["BTN_CREATOR_ADD_REAG"],
         reagentRows,
         MAX_REAGENTS,
-        MIN_VISIBLE_REAGENTS
+        MIN_VISIBLE_REAGENTS,
+        "Reagents are the materials consumed for the chosen input batch. Add an Item ID when you want the row pinned to one exact item."
     )
 
     local notesLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     notesLbl:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 20, 82)
     notesLbl:SetText(L["CREATOR_NOTES"])
 
+    local notesHelpBtn = CreateHelpButton(
+        frame,
+        L["CREATOR_NOTES"],
+        "Optional description shown in Gold Advisor Midnight tooltips and detail views. Notes are informational only and do not change pricing."
+    )
+    notesHelpBtn:SetPoint("LEFT", notesLbl, "RIGHT", 6, 0)
+
     local notesEB = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    notesEB:SetSize(432, 20)
-    notesEB:SetPoint("LEFT", notesLbl, "RIGHT", 6, 0)
+    notesEB:SetSize(414, 20)
+    notesEB:SetPoint("LEFT", notesHelpBtn, "RIGHT", 6, 0)
     notesEB:SetAutoFocus(false)
     frame.notesEB = notesEB
 
@@ -1633,6 +1723,7 @@ function SC.Show()
     if frame.SetEditSelectorVisible then frame.SetEditSelectorVisible(false) end
     if frame.RefreshEditDropdown then frame.RefreshEditDropdown(nil) end
     frame:Show()
+    WindowManager.Present(frame)
 end
 
 function SC.SelectEditIndex(index)
@@ -1651,6 +1742,7 @@ function SC.SelectEditIndex(index)
     if frame.SetEditSelectorVisible then frame.SetEditSelectorVisible(true) end
     if frame.RefreshEditDropdown then frame.RefreshEditDropdown(index) end
     frame:Show()
+    WindowManager.Present(frame)
     return true
 end
 
