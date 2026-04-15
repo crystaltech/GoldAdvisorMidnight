@@ -1385,14 +1385,14 @@ function Pricing.RunSmokeChecks()
                 if strat then
                     assertNear(strat.defaultStartingAmount or 0, 5000, stratID .. " defaultStartingAmount")
                     assertNear(strat.defaultCrafts or 0, 1000, stratID .. " defaultCrafts")
-                    assertNear((strat.outputs and strat.outputs[1] and strat.outputs[1].baseYieldPerCraft) or 0, 3.0,
+                    assertNear((strat.outputs and strat.outputs[1] and strat.outputs[1].baseYieldPerCraft) or 0, 2.776595,
                         stratID .. " baseYieldPerCraft")
                     assertNear((strat.reagents and strat.reagents[1] and strat.reagents[1].qtyPerCraft) or 0, 5.0,
                         stratID .. " reagent qtyPerCraft")
                     assertNear((strat.reagents and strat.reagents[1] and strat.reagents[1].qtyPerStart) or 0, 1.0,
                         stratID .. " reagent qtyPerStart")
                 end
-                checkWorkbookParity(stratID, 1, 3557.031065, stratID .. " Engineering recycling")
+                checkWorkbookParity(stratID, 1, 3292.144942, stratID .. " Engineering recycling")
             end
 
             local refulgent = GAM.Importer.GetStratByID("blacksmithing__refulgent_copper_ingot__midnight_1")
@@ -1654,7 +1654,7 @@ local function BuildProfileContext(strat, opts)
     if strat.calcMode == "formula" and profileDef then
         local function GetNodeValue(key, defaultValue)
             if not key then
-                return 0
+                return defaultValue or 0
             end
             local value = opts[key]
             if value == nil then
