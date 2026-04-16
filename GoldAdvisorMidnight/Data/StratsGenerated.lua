@@ -187,9 +187,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Thalassian Songwater",
       itemIDs = { 245882 },
-      qtyPerCraft = 30.000000,
+      qtyPerCraft = 3.000000,
       qtyPerStart = 0.150000,
-      workbookTotalQty = 15939.467580,
+      workbookTotalQty = 1593.946758,
       excludeFromCost = true,
     },
   },
@@ -243,9 +243,9 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Thalassian Songwater",
       itemIDs = { 245882 },
-      qtyPerCraft = 30.000000,
+      qtyPerCraft = 3.000000,
       qtyPerStart = 0.150000,
-      workbookTotalQty = 15939.467580,
+      workbookTotalQty = 1593.946758,
       excludeFromCost = true,
     },
   },
