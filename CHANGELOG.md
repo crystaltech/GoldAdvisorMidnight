@@ -1,5 +1,10 @@
 # Changelog — Gold Advisor Midnight
 
+## [1.8.8] — 2026-04-16
+
+### Bug Fixes
+- **Ink Songwater quantity corrected** — Sienna Ink and Munsell Ink strategies had `qtyPerCraft = 30` for Thalassian Songwater due to a 10x-inflated value in the spreadsheet; corrected the source data to 3 per craft and regenerated.
+
 ## [Unreleased]
 
 ### Data / Workbook
