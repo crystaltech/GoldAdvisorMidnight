@@ -129,9 +129,9 @@ Useful local checks:
 - `/gam smoketest` for in-game smoke checks
 - `/gam scandump` for selected-strategy pricing traces
 
-Release helpers:
+Maintainer release helper:
 
-- `./Release_GitHub.command [patch|minor|major|x.y.z]` bumps the addon version, builds the zip, commits, pushes, and creates a GitHub release
+- Local `./Release_GitHub.command [patch|minor|major|x.y.z]` is the canonical public release flow. It runs from `main`, bumps the addon version, builds `releases/GoldAdvisorMidnight-vX.X.X.zip`, commits release-ready changes, pushes `main` and tag `vX.X.X`, and creates the latest GitHub release with the zip attached.
 
 Release metadata is tracked in:
 

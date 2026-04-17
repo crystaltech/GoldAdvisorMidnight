@@ -648,7 +648,9 @@ function LeftPanelUI.Build(args)
         setFilterProf("All")
         setFilterProfSet(nil)
         setFilterProfSingle("All")
-        if panel.ddProf then
+        if panel.initProfDD then
+            panel.initProfDD()
+        elseif panel.ddProf then
             UIDropDownMenu_SetText(panel.ddProf, allFilterText)
         end
         setActiveColConfig(getActiveColumnConfig())
@@ -667,7 +669,9 @@ function LeftPanelUI.Build(args)
             setFilterProfSet(nil)
         end
         setFilterProfSingle("All")
-        if panel.ddProf then
+        if panel.initProfDD then
+            panel.initProfDD()
+        elseif panel.ddProf then
             UIDropDownMenu_SetText(panel.ddProf, allFilterText)
         end
         setActiveColConfig(getActiveColumnConfig())
@@ -720,6 +724,9 @@ function LeftPanelUI.Build(args)
     end
     setFilterProfSet(filterProfSet)
     setActiveColConfig(getActiveColumnConfig())
+    if panel.initProfDD then
+        panel.initProfDD()
+    end
 
     return {
         scanBtnLeft = scanBtnLeft,

@@ -25,6 +25,85 @@ for professionName, skillLineID in pairs(PROFESSION_SKILL_LINES) do
     PROFESSION_NAME_BY_SKILL_LINE[skillLineID] = professionName
 end
 
+local unresolvedProfessionSkillLines = {}
+
+local function GetProfessionBySkillLineID(skillLineID)
+    skillLineID = tonumber(skillLineID)
+    if not skillLineID then return nil end
+    return PROFESSION_NAME_BY_SKILL_LINE[skillLineID]
+end
+
+local function CacheProfessionSkillLine(skillLineID, professionName)
+    skillLineID = tonumber(skillLineID)
+    if skillLineID and professionName then
+        PROFESSION_NAME_BY_SKILL_LINE[skillLineID] = professionName
+    end
+    return professionName
+end
+
+local function ResolveProfessionFromSkillLine(skillLine)
+    skillLine = tonumber(skillLine)
+    if not skillLine then return nil end
+
+    local directProfession = GetProfessionBySkillLineID(skillLine)
+    if directProfession then
+        return directProfession
+    end
+
+    local tradeSkillAPI = C_TradeSkillUI
+    if tradeSkillAPI and type(tradeSkillAPI.GetProfessionInfoBySkillLineID) == "function" then
+        local ok, info = pcall(tradeSkillAPI.GetProfessionInfoBySkillLineID, skillLine)
+        if ok and type(info) == "table" then
+            local professionName = GetProfessionBySkillLineID(info.professionID)
+                or GetProfessionBySkillLineID(info.parentProfessionID)
+            if professionName then
+                return CacheProfessionSkillLine(skillLine, professionName)
+            end
+        end
+    end
+
+    if tradeSkillAPI and type(tradeSkillAPI.GetTradeSkillLineInfoByID) == "function" then
+        local ok, displayName, rank, maxRank, modifier, parentSkillLineID = pcall(tradeSkillAPI.GetTradeSkillLineInfoByID, skillLine)
+        local professionName = ok and GetProfessionBySkillLineID(parentSkillLineID) or nil
+        if professionName then
+            return CacheProfessionSkillLine(skillLine, professionName)
+        end
+    end
+
+    return nil
+end
+
+local function LogUnresolvedProfessionSkillLine(professionName, skillLine, skillLineName)
+    skillLine = tonumber(skillLine)
+    if not skillLine or unresolvedProfessionSkillLines[skillLine] then
+        return
+    end
+    unresolvedProfessionSkillLines[skillLine] = true
+
+    if GAM.Log and GAM.Log.Debug then
+        GAM.Log.Debug(
+            "MainWindowV2: unresolved profession skill line name=%s skillLine=%s skillLineName=%s",
+            tostring(professionName),
+            tostring(skillLine),
+            tostring(skillLineName)
+        )
+    end
+end
+
+local function ResolvePlayerProfession(professionName, skillLine, skillLineName, supported)
+    local canonicalProfession = ResolveProfessionFromSkillLine(skillLine)
+    if canonicalProfession and (not supported or supported[canonicalProfession]) then
+        return canonicalProfession
+    end
+
+    if professionName and (not supported or supported[professionName]) then
+        return professionName
+    end
+
+    LogUnresolvedProfessionSkillLine(professionName, skillLine, skillLineName)
+    return nil
+end
+
 local C_GR, C_GG, C_GB = 1.0, 0.82, 0.0
 local C_DR, C_DG, C_DB, C_DA = 0.7, 0.57, 0.0, 0.7
 
@@ -535,15 +614,16 @@ function Common.BuildPlayerProfessionSet(filterPatch)
         supported[profession] = true
     end
 
+    -- GetProfessions() has nil holes for unlearned secondary professions;
+    -- iterate fixed return slots so Cooking is not skipped when earlier slots are nil.
     local indices = { GetProfessions() }
-    for _, index in ipairs(indices) do
+    for i = 1, 6 do
+        local index = indices[i]
         if index then
-            local professionName, _, _, _, _, _, skillLine = GetProfessionInfo(index)
-            local canonicalProfession = PROFESSION_NAME_BY_SKILL_LINE[skillLine]
-            if canonicalProfession and supported[canonicalProfession] then
+            local professionName, _, _, _, _, _, skillLine, _, _, _, skillLineName = GetProfessionInfo(index)
+            local canonicalProfession = ResolvePlayerProfession(professionName, skillLine, skillLineName, supported)
+            if canonicalProfession then
                 set[canonicalProfession] = true
-            elseif professionName and supported[professionName] then
-                set[professionName] = true
             end
         end
     end

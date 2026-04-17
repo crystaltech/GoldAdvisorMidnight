@@ -16,6 +16,7 @@
 - **Seed-based workbook import path added** — New workbook-backed strategies can now be introduced from checked-in seed records instead of hand-editing generated Lua blocks.
 - **Dazzling Thorium validation corrected** — The strategy comparer now accepts the intended full ranked output ID arrays for `Dazzling Thorium Prospecting`, matching runtime pricing behavior.
 - **One-step GitHub release helper added** — `Release_GitHub.command` can bump the addon version, package the zip, commit, push, and create the GitHub release in one flow.
+- **GitHub release workflow clarified** — Release docs now treat `Release_GitHub.command` as the canonical public release path for version bumps, zips, commits, pushes, tags, and GitHub Releases.
 
 ## [1.8.0] — 2026-04-12
 
