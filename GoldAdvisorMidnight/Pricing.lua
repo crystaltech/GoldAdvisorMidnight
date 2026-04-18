@@ -755,13 +755,24 @@ function Pricing.RunSmokeChecks()
                 })[itemID], false
             end
 
+            local function assertRankedIDs(ids, q1ID, q2ID, label)
+                ids = ids or {}
+                assert(#ids == 2 and ids[1] == q1ID and ids[2] == q2ID,
+                    string.format("%s must keep Q1/Q2 IDs %s,%s: got %s",
+                        label, tostring(q1ID), tostring(q2ID), table.concat(ids, ",")))
+                local r2ID = PickItemID(ids, GAM.C.DEFAULT_PATCH, "highest")
+                assert(r2ID == q2ID,
+                    string.format("%s R2 must resolve to Q2 ID %s: got %s",
+                        label, tostring(q2ID), tostring(r2ID)))
+            end
+
             local oil = GAM.Importer and GAM.Importer.GetStratByID
                 and GAM.Importer.GetStratByID("enchanting__oil_of_dawn__midnight_1") or nil
             assert(oil and oil.outputs and oil.outputs[1], "oil of dawn strat unavailable")
-            assert(#(oil.outputs[1].itemIDs or {}) >= 2,
-                "Oil of Dawn must keep both ranked itemIDs for rank-policy output pricing")
-            assert(oil.reagents and oil.reagents[3] and #(oil.reagents[3].itemIDs or {}) >= 2,
-                "Oil of Dawn must keep both Eversinging Dust ranks for reagent rank-policy pricing")
+            assert(oil.reagents and oil.reagents[3] and oil.reagents[4], "oil of dawn ranked reagents unavailable")
+            assertRankedIDs(oil.outputs[1].itemIDs, 243735, 243736, "Oil of Dawn output")
+            assertRankedIDs(oil.reagents[3].itemIDs, 243599, 243600, "Oil of Dawn Eversinging Dust")
+            assertRankedIDs(oil.reagents[4].itemIDs, 240990, 240991, "Oil of Dawn Sunglass Vial")
 
             local priceByPolicy = GetOutputPriceForItem(oil.outputs[1], GAM.C.DEFAULT_PATCH, nil, 8295)
             assert(priceByPolicy == 0, string.format(
@@ -772,23 +783,28 @@ function Pricing.RunSmokeChecks()
             assert(priceByPreferredQuality == 0, string.format(
                 "Oil of Dawn R2 rank resolution failed: got %s expected 0",
                 tostring(priceByPreferredQuality)))
+
+            local phoenix = GAM.Importer and GAM.Importer.GetStratByID
+                and GAM.Importer.GetStratByID("enchanting__thalassian_phoenix_oil__midnight_1") or nil
+            assert(phoenix and phoenix.reagents and phoenix.reagents[2] and phoenix.reagents[3],
+                "thalassian phoenix oil ranked reagents unavailable")
+            assertRankedIDs(phoenix.reagents[2].itemIDs, 243599, 243600, "Thalassian Phoenix Oil Eversinging Dust")
+            assertRankedIDs(phoenix.reagents[3].itemIDs, 240990, 240991, "Thalassian Phoenix Oil Sunglass Vial")
+
+            local smuggler = GAM.Importer and GAM.Importer.GetStratByID
+                and GAM.Importer.GetStratByID("enchanting__smuggler_s_enchanted_edge__midnight_1") or nil
+            assert(smuggler and smuggler.outputs and smuggler.outputs[1]
+                and smuggler.reagents and smuggler.reagents[3] and smuggler.reagents[4],
+                "smuggler's enchanted edge ranked items unavailable")
+            assertRankedIDs(smuggler.outputs[1].itemIDs, 243737, 243738, "Smuggler's Enchanted Edge output")
+            assertRankedIDs(smuggler.reagents[3].itemIDs, 243599, 243600, "Smuggler's Enchanted Edge Eversinging Dust")
+            assertRankedIDs(smuggler.reagents[4].itemIDs, 240990, 240991, "Smuggler's Enchanted Edge Sunglass Vial")
         end)
         C_TradeSkillUI = originalCraftUI
         GetItemInfo = originalGetItemInfo
         GAM.GetOptions = originalGetOptions
         Pricing.GetEffectivePrice = originalGetEffectivePrice
         assert(oilRankOK, oilRankErr)
-
-        local phoenixDustOK, phoenixDustErr = pcall(function()
-            local phoenix = GAM.Importer and GAM.Importer.GetStratByID
-                and GAM.Importer.GetStratByID("enchanting__thalassian_phoenix_oil__midnight_1") or nil
-            assert(phoenix and phoenix.reagents and phoenix.reagents[2], "thalassian phoenix oil strat unavailable")
-            local dustIDs = phoenix.reagents[2].itemIDs or {}
-            assert(#dustIDs == 1 and dustIDs[1] == 243599,
-                string.format("Thalassian Phoenix Oil must pin Eversinging Dust to Q1: got %s",
-                    table.concat(dustIDs, ",")))
-        end)
-        assert(phoenixDustOK, phoenixDustErr)
 
         local originalGetEffectivePriceForOutputQty = Pricing.GetEffectivePrice
         local outputFillQtyOK, outputFillQtyErr = pcall(function()

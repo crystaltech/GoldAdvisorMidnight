@@ -7,6 +7,9 @@
 
 ## [Unreleased]
 
+### Bug Fixes
+- **Thalassian Phoenix Oil R2 dust corrected** — The strategy now keeps both Eversinging Dust ranks so R2 mats resolve to Q2 dust (`243600`) instead of staying pinned to Q1 dust (`243599`).
+
 ### Data / Workbook
 - **Cooking workbook import shipped** — The addon now includes `11` workbook-backed Cooking strategies, covering meals, feasts, and tea chains across the new `Cooking` sheet.
 - **Cooking stat defaults and vendor pricing added** — Cooking now has its own workbook formula profile, saved stat defaults, settings-row controls, and static vendor pricing for core Cooking vendor mats.

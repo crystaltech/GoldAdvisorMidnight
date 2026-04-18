@@ -1760,7 +1760,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Eversinging Dust",
-      itemIDs = { 243599 },
+      itemIDs = { 243599, 243600 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
