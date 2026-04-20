@@ -29,6 +29,7 @@ DataBroker.lua
 UI\WindowManager.lua
 Settings.lua
 PricingDerivation.lua
+PricingV2Formula.lua
 Pricing.lua
 AHScan.lua
 Importer.lua

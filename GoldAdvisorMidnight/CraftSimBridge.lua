@@ -229,6 +229,56 @@ local function GetExtraValue(professionStat)
     return nil
 end
 
+local function CopyNumericTable(source)
+    if type(source) ~= "table" then return nil end
+    local out = {}
+    for key, value in pairs(source) do
+        local n = tonumber(value)
+        if n ~= nil then
+            out[key] = n
+        end
+    end
+    return next(out) and out or nil
+end
+
+local function GetCraftSimOption(key)
+    if not (CraftSim and CraftSim.DB and CraftSim.DB.OPTIONS and type(CraftSim.DB.OPTIONS.Get) == "function") then
+        return nil
+    end
+
+    local ok, value = pcall(function()
+        return CraftSim.DB.OPTIONS:Get(key)
+    end)
+    if ok then
+        return value
+    end
+    return nil
+end
+
+local function ApplyCraftSimConstants(snapshot)
+    if not snapshot then return end
+
+    if snapshot.resourcefulnessSaveBase == nil then
+        local value = tonumber(GetCraftSimOption("PROFIT_CALCULATION_RESOURCEFULNESS_CONSTANT"))
+        if value == nil and CraftSim and CraftSim.CONST then
+            value = tonumber(CraftSim.CONST.BASE_RESOURCEFULNESS_AVERAGE_SAVE_FACTOR)
+        end
+        if value ~= nil then
+            snapshot.resourcefulnessSaveBase = value
+        end
+    end
+
+    if snapshot.multicraftConstants == nil then
+        local constants = CopyNumericTable(GetCraftSimOption("PROFIT_CALCULATION_MULTICRAFT_CONSTANTS"))
+        if not constants and CraftSim and CraftSim.CONST then
+            constants = CopyNumericTable(CraftSim.CONST.MULTICRAFT_CONSTANTS)
+        end
+        if constants then
+            snapshot.multicraftConstants = constants
+        end
+    end
+end
+
 local function GetExportProfessionStats(recipeData)
     if not recipeData or not recipeData.professionStats then return nil end
 
@@ -279,11 +329,21 @@ local function ApplyProfessionSnapshot(snapshot, recipeData, wantsMulti)
     if specStats then
         if snapshot.rsNode == nil then
             snapshot.rsNode = math.max(0, math.min(1, GetExtraValue(specStats.resourcefulness) or 0))
+            snapshot.resExtra = snapshot.rsNode
         end
         if wantsMulti and snapshot.mcNode == nil then
             snapshot.mcNode = math.max(0, math.min(1, GetExtraValue(specStats.multicraft) or 0))
+            snapshot.multiExtra = snapshot.mcNode
         end
     end
+
+    if snapshot.resExtra == nil and snapshot.rsNode ~= nil then
+        snapshot.resExtra = snapshot.rsNode
+    end
+    if wantsMulti and snapshot.multiExtra == nil and snapshot.mcNode ~= nil then
+        snapshot.multiExtra = snapshot.mcNode
+    end
+    ApplyCraftSimConstants(snapshot)
 end
 
 local function BuildProfessionSnapshot(professionID, wantsMulti)
@@ -368,6 +428,29 @@ function Bridge.GetAllProfessionNodeBonuses()
         end
     end
     return result
+end
+
+function Bridge.GetAllProfessionStatSnapshots()
+    local result = {}
+    for professionID, profKey in pairs(PROF_ID_TO_KEY) do
+        local snapshot = BuildProfessionSnapshot(professionID, true)
+        if snapshot then
+            result[profKey] = snapshot
+        end
+    end
+    return result
+end
+
+function Bridge.GetFormulaConstants()
+    local snapshot = {}
+    ApplyCraftSimConstants(snapshot)
+    if snapshot.resourcefulnessSaveBase ~= nil or snapshot.multicraftConstants ~= nil then
+        return {
+            resourcefulnessSaveBase = snapshot.resourcefulnessSaveBase,
+            multicraftConstants = snapshot.multicraftConstants,
+        }
+    end
+    return nil
 end
 
 -- SyncOptionsFromCraftSim() → count, updatedFields
@@ -628,6 +711,82 @@ function Bridge.RunSmokeChecks()
         GAM.Pricing.GetActiveRecipeView = function(strat)
             return strat
         end
+
+        local originalCraftSimForStats = CraftSim
+        local statSnapshotOK, statSnapshotErr = pcall(function()
+            CraftSim = {
+                CONST = {
+                    BASE_RESOURCEFULNESS_AVERAGE_SAVE_FACTOR = 0.31,
+                    MULTICRAFT_CONSTANTS = {
+                        DEFAULT = 2.5,
+                        [1] = 2.1,
+                    },
+                },
+                DB = {
+                    OPTIONS = {
+                        Get = function(_, key)
+                            if key == "PROFIT_CALCULATION_RESOURCEFULNESS_CONSTANT" then
+                                return 0.32
+                            end
+                            if key == "PROFIT_CALCULATION_MULTICRAFT_CONSTANTS" then
+                                return {
+                                    DEFAULT = 2.55,
+                                    [2] = 1.83,
+                                }
+                            end
+                            return nil
+                        end,
+                    },
+                },
+            }
+
+            local function FakeStat(percent, extra)
+                return {
+                    value = percent,
+                    GetPercent = function()
+                        return percent
+                    end,
+                    GetExtraValue = function()
+                        return extra
+                    end,
+                }
+            end
+
+            local snapshot = {}
+            ApplyProfessionSnapshot(snapshot, {
+                supportsResourcefulness = true,
+                supportsMulticraft = true,
+                professionStats = {
+                    resourcefulness = FakeStat(12.5, 0.99),
+                    multicraft = FakeStat(25.0, 0.99),
+                },
+                specializationData = {
+                    professionStats = {
+                        resourcefulness = FakeStat(0, 0.35),
+                        multicraft = FakeStat(0, 0.25),
+                    },
+                },
+            }, true)
+
+            assert(snapshot.resPercent == 12.5, "resourcefulness percent snapshot failed")
+            assert(snapshot.multiPercent == 25.0, "multicraft percent snapshot failed")
+            assert(snapshot.rsNode == 0.35 and snapshot.resExtra == 0.35,
+                "resourcefulness extra snapshot failed")
+            assert(snapshot.mcNode == 0.25 and snapshot.multiExtra == 0.25,
+                "multicraft extra snapshot failed")
+            assert(snapshot.resourcefulnessSaveBase == 0.32,
+                "CraftSim resourcefulness constant snapshot failed")
+            assert(snapshot.multicraftConstants and snapshot.multicraftConstants[2] == 1.83
+                and snapshot.multicraftConstants.DEFAULT == 2.55,
+                "CraftSim multicraft constants snapshot failed")
+            local constants = Bridge.GetFormulaConstants()
+            assert(constants and constants.resourcefulnessSaveBase == 0.32,
+                "CraftSim formula constant reader failed")
+            assert(constants.multicraftConstants and constants.multicraftConstants[2] == 1.83,
+                "CraftSim formula multicraft constant reader failed")
+        end)
+        CraftSim = originalCraftSimForStats
+        assert(statSnapshotOK, statSnapshotErr)
 
         local strat = {
             id = "bridge_smoke",
