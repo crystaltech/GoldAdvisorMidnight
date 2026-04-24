@@ -601,9 +601,9 @@ local function GetListMetric(strat)
     end
     local id = strat.id
     if id and listMetricCache[id] == nil then
-        listMetricCache[id] = GAM.Pricing.CalculateStratMetrics(strat, filterPatch)
+        listMetricCache[id] = GAM.Pricing.CalculateStratMetricsActive(strat, filterPatch)
     end
-    return id and listMetricCache[id] or GAM.Pricing.CalculateStratMetrics(strat, filterPatch)
+    return id and listMetricCache[id] or GAM.Pricing.CalculateStratMetricsActive(strat, filterPatch)
 end
 
 local function InvalidateListMetric(stratID, patchTag)
@@ -626,7 +626,7 @@ local function GetStratMetric(strat, patchTag)
     if patchTag == filterPatch then
         return GetListMetric(strat)
     end
-    return GAM.Pricing.CalculateStratMetrics(strat, patchTag)
+    return GAM.Pricing.CalculateStratMetricsActive(strat, patchTag)
 end
 
 local function BuildPlayerProfessionSet()

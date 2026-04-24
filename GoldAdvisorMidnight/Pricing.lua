@@ -6,11 +6,10 @@ local ADDON_NAME, GAM = ...
 local Pricing = {}
 GAM.Pricing = Pricing
 local Derivation = GAM.PricingDerivation or {}
-local FormulaV2 = GAM.PricingV2Formula or {}
 local BuildCalcContext, BuildMergedReagentMap, BuildReagentMetrics, BuildDisplayReagentMetrics, BuildOutputMetrics, BuildFinalMetrics
 local BuildEconomicReagentMetrics
 local GetOutputBaseYield, GetOutputQuantityBasis, ComputeOutputQuantity, BuildProfileContext
-local GetFormulaV2
+local GetFormulaV2, GetV2ExpectedOutputPerCraft
 
 -- ===== Internal helpers =====
 
@@ -1068,6 +1067,7 @@ function Pricing.RunSmokeChecks()
             local originalGetEffectivePrice = Pricing.GetEffectivePrice
             local originalProducerCandidates = GAM.Importer and GAM.Importer.GetProducerCandidates
             local originalGetStratByID = GAM.Importer and GAM.Importer.GetStratByID
+            local originalCraftingStatsV2 = GAM.CraftingStatsV2
             local originalProfile = profiles.__v2_shadow_smoke
             local ok, err = pcall(function()
                 profiles.__v2_shadow_smoke = {
@@ -1136,6 +1136,11 @@ function Pricing.RunSmokeChecks()
                     "V2 shadow must not alter visible required reagent quantity")
                 assert(legacyMetrics.reagents[1].needToBuy == 20,
                     "V2 shadow must not alter shopping need-to-buy quantity")
+                assert(shadowMetrics and shadowMetrics.reagents and shadowMetrics.reagents[1]
+                        and shadowMetrics.reagents[1].required == 20,
+                    "V2 shadow visible reagent quantity failed")
+                assert(shadowMetrics.reagents[1].needToBuy == 20,
+                    "V2 shadow visible need-to-buy quantity failed")
                 assert(shadowMetrics and shadowMetrics.requiredCostFull == 2000,
                     "V2 shadow required cost failed")
                 assert(math.abs((shadowMetrics.expectedConsumedCostFull or 0) - 1550) < 0.001,
@@ -1197,11 +1202,127 @@ function Pricing.RunSmokeChecks()
                 assert(math.abs((rootShadow.expectedConsumedCostFull or 0) - 1550) < 0.001,
                     string.format("V2 VI expected consumed cost failed: got %.6f",
                         rootShadow.expectedConsumedCostFull or 0))
+
+                local largeProducer = {
+                    id = "v2_shadow_large_producer",
+                    stratName = "V2 Shadow Large Producer",
+                    calcMode = "formula",
+                    formulaProfile = "__v2_shadow_smoke",
+                    defaultCrafts = 1,
+                    defaultStartingAmount = 10,
+                    reagents = {
+                        { name = "V2 Raw", itemIDs = { 81002 }, qtyPerCraft = 10 },
+                    },
+                    outputs = {
+                        { name = "V2 Large Intermediate", itemIDs = { 81004 }, baseYieldPerCraft = 13 },
+                    },
+                }
+                local largeRoot = {
+                    id = "v2_shadow_large_root",
+                    stratName = "V2 Shadow Large Root",
+                    calcMode = "fixed",
+                    defaultCrafts = 1,
+                    defaultStartingAmount = 1,
+                    reagents = {
+                        { name = "V2 Large Intermediate", itemIDs = { 81004 }, qtyPerCraft = 4000 },
+                    },
+                    outputs = {
+                        { name = "V2 Finished", itemIDs = { 81003 }, baseYieldPerCraft = 1 },
+                    },
+                }
+                GAM.Importer.GetProducerCandidates = function(itemID)
+                    if itemID == 81001 then
+                        return {
+                            { stratID = "v2_shadow_producer" },
+                        }
+                    end
+                    if itemID == 81004 then
+                        return {
+                            { stratID = "v2_shadow_large_producer" },
+                        }
+                    end
+                    return {}
+                end
+                GAM.Importer.GetStratByID = function(id)
+                    if id == "v2_shadow_large_producer" then
+                        return largeProducer
+                    end
+                    if id == "v2_shadow_producer" then
+                        return producer
+                    end
+                    if originalGetStratByID then
+                        return originalGetStratByID(id)
+                    end
+                    return nil
+                end
+                local largeShadow = Pricing.CalculateStratMetricsV2Shadow(largeRoot, GAM.C.DEFAULT_PATCH, 1)
+                assert(largeShadow
+                        and largeShadow.reagents
+                        and largeShadow.reagents[1]
+                        and largeShadow.reagents[1].required == 3080,
+                    string.format("V2 VI execution shopping should not be reduced by resourcefulness: got %s",
+                        tostring(largeShadow and largeShadow.reagents and largeShadow.reagents[1]
+                            and largeShadow.reagents[1].required)))
+
+                GAM.CraftingStatsV2 = {
+                    ResolveForStrat = function(strat)
+                        return {
+                            profileKey = strat and (strat.statProfileKey or strat.formulaProfile),
+                            statSource = "craftsim-imported",
+                            resPercent = 12.5,
+                            resExtra = 0.35,
+                            supportsResourcefulness = true,
+                        }
+                    end,
+                }
+                local snapshotStrat = {
+                    id = "v2_shadow_imported_snapshot",
+                    stratName = "V2 Shadow Imported Snapshot",
+                    profession = "Inscription",
+                    calcMode = "formula",
+                    formulaProfile = "__v2_shadow_smoke",
+                    defaultCrafts = 10,
+                    defaultStartingAmount = 10,
+                    reagents = {
+                        { name = "V2 Reagent", itemIDs = { 80001 }, qtyPerCraft = 2 },
+                    },
+                    outputs = {
+                        { name = "V2 Output", itemIDs = { 80002 }, baseYieldPerCraft = 1 },
+                    },
+                }
+                local snapshotShadow = Pricing.CalculateStratMetricsV2Shadow(snapshotStrat, GAM.C.DEFAULT_PATCH, 1)
+                assert(snapshotShadow and snapshotShadow.formula and snapshotShadow.formula.statSource == "craftsim-imported",
+                    "V2 shadow should use imported stat snapshots from the GAM resolver")
+                assert(math.abs((snapshotShadow.expectedConsumedCostFull or 0) - 1898.75) < 0.001,
+                    string.format("V2 imported snapshot resourcefulness failed: got %.6f",
+                        snapshotShadow.expectedConsumedCostFull or 0))
+
+                GAM.CraftingStatsV2 = {
+                    ResolveForStrat = function(strat)
+                        return {
+                            statSource = "gam-cache-profile",
+                            profileKey = strat and (strat.statProfileKey or strat.formulaProfile),
+                            resPercent = 12.5,
+                            resExtra = 0.35,
+                            supportsResourcefulness = true,
+                        }
+                    end,
+                }
+                local cachedProfileShadow = Pricing.CalculateStratMetricsV2Shadow(
+                    snapshotStrat, GAM.C.DEFAULT_PATCH, 1)
+                assert(cachedProfileShadow
+                        and cachedProfileShadow.formula
+                        and cachedProfileShadow.formula.statSource == "gam-cache-profile",
+                    "V2 shadow should accept exact profile stat cache from the GAM resolver")
+                assert(math.abs((cachedProfileShadow.expectedConsumedCostFull or 0) - 1898.75) < 0.001,
+                    string.format("V2 exact profile cache resourcefulness failed: got %.6f",
+                        cachedProfileShadow.expectedConsumedCostFull or 0))
             end)
             GAM.GetPatchDB = originalGetPatchDB
             GAM.GetOptions = originalGetOptions
             GetItemCount = originalGetItemCount
             Pricing.GetEffectivePrice = originalGetEffectivePrice
+            GAM.CraftingStatsV2 = originalCraftingStatsV2
             if GAM.Importer then
                 GAM.Importer.GetProducerCandidates = originalProducerCandidates
                 GAM.Importer.GetStratByID = originalGetStratByID
@@ -2237,6 +2358,13 @@ local function GetExpectedOutputPerCraft(strat, active, opts)
     return qtyRaw
 end
 
+local function GetPlannerExpectedOutputPerCraft(ctx, producer)
+    if ctx and ctx.v2ExecutionPlan and GetV2ExpectedOutputPerCraft then
+        return GetV2ExpectedOutputPerCraft(producer.strat, producer.active, ctx)
+    end
+    return GetExpectedOutputPerCraft(producer.strat, producer.active, ctx and ctx.opts)
+end
+
 local function FindProducerMatch(ctx, itemID, state)
     if not ctx.chainActive or not itemID or not (GAM.Importer and GAM.Importer.GetProducerCandidates) then
         return nil
@@ -2313,7 +2441,7 @@ local function BuildGraphLeafPlan(ctx, mode)
             return
         end
 
-        local expectedOutputPerCraft = GetExpectedOutputPerCraft(producer.strat, producer.active, ctx.opts)
+        local expectedOutputPerCraft = GetPlannerExpectedOutputPerCraft(ctx, producer)
         if not expectedOutputPerCraft or expectedOutputPerCraft <= 0 then
             AddResolvedLeaf(resolvedEntry, requiredQty)
             return
@@ -2536,7 +2664,7 @@ local function BuildVIBreakdownData(ctx, metrics)
             if not producer then
                 stopReason = "no_producer"
             else
-                expectedOutputPerCraft = GetExpectedOutputPerCraft(producer.strat, producer.active, ctx.opts)
+                expectedOutputPerCraft = GetPlannerExpectedOutputPerCraft(ctx, producer)
                 if not expectedOutputPerCraft or expectedOutputPerCraft <= 0 then
                     producer = nil
                     stopReason = "invalid_output"
@@ -2992,438 +3120,50 @@ BuildFinalMetrics = function(ctx, reagentData, outputData)
     }
 end
 
-GetFormulaV2 = function()
-    FormulaV2 = GAM.PricingV2Formula or FormulaV2 or {}
-    return FormulaV2
+local v2Installed = false
+if GAM.PricingV2Engine and type(GAM.PricingV2Engine.Install) == "function" then
+    v2Installed = GAM.PricingV2Engine.Install(Pricing, {
+        GetOpts = GetOpts,
+        GetPatchDB = GetPatchDB,
+        GetFormulaProfiles = GetFormulaProfiles,
+        GetItemLabel = GetItemLabel,
+        GetActiveRecipeView = GetActiveRecipeView,
+        BuildCalcContext = BuildCalcContext,
+        BuildReagentMetrics = BuildReagentMetrics,
+        BuildDisplayReagentMetrics = BuildDisplayReagentMetrics,
+        GetOutputBaseYield = GetOutputBaseYield,
+        GetOutputQuantityBasis = GetOutputQuantityBasis,
+        GetPrimaryOutput = GetPrimaryOutput,
+        GetPrimaryInputQuality = GetPrimaryInputQuality,
+        GetOutputPriceQty = GetOutputPriceQty,
+        GetOutputPriceForItem = GetOutputPriceForItem,
+        GetOutputItemIDForDisplay = GetOutputItemIDForDisplay,
+        GetInputRankPolicy = GetInputRankPolicy,
+        QuantizeRequiredAmount = QuantizeRequiredAmount,
+        ResolveGraphNodeEntry = ResolveGraphNodeEntry,
+        FindProducerMatch = FindProducerMatch,
+        GetScaledStartingAmountForCrafts = GetScaledStartingAmountForCrafts,
+        GetRequiredReagentAmountRaw = GetRequiredReagentAmountRaw,
+    })
 end
 
-local function GetV2ProfileDef(strat)
-    if not strat or strat.calcMode ~= "formula" or not strat.formulaProfile then
-        return nil
-    end
-    return GetFormulaProfiles()[strat.formulaProfile]
-end
+GetFormulaV2 = Pricing.GetFormulaV2
+GetV2ExpectedOutputPerCraft = Pricing.GetV2ExpectedOutputPerCraft
 
-local function GetV2StatPercent(opts, key)
-    if not key then
-        return 0
-    end
-    return math.max(0, (tonumber(opts and opts[key]) or 0) / 100)
-end
-
-local function GetV2NodeExtra(opts, key, defaultValue)
-    local raw = nil
-    if key and opts then
-        raw = opts[key]
-    end
-    if raw == nil then
-        raw = defaultValue or 0
-    end
-    local value = (tonumber(raw) or 0) / 100
-    if value < 0 then
-        return 0
-    end
-    return value
-end
-
-local function BuildV2FormulaInput(strat, opts, baseYield, crafts, requiredCraftCost, constants)
-    local profileDef = GetV2ProfileDef(strat)
-    local input = {
-        crafts = crafts or 0,
-        baseYield = baseYield or 0,
-        requiredCraftCost = requiredCraftCost or 0,
-        mcPercent = 0,
-        resPercent = 0,
-        mcExtra = 0,
-        resExtra = 0,
-        supportsMulticraft = false,
-        supportsResourcefulness = false,
-    }
-
-    if profileDef then
-        input.supportsMulticraft = profileDef.multiKey ~= nil
-        input.supportsResourcefulness = profileDef.resKey ~= nil
-        input.mcPercent = GetV2StatPercent(opts, profileDef.multiKey)
-        input.resPercent = GetV2StatPercent(opts, profileDef.resKey)
-        input.mcExtra = input.supportsMulticraft
-            and GetV2NodeExtra(opts, profileDef.mcNodeKey, profileDef.defaultMcNode)
-            or 0
-        input.resExtra = input.supportsResourcefulness
-            and GetV2NodeExtra(opts, profileDef.rsNodeKey, profileDef.defaultRsNode)
-            or 0
-    end
-
-    if constants and constants.multicraftConstants then
-        input.multicraftConstants = constants.multicraftConstants
-    end
-    if constants and constants.resourcefulnessSaveBase then
-        input.resourcefulnessSaveBase = constants.resourcefulnessSaveBase
-    end
-
-    return input, profileDef
-end
-
-local function GetV2CraftSimConstants()
-    if not (GAM.CraftSimBridge and type(GAM.CraftSimBridge.GetFormulaConstants) == "function") then
-        return nil
-    end
-    local ok, constants = pcall(function()
-        return GAM.CraftSimBridge.GetFormulaConstants()
-    end)
-    if ok and type(constants) == "table" then
-        return constants
-    end
-    return nil
-end
-
-local function CalculateV2FixedCrafts(strat, opts, baseYield, crafts, requiredCraftCost, constants)
-    local formula = GetFormulaV2()
-    constants = constants or GetV2CraftSimConstants()
-    local input, profileDef = BuildV2FormulaInput(strat, opts, baseYield, crafts, requiredCraftCost, constants)
-    local result
-    if formula and type(formula.CalculateFixedCrafts) == "function" then
-        result = formula.CalculateFixedCrafts(input)
-    else
-        result = {
-            expectedYieldPerCraft = input.baseYield,
-            expectedOutput = (input.crafts or 0) * (input.baseYield or 0),
-            requiredCraftCost = input.requiredCraftCost or 0,
-            averageSavedCost = 0,
-            expectedConsumedCost = input.requiredCraftCost or 0,
-        }
-    end
-    result.profileKey = strat and strat.formulaProfile or nil
-    result.profileDef = profileDef
-    return result
-end
-
-local function ComputeV2OutputQuantity(outputDef, ctx, strat)
-    if not outputDef then
-        return 0, 0, nil
-    end
-    strat = strat or ctx.strat
-    local baseYield = GetOutputBaseYield(outputDef) or 0
-    local basis = GetOutputQuantityBasis(outputDef, ctx.startingAmt, ctx.crafts) or 0
-    local formulaResult = CalculateV2FixedCrafts(strat, ctx.opts, baseYield, basis, 0)
-    local qtyRaw = formulaResult.expectedOutput or 0
-    return qtyRaw, math.floor(qtyRaw + 0.5), formulaResult
-end
-
-local function GetV2ExpectedOutputPerCraft(strat, active, opts)
-    if not strat or not active then
-        return nil
-    end
-    local output = (active.outputs and active.outputs[1]) or active.output
-    if not output then
-        return nil
-    end
-    local baseYield = GetOutputBaseYield(output) or 0
-    local formulaResult = CalculateV2FixedCrafts(strat, opts or GetOpts(), baseYield, 1, 0)
-    return formulaResult and formulaResult.expectedOutput or baseYield
-end
-
-local function BuildV2SingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice, outMissingPrice, missingPrices)
-    local netRevenue = nil
-    if outMissingPrice then
-        missingPrices[#missingPrices + 1] = GetItemLabel(primaryOut) or "Output"
-    elseif outPrice and outputQtyRaw > 0 then
-        netRevenue = math.floor(outputQtyRaw * outPrice * (1 - ctx.ahCut))
-    end
-    return nil, netRevenue
-end
-
-local function BuildV2MultiOutputMetrics(ctx, outputPreferredQuality, missingPrices)
-    local totalRevenue = 0
-    local allHavePrices = true
-    local outResults = {}
-    local hasStale = false
-    local priceQty = GetOutputPriceQty(ctx)
-
-    for _, outputDef in ipairs(ctx.active.outputs) do
-        local outputQtyRaw, outputQty, formulaResult = ComputeV2OutputQuantity(outputDef, ctx)
-        local price, stale = GetOutputPriceForItem(outputDef, ctx.patchTag, outputPreferredQuality, priceQty)
-        if stale then
-            hasStale = true
-        end
-        local netRevenue = price and math.floor(outputQtyRaw * price * (1 - ctx.ahCut)) or nil
-        if not price then
-            allHavePrices = false
-            missingPrices[#missingPrices + 1] = GetItemLabel(outputDef) or "Output"
-        else
-            totalRevenue = totalRevenue + netRevenue
-        end
-        outResults[#outResults + 1] = {
-            name = GetItemLabel(outputDef),
-            itemID = GetOutputItemIDForDisplay(outputDef, ctx.patchTag, outputPreferredQuality),
-            unitPrice = price,
-            expectedQty = outputQty,
-            expectedQtyRaw = outputQtyRaw,
-            netRevenue = netRevenue,
-            isStale = stale,
-            missingPrice = not price,
-            formula = formulaResult,
-        }
-    end
-
-    return outResults, allHavePrices and totalRevenue or nil, hasStale
-end
-
-local function BuildV2OutputMetrics(ctx)
-    local primaryOut = GetPrimaryOutput(ctx)
-    if not primaryOut.name and not primaryOut.itemRef and not primaryOut.itemIDs then
-        return nil
-    end
-
-    local missingPrices = {}
-    local outputQtyRaw, outputQty, formulaResult = ComputeV2OutputQuantity(primaryOut, ctx)
-    local primaryQuality = GetPrimaryInputQuality(ctx)
-    local outputPreferredQuality = (ctx.strat.outputQualityMode == "match_input") and primaryQuality or nil
-    local priceQty = GetOutputPriceQty(ctx)
-    local outPrice, outStale = GetOutputPriceForItem(primaryOut, ctx.patchTag, outputPreferredQuality, priceQty)
-    local outMissingPrice = not outPrice
-    local isMultiOutput = ctx.active.outputs and #ctx.active.outputs > 1
-    local outputs, netRevenue, extraStale
-
-    if isMultiOutput then
-        outputs, netRevenue, extraStale = BuildV2MultiOutputMetrics(ctx, outputPreferredQuality, missingPrices)
-    else
-        outputs, netRevenue = BuildV2SingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice, outMissingPrice, missingPrices)
-        extraStale = false
-    end
-
-    return {
-        primaryOut = primaryOut,
-        outputQtyRaw = outputQtyRaw,
-        output = {
-            name = GetItemLabel(primaryOut),
-            itemID = GetOutputItemIDForDisplay(primaryOut, ctx.patchTag, outputPreferredQuality),
-            unitPrice = outPrice,
-            expectedQty = outputQty,
-            expectedQtyRaw = outputQtyRaw,
-            netRevenue = (not isMultiOutput) and netRevenue or nil,
-            isStale = outStale,
-            missingPrice = outMissingPrice,
-            formula = formulaResult,
-        },
-        outputs = outputs,
-        netRevenue = netRevenue,
-        hasStale = outStale or extraStale,
-        isMultiOutput = isMultiOutput,
-        missingPrices = missingPrices,
-    }
-end
-
-local BuildV2RecipeEconomicCost
-
-local function MergeMissingPrices(target, source)
-    for _, name in ipairs(source or {}) do
-        target[#target + 1] = name
+if type(GetFormulaV2) ~= "function" then
+    GetFormulaV2 = function()
+        return GAM.PricingV2Formula or {}
     end
 end
 
-local function BuildV2LeafEconomicCost(ctx, resolvedEntry, requiredQty)
-    if resolvedEntry and resolvedEntry.excludeFromCost then
-        return {
-            requiredCostFull = 0,
-            expectedConsumedCostFull = 0,
-            hasStale = false,
-            missingPrices = {},
-        }
+if not v2Installed then
+    function Pricing.GetActivePricingEngine()
+        return "legacy"
     end
 
-    local inputPolicy = GetInputRankPolicy(ctx.strat)
-    local itemID = resolvedEntry and resolvedEntry.itemID or nil
-    local itemIDs = (resolvedEntry and resolvedEntry.itemIDs) or (itemID and { itemID }) or {}
-    local price, stale = Pricing.GetEffectivePriceForItem({
-        itemIDs = itemID and { itemID } or itemIDs,
-        name = resolvedEntry and resolvedEntry.name or nil,
-        skipDerivation = resolvedEntry and resolvedEntry.skipDerivation or false,
-        rankPolicyOverride = inputPolicy,
-    }, ctx.patchTag, requiredQty)
-
-    if not price then
-        return {
-            requiredCostFull = 0,
-            expectedConsumedCostFull = 0,
-            hasStale = stale and true or false,
-            missingPrices = { (resolvedEntry and resolvedEntry.name) or "Reagent" },
-        }
+    function Pricing.CalculateStratMetricsActive(strat, patchTag, craftQty)
+        return Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
     end
-
-    local cost = requiredQty * price
-    return {
-        requiredCostFull = cost,
-        expectedConsumedCostFull = cost,
-        hasStale = stale and true or false,
-        missingPrices = {},
-    }
-end
-
-local function BuildV2ReagentEconomicCost(ctx, node, requiredQty, state)
-    if not node or not requiredQty or requiredQty <= 0 then
-        return {
-            requiredCostFull = 0,
-            expectedConsumedCostFull = 0,
-            hasStale = false,
-            missingPrices = {},
-        }
-    end
-
-    local qtyForPricing = math.max(1, QuantizeRequiredAmount(requiredQty, "nearest"))
-    local resolvedEntry = ResolveGraphNodeEntry(ctx, node, qtyForPricing)
-    if not resolvedEntry then
-        return {
-            requiredCostFull = 0,
-            expectedConsumedCostFull = 0,
-            hasStale = false,
-            missingPrices = { GetItemLabel(node) or "Reagent" },
-        }
-    end
-
-    if resolvedEntry.excludeFromCost or resolvedEntry.skipDerivation or not ctx.chainActive then
-        return BuildV2LeafEconomicCost(ctx, resolvedEntry, requiredQty)
-    end
-
-    local producer = FindProducerMatch(ctx, resolvedEntry.itemID, state)
-    if not producer then
-        return BuildV2LeafEconomicCost(ctx, resolvedEntry, requiredQty)
-    end
-
-    local expectedOutputPerCraft = GetV2ExpectedOutputPerCraft(producer.strat, producer.active, ctx.opts)
-    if not expectedOutputPerCraft or expectedOutputPerCraft <= 0 then
-        return BuildV2LeafEconomicCost(ctx, resolvedEntry, requiredQty)
-    end
-
-    local craftsNeeded = requiredQty / expectedOutputPerCraft
-    local key = producer.key
-    state.activeProducerKeys[key] = true
-    local result = BuildV2RecipeEconomicCost(ctx, producer.strat, producer.active, craftsNeeded, state)
-    state.activeProducerKeys[key] = nil
-    return result
-end
-
-BuildV2RecipeEconomicCost = function(ctx, strat, active, crafts, state)
-    local startingAmt = GetScaledStartingAmountForCrafts(active, crafts)
-    local requiredCostFull = 0
-    local childExpectedCost = 0
-    local hasStale = false
-    local missingPrices = {}
-
-    for _, reagent in ipairs(active.reagents or {}) do
-        local childQty = GetRequiredReagentAmountRaw(reagent, startingAmt, crafts)
-        local child = BuildV2ReagentEconomicCost(ctx, reagent, childQty, state)
-        requiredCostFull = requiredCostFull + (child.requiredCostFull or 0)
-        childExpectedCost = childExpectedCost + (child.expectedConsumedCostFull or 0)
-        hasStale = hasStale or child.hasStale
-        MergeMissingPrices(missingPrices, child.missingPrices)
-    end
-
-    local primaryOut = (active.outputs and active.outputs[1]) or active.output
-    local baseYield = GetOutputBaseYield(primaryOut) or 0
-    local formulaResult = CalculateV2FixedCrafts(strat, ctx.opts, baseYield, crafts, childExpectedCost)
-
-    return {
-        crafts = crafts,
-        startingAmount = startingAmt,
-        requiredCostFull = requiredCostFull,
-        expectedConsumedCostFull = formulaResult.expectedConsumedCost or childExpectedCost,
-        averageSavedCost = formulaResult.averageSavedCost or 0,
-        formula = formulaResult,
-        hasStale = hasStale,
-        missingPrices = missingPrices,
-    }
-end
-
-local function BuildV2EconomicMetrics(ctx)
-    local state = {
-        activeProducerKeys = {},
-    }
-    return BuildV2RecipeEconomicCost(ctx, ctx.strat, ctx.active, ctx.crafts, state)
-end
-
-local function BuildV2ShadowFinalMetrics(ctx, outputData, legacyMetrics)
-    local economicData = BuildV2EconomicMetrics(ctx)
-    local missingPrices = {}
-    local seenMissing = {}
-
-    local function AddMissingNames(names)
-        for _, name in ipairs(names or {}) do
-            if name and not seenMissing[name] then
-                seenMissing[name] = true
-                missingPrices[#missingPrices + 1] = name
-            end
-        end
-    end
-
-    AddMissingNames(economicData.missingPrices)
-    AddMissingNames(outputData.missingPrices)
-
-    local profit = nil
-    local roi = nil
-    local breakEven = nil
-    if outputData.netRevenue and #missingPrices == 0 then
-        profit = outputData.netRevenue - economicData.expectedConsumedCostFull
-        if economicData.expectedConsumedCostFull > 0 then
-            roi = (profit / economicData.expectedConsumedCostFull) * 100
-        end
-    end
-    if economicData.expectedConsumedCostFull > 0 and outputData.outputQtyRaw > 0 and not outputData.isMultiOutput then
-        breakEven = economicData.expectedConsumedCostFull / (outputData.outputQtyRaw * (1 - ctx.ahCut))
-    end
-
-    local deltas = nil
-    if legacyMetrics then
-        deltas = {
-            totalCostFull = economicData.requiredCostFull - (legacyMetrics.totalCostFull or 0),
-            expectedConsumedCostFull = economicData.expectedConsumedCostFull - (legacyMetrics.totalCostFull or 0),
-            netRevenue = (outputData.netRevenue or 0) - (legacyMetrics.netRevenue or 0),
-            profit = profit and legacyMetrics.profit and (profit - legacyMetrics.profit) or nil,
-            roi = roi and legacyMetrics.roi and (roi - legacyMetrics.roi) or nil,
-            outputQtyRaw = (outputData.outputQtyRaw or 0)
-                - ((legacyMetrics.output and legacyMetrics.output.expectedQtyRaw) or 0),
-        }
-    end
-
-    return {
-        model = "v2-shadow",
-        startingAmount = ctx.startingAmt,
-        crafts = ctx.crafts,
-        output = outputData.output,
-        outputs = outputData.outputs,
-        requiredCostFull = economicData.requiredCostFull,
-        expectedConsumedCostFull = economicData.expectedConsumedCostFull,
-        averageSavedCost = economicData.averageSavedCost,
-        totalCostFull = economicData.requiredCostFull,
-        netRevenue = outputData.netRevenue,
-        profit = profit,
-        roi = roi,
-        breakEvenSell = breakEven,
-        missingPrices = missingPrices,
-        hasStale = economicData.hasStale or outputData.hasStale,
-        formula = economicData.formula,
-        deltas = deltas,
-    }
-end
-
-function Pricing.CalculateStratMetricsV2Shadow(strat, patchTag, craftQty, legacyMetrics)
-    if not strat then return nil end
-    patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    craftQty = craftQty or 1
-
-    local opts = GetOpts()
-    local ahCut = opts.ahCut or GAM.C.AH_CUT
-    local pdb = GetPatchDB(patchTag)
-    local active = GetActiveRecipeView(strat)
-    if not active or type(active.reagents) ~= "table" or #active.reagents == 0 then
-        return nil
-    end
-
-    local ctx = BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
-    local outputData = BuildV2OutputMetrics(ctx)
-    if not outputData then
-        return nil
-    end
-    return BuildV2ShadowFinalMetrics(ctx, outputData, legacyMetrics)
 end
 
 -- CalculateStratMetrics(strat, patchTag, craftQty) → metrics table or nil
@@ -3488,7 +3228,11 @@ function Pricing.GetVIBreakdownData(strat, patchTag, metrics)
 
     local ctx = BuildCalcContext(strat, active, patchTag, 1, opts, pdb, ahCut)
     if not metrics then
-        metrics = Pricing.CalculateStratMetrics(strat, patchTag, 1)
+        metrics = Pricing.CalculateStratMetricsActive(strat, patchTag, 1)
+    end
+    if metrics and metrics.model == "v2" then
+        ctx.v2StatResolutions = {}
+        ctx.v2ExecutionPlan = true
     end
     return BuildVIBreakdownData(ctx, metrics)
 end
@@ -3533,7 +3277,8 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics)
         return nil
     end
 
-    local currentMetrics = baseMetrics or Pricing.CalculateStratMetrics(strat, patchTag)
+    local calcMetrics = Pricing.CalculateStratMetricsActive or Pricing.CalculateStratMetrics
+    local currentMetrics = baseMetrics or calcMetrics(strat, patchTag)
     local selectedItemID = currentMetrics
         and currentMetrics.costReagents
         and currentMetrics.costReagents[1]
@@ -3573,7 +3318,7 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics)
         altReagent.itemIDs = altIDs or {}
         tempStrat.reagents[1] = altReagent
 
-        local altMetrics = Pricing.CalculateStratMetrics(tempStrat, patchTag)
+        local altMetrics = calcMetrics(tempStrat, patchTag)
         local pickedAltID = PickItemID(altIDs, patchTag, inputPolicy)
         local altCostReagent = altMetrics and altMetrics.costReagents and altMetrics.costReagents[1] or nil
         entries[#entries + 1] = {
@@ -3609,10 +3354,11 @@ function Pricing.GetBestStrategy(patchTag, profFilter)
 
     local bestStrat, bestScore, bestProfit, bestROI, bestCost =
         nil, -math.huge, nil, nil, nil
+    local calcMetrics = Pricing.CalculateStratMetricsActive or Pricing.CalculateStratMetrics
 
     for _, strat in ipairs(all) do
         if profFilter == "All" or strat.profession == profFilter then
-            local m = Pricing.CalculateStratMetrics(strat, patchTag)
+            local m = calcMetrics(strat, patchTag)
             if m then
                 local p, r = m.profit, m.roi
                 if p and p >= minProfit and r and r >= minROI then

@@ -394,6 +394,32 @@ local function BuildPanel()
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"], y)
 
     local ebFillQty
+    local engineLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    engineLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
+    engineLabel:SetText("Pricing Engine")
+
+    local engineTexts = {
+        legacy = "V1 Legacy",
+        v2 = "V2 Test",
+    }
+    local engineCurrent = (opts.pricingEngine == "v2") and "v2" or "legacy"
+    local engineBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+    engineBtn:SetSize(100, 22)
+    engineBtn:SetPoint("LEFT", engineLabel, "RIGHT", 12, 0)
+    engineBtn:SetText(engineTexts[engineCurrent])
+    engineBtn:SetScript("OnClick", function()
+        engineCurrent = (engineCurrent == "legacy") and "v2" or "legacy"
+        engineBtn:SetText(engineTexts[engineCurrent])
+    end)
+    engineBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Pricing Engine", 1, 1, 1)
+        GameTooltip:AddLine("V1 keeps the current spreadsheet-style ranking. V2 uses the test fixed-craft pricing engine and execution-safe shopping quantities.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    engineBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    y = y - 32
 
     local lblFillQty = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lblFillQty:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
@@ -749,6 +775,7 @@ local function BuildPanel()
         currentOpts.v2Theme = themeCurrent
         currentOpts.rememberAHWindowState = cbRememberAHState:GetChecked()
         currentOpts.rankPolicy = ddRank.GetValue() or "lowest"
+        currentOpts.pricingEngine = engineCurrent
 
         for _, row in ipairs(craftStatRows) do
             if row.multiKey and row.multiBox then
@@ -792,6 +819,7 @@ local function BuildPanel()
         end
 
         GAM.Log.Info("Fill qty: %d", currentOpts.shallowFillQty)
+        GAM.Log.Info("Pricing engine: %s", tostring(currentOpts.pricingEngine or "legacy"))
 
         if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
             GAM.UI.MainWindowV2.Refresh()
@@ -819,6 +847,8 @@ local function BuildPanel()
         ebFillQty:SetText(tostring(GetOptionValue(o, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)))
         rankCurrent = (o.rankPolicy == "highest") and "highest" or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
+        engineCurrent = (o.pricingEngine == "v2") and "v2" or "legacy"
+        engineBtn:SetText(engineTexts[engineCurrent])
         themeCurrent = themeTexts[o.v2Theme] and o.v2Theme or "classic"
         themeBtn:SetText(themeTexts[themeCurrent])
 

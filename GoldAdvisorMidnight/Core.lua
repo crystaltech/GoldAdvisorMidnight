@@ -81,6 +81,7 @@ local DB_DEFAULTS = {
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         v2Theme             = "classic",
+        pricingEngine        = "legacy",
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
         leftPanelCollapsed  = false,   -- left panel collapse state
@@ -94,6 +95,10 @@ local DB_DEFAULTS = {
     priceCache = {},
     scanState  = {},
     itemKeyDB  = {},   -- persisted full AH itemKeys discovered via browse fallback
+    v2StatCache = {
+        version = 1,
+        characters = {},
+    },
     userStrats = {},   -- user-created strategies (same schema as GAM_STRATS_MANUAL entries)
 }
 
@@ -904,10 +909,126 @@ GAM:RegisterEvent("COMMODITY_PURCHASE_SUCCEEDED")
 GAM:RegisterEvent("COMMODITY_PURCHASE_FAILED")
 
 -- ===== Slash command =====
+local function ShowDebugLog()
+    if GAM.UI and GAM.UI.DebugLog then
+        GAM.UI.DebugLog.Show()
+    end
+end
+
+local function RefreshPricingViews()
+    if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
+        GAM.UI.MainWindowV2.Refresh()
+    end
+    if GAM.UI and GAM.UI.StratDetail
+            and GAM.UI.StratDetail.IsShown
+            and GAM.UI.StratDetail.Refresh
+            and GAM.UI.StratDetail.IsShown() then
+        GAM.UI.StratDetail.Refresh()
+    end
+end
+
+local function RunSmokeCheck(label, owner, fnName)
+    if owner and type(owner[fnName]) == "function" then
+        return owner[fnName]()
+    end
+    return false, label .. " smoke checks unavailable"
+end
+
+local function PrintSmokeFailure(ok, label, err)
+    if not ok then
+        print("|cffff0000[GAM]|r " .. label .. " smoke test failed: " .. tostring(err))
+    end
+end
+
+local function HandleSmokeTestCommand()
+    local pricingOK, pricingErr = RunSmokeCheck("Pricing", GAM.Pricing, "RunSmokeChecks")
+    local scanOK, scanErr = RunSmokeCheck("AH scan", GAM.AHScan, "RunSmokeChecks")
+    local stateOK, stateErr = RunSmokeCheck("State", GAM.State, "RunSmokeChecks")
+    local creatorOK, creatorErr = RunSmokeCheck("Strategy creator",
+        GAM.UI and GAM.UI.StratCreator,
+        "RunSmokeChecks")
+    local bridgeOK, bridgeErr = RunSmokeCheck("CraftSim bridge",
+        GAM.CraftSimBridge,
+        "RunSmokeChecks")
+    local statsOK, statsErr = RunSmokeCheck("CraftingStatsV2",
+        GAM.CraftingStatsV2,
+        "RunSmokeChecks")
+
+    if pricingOK and scanOK and stateOK and creatorOK and bridgeOK and statsOK then
+        print("|cffff8800[GAM]|r Smoke tests passed.")
+        return
+    end
+
+    PrintSmokeFailure(pricingOK, "Pricing", pricingErr)
+    PrintSmokeFailure(scanOK, "AH scan", scanErr)
+    PrintSmokeFailure(stateOK, "State", stateErr)
+    PrintSmokeFailure(creatorOK, "Strategy creator", creatorErr)
+    PrintSmokeFailure(bridgeOK, "CraftSim bridge", bridgeErr)
+    PrintSmokeFailure(statsOK, "CraftingStatsV2", statsErr)
+end
+
+local function HandleV2CaptureCommand()
+    ShowDebugLog()
+
+    local snapshot, craftSimErr, nativeErr
+    if GAM.CraftSimBridge and GAM.CraftSimBridge.CaptureOpenRecipeStatsV2 then
+        snapshot, craftSimErr = GAM.CraftSimBridge.CaptureOpenRecipeStatsV2()
+    end
+    if not snapshot and GAM.CraftingStatsV2 and GAM.CraftingStatsV2.CaptureOpenRecipe then
+        snapshot, nativeErr = GAM.CraftingStatsV2.CaptureOpenRecipe()
+    end
+
+    if snapshot then
+        GAM.Log.Info("CraftingStatsV2: captured %s profile=%s recipeID=%s source=%s nodeHash=%s",
+            tostring(snapshot.recipeName or "?"),
+            tostring(snapshot.profileKey or "-"),
+            tostring(snapshot.recipeID or "-"),
+            tostring(snapshot.source or snapshot.cachedSource or "-"),
+            tostring(snapshot.nodeHash or "-"))
+        return
+    end
+
+    local imported = 0
+    if GAM.CraftSimBridge and GAM.CraftSimBridge.ImportCachedV2StatSnapshotsFromCraftSim then
+        imported = GAM.CraftSimBridge.ImportCachedV2StatSnapshotsFromCraftSim() or 0
+    end
+    if imported > 0 then
+        GAM.Log.Info("CraftingStatsV2: no open recipe captured; imported %d cached CraftSim profile snapshot(s) instead.",
+            imported)
+    elseif craftSimErr or nativeErr then
+        GAM.Log.Warn("CraftingStatsV2: capture failed: CraftSim=%s native=%s. Open a profession recipe first, then run /gam v2capture.",
+            tostring(craftSimErr or "unavailable"),
+            tostring(nativeErr or "unavailable"))
+    else
+        GAM.Log.Warn("CraftingStatsV2: open recipe capture unavailable")
+    end
+end
+
+local function HandlePricingEngineCommand(args)
+    local choice = (args or ""):lower():match("^%s*(%S*)") or ""
+    local opts = GAM:GetOptions()
+    if choice == "v2" or choice == "2" then
+        opts.pricingEngine = "v2"
+    elseif choice == "v1" or choice == "legacy" or choice == "1" then
+        opts.pricingEngine = "legacy"
+    elseif choice == "toggle" or choice == "" then
+        opts.pricingEngine = (opts.pricingEngine == "v2") and "legacy" or "v2"
+    else
+        print("|cffff8800[GAM]|r Usage: /gam engine v1 | v2 | toggle")
+        return
+    end
+
+    GAM.Log.Info("Pricing engine: %s", tostring(opts.pricingEngine or "legacy"))
+    print("|cffff8800[GAM]|r Pricing engine: " .. tostring(opts.pricingEngine or "legacy"))
+    RefreshPricingViews()
+end
+
 SLASH_GOLDADVISORMIDNIGHT1 = "/gam"
 SLASH_GOLDADVISORMIDNIGHT2 = "/goldadvisor"
 SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
-    local cmd = (input or ""):lower():match("^%s*(%S*)")
+    local rawInput = input or ""
+    local cmd = rawInput:lower():match("^%s*(%S*)")
+    local args = rawInput:match("^%s*%S+%s*(.-)%s*$") or ""
     if cmd == "log" then
         if GAM.UI and GAM.UI.DebugLog then
             GAM.UI.DebugLog.Toggle()
@@ -934,71 +1055,47 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
         GAM.Log.Info("Data reloaded.")
         print("|cffff8800[GAM]|r Data reloaded.")
     elseif cmd == "ids" then
-        -- Open debug log then run the dump
+        ShowDebugLog()
         if GAM.UI and GAM.UI.DebugLog then
-            GAM.UI.DebugLog.Show()
             GAM.UI.DebugLog.DumpItemIDs()
         end
     elseif cmd == "scans" or cmd == "scandump" then
         if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.DumpSelectedStrategyScans then
-            GAM.UI.DebugLog.Show()
+            ShowDebugLog()
             GAM.UI.DebugLog.DumpSelectedStrategyScans()
         end
+    elseif cmd == "v2dump" then
+        if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.DumpSelectedStrategyV2Shadow then
+            ShowDebugLog()
+            GAM.UI.DebugLog.DumpSelectedStrategyV2Shadow(args)
+        end
+    elseif cmd == "csdump" or cmd == "craftsimdump" then
+        ShowDebugLog()
+        if GAM.CraftSimBridge and GAM.CraftSimBridge.DumpOpenRecipeStats then
+            GAM.CraftSimBridge.DumpOpenRecipeStats()
+        else
+            GAM.Log.Warn("CraftSimBridge: open recipe stat dump unavailable")
+        end
+    elseif cmd == "v2stats" then
+        ShowDebugLog()
+        if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.DumpProfiles then
+            GAM.CraftingStatsV2.DumpProfiles(args)
+        else
+            GAM.Log.Warn("CraftingStatsV2: stat profile dump unavailable")
+        end
+    elseif cmd == "v2audit" then
+        ShowDebugLog()
+        if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.DumpAudit then
+            GAM.CraftingStatsV2.DumpAudit(args)
+        else
+            GAM.Log.Warn("CraftingStatsV2: stat profile audit unavailable")
+        end
+    elseif cmd == "v2capture" then
+        HandleV2CaptureCommand()
+    elseif cmd == "engine" or cmd == "pricing" then
+        HandlePricingEngineCommand(args)
     elseif cmd == "smoketest" then
-        local pricingOK, pricingErr
-        if GAM.Pricing and GAM.Pricing.RunSmokeChecks then
-            pricingOK, pricingErr = GAM.Pricing.RunSmokeChecks()
-        else
-            pricingOK, pricingErr = false, "Pricing smoke checks unavailable"
-        end
-
-        local scanOK, scanErr
-        if GAM.AHScan and GAM.AHScan.RunSmokeChecks then
-            scanOK, scanErr = GAM.AHScan.RunSmokeChecks()
-        else
-            scanOK, scanErr = false, "AH scan smoke checks unavailable"
-        end
-
-        local stateOK, stateErr
-        if GAM.State and GAM.State.RunSmokeChecks then
-            stateOK, stateErr = GAM.State.RunSmokeChecks()
-        else
-            stateOK, stateErr = false, "State smoke checks unavailable"
-        end
-
-        local creatorOK, creatorErr
-        if GAM.UI and GAM.UI.StratCreator and GAM.UI.StratCreator.RunSmokeChecks then
-            creatorOK, creatorErr = GAM.UI.StratCreator.RunSmokeChecks()
-        else
-            creatorOK, creatorErr = false, "Strategy creator smoke checks unavailable"
-        end
-
-        local bridgeOK, bridgeErr
-        if GAM.CraftSimBridge and GAM.CraftSimBridge.RunSmokeChecks then
-            bridgeOK, bridgeErr = GAM.CraftSimBridge.RunSmokeChecks()
-        else
-            bridgeOK, bridgeErr = false, "CraftSim bridge smoke checks unavailable"
-        end
-
-        if pricingOK and scanOK and stateOK and creatorOK and bridgeOK then
-            print("|cffff8800[GAM]|r Smoke tests passed.")
-        else
-            if not pricingOK then
-                print("|cffff0000[GAM]|r Pricing smoke test failed: " .. tostring(pricingErr))
-            end
-            if not scanOK then
-                print("|cffff0000[GAM]|r AH scan smoke test failed: " .. tostring(scanErr))
-            end
-            if not stateOK then
-                print("|cffff0000[GAM]|r State smoke test failed: " .. tostring(stateErr))
-            end
-            if not creatorOK then
-                print("|cffff0000[GAM]|r Strategy creator smoke test failed: " .. tostring(creatorErr))
-            end
-            if not bridgeOK then
-                print("|cffff0000[GAM]|r CraftSim bridge smoke test failed: " .. tostring(bridgeErr))
-            end
-        end
+        HandleSmokeTestCommand()
     elseif cmd == "create" then
         if GAM.UI and GAM.UI.StratCreator then
             GAM.UI.StratCreator.Show()

@@ -1,5 +1,5 @@
 -- GoldAdvisorMidnight/PricingV2Formula.lua
--- Pure expected-value math for the shadow V2 pricing engine.
+-- Pure expected-value math for the V2 pricing engine.
 -- Module: GAM.PricingV2Formula
 
 local ADDON_NAME, GAM = ...
@@ -210,4 +210,3 @@ function Formula.RunSmokeChecks()
     end)
     return ok, err
 end
-

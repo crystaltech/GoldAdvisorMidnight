@@ -367,7 +367,7 @@ local function CreateAuctionatorList()
         return
     end
     if not currentStrat then return end
-    local m = metricsCache or GAM.Pricing.CalculateStratMetrics(currentStrat, currentPatch)
+    local m = metricsCache or GAM.Pricing.CalculateStratMetricsActive(currentStrat, currentPatch)
     if not m then return end
 
     local addonName  = "GoldAdvisorMidnight"
@@ -1193,7 +1193,7 @@ function SD.Refresh()
     frame.notesFS:SetText(currentStrat.notes or "")
 
     -- Compute metrics
-    local m = GAM.Pricing.CalculateStratMetrics(currentStrat, currentPatch)
+    local m = GAM.Pricing.CalculateStratMetricsActive(currentStrat, currentPatch)
     metricsCache = m
     RefreshSelectionNote()
 
