@@ -711,6 +711,22 @@ local function DumpSelectedStrategyScans()
     for _, row in ipairs(metrics.reagents or {}) do
         DumpItem("input", row.name, row.itemID, row.required)
     end
+    local queueSnapshot = GAM.AHScan and GAM.AHScan.GetQueueSnapshot and GAM.AHScan.GetQueueSnapshot() or {}
+    if #queueSnapshot > 0 then
+        GAM.Log.Info("[queued scan items]")
+        for i, entry in ipairs(queueSnapshot) do
+            if i > 30 then
+                GAM.Log.Info("  ... %d more queued item(s)", #queueSnapshot - 30)
+                break
+            end
+            GAM.Log.Info("  %s item:%s name=%s reason=%s strategies=%s",
+                entry.isNameScan and "name" or "price",
+                tostring(entry.itemID or 0),
+                tostring(entry.name or "-"),
+                table.concat(entry.reasons or {}, ", "),
+                table.concat(entry.strategyKeys or {}, ", "))
+        end
+    end
     GAM.Log.Info("=== End Scan Dump ===")
 end
 

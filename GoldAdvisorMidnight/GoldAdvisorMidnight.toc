@@ -8,6 +8,16 @@
 ## X-License: All Rights Reserved
 
 Data\WorkbookGenerated.lua
+Data\ProfessionCrafts.lua
+Data\Professions\Alchemy.lua
+Data\Professions\Blacksmithing.lua
+Data\Professions\Cooking.lua
+Data\Professions\Enchanting.lua
+Data\Professions\Engineering.lua
+Data\Professions\Inscription.lua
+Data\Professions\Jewelcrafting.lua
+Data\Professions\Leatherworking.lua
+Data\Professions\Tailoring.lua
 Constants.lua
 Locale.lua
 Locale\deDE.lua

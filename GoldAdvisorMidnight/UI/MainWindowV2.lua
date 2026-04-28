@@ -1141,8 +1141,9 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     local displayed = (GAM.Pricing and GAM.Pricing.GetDisplayedItemSet and GAM.Pricing.GetDisplayedItemSet(strat, pt, displayedMetrics)) or strat
     local seenIDs = {}
     local seenNames = {}
+    local strategyKey = strat.id or strat.key or strat.stratName
 
-    local function queueItem(item)
+    local function queueItem(item, reason)
         if not item or not item.name then return end
         local ids = item.itemIDs
         if not ids or #ids == 0 then
@@ -1152,23 +1153,23 @@ local function ScanSingleStrategy(strat, patchTag, callback)
             for _, id in ipairs(ids) do
                 if not seenIDs[id] then
                     seenIDs[id] = true
-                    GAM.AHScan.QueueItemScan(id, callback)
+                    GAM.AHScan.QueueItemScan(id, callback, reason, strategyKey)
                 end
             end
         else
             local nameKey = item.name .. "@" .. pt
             if not seenNames[nameKey] then
                 seenNames[nameKey] = true
-                GAM.AHScan.QueueNameScan(item.name, pt, callback)
+                GAM.AHScan.QueueNameScan(item.name, pt, callback, reason, strategyKey)
             end
         end
     end
 
-    queueItem(displayed.output)
-    for _, o in ipairs(displayed.outputs or {}) do queueItem(o) end
-    for _, r in ipairs(displayed.reagents or {}) do queueItem(r) end
+    queueItem(displayed.output, "selected strategy output")
+    for _, o in ipairs(displayed.outputs or {}) do queueItem(o, "selected strategy output") end
+    for _, r in ipairs(displayed.reagents or {}) do queueItem(r, "selected strategy input") end
     local extraScanItems = (GAM.Pricing and GAM.Pricing.GetExtraScanItems and GAM.Pricing.GetExtraScanItems(strat, pt)) or {}
-    for _, extra in ipairs(extraScanItems) do queueItem(extra) end
+    for _, extra in ipairs(extraScanItems) do queueItem(extra, "selected flexible pool") end
     GAM.AHScan.StartScan()
 end
 

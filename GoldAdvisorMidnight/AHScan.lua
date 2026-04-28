@@ -269,13 +269,35 @@ end
 --                        without a separate GetItemInfo call.
 -- noFallback (optional) — pre-marks browseFallbackUsed=true to prevent a second
 --                        browse escalation when re-queued from OnBrowseResults.
-local priceScanQueued = {}  -- [itemID] = true; reset at StartScan
-local function EnqueuePriceScan(itemID, callback, itemName, noFallback)
+local function AddQueueMetadata(entry, reason, strategyKey)
+    if not entry then return end
+    if reason and reason ~= "" then
+        entry.reasons = entry.reasons or {}
+        entry._reasonSet = entry._reasonSet or {}
+        if not entry._reasonSet[reason] then
+            entry._reasonSet[reason] = true
+            entry.reasons[#entry.reasons + 1] = reason
+        end
+    end
+    if strategyKey and strategyKey ~= "" then
+        entry.strategyKeys = entry.strategyKeys or {}
+        entry._strategySet = entry._strategySet or {}
+        if not entry._strategySet[strategyKey] then
+            entry._strategySet[strategyKey] = true
+            entry.strategyKeys[#entry.strategyKeys + 1] = strategyKey
+        end
+    end
+end
+
+local priceScanQueued = {}  -- [itemID] = queueEntry; reset at StartScan
+local function EnqueuePriceScan(itemID, callback, itemName, noFallback, reason, strategyKey)
     if not itemID or itemID == 0 then return end
-    if priceScanQueued[itemID] then return end
-    priceScanQueued[itemID] = true
+    if priceScanQueued[itemID] then
+        AddQueueMetadata(priceScanQueued[itemID], reason, strategyKey)
+        return
+    end
     totalEver = totalEver + 1
-    scanQueue[#scanQueue + 1] = {
+    local entry = {
         itemID             = itemID,
         callback           = callback,
         isNameScan         = false,
@@ -283,22 +305,30 @@ local function EnqueuePriceScan(itemID, callback, itemName, noFallback)
         browseFallbackUsed = noFallback or nil, -- true → skip browse escalation
         -- _gen              assigned lazily when browse fallback is triggered
     }
+    AddQueueMetadata(entry, reason or "price", strategyKey)
+    scanQueue[#scanQueue + 1] = entry
+    priceScanQueued[itemID] = entry
 end
 
 -- Internal: add a name-scan entry (de-dup by name)
-local nameScanQueued = {}  -- [name] = true; reset at StartScan
-local function EnqueueNameScan(itemName, patchTag, callback)
+local nameScanQueued = {}  -- [name] = queueEntry; reset at StartScan
+local function EnqueueNameScan(itemName, patchTag, callback, reason, strategyKey)
     if not itemName then return end
-    if nameScanQueued[itemName] then return end
-    nameScanQueued[itemName] = true
+    if nameScanQueued[itemName] then
+        AddQueueMetadata(nameScanQueued[itemName], reason, strategyKey)
+        return
+    end
     totalEver = totalEver + 1
-    scanQueue[#scanQueue + 1] = {
+    local entry = {
         itemID     = 0,
         name       = itemName,
         patchTag   = patchTag or GAM.C.DEFAULT_PATCH,
         callback   = callback,
         isNameScan = true,
     }
+    AddQueueMetadata(entry, reason or "name", strategyKey)
+    scanQueue[#scanQueue + 1] = entry
+    nameScanQueued[itemName] = entry
 end
 
 -- ===== Query sender: price scan =====
@@ -797,17 +827,17 @@ end
 
 -- ===== Public API =====
 
-function AHScan.QueueItemScan(itemID, callback)
+function AHScan.QueueItemScan(itemID, callback, reason, strategyKey)
     if not itemID or itemID == 0 then return end
-    EnqueuePriceScan(itemID, callback)
+    EnqueuePriceScan(itemID, callback, nil, nil, reason or "manual item", strategyKey)
 end
 
-function AHScan.QueueNameScan(itemName, patchTag, callback)
+function AHScan.QueueNameScan(itemName, patchTag, callback, reason, strategyKey)
     if not itemName then return end
-    EnqueueNameScan(itemName, patchTag, callback)
+    EnqueueNameScan(itemName, patchTag, callback, reason or "manual name", strategyKey)
 end
 
-local function QueueCheapestAlternatives(reagent, patchTag)
+local function QueueCheapestAlternatives(reagent, patchTag, strategyKey)
     if not (reagent and reagent.cheapestOf) then
         return
     end
@@ -816,10 +846,10 @@ local function QueueCheapestAlternatives(reagent, patchTag)
             local ids = alt.itemIDs
             if ids and #ids > 0 then
                 for _, id in ipairs(ids) do
-                    EnqueuePriceScan(id, nil, alt.name)
+                    EnqueuePriceScan(id, nil, alt.name, nil, "flexible pool", strategyKey)
                 end
             else
-                EnqueueNameScan(alt.name, patchTag)
+                EnqueueNameScan(alt.name, patchTag, nil, "flexible pool", strategyKey)
             end
         end
     end
@@ -831,7 +861,7 @@ function AHScan.QueueStratListItems(stratList, patchTag)
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local pdb = GAM:GetPatchDB(patchTag)
 
-    local function tryQueueItem(item)
+    local function tryQueueItem(item, reason, strategyKey)
         if not item or not item.name then return end
         local ids = item.itemIDs
         if (not ids or #ids == 0) then
@@ -839,31 +869,32 @@ function AHScan.QueueStratListItems(stratList, patchTag)
         end
         if ids and #ids > 0 then
             for _, id in ipairs(ids) do
-                EnqueuePriceScan(id, nil, item.name)  -- pass name for browse fallback
+                EnqueuePriceScan(id, nil, item.name, nil, reason, strategyKey)  -- pass name for browse fallback
             end
         else
-            EnqueueNameScan(item.name, patchTag)
+            EnqueueNameScan(item.name, patchTag, nil, reason, strategyKey)
         end
     end
 
     for _, strat in ipairs(stratList or {}) do
-        tryQueueItem(strat.output)
+        local strategyKey = strat.id or strat.key or strat.stratName
+        tryQueueItem(strat.output, "strategy output", strategyKey)
         for _, r in ipairs(strat.reagents or {}) do
-            tryQueueItem(r)
-            QueueCheapestAlternatives(r, patchTag)
+            tryQueueItem(r, "strategy input", strategyKey)
+            QueueCheapestAlternatives(r, patchTag, strategyKey)
         end
         if strat.outputs then
-            for _, o in ipairs(strat.outputs) do tryQueueItem(o) end
+            for _, o in ipairs(strat.outputs) do tryQueueItem(o, "strategy output", strategyKey) end
         end
         -- Also queue items that only appear in non-default rank variants
         -- (e.g. R2-only reagents in the "highest" variant won't be in strat.reagents)
         if strat.rankVariants then
             for _, variant in pairs(strat.rankVariants) do
                 for _, r in ipairs(variant.reagents or {}) do
-                    tryQueueItem(r)
-                    QueueCheapestAlternatives(r, patchTag)
+                    tryQueueItem(r, "rank variant input", strategyKey)
+                    QueueCheapestAlternatives(r, patchTag, strategyKey)
                 end
-                for _, o in ipairs(variant.outputs  or {}) do tryQueueItem(o) end
+                for _, o in ipairs(variant.outputs  or {}) do tryQueueItem(o, "rank variant output", strategyKey) end
             end
         end
     end
@@ -878,7 +909,7 @@ function AHScan.QueueAllStratItems(patchTag)
     local strats = GAM.Importer.GetAllStrats(patchTag)
     local pdb    = GAM:GetPatchDB(patchTag)
 
-    local function tryQueueItem(item)
+    local function tryQueueItem(item, reason, strategyKey)
         if not item or not item.name then return end
         -- Resolve itemIDs: from strat definition or from saved rankGroups
         local ids = item.itemIDs
@@ -887,31 +918,32 @@ function AHScan.QueueAllStratItems(patchTag)
         end
         if ids and #ids > 0 then
             for _, id in ipairs(ids) do
-                EnqueuePriceScan(id, nil, item.name)  -- pass name for browse fallback
+                EnqueuePriceScan(id, nil, item.name, nil, reason, strategyKey)  -- pass name for browse fallback
             end
         else
             -- No itemID known yet — queue a name/browse scan to discover it
-            EnqueueNameScan(item.name, patchTag)
+            EnqueueNameScan(item.name, patchTag, nil, reason, strategyKey)
         end
     end
 
     for _, strat in ipairs(strats) do
-        tryQueueItem(strat.output)
+        local strategyKey = strat.id or strat.key or strat.stratName
+        tryQueueItem(strat.output, "strategy output", strategyKey)
         for _, r in ipairs(strat.reagents or {}) do
-            tryQueueItem(r)
-            QueueCheapestAlternatives(r, patchTag)
+            tryQueueItem(r, "strategy input", strategyKey)
+            QueueCheapestAlternatives(r, patchTag, strategyKey)
         end
         if strat.outputs then
-            for _, o in ipairs(strat.outputs) do tryQueueItem(o) end
+            for _, o in ipairs(strat.outputs) do tryQueueItem(o, "strategy output", strategyKey) end
         end
         -- Also queue items that only appear in non-default rank variants
         if strat.rankVariants then
             for _, variant in pairs(strat.rankVariants) do
                 for _, r in ipairs(variant.reagents or {}) do
-                    tryQueueItem(r)
-                    QueueCheapestAlternatives(r, patchTag)
+                    tryQueueItem(r, "rank variant input", strategyKey)
+                    QueueCheapestAlternatives(r, patchTag, strategyKey)
                 end
-                for _, o in ipairs(variant.outputs  or {}) do tryQueueItem(o) end
+                for _, o in ipairs(variant.outputs  or {}) do tryQueueItem(o, "rank variant output", strategyKey) end
             end
         end
     end
@@ -975,6 +1007,22 @@ end
 -- Returns done, total for external progress display
 function AHScan.GetProgress()
     return doneCount, totalEver, scanSuccessCount, scanFailCount
+end
+
+function AHScan.GetQueueSnapshot()
+    local out = {}
+    for i = queueHead, #scanQueue do
+        local entry = scanQueue[i]
+        out[#out + 1] = {
+            itemID = entry.itemID,
+            name = entry.name,
+            isNameScan = entry.isNameScan and true or false,
+            patchTag = entry.patchTag,
+            reasons = entry.reasons or {},
+            strategyKeys = entry.strategyKeys or {},
+        }
+    end
+    return out
 end
 
 -- Reset queuing dedup tables (call before building a new scan queue)

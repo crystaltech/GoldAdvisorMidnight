@@ -76,6 +76,11 @@ function Log.Warn(msg, ...)
     emit(string.format("[%s][WARN] %s", timestamp(), s))
 end
 
+function Log.Error(msg, ...)
+    local s = (select('#', ...) > 0) and msg:format(...) or msg
+    emit(string.format("[%s][ERROR] %s", timestamp(), s))
+end
+
 function Log.Info(msg, ...)
     if level < 1 then return end
     local s = (select('#', ...) > 0) and msg:format(...) or msg
@@ -85,13 +90,13 @@ end
 function Log.Debug(msg, ...)
     if level < 2 then return end
     local s = (select('#', ...) > 0) and msg:format(...) or msg
-    emit(string.format("[%s][DBG]  %s", timestamp(), s))
+    emit(string.format("[%s][DEBUG] %s", timestamp(), s))
 end
 
 function Log.Verbose(msg, ...)
     if level < 3 then return end
     local s = (select('#', ...) > 0) and msg:format(...) or msg
-    emit(string.format("[%s][VRB]  %s", timestamp(), s))
+    emit(string.format("[%s][VERBOSE] %s", timestamp(), s))
 end
 
 -- Returns ordered list of current buffer entries (oldest → newest)
@@ -124,4 +129,3 @@ function Log.Clear()
     count = 0
     emit("[" .. timestamp() .. "][INFO] " .. (GAM.L and GAM.L["LOG_CLEARED"] or "[Log cleared]"))
 end
-

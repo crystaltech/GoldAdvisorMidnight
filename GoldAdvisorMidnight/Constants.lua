@@ -150,5 +150,6 @@ GAM.C = {
         [242645] = 1125,   -- Ripened Vegetable Assortment (11s 25c)
         [242646] = 1075,   -- Pouch of Spices          (10s 75c)
         [242647] = 1000,   -- Tavern Fixings           (10s)
+        [242642] = 1225,   -- Thalassian Herbs         (12s 25c)
     },
 }
