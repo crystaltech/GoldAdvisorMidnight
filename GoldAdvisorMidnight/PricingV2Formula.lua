@@ -126,8 +126,11 @@ function Formula.CalculateFixedInputEquivalent(input)
 
     local crafts = ClampNonNegative(input.crafts)
     local baseYield = ClampNonNegative(input.baseYield)
+    local requiredCraftCost = ClampNonNegative(input.requiredCraftCost)
     local mcPercent = Clamp01(input.mcPercent)
     local resPercent = Clamp01(input.resPercent)
+    local mcExtra = ClampNonNegative(input.mcExtra)
+    local resExtra = ClampNonNegative(input.resExtra)
     local mcMultiplier = ClampNonNegative(input.mcMultiplier)
     local resourceSaveFraction = ClampNonNegative(input.resourceSaveFraction)
     local denominator = 1 - (resPercent * resourceSaveFraction)
@@ -144,11 +147,19 @@ function Formula.CalculateFixedInputEquivalent(input)
         baseYield = baseYield,
         mcPercent = mcPercent,
         resPercent = resPercent,
+        mcExtra = mcExtra,
+        resExtra = resExtra,
         mcMultiplier = mcMultiplier,
         resourceSaveFraction = resourceSaveFraction,
         denominator = denominator,
         expectedOutput = expectedOutput,
         expectedYieldPerCraft = (crafts > 0) and (expectedOutput / crafts) or 0,
+        requiredCraftCost = requiredCraftCost,
+        averageSavedCost = 0,
+        expectedConsumedCost = requiredCraftCost,
+        expectedCostPerItem = (expectedOutput > 0) and (requiredCraftCost / expectedOutput) or nil,
+        supportsMulticraft = input.supportsMulticraft and true or false,
+        supportsResourcefulness = input.supportsResourcefulness and true or false,
     }
 end
 

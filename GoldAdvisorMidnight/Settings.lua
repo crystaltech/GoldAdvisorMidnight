@@ -70,6 +70,7 @@ end
 -- Gold accent color used throughout
 local GOLD_R, GOLD_G, GOLD_B         = 1.0, 0.82, 0.0
 local GOLD_DIM_R, GOLD_DIM_G, GOLD_DIM_B = 0.7, 0.57, 0.0
+local THALASSIAN_LUMBER_ITEM_ID = 256963
 
 -- Unique name counter so _G[name.."Low"] / _G[name.."Text"] always resolve.
 local _widgetCount = 0
@@ -257,6 +258,51 @@ local function FormatStatPercentValue(value)
     return string.format("%.1f", n)
 end
 
+local function FormatGoldInput(copper)
+    local n = tonumber(copper)
+    if not n or n <= 0 then
+        return ""
+    end
+    local text = string.format("%.4f", n / 10000)
+    text = text:gsub("0+$", ""):gsub("%.$", "")
+    return text
+end
+
+local function ParseGoldInput(text)
+    local clean = tostring(text or ""):gsub(",", ""):match("^%s*(.-)%s*$")
+    if clean == "" then
+        return nil
+    end
+    local gold = tonumber(clean)
+    if not gold or gold <= 0 then
+        return nil
+    end
+    return math.floor((gold * 10000) + 0.5)
+end
+
+local function NormalizeV2PricingMode(mode)
+    local value = tostring(mode or ""):lower()
+    if value == "fixed_crafts" or value == "fixedcrafts" or value == "craftsim" then
+        return "fixed_crafts"
+    end
+    if value == "fixed_input" or value == "fixedinput" or value == "spreadsheet" then
+        return "fixed_input"
+    end
+
+    local defaultMode = tostring((GAM.C and GAM.C.DEFAULT_V2_PRICING_MODE) or "fixed_crafts"):lower()
+    if defaultMode == "fixed_input" then
+        return "fixed_input"
+    end
+    return "fixed_crafts"
+end
+
+local function NormalizePricingEngine(engine)
+    if tostring(engine or ""):lower() == "legacy" then
+        return "legacy"
+    end
+    return "v2"
+end
+
 local function NormalizeStatBox(eb, fallback)
     if not eb then return fallback end
     local value = ClampStatPercentValue(eb:GetText(), fallback)
@@ -394,6 +440,7 @@ local function BuildPanel()
     y = MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"], y)
 
     local ebFillQty
+    local ebLumberPrice
     local engineLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     engineLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
     engineLabel:SetText("Pricing Engine")
@@ -402,7 +449,7 @@ local function BuildPanel()
         legacy = "V1 Legacy",
         v2 = "V2 Test",
     }
-    local engineCurrent = (opts.pricingEngine == "v2") and "v2" or "legacy"
+    local engineCurrent = NormalizePricingEngine(opts.pricingEngine)
     local engineBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
     engineBtn:SetSize(100, 22)
     engineBtn:SetPoint("LEFT", engineLabel, "RIGHT", 12, 0)
@@ -418,6 +465,33 @@ local function BuildPanel()
         GameTooltip:Show()
     end)
     engineBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    y = y - 32
+
+    local modeLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    modeLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
+    modeLabel:SetText("V2 Formula Mode")
+
+    local modeTexts = {
+        fixed_input = "Fixed Input",
+        fixed_crafts = "Fixed Crafts",
+    }
+    local modeCurrent = NormalizeV2PricingMode(opts.v2PricingMode)
+    local modeBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+    modeBtn:SetSize(110, 22)
+    modeBtn:SetPoint("LEFT", modeLabel, "RIGHT", 12, 0)
+    modeBtn:SetText(modeTexts[modeCurrent])
+    modeBtn:SetScript("OnClick", function()
+        modeCurrent = (modeCurrent == "fixed_input") and "fixed_crafts" or "fixed_input"
+        modeBtn:SetText(modeTexts[modeCurrent])
+    end)
+    modeBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("V2 Formula Mode", 1, 1, 1)
+        GameTooltip:AddLine("Fixed Input reinvests Resourcefulness into more expected output for mass crafting. Fixed Crafts keeps craft count fixed and lowers expected cost.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    modeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     y = y - 32
 
@@ -454,6 +528,42 @@ local function BuildPanel()
         GameTooltip:Show()
     end)
     ebFillQty:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    y = y - 40
+
+    local lblLumberPrice = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    lblLumberPrice:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
+    lblLumberPrice:SetText("Thalassian Lumber")
+
+    ebLumberPrice = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+    ebLumberPrice:SetSize(70, 22)
+    ebLumberPrice:SetPoint("TOPLEFT", content, "TOPLEFT", 145, y)
+    ebLumberPrice:SetAutoFocus(false)
+    ebLumberPrice:SetMaxLetters(12)
+    do
+        local pdb = GAM.GetPatchDB and GAM:GetPatchDB(GAM.C.DEFAULT_PATCH)
+        ebLumberPrice:SetText(FormatGoldInput(pdb and pdb.priceOverrides and pdb.priceOverrides[THALASSIAN_LUMBER_ITEM_ID]))
+    end
+
+    local lblLumberUnit = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    lblLumberUnit:SetPoint("LEFT", ebLumberPrice, "RIGHT", 6, 0)
+    lblLumberUnit:SetText("gold each")
+    lblLumberUnit:SetTextColor(0.55, 0.55, 0.55)
+
+    local function NormalizeLumberPrice()
+        local copper = ParseGoldInput(ebLumberPrice:GetText())
+        ebLumberPrice:SetText(FormatGoldInput(copper))
+        ebLumberPrice:ClearFocus()
+    end
+    ebLumberPrice:SetScript("OnEnterPressed", NormalizeLumberPrice)
+    ebLumberPrice:SetScript("OnEditFocusLost", NormalizeLumberPrice)
+    ebLumberPrice:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Thalassian Lumber price", 1, 1, 1)
+        GameTooltip:AddLine("Manual per-unit value for account-bound lumber. Leave blank or 0 to mark lumber as missing price data.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    ebLumberPrice:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     y = y - 40
 
@@ -645,10 +755,311 @@ local function BuildPanel()
 
     y = y - 4
 
+    -- ── Profession node ranks ──────────────────────────────────────────────
+    local professionNodeRows = {}
+    local professionNodeSections = {}
+    local professionNodeOrder = (GAM.CraftingStatsV2
+        and GAM.CraftingStatsV2.GetSupportedNodeProfessions
+        and GAM.CraftingStatsV2.GetSupportedNodeProfessions()) or { "Engineering" }
+    if #professionNodeOrder == 0 then
+        professionNodeOrder = { "Engineering" }
+    end
+    local currentNodeProfessionIndex = 1
+    local professionNodeButtons = {}
+
+    local nodeTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    nodeTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
+    nodeTitle:SetText("Profession Nodes")
+
+    local nodeStatus = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    nodeStatus:SetPoint("TOPLEFT", nodeTitle, "BOTTOMLEFT", 0, -4)
+    nodeStatus:SetWidth(520)
+    nodeStatus:SetJustifyH("LEFT")
+    nodeStatus:SetTextColor(0.65, 0.65, 0.65)
+    nodeStatus:SetText("Choose a profession. These ranks feed extra-output and resourcefulness pricing bonuses.")
+
+    local nodeButtonTopY = y - 42
+    for _, profession in ipairs(professionNodeOrder) do
+        local btn = MakeButton(content, profession, MeasureButtonWidth(content, profession, 86, 118, 18))
+        btn._gamNodeProfession = profession
+        professionNodeButtons[#professionNodeButtons + 1] = btn
+    end
+    local nodeButtonLayout = LayoutButtonsTop(content, professionNodeButtons, nodeButtonTopY, {
+        left = 20,
+        right = 540,
+        gap = 6,
+        rowGap = 4,
+        align = "left",
+        height = 22,
+    })
+    y = nodeButtonTopY - nodeButtonLayout.usedHeight - 12
+
+    local nodeRowsFrame = CreateFrame("Frame", nil, content)
+    nodeRowsFrame:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
+    nodeRowsFrame:SetSize(520, 1)
+
+    local function GetNodeImpactText(row)
+        local stats = row and row.stats or {}
+        local parts = {}
+        if stats.additionalitemscraftedwithmulticraft then
+            parts[#parts + 1] = "Affects extra items from multicraft."
+        end
+        if stats.reagentssavedfromresourcefulness then
+            parts[#parts + 1] = "Affects how much resourcefulness saves."
+        end
+        if stats.multicraft then
+            parts[#parts + 1] = "Rating node; enter final Multi% above."
+        end
+        if stats.resourcefulness then
+            parts[#parts + 1] = "Rating node; enter final Res% above."
+        end
+        if #parts == 0 then
+            return "Used by this profession's pricing profile."
+        end
+        return table.concat(parts, " ")
+    end
+
+    local function MakeNodeRankBox(parent, rowState)
+        local eb = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+        eb:SetSize(36, 20)
+        eb:SetAutoFocus(false)
+        eb:SetMaxLetters(3)
+        eb:SetNumeric(true)
+        eb:SetScript("OnEnterPressed", function(self)
+            local maxRank = tonumber(rowState.maxRank) or 0
+            local value = math.max(0, math.min(maxRank, math.floor(tonumber(self:GetText()) or 0)))
+            self:SetText(tostring(value))
+            self:ClearFocus()
+        end)
+        eb:SetScript("OnEditFocusLost", function(self)
+            local maxRank = tonumber(rowState.maxRank) or 0
+            local value = math.max(0, math.min(maxRank, math.floor(tonumber(self:GetText()) or 0)))
+            self:SetText(tostring(value))
+        end)
+        eb:SetScript("OnTextChanged", function()
+            if not rowState.refreshing then
+                rowState.dirty = true
+            end
+        end)
+        eb:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(rowState.name or "Profession Node", 1, 1, 1)
+            GameTooltip:AddLine(string.format("%s node %s, rank 0-%s",
+                tostring(rowState.profession or ""),
+                tostring(rowState.nodeID),
+                tostring(rowState.maxRank or 0)), 1, 0.82, 0, true)
+            if rowState.pricingNote then
+                GameTooltip:AddLine(rowState.pricingNote, 0.75, 0.75, 0.75, true)
+            end
+            if rowState.impactText then
+                GameTooltip:AddLine(rowState.impactText, 0.75, 0.75, 0.75, true)
+            end
+            GameTooltip:Show()
+        end)
+        eb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        return eb
+    end
+
+    local function AddNodeGroupHeader(parent, text, nodeY)
+        local hdr = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        hdr:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, nodeY)
+        hdr:SetText(text)
+        return nodeY - 18
+    end
+
+    local function AddNodeRow(parent, profession, section, row, nodeY)
+        local rowState = {
+            profession = profession,
+            nodeID = row.nodeID,
+            name = row.name,
+            maxRank = row.maxRank,
+            pricingNote = row.pricingNote,
+            stats = row.stats,
+            impactText = GetNodeImpactText(row),
+            dirty = false,
+        }
+        local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        lbl:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, nodeY - 2)
+        lbl:SetWidth(250)
+        lbl:SetJustifyH("LEFT")
+        lbl:SetText(row.name or ("Node " .. tostring(row.nodeID)))
+
+        local subLbl = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        subLbl:SetPoint("TOPLEFT", parent, "TOPLEFT", 28, nodeY - 17)
+        subLbl:SetWidth(300)
+        subLbl:SetJustifyH("LEFT")
+        subLbl:SetTextColor(0.58, 0.58, 0.58)
+        subLbl:SetText(rowState.impactText)
+
+        local eb = MakeNodeRankBox(parent, rowState)
+        eb:SetPoint("TOPLEFT", parent, "TOPLEFT", 335, nodeY)
+
+        local maxText = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        maxText:SetPoint("LEFT", eb, "RIGHT", 4, 0)
+        maxText:SetText("/ " .. tostring(row.maxRank or 0))
+        maxText:SetTextColor(0.55, 0.55, 0.55)
+
+        local note = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        note:SetPoint("LEFT", maxText, "RIGHT", 10, 0)
+        note:SetWidth(115)
+        note:SetJustifyH("LEFT")
+        note:SetTextColor(0.55, 0.55, 0.55)
+
+        rowState.box = eb
+        rowState.note = note
+        rowState.subLbl = subLbl
+        section.rows[#section.rows + 1] = rowState
+        professionNodeRows[#professionNodeRows + 1] = rowState
+        return nodeY - 34
+    end
+
+    local function BuildNodeSection(profession)
+        local section = {
+            profession = profession,
+            rows = {},
+        }
+        local frame = CreateFrame("Frame", nil, nodeRowsFrame)
+        frame:SetPoint("TOPLEFT", nodeRowsFrame, "TOPLEFT", 0, 0)
+        frame:SetSize(520, 1)
+        frame:Hide()
+        section.frame = frame
+
+        local nodeY = 0
+        local nodeData = GAM.CraftingStatsV2
+            and GAM.CraftingStatsV2.GetProfessionNodeRows
+            and GAM.CraftingStatsV2.GetProfessionNodeRows(profession)
+        for _, group in ipairs((nodeData and nodeData.groups) or {}) do
+            nodeY = AddNodeGroupHeader(frame, group.label or "Nodes", nodeY)
+            for _, row in ipairs(group.rows or {}) do
+                nodeY = AddNodeRow(frame, profession, section, row, nodeY)
+            end
+        end
+
+        local btnResetCaptured = MakeButton(frame, "Reset Captured", 120, 12, nodeY - 4)
+        btnResetCaptured:SetScript("OnClick", function()
+            if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.ResetProfessionNodesToCaptured then
+                GAM.CraftingStatsV2.ResetProfessionNodesToCaptured(profession)
+            end
+            if panel and panel.refresh then panel.refresh() end
+        end)
+
+        local btnResetDefaults = MakeButton(frame, "Reset Defaults", 115, 140, nodeY - 4)
+        btnResetDefaults:SetScript("OnClick", function()
+            if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.ResetProfessionNodesToDefaults then
+                GAM.CraftingStatsV2.ResetProfessionNodesToDefaults(profession)
+            end
+            if panel and panel.refresh then panel.refresh() end
+        end)
+        nodeY = nodeY - 34
+        section.height = math.abs(nodeY) + 4
+        frame:SetHeight(section.height)
+        professionNodeSections[#professionNodeSections + 1] = section
+        return section.height
+    end
+
+    local maxNodeSectionHeight = 1
+    for _, profession in ipairs(professionNodeOrder) do
+        local height = BuildNodeSection(profession)
+        if height > maxNodeSectionHeight then
+            maxNodeSectionHeight = height
+        end
+    end
+    nodeRowsFrame:SetHeight(maxNodeSectionHeight)
+
+    local function SelectNodeProfession(index)
+        currentNodeProfessionIndex = index
+        local currentProfession = professionNodeOrder[currentNodeProfessionIndex] or professionNodeOrder[1]
+        for i, btn in ipairs(professionNodeButtons) do
+            local selected = (i == currentNodeProfessionIndex)
+            btn:SetEnabled(not selected)
+            if btn:GetFontString() then
+                if selected then
+                    btn:GetFontString():SetTextColor(GOLD_R, GOLD_G, GOLD_B)
+                else
+                    btn:GetFontString():SetTextColor(1, 1, 1)
+                end
+            end
+        end
+        for _, section in ipairs(professionNodeSections) do
+            section.frame:SetShown(section.profession == currentProfession)
+        end
+        return currentProfession
+    end
+
+    local function RefreshProfessionNodeRows()
+        local selectedProfession = SelectNodeProfession(currentNodeProfessionIndex)
+        local selectedData = nil
+        local data = GAM.CraftingStatsV2
+            and GAM.CraftingStatsV2.GetProfessionNodeRows
+        for _, section in ipairs(professionNodeSections) do
+            local sectionData = data and data(section.profession) or nil
+            if section.profession == selectedProfession then
+                selectedData = sectionData
+            end
+            local byID = {}
+            if type(sectionData) == "table" then
+                for _, group in ipairs(sectionData.groups or {}) do
+                    for _, row in ipairs(group.rows or {}) do
+                        byID[row.nodeID] = row
+                    end
+                end
+            end
+            for _, rowState in ipairs(section.rows) do
+                local row = byID[rowState.nodeID] or {}
+                rowState.refreshing = true
+                rowState.maxRank = row.maxRank or rowState.maxRank or 0
+                rowState.manualRank = row.manualRank
+                rowState.capturedRank = row.capturedRank
+                rowState.stats = row.stats or rowState.stats
+                rowState.impactText = GetNodeImpactText(row)
+                if rowState.box then
+                    rowState.box:SetText(tostring(row.rank or 0))
+                end
+                if rowState.subLbl then
+                    rowState.subLbl:SetText(rowState.impactText)
+                end
+                if rowState.note then
+                    local noteText = "default " .. tostring(row.defaultRank or 0)
+                    if row.manualRank ~= nil then
+                        noteText = "manual"
+                    elseif row.capturedRank ~= nil then
+                        noteText = "captured " .. tostring(row.capturedRank)
+                    end
+                    rowState.note:SetText(noteText)
+                end
+                rowState.dirty = false
+                rowState.refreshing = false
+            end
+        end
+
+        if selectedData and selectedData.capturedAt then
+            nodeStatus:SetText("Using captured node state for " .. tostring(selectedProfession) .. ". Rating nodes are context only; enter final Multi%/Res% in Craft Stats.")
+        else
+            nodeStatus:SetText("Using workbook defaults for " .. tostring(selectedProfession) .. ". Rating nodes are context only; enter final Multi%/Res% in Craft Stats.")
+        end
+    end
+
+    for i, btn in ipairs(professionNodeButtons) do
+        btn:SetScript("OnClick", function()
+            currentNodeProfessionIndex = i
+            RefreshProfessionNodeRows()
+        end)
+    end
+    SelectNodeProfession(currentNodeProfessionIndex)
+
+    y = y - nodeRowsFrame:GetHeight() - 8
+
     -- ── CraftSim node bonus sync status ─
     local lblNodeSync = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lblNodeSync:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
-    lblNodeSync:SetText("|cff808080CraftSim node bonuses auto-sync when cached recipe data is available|r")
+    local craftSimAvailable = GAM.CraftSimBridge
+        and GAM.CraftSimBridge.IsAvailable
+        and GAM.CraftSimBridge.IsAvailable()
+    if craftSimAvailable then
+        lblNodeSync:SetText("|cff808080Optional CraftSim import available; GAM pricing uses its own stat cache.|r")
+    else
+        lblNodeSync:SetText("|cff808080CraftSim is not required; GAM stores profession node ranks itself.|r")
+    end
     y = y - 20
 
     -- ── Actions ────────────────────────────────────────────────────────────
@@ -746,7 +1157,7 @@ local function BuildPanel()
     cy = AddCreditLine("", 1, 1, 1, cy)  -- spacer
     cy = AddCreditLine("|cffFFD100Brrerker|r  —  arp_tracker addon; an invaluable reference for AH scanning patterns.", 1, 1, 1, cy)
     cy = AddCreditLine("", 1, 1, 1, cy)
-    cy = AddCreditLine("|cffFFD100CraftSim|r  —  Outstanding crafting simulation addon; GAM integrates directly with it.", 1, 1, 1, cy)
+    cy = AddCreditLine("|cffFFD100CraftSim|r  —  Outstanding crafting simulation addon; GAM uses optional interop and MIT-licensed static spec-data references.", 1, 1, 1, cy)
     cy = AddCreditLine("", 1, 1, 1, cy)
     cy = AddCreditLine("|cffaaaaaa... and the wider WoW addon community on Wago, CurseForge, and GitHub.|r", 1, 1, 1, cy)
     cy = AddCreditLine("", 1, 1, 1, cy)
@@ -776,6 +1187,7 @@ local function BuildPanel()
         currentOpts.rememberAHWindowState = cbRememberAHState:GetChecked()
         currentOpts.rankPolicy = ddRank.GetValue() or "lowest"
         currentOpts.pricingEngine = engineCurrent
+        currentOpts.v2PricingMode = modeCurrent
 
         for _, row in ipairs(craftStatRows) do
             if row.multiKey and row.multiBox then
@@ -792,6 +1204,17 @@ local function BuildPanel()
             end
         end
 
+        if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.SetManualNodeRank then
+            for _, row in ipairs(professionNodeRows) do
+                if row.dirty or row.manualRank ~= nil then
+                    local maxRank = tonumber(row.maxRank) or 0
+                    local rank = math.max(0, math.min(maxRank,
+                        math.floor(tonumber(row.box and row.box:GetText()) or 0)))
+                    GAM.CraftingStatsV2.SetManualNodeRank(row.profession, row.nodeID, rank)
+                end
+            end
+        end
+
         currentOpts.uiScale = slScale:GetValue()
         currentOpts.ahCut = GAM.C.AH_CUT
         ApplyScaleToFrames(currentOpts.uiScale)
@@ -802,6 +1225,18 @@ local function BuildPanel()
                 math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
             or GAM.C.DEFAULT_FILL_QTY
         ebFillQty:SetText(tostring(currentOpts.shallowFillQty))
+
+        local lumberCopper = ParseGoldInput(ebLumberPrice and ebLumberPrice:GetText())
+        if GAM.Pricing then
+            if lumberCopper and lumberCopper > 0 then
+                GAM.Pricing.SetPriceOverride(THALASSIAN_LUMBER_ITEM_ID, lumberCopper, GAM.C.DEFAULT_PATCH)
+            else
+                GAM.Pricing.ClearPriceOverride(THALASSIAN_LUMBER_ITEM_ID, GAM.C.DEFAULT_PATCH)
+            end
+        end
+        if ebLumberPrice then
+            ebLumberPrice:SetText(FormatGoldInput(lumberCopper))
+        end
 
         GAM.Log.SetLevel(currentOpts.debugVerbosity)
         if GAM.AHScan then
@@ -819,7 +1254,13 @@ local function BuildPanel()
         end
 
         GAM.Log.Info("Fill qty: %d", currentOpts.shallowFillQty)
-        GAM.Log.Info("Pricing engine: %s", tostring(currentOpts.pricingEngine or "legacy"))
+        local lumberPriceText = "unset"
+        if lumberCopper and GAM.Pricing and GAM.Pricing.FormatPrice then
+            lumberPriceText = GAM.Pricing.FormatPrice(lumberCopper)
+        end
+        GAM.Log.Info("Thalassian Lumber manual price: %s", lumberPriceText)
+        GAM.Log.Info("Pricing engine: %s", tostring(currentOpts.pricingEngine or NormalizePricingEngine(nil)))
+        GAM.Log.Info("V2 pricing mode: %s", tostring(currentOpts.v2PricingMode or NormalizeV2PricingMode(nil)))
 
         if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
             GAM.UI.MainWindowV2.Refresh()
@@ -845,10 +1286,18 @@ local function BuildPanel()
         cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
         slScale:SetValue(GetOptionValue(o, "uiScale", GAM.C.DEFAULT_UI_SCALE))
         ebFillQty:SetText(tostring(GetOptionValue(o, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)))
+        do
+            local pdb = GAM.GetPatchDB and GAM:GetPatchDB(GAM.C.DEFAULT_PATCH)
+            ebLumberPrice:SetText(FormatGoldInput(
+                pdb and pdb.priceOverrides and pdb.priceOverrides[THALASSIAN_LUMBER_ITEM_ID]
+            ))
+        end
         rankCurrent = (o.rankPolicy == "highest") and "highest" or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
-        engineCurrent = (o.pricingEngine == "v2") and "v2" or "legacy"
+        engineCurrent = NormalizePricingEngine(o.pricingEngine)
         engineBtn:SetText(engineTexts[engineCurrent])
+        modeCurrent = NormalizeV2PricingMode(o.v2PricingMode)
+        modeBtn:SetText(modeTexts[modeCurrent])
         themeCurrent = themeTexts[o.v2Theme] and o.v2Theme or "classic"
         themeBtn:SetText(themeTexts[themeCurrent])
 
@@ -864,6 +1313,7 @@ local function BuildPanel()
                 ))
             end
         end
+        RefreshProfessionNodeRows()
     end
 
     -- Re-sync controls from opts whenever the panel is shown

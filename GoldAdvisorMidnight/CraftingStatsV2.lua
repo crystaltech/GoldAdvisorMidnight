@@ -7,7 +7,31 @@ local ADDON_NAME, GAM = ...
 local Stats = {}
 GAM.CraftingStatsV2 = Stats
 
-local CACHE_VERSION = 1
+local CACHE_VERSION = 2
+local SEASON_KEY = "midnight"
+local PROFESSION_DEFS = {
+    { name = "Alchemy",        skillLineID = 171, profiles = { "alchemy" }, aliases = { "alchemy", "alch" } },
+    { name = "Blacksmithing",  skillLineID = 164, profiles = { "blacksmithing" }, aliases = { "blacksmith", "bs" } },
+    { name = "Enchanting",     skillLineID = 333, profiles = { "ench_shatter", "ench_craft" }, aliases = { "enchant", "ench" } },
+    { name = "Engineering",    skillLineID = 202, profiles = { "engineering_recycling", "engineering_craft" }, aliases = { "engineer", "eng" } },
+    { name = "Inscription",    skillLineID = 773, profiles = { "insc_milling", "insc_ink", "insc_missive_estimated", "insc_codified" }, aliases = { "inscription", "insc" } },
+    { name = "Jewelcrafting",  skillLineID = 755, profiles = { "jc_prospect", "jc_crush", "jc_craft" }, aliases = { "jewelcraft", "jc" } },
+    { name = "Leatherworking", skillLineID = 165, profiles = { "leatherworking" }, aliases = { "leather", "lw" } },
+    { name = "Tailoring",      skillLineID = 197, profiles = { "tailoring" }, aliases = { "tailor", "tail" } },
+}
+local PROFESSION_BY_PROFILE = {}
+local PROFESSION_BY_NAME = {}
+local PROFESSION_BY_SKILL_LINE = {}
+for _, def in ipairs(PROFESSION_DEFS) do
+    PROFESSION_BY_NAME[def.name:lower()] = def
+    PROFESSION_BY_SKILL_LINE[def.skillLineID] = def
+    for _, alias in ipairs(def.aliases or {}) do
+        PROFESSION_BY_NAME[alias:lower()] = def
+    end
+    for _, profileKey in ipairs(def.profiles or {}) do
+        PROFESSION_BY_PROFILE[profileKey] = def
+    end
+end
 
 local function GetFormulaProfiles()
     return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
@@ -55,6 +79,15 @@ local function CopySerializableTable(source, depth)
         end
     end
     return next(out) and out or nil
+end
+
+local function CopyShallowTable(source)
+    if type(source) ~= "table" then return nil end
+    local out = {}
+    for key, value in pairs(source) do
+        out[key] = value
+    end
+    return out
 end
 
 local function GetCurrentTimestamp()
@@ -107,7 +140,331 @@ local function EnsureCache()
     character.recipes = character.recipes or {}
     character.profiles = character.profiles or {}
     character.manualProfiles = character.manualProfiles or {}
+    character.nodeState = character.nodeState or {}
     return character, uid, cache
+end
+
+local function ResolveProfessionDef(profession)
+    if type(profession) == "table" and profession.name then
+        return profession
+    end
+    local text = tostring(profession or ""):lower()
+    if text == "" then return nil end
+    return PROFESSION_BY_NAME[text] or PROFESSION_BY_PROFILE[profession]
+end
+
+local function GetSpecializationCatalog(profession, season)
+    local def = ResolveProfessionDef(profession)
+    if not def then return nil end
+    local root = GAM_SPECIALIZATION_DATA
+    local seasonKey = tostring(season or SEASON_KEY):upper()
+    return root
+        and root[seasonKey]
+        and root[seasonKey][def.name]
+        or nil
+end
+
+local function IsSpecializationProfile(profileKey)
+    local def = PROFESSION_BY_PROFILE[profileKey]
+    return def and GetSpecializationCatalog(def.name, SEASON_KEY) ~= nil or false
+end
+
+local function GetProfessionForProfile(profileKey)
+    local def = PROFESSION_BY_PROFILE[profileKey]
+    return def and def.name or nil
+end
+
+local function ClampRank(value, maxRank)
+    local n = math.floor(tonumber(value) or 0)
+    if n < 0 then n = 0 end
+    local maxValue = tonumber(maxRank) or n
+    if maxValue >= 0 and n > maxValue then n = maxValue end
+    return n
+end
+
+local function GetCatalogNode(catalog, nodeID)
+    if type(catalog) ~= "table" or type(catalog.nodes) ~= "table" then
+        return nil
+    end
+    local id = tonumber(nodeID)
+    return (id and catalog.nodes[id]) or catalog.nodes[tostring(nodeID)]
+end
+
+local function NodeAppliesToProfile(node, profileKey)
+    if type(node) ~= "table" then return false end
+    if type(node.profiles) ~= "table" then return true end
+    return node.profiles[profileKey] and true or false
+end
+
+local function NormalizeRecipeIDForLookup(recipeID)
+    local n = tonumber(recipeID)
+    if n and n > 0 then
+        return tostring(math.floor(n))
+    end
+    return nil
+end
+
+local function GetRecipeNodeSet(catalog, recipeID)
+    if type(catalog) ~= "table" or type(catalog.recipeMapping) ~= "table" then
+        return nil
+    end
+    local recipeKey = NormalizeRecipeIDForLookup(recipeID)
+    if not recipeKey then
+        return nil
+    end
+    local mapping = catalog.recipeMapping[recipeKey] or catalog.recipeMapping[tonumber(recipeKey)]
+    if type(mapping) ~= "table" then
+        return nil
+    end
+    local out = {}
+    for _, nodeID in ipairs(mapping) do
+        out[tonumber(nodeID) or nodeID] = true
+    end
+    return out
+end
+
+local function NodeAppliesToContext(node, profileKey, recipeNodeSet)
+    if not NodeAppliesToProfile(node, profileKey) then
+        return false
+    end
+    if type(recipeNodeSet) == "table" then
+        return recipeNodeSet[node.nodeID] or recipeNodeSet[tostring(node.nodeID)] or false
+    end
+    return true
+end
+
+local function CatalogHasContextStat(catalog, profileKey, recipeNodeSet, statKey)
+    if type(catalog) ~= "table" or type(catalog.nodes) ~= "table" then
+        return false
+    end
+    for _, node in pairs(catalog.nodes) do
+        if type(node) == "table"
+                and type(node.stats) == "table"
+                and node.stats[statKey] ~= nil
+                and NodeAppliesToContext(node, profileKey, recipeNodeSet) then
+            return true
+        end
+    end
+    return false
+end
+
+local function EnsureProfessionNodeState(character, profession, season)
+    if type(character) ~= "table" then return nil end
+    local def = ResolveProfessionDef(profession)
+    if not def then return nil end
+    local catalog = GetSpecializationCatalog(profession, season)
+    if not catalog then return nil end
+
+    character.nodeState = character.nodeState or {}
+    local seasonKey = tostring(season or SEASON_KEY):lower()
+    character.nodeState[seasonKey] = character.nodeState[seasonKey] or {}
+    local professions = character.nodeState[seasonKey]
+    professions[def.name] = professions[def.name] or {
+        profession = def.name,
+        season = seasonKey,
+        skillLineID = catalog.skillLineID,
+        nodes = {},
+        manualOverrides = {},
+    }
+
+    local state = professions[def.name]
+    state.nodes = state.nodes or {}
+    state.manualOverrides = state.manualOverrides or {}
+    state.skillLineID = state.skillLineID or catalog.skillLineID
+    state.profession = def.name
+    state.season = seasonKey
+    return state, catalog
+end
+
+local function HasAnyRank(ranks)
+    if type(ranks) ~= "table" then return false end
+    for _, rank in pairs(ranks) do
+        if tonumber(rank) ~= nil then
+            return true
+        end
+    end
+    return false
+end
+
+local function BuildNodeHash(rankMap)
+    if type(rankMap) ~= "table" then return nil end
+    local parts = {}
+    for nodeID, rank in pairs(rankMap) do
+        local n = tonumber(rank)
+        if n and n > 0 then
+            parts[#parts + 1] = tostring(nodeID) .. ":" .. tostring(n)
+        end
+    end
+    table.sort(parts)
+    return (#parts > 0) and table.concat(parts, "|") or nil
+end
+
+local function CopyNodeRankList(rankMap, catalog)
+    if type(rankMap) ~= "table" then return nil end
+    local rows = {}
+    for nodeID, rank in pairs(rankMap) do
+        local id = tonumber(nodeID)
+        local node = GetCatalogNode(catalog, id or nodeID)
+        rows[#rows + 1] = {
+            nodeID = id or nodeID,
+            rank = tonumber(rank) or 0,
+            maxRank = node and node.maxRank or nil,
+            name = node and node.name or nil,
+        }
+    end
+    table.sort(rows, function(a, b)
+        return tostring(a.nodeID) < tostring(b.nodeID)
+    end)
+    return (#rows > 0) and rows or nil
+end
+
+local function GetEffectiveNodeRanks(character, profession, season, includeDefaults)
+    local state, catalog = EnsureProfessionNodeState(character, profession, season)
+    if not state or not catalog then
+        return nil, nil, nil
+    end
+
+    local ranks = {}
+    local hasCaptured = false
+    for nodeID, nodeState in pairs(state.nodes or {}) do
+        local rank = type(nodeState) == "table" and nodeState.rank or nodeState
+        if tonumber(rank) ~= nil then
+            ranks[tonumber(nodeID) or nodeID] = rank
+            hasCaptured = true
+        end
+    end
+
+    local hasManual = false
+    for nodeID, rank in pairs(state.manualOverrides or {}) do
+        ranks[tonumber(nodeID) or nodeID] = rank
+        hasManual = true
+    end
+
+    if includeDefaults and not hasCaptured and not hasManual then
+        for nodeID, node in pairs(catalog.nodes or {}) do
+            if node.defaultRank ~= nil then
+                ranks[nodeID] = node.defaultRank
+            end
+        end
+    end
+
+    if not HasAnyRank(ranks) then
+        return nil, catalog, state
+    end
+    return ranks, catalog, state, hasManual, hasCaptured
+end
+
+local function AddStatTotal(target, key, value, rank)
+    local n = tonumber(value)
+    if n == nil then return end
+    target[key] = (target[key] or 0) + (n * (tonumber(rank) or 0))
+end
+
+local function SummarizeNodeRanks(profileKey, character, includeDefaults, recipeID)
+    local profession = GetProfessionForProfile(profileKey)
+    if not profession then return nil end
+    local ranks, catalog, state, hasManual, hasCaptured = GetEffectiveNodeRanks(
+        character,
+        profession,
+        SEASON_KEY,
+        includeDefaults)
+    if not ranks or not catalog then
+        return nil
+    end
+    if catalog.recipeScoped and not NormalizeRecipeIDForLookup(recipeID) then
+        return nil
+    end
+
+    local recipeNodeSet = GetRecipeNodeSet(catalog, recipeID)
+    if NormalizeRecipeIDForLookup(recipeID) and type(catalog.recipeMapping) == "table" and not recipeNodeSet then
+        return nil
+    end
+
+    local totals = {}
+    local hasMulticraftExtraNode = CatalogHasContextStat(
+        catalog,
+        profileKey,
+        recipeNodeSet,
+        "additionalitemscraftedwithmulticraft")
+    local hasResourcefulnessExtraNode = CatalogHasContextStat(
+        catalog,
+        profileKey,
+        recipeNodeSet,
+        "reagentssavedfromresourcefulness")
+    for nodeID, rank in pairs(ranks) do
+        local node = GetCatalogNode(catalog, nodeID)
+        local clampedRank = node and ClampRank(rank, node.maxRank) or ClampNonNegative(rank)
+        if node and clampedRank > 0 and NodeAppliesToContext(node, profileKey, recipeNodeSet) then
+            for statKey, statValue in pairs(node.stats or {}) do
+                AddStatTotal(totals, statKey, statValue, clampedRank)
+            end
+        end
+    end
+
+    local nodeStats = {}
+    if totals.multicraft or totals.additionalitemscraftedwithmulticraft then
+        nodeStats.multicraft = {
+            rating = totals.multicraft,
+            extra = totals.additionalitemscraftedwithmulticraft
+                and (totals.additionalitemscraftedwithmulticraft / 100)
+                or nil,
+        }
+    end
+    if totals.resourcefulness or totals.reagentssavedfromresourcefulness then
+        nodeStats.resourcefulness = {
+            rating = totals.resourcefulness,
+            extra = totals.reagentssavedfromresourcefulness
+                and (totals.reagentssavedfromresourcefulness / 100)
+                or nil,
+        }
+    end
+
+    local source = "gam-native-nodes"
+    if hasManual then
+        source = "gam-manual-nodes"
+    elseif not hasCaptured then
+        source = "workbook-default"
+    elseif state and state.source then
+        source = state.source
+    end
+
+    return {
+        statSource = source,
+        nodeHash = BuildNodeHash(ranks),
+        nodeRanks = CopyNodeRankList(ranks, catalog),
+        nodeStats = next(nodeStats) and nodeStats or nil,
+        totals = totals,
+        multiExtra = hasMulticraftExtraNode
+            and math.max(0, (totals.additionalitemscraftedwithmulticraft or 0) / 100)
+            or nil,
+        resExtra = hasResourcefulnessExtraNode
+            and math.max(0, (totals.reagentssavedfromresourcefulness or 0) / 100)
+            or nil,
+    }
+end
+
+local function ApplySpecializationNodeState(result, profileKey, character, recipeID)
+    if type(result) ~= "table" or not IsSpecializationProfile(profileKey) then
+        return result
+    end
+
+    local summary = SummarizeNodeRanks(profileKey, character, false, recipeID or result.recipeID)
+    if not summary then
+        return result
+    end
+
+    if result.supportsMulticraft and summary.multiExtra ~= nil then
+        result.multiExtra = summary.multiExtra
+    end
+    if result.supportsResourcefulness and summary.resExtra ~= nil then
+        result.resExtra = summary.resExtra
+    end
+
+    result.statSource = summary.statSource or result.statSource
+    result.nodeHash = summary.nodeHash or result.nodeHash
+    result.nodeRanks = summary.nodeRanks or result.nodeRanks
+    result.nodeStats = summary.nodeStats or result.nodeStats
+    return result
 end
 
 local function NormalizeRecipeID(recipeID)
@@ -236,9 +593,9 @@ local function ShouldPreserveExistingSnapshot(existing, incoming)
         return false
     end
 
-    -- CraftSim snapshots carry the learned-node and total recipe stat breakdowns.
-    -- Keep them authoritative when a leaner native fallback is captured later.
-    return IsCraftSimSnapshot(existing) and not IsCraftSimSnapshot(incoming)
+    -- GAM/native/manual data is the authority. CraftSim imports can populate an
+    -- empty cache, but they should not replace newer standalone captures.
+    return (not IsCraftSimSnapshot(existing)) and IsCraftSimSnapshot(incoming)
 end
 
 local function ApplySnapshotToDefaults(defaults, snapshot, statSource, fallbackReason)
@@ -421,8 +778,135 @@ local function ApplyOperationBonusStats(snapshot, operationInfo)
 end
 
 local testOpenSnapshot = nil
+local testOpenProfessionNodes = nil
+local GetOpenNativeRecipeSnapshot
 
-local function GetOpenNativeRecipeSnapshot()
+local function AddNodeCandidate(out, nodeID, rank, maxRank, name)
+    local id = tonumber(nodeID)
+    if not id then return end
+    local n = tonumber(rank)
+    if n == nil then return end
+    local existing = out[id]
+    if existing and (tonumber(existing.rank) or 0) >= n then
+        return
+    end
+    out[id] = {
+        nodeID = id,
+        rank = n,
+        maxRank = tonumber(maxRank) or (existing and existing.maxRank) or nil,
+        name = name or (existing and existing.name) or nil,
+    }
+end
+
+local function ResolveProfessionDefFromOpenName(name)
+    local text = tostring(name or ""):lower()
+    if text == "" then return nil end
+    for _, def in ipairs(PROFESSION_DEFS) do
+        for _, alias in ipairs(def.aliases or {}) do
+            if text:find(alias, 1, true) then
+                return def
+            end
+        end
+    end
+    return nil
+end
+
+local function GetOpenProfessionDef()
+    if C_TradeSkillUI and type(C_TradeSkillUI.GetBaseProfessionInfo) == "function" then
+        local ok, info = pcall(C_TradeSkillUI.GetBaseProfessionInfo)
+        if ok and type(info) == "table" then
+            local skillLineID = tonumber(info.professionID or info.skillLineID or info.parentProfessionID)
+            local bySkillLine = skillLineID and PROFESSION_BY_SKILL_LINE[skillLineID] or nil
+            if bySkillLine then return bySkillLine end
+            local byName = ResolveProfessionDefFromOpenName(info.professionName or info.name)
+            if byName then return byName end
+        end
+    end
+
+    local openRecipe = GetOpenNativeRecipeSnapshot()
+    if type(openRecipe) == "table" then
+        local bySkillLine = PROFESSION_BY_SKILL_LINE[tonumber(openRecipe.parentSkillLineID)]
+            or PROFESSION_BY_SKILL_LINE[tonumber(openRecipe.skillLineID)]
+        if bySkillLine then return bySkillLine end
+        local byName = ResolveProfessionDefFromOpenName(openRecipe.profession)
+        if byName then return byName end
+    end
+
+    return nil
+end
+
+local function OpenProfessionMatches(profession)
+    local def = ResolveProfessionDef(profession)
+    if not def then
+        return false
+    end
+    local openDef = GetOpenProfessionDef()
+    if openDef then
+        return openDef.name == def.name
+    end
+    return nil
+end
+
+local function ExtractNodeRanksFromTable(source, out, seen, depth)
+    if type(source) ~= "table" or depth > 5 then
+        return
+    end
+    if seen[source] then return end
+    seen[source] = true
+
+    local nodeID = source.nodeID or source.ID or source.id or source.traitNodeID
+    local rank = source.rank
+        or source.currentRank
+        or source.activeRank
+        or source.ranksPurchased
+        or source.purchasedRanks
+        or source.numRanksPurchased
+    local maxRank = source.maxRank or source.maxRanks or source.maxVisibleRank
+    local name = source.name or source.nodeName or source.displayName
+    AddNodeCandidate(out, nodeID, rank, maxRank, name)
+
+    for key, value in pairs(source) do
+        if type(value) == "table" then
+            local keyText = tostring(key):lower()
+            if keyText:find("node", 1, true)
+                    or keyText:find("rank", 1, true)
+                    or keyText:find("trait", 1, true)
+                    or keyText == "data"
+                    or keyText == "nodes"
+                    or tonumber(key) ~= nil then
+                ExtractNodeRanksFromTable(value, out, seen, depth + 1)
+            end
+        end
+    end
+end
+
+local function GetOpenNativeProfessionNodeRanks(profession)
+    if testOpenProfessionNodes ~= nil then
+        return testOpenProfessionNodes
+    end
+    if not ResolveProfessionDef(profession) then
+        return nil
+    end
+    if OpenProfessionMatches(profession) == false then
+        return nil
+    end
+
+    local out = {}
+    local roots = {
+        ProfessionsFrame and ProfessionsFrame.SpecPage,
+        ProfessionsFrame and ProfessionsFrame.CraftingPage,
+        ProfessionsFrame and ProfessionsFrame.OrdersPage,
+    }
+    for _, root in ipairs(roots) do
+        if type(root) == "table" then
+            pcall(ExtractNodeRanksFromTable, root, out, {}, 0)
+        end
+    end
+
+    return next(out) and out or nil
+end
+
+GetOpenNativeRecipeSnapshot = function()
     if testOpenSnapshot ~= nil then
         return testOpenSnapshot
     end
@@ -538,13 +1022,16 @@ function Stats.GetProfile(profileKey)
         local cached = character.profiles and character.profiles[profileKey]
         if type(cached) == "table" then
             local source = SourceForCachedSnapshot(cached, "gam-cache-profile")
-            return ApplySnapshotToDefaults(manualDefaults, cached, source), source
+            return ApplySpecializationNodeState(
+                ApplySnapshotToDefaults(manualDefaults, cached, source),
+                profileKey,
+                character), source
         end
         if type(manual) == "table" then
-            return manualDefaults, "manual"
+            return ApplySpecializationNodeState(manualDefaults, profileKey, character), "manual"
         end
     end
-    return defaults, "workbook-default"
+    return ApplySpecializationNodeState(defaults, profileKey, character), "workbook-default"
 end
 
 function Stats.ResolveForStrat(strat, opts)
@@ -554,10 +1041,12 @@ function Stats.ResolveForStrat(strat, opts)
     local recipeID = NormalizeRecipeID(strat and strat.recipeID)
     local character = EnsureCache()
     local manualDefaults = defaults
+    local hasManualProfile = false
 
     if type(character) == "table" then
         local manual = profileKey and character.manualProfiles and character.manualProfiles[profileKey]
         if type(manual) == "table" then
+            hasManualProfile = true
             manualDefaults = ApplySnapshotToDefaults(defaults, manual, "manual")
         end
     end
@@ -565,21 +1054,52 @@ function Stats.ResolveForStrat(strat, opts)
     local recipeSnapshot = GetCachedRecipeSnapshot(character, recipeID, profileKey)
     local profileSnapshot = GetCachedProfileSnapshot(character, profileKey)
 
+    local openSnapshot = GetOpenNativeRecipeSnapshot()
+    local openMatchKind = GetSnapshotMatchKind(openSnapshot, strat, profileKey)
+    if openMatchKind == "recipe" then
+        Stats.SaveSnapshot(openSnapshot)
+        return ApplySpecializationNodeState(
+            ApplySnapshotToDefaults(manualDefaults, openSnapshot, "native-open"),
+            profileKey,
+            character,
+            recipeID)
+    end
+
+    if recipeSnapshot and not IsCraftSimSnapshot(recipeSnapshot) then
+        return ApplySpecializationNodeState(
+            ApplySnapshotToDefaults(manualDefaults, recipeSnapshot,
+                SourceForCachedSnapshot(recipeSnapshot, "gam-cache-recipe")),
+            profileKey,
+            character,
+            recipeID)
+    end
+
+    if openMatchKind == "profile" then
+        Stats.SaveSnapshot(openSnapshot)
+        return ApplySpecializationNodeState(
+            ApplySnapshotToDefaults(manualDefaults, openSnapshot, "native-open-profile"),
+            profileKey,
+            character,
+            recipeID)
+    end
+
     if IsCraftSimSnapshot(recipeSnapshot) then
         return ApplySnapshotToDefaults(manualDefaults, recipeSnapshot,
             SourceForCachedSnapshot(recipeSnapshot, "gam-cache-recipe"))
     end
 
-    local openSnapshot = GetOpenNativeRecipeSnapshot()
-    local openMatchKind = GetSnapshotMatchKind(openSnapshot, strat, profileKey)
-    if openMatchKind == "recipe" then
-        Stats.SaveSnapshot(openSnapshot)
-        return ApplySnapshotToDefaults(manualDefaults, openSnapshot, "native-open")
+    if profileSnapshot and not IsCraftSimSnapshot(profileSnapshot) then
+        return ApplySpecializationNodeState(
+            ApplySnapshotToDefaults(manualDefaults, profileSnapshot,
+                SourceForCachedSnapshot(profileSnapshot, "gam-cache-profile")),
+            profileKey,
+            character,
+            recipeID)
     end
 
-    if recipeSnapshot then
-        return ApplySnapshotToDefaults(manualDefaults, recipeSnapshot,
-            SourceForCachedSnapshot(recipeSnapshot, "gam-cache-recipe"))
+    local withNodes = ApplySpecializationNodeState(manualDefaults, profileKey, character, recipeID)
+    if withNodes ~= manualDefaults or (withNodes and withNodes.nodeHash) then
+        return withNodes
     end
 
     if IsCraftSimSnapshot(profileSnapshot) then
@@ -587,21 +1107,8 @@ function Stats.ResolveForStrat(strat, opts)
             SourceForCachedSnapshot(profileSnapshot, "gam-cache-profile"))
     end
 
-    if openMatchKind == "profile" then
-        Stats.SaveSnapshot(openSnapshot)
-        return ApplySnapshotToDefaults(manualDefaults, openSnapshot, "native-open-profile")
-    end
-
-    if profileSnapshot then
-        return ApplySnapshotToDefaults(manualDefaults, profileSnapshot,
-            SourceForCachedSnapshot(profileSnapshot, "gam-cache-profile"))
-    end
-
-    if type(character) == "table" then
-        local manual = profileKey and character.manualProfiles and character.manualProfiles[profileKey]
-        if type(manual) == "table" then
-            return manualDefaults
-        end
+    if hasManualProfile then
+        return manualDefaults
     end
 
     return defaults
@@ -617,6 +1124,237 @@ function Stats.CaptureOpenRecipe()
         return nil, err
     end
     return snapshot, nil
+end
+
+function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
+    local character = EnsureCache()
+    if not character then
+        return nil, "no-db"
+    end
+
+    local state, catalog = EnsureProfessionNodeState(character, profession, SEASON_KEY)
+    if not state or not catalog then
+        return nil, "unsupported-profession"
+    end
+    if type(nodes) ~= "table" then
+        return nil, "missing-nodes"
+    end
+
+    local normalized = {}
+    for key, value in pairs(nodes) do
+        local nodeID = nil
+        local rank = nil
+        local maxRank = nil
+        local name = nil
+        if type(value) == "table" then
+            nodeID = value.nodeID or key
+            rank = value.rank or value.currentRank or value.activeRank or value.ranksPurchased
+            maxRank = value.maxRank or value.maxRanks
+            name = value.name or value.nodeName
+        else
+            nodeID = key
+            rank = value
+        end
+
+        local id = tonumber(nodeID)
+        local node = id and GetCatalogNode(catalog, id) or nil
+        if id and tonumber(rank) ~= nil then
+            normalized[id] = {
+                nodeID = id,
+                rank = ClampRank(rank, (node and node.maxRank) or maxRank),
+                maxRank = (node and node.maxRank) or tonumber(maxRank),
+                name = (node and node.name) or name,
+            }
+        end
+    end
+
+    if not next(normalized) then
+        return nil, "empty-nodes"
+    end
+
+    state.nodes = normalized
+    state.source = source or "gam-native-nodes"
+    state.capturedAt = GetCurrentTimestamp()
+    state.skillLineID = catalog.skillLineID
+    state.catalogVersion = catalog.version
+    state.nodeHash = BuildNodeHash((function()
+        local ranks = {}
+        for nodeID, node in pairs(normalized) do
+            ranks[nodeID] = node.rank
+        end
+        return ranks
+    end)())
+    if type(meta) == "table" then
+        state.meta = CopySerializableTable(meta)
+    end
+
+    return CopySerializableTable(state), nil
+end
+
+function Stats.CaptureOpenProfessionNodes(profession)
+    if not profession then
+        local def = GetOpenProfessionDef()
+        profession = def and def.name or nil
+    end
+    profession = profession or "Engineering"
+    local nodes = GetOpenNativeProfessionNodeRanks(profession)
+    if not nodes then
+        return nil, "no-open-profession-nodes"
+    end
+    return Stats.CaptureProfessionNodes(profession, nodes, "gam-native-nodes", {
+        source = "Blizzard_Professions",
+    })
+end
+
+function Stats.SetManualNodeRank(profession, nodeID, rank, season)
+    local character = EnsureCache()
+    if not character then
+        return false, "no-db"
+    end
+    local state, catalog = EnsureProfessionNodeState(character, profession, season or SEASON_KEY)
+    if not state or not catalog then
+        return false, "unsupported-profession"
+    end
+    local node = GetCatalogNode(catalog, nodeID)
+    if not node then
+        return false, "unknown-node"
+    end
+
+    state.manualOverrides = state.manualOverrides or {}
+    state.manualOverrides[tonumber(nodeID)] = ClampRank(rank, node.maxRank)
+    state.manualUpdatedAt = GetCurrentTimestamp()
+    return true, nil
+end
+
+function Stats.SetManualNodeRanks(profession, ranks, season)
+    if type(ranks) ~= "table" then
+        return false, "missing-ranks"
+    end
+    for nodeID, rank in pairs(ranks) do
+        local ok, err = Stats.SetManualNodeRank(profession, nodeID, rank, season)
+        if not ok then
+            return false, err
+        end
+    end
+    return true, nil
+end
+
+function Stats.ResetProfessionNodesToCaptured(profession, season)
+    local character = EnsureCache()
+    local state = character and EnsureProfessionNodeState(character, profession, season or SEASON_KEY)
+    if not state then
+        return false, "unsupported-profession"
+    end
+    state.manualOverrides = {}
+    state.manualUpdatedAt = GetCurrentTimestamp()
+    return true, nil
+end
+
+function Stats.ResetProfessionNodesToDefaults(profession, season)
+    local character = EnsureCache()
+    if not character then
+        return false, "no-db"
+    end
+    local state, catalog = EnsureProfessionNodeState(character, profession, season or SEASON_KEY)
+    if not state or not catalog then
+        return false, "unsupported-profession"
+    end
+
+    state.manualOverrides = {}
+    local function applyDefault(nodeID)
+        local node = GetCatalogNode(catalog, nodeID)
+        if node and node.defaultRank ~= nil then
+            state.manualOverrides[tonumber(nodeID)] = ClampRank(node.defaultRank, node.maxRank)
+        end
+    end
+    for _, group in ipairs(catalog.uiGroups or {}) do
+        for _, nodeID in ipairs(group.nodeIDs or {}) do
+            applyDefault(nodeID)
+        end
+    end
+    state.manualUpdatedAt = GetCurrentTimestamp()
+    return true, nil
+end
+
+function Stats.GetProfessionNodeRows(profession, season)
+    local character = EnsureCache()
+    local def = ResolveProfessionDef(profession)
+    local state, catalog
+    if character and def then
+        state, catalog = EnsureProfessionNodeState(character, def.name, season or SEASON_KEY)
+    end
+    if not state or not catalog then
+        return nil, "unsupported-profession"
+    end
+
+    local captured = {}
+    for nodeID, nodeState in pairs(state.nodes or {}) do
+        local rank = type(nodeState) == "table" and nodeState.rank or nodeState
+        captured[tonumber(nodeID) or nodeID] = rank
+    end
+
+    local groups = {}
+    for _, group in ipairs(catalog.uiGroups or {}) do
+        local rows = {}
+        for _, nodeID in ipairs(group.nodeIDs or {}) do
+            local node = GetCatalogNode(catalog, nodeID)
+            if node then
+                local manualRank = state.manualOverrides and state.manualOverrides[nodeID]
+                local capturedRank = captured[nodeID]
+                local effectiveRank = manualRank
+                if effectiveRank == nil then
+                    effectiveRank = capturedRank
+                end
+                if effectiveRank == nil then
+                    effectiveRank = node.defaultRank or 0
+                end
+                rows[#rows + 1] = {
+                    nodeID = nodeID,
+                    name = node.name,
+                    maxRank = node.maxRank,
+                    defaultRank = node.defaultRank or 0,
+                    capturedRank = capturedRank,
+                    manualRank = manualRank,
+                    rank = ClampRank(effectiveRank, node.maxRank),
+                    stats = CopyShallowTable(node.stats),
+                    pricingNote = node.pricingNote,
+                }
+            end
+        end
+        groups[#groups + 1] = {
+            label = group.label,
+            rows = rows,
+        }
+    end
+
+    return {
+        profession = def.name,
+        season = SEASON_KEY,
+        source = state.source or "workbook-default",
+        capturedAt = state.capturedAt,
+        nodeHash = state.nodeHash,
+        groups = groups,
+    }, nil
+end
+
+if type(CreateFrame) == "function" then
+    local nodeCaptureFrame = CreateFrame("Frame")
+    nodeCaptureFrame:RegisterEvent("TRADE_SKILL_SHOW")
+    nodeCaptureFrame:SetScript("OnEvent", function()
+        if Stats.CaptureOpenProfessionNodes then
+            pcall(Stats.CaptureOpenProfessionNodes)
+        end
+    end)
+end
+
+function Stats.GetSupportedNodeProfessions()
+    local out = {}
+    for _, def in ipairs(PROFESSION_DEFS) do
+        if GetSpecializationCatalog(def.name, SEASON_KEY) then
+            out[#out + 1] = def.name
+        end
+    end
+    return out
 end
 
 function Stats.GetAllProfiles()
@@ -676,6 +1414,8 @@ local READY_SOURCES = {
     ["native-open-profile"] = true,
     ["gam-cache-recipe"] = true,
     ["gam-cache-profile"] = true,
+    ["gam-native-nodes"] = true,
+    ["gam-manual-nodes"] = true,
     ["craftsim-imported"] = true,
 }
 
@@ -820,6 +1560,7 @@ function Stats.RunSmokeChecks()
     local originalDB = GAM.db
     local originalSavedDB = GoldAdvisorMidnightDB
     local originalOpen = testOpenSnapshot
+    local originalProfessionNodes = testOpenProfessionNodes
     local ok, err = pcall(function()
         GAM.db = {
             options = {},
@@ -908,7 +1649,7 @@ function Stats.RunSmokeChecks()
             "native open snapshot resolve failed")
 
         testOpenSnapshot = nil
-        assert(Stats.SaveSnapshot({
+        local craftSimPreservedOK, craftSimPreservedStatus = Stats.SaveSnapshot({
             source = "craftsim-imported",
             recipeID = 1002,
             recipeName = "Some Milling",
@@ -924,19 +1665,40 @@ function Stats.RunSmokeChecks()
             nodeStats = {
                 resourcefulness = { percent = 3, extra = 0.55 },
             },
-        }))
+        })
+        assert(craftSimPreservedOK and craftSimPreservedStatus == "preserved-existing",
+            "CraftSim import should not replace existing native/GAM snapshots")
         local preserved = Stats.ResolveForStrat({
             profession = "Inscription",
             formulaProfile = "insc_milling",
             recipeID = 1002,
         }, {})
-        assert(preserved.statSource == "craftsim-imported"
-                and preserved.resPercent == 5
-                and preserved.nodeHash == "111:2"
-                and preserved.nodeStats
-                and preserved.nodeStats.resourcefulness
-                and preserved.nodeStats.resourcefulness.extra == 0.55,
-            "CraftSim import should replace native fallback and preserve node details")
+        assert(preserved.statSource == "gam-cache-recipe" and preserved.resPercent == 55,
+            "native/GAM snapshot should outrank CraftSim imports")
+
+        assert(Stats.SaveSnapshot({
+            source = "craftsim-imported",
+            recipeID = 1005,
+            recipeName = "CraftSim Only Milling",
+            profession = "Inscription",
+            profileKey = "insc_milling",
+            resPercent = 5,
+            resExtra = 0.55,
+            supportsResourcefulness = true,
+            nodeHash = "111:2",
+            nodeStats = {
+                resourcefulness = { percent = 3, extra = 0.55 },
+            },
+        }))
+        local craftSimOnly = Stats.ResolveForStrat({
+            profession = "Inscription",
+            formulaProfile = "insc_milling",
+            recipeID = 1005,
+        }, {})
+        assert(craftSimOnly.statSource == "craftsim-imported"
+                and craftSimOnly.resPercent == 5
+                and craftSimOnly.nodeHash == "111:2",
+            "CraftSim import should populate empty stat cache")
 
         local audit = Stats.GetAudit("insc")
         assert(type(audit) == "table" and type(audit.ready) == "table"
@@ -959,8 +1721,94 @@ function Stats.RunSmokeChecks()
         }, {})
         assert(mismatch.statSource ~= "native-open" and mismatch.profileKey == "insc_milling",
             "open profile mismatch leaked into another profile")
+
+        local nodeCapture = Stats.CaptureProfessionNodes("Engineering", {
+            [106726] = 1,
+            [106724] = 1,
+            [106722] = 1,
+            [106720] = 1,
+            [106733] = 1,
+            [106731] = 1,
+            [106729] = 1,
+            [106727] = 1,
+        }, "gam-native-nodes")
+        assert(nodeCapture and nodeCapture.nodeHash, "engineering node capture failed")
+        local engineering = Stats.ResolveForStrat({
+            profession = "Engineering",
+            formulaProfile = "engineering_craft",
+        }, {})
+        assert(engineering.statSource == "gam-native-nodes"
+                and math.abs((engineering.resExtra or 0) - 0.45) < 0.0001
+                and math.abs((engineering.multiExtra or 0) - 1.0) < 0.0001,
+            "engineering captured node extras failed")
+
+        assert(Stats.SetManualNodeRank("Engineering", 106727, 0),
+            "engineering manual node rank failed")
+        local manualNodes = Stats.ResolveForStrat({
+            profession = "Engineering",
+            formulaProfile = "engineering_craft",
+        }, {})
+        assert(manualNodes.statSource == "gam-manual-nodes"
+                and math.abs((manualNodes.multiExtra or 0) - 0.75) < 0.0001,
+            "engineering manual node override failed")
+
+        assert(Stats.ResetProfessionNodesToDefaults("Engineering"),
+            "engineering reset node defaults failed")
+        local defaultNodes = Stats.ResolveForStrat({
+            profession = "Engineering",
+            formulaProfile = "engineering_craft",
+        }, {})
+        assert(defaultNodes.statSource == "gam-manual-nodes"
+                and math.abs((defaultNodes.multiExtra or 0) - 1.0) < 0.0001
+                and math.abs((defaultNodes.resExtra or 0) - 0.45) < 0.0001,
+            "engineering default node ranks failed")
+
+        local rows = Stats.GetProfessionNodeRows("Engineering")
+        assert(rows and rows.groups and rows.groups[1] and rows.groups[1].rows[1],
+            "engineering node settings rows failed")
+
+        assert(Stats.ResetProfessionNodesToDefaults("Alchemy"),
+            "alchemy reset node defaults failed")
+        local alchemyCauldron = Stats.ResolveForStrat({
+            profession = "Alchemy",
+            formulaProfile = "alchemy",
+            recipeID = 1230857,
+        }, {})
+        assert(alchemyCauldron.statSource == "gam-manual-nodes"
+                and math.abs((alchemyCauldron.multiExtra or 0) - 0.4) < 0.0001,
+            "alchemy recipe-scoped node extras failed")
+        local alchemyUnscoped = Stats.ResolveForStrat({
+            profession = "Alchemy",
+            formulaProfile = "alchemy",
+        }, {})
+        assert(math.abs((alchemyUnscoped.multiExtra or 0) - 0.2) < 0.0001,
+            "alchemy unscoped profile default failed")
+
+        assert(Stats.ResetProfessionNodesToDefaults("Tailoring"),
+            "tailoring reset node defaults failed")
+        local tailoring = Stats.ResolveForStrat({
+            profession = "Tailoring",
+            formulaProfile = "tailoring",
+            recipeID = 1227926,
+        }, {})
+        assert(tailoring.statSource == "gam-manual-nodes"
+                and math.abs((tailoring.multiExtra or 0) - 0.4) < 0.0001
+                and math.abs((tailoring.resExtra or 0) - 0.5) < 0.0001,
+            "tailoring node defaults failed")
+
+        assert(Stats.ResetProfessionNodesToDefaults("Blacksmithing"),
+            "blacksmithing reset node defaults failed")
+        local blacksmithing = Stats.ResolveForStrat({
+            profession = "Blacksmithing",
+            formulaProfile = "blacksmithing",
+            recipeID = 1229427,
+        }, {})
+        assert(blacksmithing.statSource == "gam-manual-nodes"
+                and math.abs((blacksmithing.multiExtra or 0) - 0.12) < 0.0001,
+            "blacksmithing rating-only catalog should preserve workbook node multiplier")
     end)
     testOpenSnapshot = originalOpen
+    testOpenProfessionNodes = originalProfessionNodes
     GAM.db = originalDB
     GoldAdvisorMidnightDB = originalSavedDB
     return ok, err

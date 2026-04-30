@@ -129,4 +129,3582 @@ GAM_PROFESSION_CRAFTS["Leatherworking"] = {
       },
     },
   },
+  {
+    id = "leatherworking__row_walkers_deflectors__midnight_1",
+    name = "Row Walker's Deflectors",
+    patchTag = "midnight-1",
+    recipeID = 1237486,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 140,
+      },
+      {
+        itemRef = "Smuggler's Enchanted Edge",
+        itemIDs = { 243737 },
+        amount = 1,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Row Walker's Deflectors",
+        itemIDs = { 244612 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__row_walkers_insurance__midnight_1",
+    name = "Row Walker's Insurance",
+    patchTag = "midnight-1",
+    recipeID = 1237487,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 200,
+      },
+      {
+        itemRef = "Smuggler's Enchanted Edge",
+        itemIDs = { 243737 },
+        amount = 2,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Row Walker's Insurance",
+        itemIDs = { 244613 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__row_walkers_swiftgrips__midnight_1",
+    name = "Row Walker's Swiftgrips",
+    patchTag = "midnight-1",
+    recipeID = 1237488,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 180,
+      },
+      {
+        itemRef = "Smuggler's Enchanted Edge",
+        itemIDs = { 243737 },
+        amount = 1,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Row Walker's Swiftgrips",
+        itemIDs = { 244614 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__hexwoven_strand__midnight_1",
+    name = "Hexwoven Strand",
+    patchTag = "midnight-1",
+    recipeID = 1237489,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 175,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 100,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Hexwoven Strand",
+        itemIDs = { 244606 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_leather_boots__midnight_1",
+    name = "Thalassian Competitor's Leather Boots",
+    patchTag = "midnight-1",
+    recipeID = 1237490,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Leather Boots",
+        itemIDs = { 244553 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_leather_chestpiece__midnight_1",
+    name = "Thalassian Competitor's Leather Chestpiece",
+    patchTag = "midnight-1",
+    recipeID = 1237491,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 30,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 15,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Leather Chestpiece",
+        itemIDs = { 244554 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_leather_gloves__midnight_1",
+    name = "Thalassian Competitor's Leather Gloves",
+    patchTag = "midnight-1",
+    recipeID = 1237492,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Leather Gloves",
+        itemIDs = { 244559 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_leather_mask__midnight_1",
+    name = "Thalassian Competitor's Leather Mask",
+    patchTag = "midnight-1",
+    recipeID = 1237493,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 30,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 15,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Leather Mask",
+        itemIDs = { 244555 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_leather_trousers__midnight_1",
+    name = "Thalassian Competitor's Leather Trousers",
+    patchTag = "midnight-1",
+    recipeID = 1237494,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Leather Trousers",
+        itemIDs = { 244558 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_leather_shoulderpads__midnight_1",
+    name = "Thalassian Competitor's Leather Shoulderpads",
+    patchTag = "midnight-1",
+    recipeID = 1237495,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Leather Shoulderpads",
+        itemIDs = { 244556 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_leather_belt__midnight_1",
+    name = "Thalassian Competitor's Leather Belt",
+    patchTag = "midnight-1",
+    recipeID = 1237496,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Leather Belt",
+        itemIDs = { 244557 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_leather_wristwraps__midnight_1",
+    name = "Thalassian Competitor's Leather Wristwraps",
+    patchTag = "midnight-1",
+    recipeID = 1237497,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Leather Wristwraps",
+        itemIDs = { 244560 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__world_tree_rootwraps__midnight_1",
+    name = "World Tree Rootwraps",
+    patchTag = "midnight-1",
+    recipeID = 1237498,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Mote of Primal Energy",
+        itemIDs = { 236950 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 150,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 75,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "World Tree Rootwraps",
+        itemIDs = { 244601 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__smugglers_leather_tunic__midnight_1",
+    name = "Smuggler's Leather Tunic",
+    patchTag = "midnight-1",
+    recipeID = 1237499,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 25,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 15,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Smuggler's Leather Tunic",
+        itemIDs = { 244587 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__smugglers_leather_footpads__midnight_1",
+    name = "Smuggler's Leather Footpads",
+    patchTag = "midnight-1",
+    recipeID = 1237500,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 25,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 10,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Smuggler's Leather Footpads",
+        itemIDs = { 244585 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__smugglers_reinforced_gloves__midnight_1",
+    name = "Smuggler's Reinforced Gloves",
+    patchTag = "midnight-1",
+    recipeID = 1237501,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Peerless Plumage",
+        itemIDs = { 238522 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Smuggler's Reinforced Gloves",
+        itemIDs = { 244593 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__smugglers_reinforced_hood__midnight_1",
+    name = "Smuggler's Reinforced Hood",
+    patchTag = "midnight-1",
+    recipeID = 1237502,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Smuggler's Reinforced Hood",
+        itemIDs = { 244591 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__smugglers_reinforced_pants__midnight_1",
+    name = "Smuggler's Reinforced Pants",
+    patchTag = "midnight-1",
+    recipeID = 1237503,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Fantastic Fur",
+        itemIDs = { 238525 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Smuggler's Reinforced Pants",
+        itemIDs = { 244594 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__smugglers_reinforced_shoulderguards__midnight_1",
+    name = "Smuggler's Reinforced Shoulderguards",
+    patchTag = "midnight-1",
+    recipeID = 1237504,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Carving Canine",
+        itemIDs = { 238523 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Smuggler's Reinforced Shoulderguards",
+        itemIDs = { 244592 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__smugglers_reinforced_binding__midnight_1",
+    name = "Smuggler's Reinforced Binding",
+    patchTag = "midnight-1",
+    recipeID = 1237505,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 30,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 15,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Smuggler's Reinforced Binding",
+        itemIDs = { 244595 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__smugglers_leather_wristbands__midnight_1",
+    name = "Smuggler's Leather Wristbands",
+    patchTag = "midnight-1",
+    recipeID = 1237506,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 10,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Smuggler's Leather Wristbands",
+        itemIDs = { 244586 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__silvermoon_agents_coat__midnight_1",
+    name = "Silvermoon Agent's Coat",
+    patchTag = "midnight-1",
+    recipeID = 1237507,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 150,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 75,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Silvermoon Agent's Coat",
+        itemIDs = { 244570 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__silvermoon_agents_sneakers__midnight_1",
+    name = "Silvermoon Agent's Sneakers",
+    patchTag = "midnight-1",
+    recipeID = 1237508,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 125,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 65,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Silvermoon Agent's Sneakers",
+        itemIDs = { 244569 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__silvermoon_agents_handwraps__midnight_1",
+    name = "Silvermoon Agent's Handwraps",
+    patchTag = "midnight-1",
+    recipeID = 1237509,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 125,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 65,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Silvermoon Agent's Handwraps",
+        itemIDs = { 244575 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__silvermoon_agents_cover__midnight_1",
+    name = "Silvermoon Agent's Cover",
+    patchTag = "midnight-1",
+    recipeID = 1237510,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 125,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 65,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Silvermoon Agent's Cover",
+        itemIDs = { 244571 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__silvermoon_agents_leggings__midnight_1",
+    name = "Silvermoon Agent's Leggings",
+    patchTag = "midnight-1",
+    recipeID = 1237511,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 150,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 75,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Silvermoon Agent's Leggings",
+        itemIDs = { 244574 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__silvermoon_agents_mantle__midnight_1",
+    name = "Silvermoon Agent's Mantle",
+    patchTag = "midnight-1",
+    recipeID = 1237512,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 150,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 75,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Silvermoon Agent's Mantle",
+        itemIDs = { 244572 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__silvermoon_agents_utility_belt__midnight_1",
+    name = "Silvermoon Agent's Utility Belt",
+    patchTag = "midnight-1",
+    recipeID = 1237513,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 100,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 50,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Silvermoon Agent's Utility Belt",
+        itemIDs = { 244573 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__silvermoon_agents_deflectors__midnight_1",
+    name = "Silvermoon Agent's Deflectors",
+    patchTag = "midnight-1",
+    recipeID = 1237514,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 100,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 50,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Silvermoon Agent's Deflectors",
+        itemIDs = { 244576 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__ranger_generals_grips__midnight_1",
+    name = "Ranger-General's Grips",
+    patchTag = "midnight-1",
+    recipeID = 1237515,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 65,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 125,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Ranger-General's Grips",
+        itemIDs = { 244602 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__axe_flingin_bands__midnight_1",
+    name = "Axe-Flingin' Bands",
+    patchTag = "midnight-1",
+    recipeID = 1237516,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 100,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 50,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Axe-Flingin' Bands",
+        itemIDs = { 244605 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__world_tenders_trunkplate__midnight_1",
+    name = "World Tender's Trunkplate",
+    patchTag = "midnight-1",
+    recipeID = 1237517,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Mote of Primal Energy",
+        itemIDs = { 236950 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 75,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 150,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "World Tender's Trunkplate",
+        itemIDs = { 244609 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__world_tenders_rootslippers__midnight_1",
+    name = "World Tender's Rootslippers",
+    patchTag = "midnight-1",
+    recipeID = 1237518,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Mote of Primal Energy",
+        itemIDs = { 236950 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 65,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 125,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "World Tender's Rootslippers",
+        itemIDs = { 244610 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__world_tenders_barkclasp__midnight_1",
+    name = "World Tender's Barkclasp",
+    patchTag = "midnight-1",
+    recipeID = 1237519,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Mote of Primal Energy",
+        itemIDs = { 236950 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 90,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 175,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "World Tender's Barkclasp",
+        itemIDs = { 244611 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_chain_tunic__midnight_1",
+    name = "Thalassian Competitor's Chain Tunic",
+    patchTag = "midnight-1",
+    recipeID = 1237520,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Plating",
+        itemIDs = { 238520, 238521 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Chain Tunic",
+        itemIDs = { 244562 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_chain_stompers__midnight_1",
+    name = "Thalassian Competitor's Chain Stompers",
+    patchTag = "midnight-1",
+    recipeID = 1237521,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 15,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 30,
+      },
+      {
+        itemRef = "Void-Tempered Plating",
+        itemIDs = { 238520, 238521 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Chain Stompers",
+        itemIDs = { 244561 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_chain_grips__midnight_1",
+    name = "Thalassian Competitor's Chain Grips",
+    patchTag = "midnight-1",
+    recipeID = 1237522,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Plating",
+        itemIDs = { 238520, 238521 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Chain Grips",
+        itemIDs = { 244567 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_chain_cowl__midnight_1",
+    name = "Thalassian Competitor's Chain Cowl",
+    patchTag = "midnight-1",
+    recipeID = 1237523,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 15,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 30,
+      },
+      {
+        itemRef = "Void-Tempered Plating",
+        itemIDs = { 238520, 238521 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Chain Cowl",
+        itemIDs = { 244563 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_chain_leggings__midnight_1",
+    name = "Thalassian Competitor's Chain Leggings",
+    patchTag = "midnight-1",
+    recipeID = 1237524,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Plating",
+        itemIDs = { 238520, 238521 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Chain Leggings",
+        itemIDs = { 244566 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_chain_epaulets__midnight_1",
+    name = "Thalassian Competitor's Chain Epaulets",
+    patchTag = "midnight-1",
+    recipeID = 1237525,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Plating",
+        itemIDs = { 238520, 238521 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Chain Epaulets",
+        itemIDs = { 244564 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_chain_girdle__midnight_1",
+    name = "Thalassian Competitor's Chain Girdle",
+    patchTag = "midnight-1",
+    recipeID = 1237526,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Plating",
+        itemIDs = { 238520, 238521 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Chain Girdle",
+        itemIDs = { 244565 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_competitors_chain_cuffs__midnight_1",
+    name = "Thalassian Competitor's Chain Cuffs",
+    patchTag = "midnight-1",
+    recipeID = 1237527,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Plating",
+        itemIDs = { 238520, 238521 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Competitor's Chain Cuffs",
+        itemIDs = { 244568 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__scouts_scaled_vest__midnight_1",
+    name = "Scout's Scaled Vest",
+    patchTag = "midnight-1",
+    recipeID = 1237528,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 15,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 25,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Scout's Scaled Vest",
+        itemIDs = { 244590 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__scouts_scaled_boots__midnight_1",
+    name = "Scout's Scaled Boots",
+    patchTag = "midnight-1",
+    recipeID = 1237529,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 25,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Scout's Scaled Boots",
+        itemIDs = { 244588 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__scouts_polished_gauntlets__midnight_1",
+    name = "Scout's Polished Gauntlets",
+    patchTag = "midnight-1",
+    recipeID = 1237530,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Peerless Plumage",
+        itemIDs = { 238522 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 40,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Scout's Polished Gauntlets",
+        itemIDs = { 244598 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__scouts_polished_skullcap__midnight_1",
+    name = "Scout's Polished Skullcap",
+    patchTag = "midnight-1",
+    recipeID = 1237531,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 40,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Scout's Polished Skullcap",
+        itemIDs = { 244596 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__scouts_polished_legguards__midnight_1",
+    name = "Scout's Polished Legguards",
+    patchTag = "midnight-1",
+    recipeID = 1237532,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Fantastic Fur",
+        itemIDs = { 238525 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 40,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Scout's Polished Legguards",
+        itemIDs = { 244599 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__scouts_polished_spaulders__midnight_1",
+    name = "Scout's Polished Spaulders",
+    patchTag = "midnight-1",
+    recipeID = 1237533,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Carving Canine",
+        itemIDs = { 238523 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 40,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Scout's Polished Spaulders",
+        itemIDs = { 244597 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__scouts_polished_wrap__midnight_1",
+    name = "Scout's Polished Wrap",
+    patchTag = "midnight-1",
+    recipeID = 1237534,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 15,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 30,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Scout's Polished Wrap",
+        itemIDs = { 244600 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__scouts_scaled_bracers__midnight_1",
+    name = "Scout's Scaled Bracers",
+    patchTag = "midnight-1",
+    recipeID = 1237535,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Scout's Scaled Bracers",
+        itemIDs = { 244589 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__farstriders_scouting_vest__midnight_1",
+    name = "Farstrider's Scouting Vest",
+    patchTag = "midnight-1",
+    recipeID = 1237536,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 75,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 150,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Farstrider's Scouting Vest",
+        itemIDs = { 244578 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__farstriders_razor_talons__midnight_1",
+    name = "Farstrider's Razor Talons",
+    patchTag = "midnight-1",
+    recipeID = 1237537,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 65,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 125,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Farstrider's Razor Talons",
+        itemIDs = { 244577 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__farstriders_sharpened_claws__midnight_1",
+    name = "Farstrider's Sharpened Claws",
+    patchTag = "midnight-1",
+    recipeID = 1237538,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 65,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 125,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Farstrider's Sharpened Claws",
+        itemIDs = { 244583 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__farstriders_unwavering_visage__midnight_1",
+    name = "Farstrider's Unwavering Visage",
+    patchTag = "midnight-1",
+    recipeID = 1237539,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 65,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 125,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Farstrider's Unwavering Visage",
+        itemIDs = { 244579 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__farstriders_reinforced_faulds__midnight_1",
+    name = "Farstrider's Reinforced Faulds",
+    patchTag = "midnight-1",
+    recipeID = 1237540,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 75,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 150,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Farstrider's Reinforced Faulds",
+        itemIDs = { 244582 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__farstriders_brilliant_plumes__midnight_1",
+    name = "Farstrider's Brilliant Plumes",
+    patchTag = "midnight-1",
+    recipeID = 1237541,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 75,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 150,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Farstrider's Brilliant Plumes",
+        itemIDs = { 244580 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__farstriders_trophy_belt__midnight_1",
+    name = "Farstrider's Trophy Belt",
+    patchTag = "midnight-1",
+    recipeID = 1237542,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 50,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 100,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Farstrider's Trophy Belt",
+        itemIDs = { 244581 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__farstriders_plated_bracers__midnight_1",
+    name = "Farstrider's Plated Bracers",
+    patchTag = "midnight-1",
+    recipeID = 1237543,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Tormented Tantalum",
+        itemIDs = { 251283 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 50,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 100,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Farstrider's Plated Bracers",
+        itemIDs = { 244584 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__forest_hunters_armor_kit__midnight_1",
+    name = "Forest Hunter's Armor Kit",
+    patchTag = "midnight-1",
+    recipeID = 1237544,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Petrified Root",
+        itemIDs = { 251285 },
+        amount = 3,
+      },
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 10,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Forest Hunter's Armor Kit",
+        itemIDs = { 244640 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__blood_knights_armor_kit__midnight_1",
+    name = "Blood Knight's Armor Kit",
+    patchTag = "midnight-1",
+    recipeID = 1237545,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Petrified Root",
+        itemIDs = { 251285 },
+        amount = 3,
+      },
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 10,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Blood Knight's Armor Kit",
+        itemIDs = { 244642 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_scout_armor_kit__midnight_1",
+    name = "Thalassian Scout Armor Kit",
+    patchTag = "midnight-1",
+    recipeID = 1237546,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 5,
+      },
+      {
+        itemRef = "Peerless Plumage",
+        itemIDs = { 238522 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 50,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 50,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Scout Armor Kit",
+        itemIDs = { 244644 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__chemists_cap__midnight_1",
+    name = "Chemist's Cap",
+    patchTag = "midnight-1",
+    recipeID = 1237548,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 30,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Chemist's Cap",
+        itemIDs = { 244620 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__sindorei_alchemists_hat__midnight_1",
+    name = "Sin'dorei Alchemist's Hat",
+    patchTag = "midnight-1",
+    recipeID = 1237549,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 10,
+      },
+      {
+        itemRef = "Composite Flora",
+        itemIDs = { 241281 },
+        amount = 3,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Sin'dorei Alchemist's Hat",
+        itemIDs = { 244626 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_alchemists_mixcap__midnight_1",
+    name = "Thalassian Alchemist's Mixcap",
+    patchTag = "midnight-1",
+    recipeID = 1237550,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 40,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fused Vitality",
+        itemIDs = { 245345 },
+        amount = 20,
+      },
+      {
+        itemRef = "Composite Flora",
+        itemIDs = { 241281 },
+        amount = 5,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Alchemist's Mixcap",
+        itemIDs = { 244812 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__apprentice_smiths_apron__midnight_1",
+    name = "Apprentice Smith's Apron",
+    patchTag = "midnight-1",
+    recipeID = 1237551,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Apprentice Smith's Apron",
+        itemIDs = { 244627 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__sindorei_forgemasters_cover__midnight_1",
+    name = "Sin'dorei Forgemaster's Cover",
+    patchTag = "midnight-1",
+    recipeID = 1237552,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 10,
+      },
+      {
+        itemRef = "Sterling Alloy",
+        itemIDs = { 238204, 238205 },
+        amount = 10,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Sin'dorei Forgemaster's Cover",
+        itemIDs = { 244628 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_ironbenders_regalia__midnight_1",
+    name = "Thalassian Ironbender's Regalia",
+    patchTag = "midnight-1",
+    recipeID = 1237553,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 40,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fused Vitality",
+        itemIDs = { 245345 },
+        amount = 20,
+      },
+      {
+        itemRef = "Gloaming Alloy",
+        itemIDs = { 238202, 238203 },
+        amount = 15,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Ironbender's Regalia",
+        itemIDs = { 244813 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__tinkers_handguard__midnight_1",
+    name = "Tinker's Handguard",
+    patchTag = "midnight-1",
+    recipeID = 1237554,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 30,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Tinker's Handguard",
+        itemIDs = { 244618 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__sindorei_engineers_gloves__midnight_1",
+    name = "Sin'dorei Engineer's Gloves",
+    patchTag = "midnight-1",
+    recipeID = 1237555,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 20,
+      },
+      {
+        itemRef = "Aetherlume",
+        itemIDs = { 243578, 243579 },
+        amount = 3,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Sin'dorei Engineer's Gloves",
+        itemIDs = { 244624 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_scrapmasters_gauntlets__midnight_1",
+    name = "Thalassian Scrapmaster's Gauntlets",
+    patchTag = "midnight-1",
+    recipeID = 1237556,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fused Vitality",
+        itemIDs = { 245345 },
+        amount = 20,
+      },
+      {
+        itemRef = "Aetherlume",
+        itemIDs = { 243578, 243579 },
+        amount = 6,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Scrapmaster's Gauntlets",
+        itemIDs = { 244810 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__eversong_botanists_satchel__midnight_1",
+    name = "Eversong Botanist's Satchel",
+    patchTag = "midnight-1",
+    recipeID = 1237557,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Tranquility Bloom",
+        itemIDs = { 236761 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Eversong Botanist's Satchel",
+        itemIDs = { 244615 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__sindorei_herbalists_backpack__midnight_1",
+    name = "Sin'dorei Herbalist's Backpack",
+    patchTag = "midnight-1",
+    recipeID = 1237558,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 10,
+      },
+      {
+        itemRef = "Nocturnal Lotus",
+        itemIDs = { 236780 },
+        amount = 4,
+      },
+      {
+        itemRef = "Composite Flora",
+        itemIDs = { 241281 },
+        amount = 2,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Sin'dorei Herbalist's Backpack",
+        itemIDs = { 244621 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_herbtenders_cradle__midnight_1",
+    name = "Thalassian Herbtender's Cradle",
+    patchTag = "midnight-1",
+    recipeID = 1237559,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 40,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fused Vitality",
+        itemIDs = { 245345 },
+        amount = 20,
+      },
+      {
+        itemRef = "Nocturnal Lotus",
+        itemIDs = { 236780 },
+        amount = 8,
+      },
+      {
+        itemRef = "Composite Flora",
+        itemIDs = { 241281 },
+        amount = 4,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Herbtender's Cradle",
+        itemIDs = { 244807 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__apprentice_jewelers_apron__midnight_1",
+    name = "Apprentice Jeweler's Apron",
+    patchTag = "midnight-1",
+    recipeID = 1237560,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Apprentice Jeweler's Apron",
+        itemIDs = { 244629 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__sindorei_jewelers_cover__midnight_1",
+    name = "Sin'dorei Jeweler's Cover",
+    patchTag = "midnight-1",
+    recipeID = 1237561,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 10,
+      },
+      {
+        itemRef = "Glimmering Gemdust",
+        itemIDs = { 242620 },
+        amount = 10,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Sin'dorei Jeweler's Cover",
+        itemIDs = { 244630 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_gemshapers_grand_cover__midnight_1",
+    name = "Thalassian Gemshaper's Grand Cover",
+    patchTag = "midnight-1",
+    recipeID = 1237562,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 40,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fused Vitality",
+        itemIDs = { 245345 },
+        amount = 20,
+      },
+      {
+        itemRef = "Glimmering Gemdust",
+        itemIDs = { 242620 },
+        amount = 10,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Gemshaper's Grand Cover",
+        itemIDs = { 244814 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__hideworkers_cover__midnight_1",
+    name = "Hideworker's Cover",
+    patchTag = "midnight-1",
+    recipeID = 1237563,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Hideworker's Cover",
+        itemIDs = { 244619 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__sindorei_leathershapers_smock__midnight_1",
+    name = "Sin'dorei Leathershaper's Smock",
+    patchTag = "midnight-1",
+    recipeID = 1237564,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 100,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 100,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Sin'dorei Leathershaper's Smock",
+        itemIDs = { 244625 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_hideshapers_regalia__midnight_1",
+    name = "Thalassian Hideshaper's Regalia",
+    patchTag = "midnight-1",
+    recipeID = 1237565,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 40,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fused Vitality",
+        itemIDs = { 245345 },
+        amount = 20,
+      },
+      {
+        itemRef = "Majestic Claw",
+        itemIDs = { 238528 },
+        amount = 1,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Hideshaper's Regalia",
+        itemIDs = { 244811 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__skinners_backpack__midnight_1",
+    name = "Skinner's Backpack",
+    patchTag = "midnight-1",
+    recipeID = 1237566,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Skinner's Backpack",
+        itemIDs = { 244616 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__sindorei_hunters_pack__midnight_1",
+    name = "Sin'dorei Hunter's Pack",
+    patchTag = "midnight-1",
+    recipeID = 1237567,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 20,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 100,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 100,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Sin'dorei Hunter's Pack",
+        itemIDs = { 244622 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_wildseekers_workbag__midnight_1",
+    name = "Thalassian Wildseeker's Workbag",
+    patchTag = "midnight-1",
+    recipeID = 1237568,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 40,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fused Vitality",
+        itemIDs = { 245345 },
+        amount = 20,
+      },
+      {
+        itemRef = "Majestic Fin",
+        itemIDs = { 238530 },
+        amount = 1,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Wildseeker's Workbag",
+        itemIDs = { 244808 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__skinners_cap__midnight_1",
+    name = "Skinner's Cap",
+    patchTag = "midnight-1",
+    recipeID = 1237569,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 40,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Skinner's Cap",
+        itemIDs = { 244617 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__eversong_hunters_headcover__midnight_1",
+    name = "Eversong Hunter's Headcover",
+    patchTag = "midnight-1",
+    recipeID = 1237570,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 10,
+      },
+      {
+        itemRef = "Void-Tempered Leather",
+        itemIDs = { 238511, 238512 },
+        amount = 100,
+      },
+      {
+        itemRef = "Void-Tempered Scales",
+        itemIDs = { 238513, 238514 },
+        amount = 100,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Eversong Hunter's Headcover",
+        itemIDs = { 244623 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__thalassian_wildseekers_stridercap__midnight_1",
+    name = "Thalassian Wildseeker's Stridercap",
+    patchTag = "midnight-1",
+    recipeID = 1237571,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 40,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fused Vitality",
+        itemIDs = { 245345 },
+        amount = 20,
+      },
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 1,
+      },
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Thalassian Wildseeker's Stridercap",
+        itemIDs = { 244809 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__infused_scalewoven_hide__midnight_1",
+    name = "Infused Scalewoven Hide",
+    patchTag = "midnight-1",
+    recipeID = 1237573,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Mote of Light",
+        itemIDs = { 236949 },
+        amount = 2,
+      },
+      {
+        itemRef = "Mote of Primal Energy",
+        itemIDs = { 236950 },
+        amount = 2,
+      },
+      {
+        itemRef = "Mote of Pure Void",
+        itemIDs = { 236952 },
+        amount = 2,
+      },
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 2,
+      },
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 1,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Infused Scalewoven Hide",
+        itemIDs = { 244633, 244634 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__blessed_pango_charm__midnight_1",
+    name = "Blessed Pango Charm",
+    patchTag = "midnight-1",
+    recipeID = 1237577,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Mote of Wild Magic",
+        itemIDs = { 236951 },
+        amount = 10,
+      },
+      {
+        itemRef = "Carving Canine",
+        itemIDs = { 238523 },
+        amount = 1,
+      },
+      {
+        itemRef = "Peerless Plumage",
+        itemIDs = { 238522 },
+        amount = 1,
+      },
+      {
+        itemRef = "Void-Tempered Hide",
+        itemIDs = { 238518, 238519 },
+        amount = 1,
+      },
+      {
+        itemRef = "Duskshrouded Stone",
+        itemIDs = { 242788, 242789 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Blessed Pango Charm",
+        itemIDs = { 244603, 244604 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__primal_spore_binding__midnight_1",
+    name = "Primal Spore Binding",
+    patchTag = "midnight-1",
+    recipeID = 1237578,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Mote of Primal Energy",
+        itemIDs = { 236950 },
+        amount = 10,
+      },
+      {
+        itemRef = "Fantastic Fur",
+        itemIDs = { 238525 },
+        amount = 1,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Primal Spore Binding",
+        itemIDs = { 244607, 244608 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__devouring_banding__midnight_1",
+    name = "Devouring Banding",
+    patchTag = "midnight-1",
+    recipeID = 1237579,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Mote of Pure Void",
+        itemIDs = { 236952 },
+        amount = 10,
+      },
+      {
+        itemRef = "Sin'dorei Armor Banding",
+        itemIDs = { 244635, 244636 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Devouring Banding",
+        itemIDs = { 244674, 244675 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__embossed_sindorei_fur_rug__midnight_1",
+    name = "Embossed Sin'dorei Fur Rug",
+    patchTag = "midnight-1",
+    recipeID = 1246937,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 2,
+      },
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Fantastic Fur",
+        itemIDs = { 238525 },
+        amount = 5,
+      },
+      {
+        itemRef = "Thalassian Lumber",
+        itemIDs = { 256963 },
+        amount = 24,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 2,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Embossed Sin'dorei Fur Rug",
+        itemIDs = { 262449 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__haranir_canopy_bed__midnight_1",
+    name = "Haranir Canopy Bed",
+    patchTag = "midnight-1",
+    recipeID = 1246939,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 2,
+      },
+      {
+        itemRef = "Majestic Fin",
+        itemIDs = { 238530 },
+        amount = 1,
+      },
+      {
+        itemRef = "Mote of Primal Energy",
+        itemIDs = { 236950 },
+        amount = 40,
+      },
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 20,
+      },
+      {
+        itemRef = "Peerless Plumage",
+        itemIDs = { 238522 },
+        amount = 5,
+      },
+      {
+        itemRef = "Thalassian Lumber",
+        itemIDs = { 256963 },
+        amount = 46,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Haranir Canopy Bed",
+        itemIDs = { 265791 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__simple_haranir_table__midnight_1",
+    name = "Simple Haranir Table",
+    patchTag = "midnight-1",
+    recipeID = 1246940,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 2,
+      },
+      {
+        itemRef = "Mote of Primal Energy",
+        itemIDs = { 236950 },
+        amount = 40,
+      },
+      {
+        itemRef = "Fantastic Fur",
+        itemIDs = { 238525 },
+        amount = 5,
+      },
+      {
+        itemRef = "Thalassian Lumber",
+        itemIDs = { 256963 },
+        amount = 18,
+      },
+      {
+        itemRef = "Scalewoven Hide",
+        itemIDs = { 244631, 244632 },
+        amount = 1,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Simple Haranir Table",
+        itemIDs = { 262589 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__leather_bound_haranir_wall_shelf__midnight_1",
+    name = "Leather-Bound Haranir Wall Shelf",
+    patchTag = "midnight-1",
+    recipeID = 1246938,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 1,
+      },
+      {
+        itemRef = "Majestic Claw",
+        itemIDs = { 238528 },
+        amount = 1,
+      },
+      {
+        itemRef = "Carving Canine",
+        itemIDs = { 238523 },
+        amount = 5,
+      },
+      {
+        itemRef = "Thalassian Lumber",
+        itemIDs = { 256963 },
+        amount = 24,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Leather-Bound Haranir Wall Shelf",
+        itemIDs = { 253457 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__plush_haranir_leather_pillow__midnight_1",
+    name = "Plush Haranir Leather Pillow",
+    patchTag = "midnight-1",
+    recipeID = 1246943,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 1,
+      },
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Fantastic Fur",
+        itemIDs = { 238525 },
+        amount = 5,
+      },
+      {
+        itemRef = "Thalassian Lumber",
+        itemIDs = { 256963 },
+        amount = 16,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Plush Haranir Leather Pillow",
+        itemIDs = { 264244 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__stitched_haranir_rug__midnight_1",
+    name = "Stitched Haranir Rug",
+    patchTag = "midnight-1",
+    recipeID = 1246941,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 1,
+      },
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Fantastic Fur",
+        itemIDs = { 238525 },
+        amount = 5,
+      },
+      {
+        itemRef = "Thalassian Lumber",
+        itemIDs = { 256963 },
+        amount = 18,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Stitched Haranir Rug",
+        itemIDs = { 262600 },
+        baseAmount = 1,
+      },
+    },
+  },
+  {
+    id = "leatherworking__sturdy_haranir_chair__midnight_1",
+    name = "Sturdy Haranir Chair",
+    patchTag = "midnight-1",
+    recipeID = 1246942,
+    formulaProfile = "leatherworking",
+    inputs = {
+      {
+        itemRef = "Majestic Hide",
+        itemIDs = { 238529 },
+        amount = 1,
+      },
+      {
+        itemRef = "Majestic Claw",
+        itemIDs = { 238528 },
+        amount = 1,
+      },
+      {
+        itemRef = "Silverleaf Thread",
+        itemIDs = { 251665 },
+        amount = 10,
+      },
+      {
+        itemRef = "Fantastic Fur",
+        itemIDs = { 238525 },
+        amount = 2,
+      },
+      {
+        itemRef = "Carving Canine",
+        itemIDs = { 238523 },
+        amount = 2,
+      },
+      {
+        itemRef = "Thalassian Lumber",
+        itemIDs = { 256963 },
+        amount = 20,
+      },
+    },
+    outputs = {
+      {
+        itemRef = "Sturdy Haranir Chair",
+        itemIDs = { 243090 },
+        baseAmount = 1,
+      },
+    },
+  },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "leatherworking__rope_lynx_harness__midnight_1",
+--     name = "Rope Lynx Harness",
+--     patchTag = "midnight-1",
+--     recipeID = 1291046,
+--     formulaProfile = "leatherworking",
+--     inputs = {
+--       {
+--         itemRef = "Broken Lynx Leash",
+--         itemIDs = { 272392 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Mote of Primal Energy",
+--         itemIDs = { 236950 },
+--         amount = 40,
+--       },
+--       {
+--         itemRef = "Infused Scalewoven Hide",
+--         itemIDs = { 244633, 244634 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Sin'dorei Armor Banding",
+--         itemIDs = { 244635, 244636 },
+--         amount = 2,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "Rope Lynx Harness",
+--         itemIDs = { 270058 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
 }

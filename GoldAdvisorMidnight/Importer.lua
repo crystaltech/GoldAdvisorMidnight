@@ -88,6 +88,7 @@ local function NormalizeOutput(output, startingAmt, defaultCrafts)
     if start <= 0 then start = crafts end
 
     local baseYieldPerCraft = tonumber(output.baseYieldPerCraft)
+        or tonumber(output.baseAmount)
     local baseYield = tonumber(output.baseYield)
     if type(baseYield) ~= "number" then
         baseYield = tonumber(output.baseYieldMultiplier) or tonumber(output.qtyMultiplier)
@@ -441,11 +442,16 @@ local function LoadRecipeList(list, src, isUser)
     end
 
     for _, raw in ipairs(list) do
-        local strat = NormalizeStrat(raw, src, isUser)
+        local strat = nil
+        if type(raw) == "table" and raw.disabledReason then
+            skipped = skipped + 1
+        else
+            strat = NormalizeStrat(raw, src, isUser)
+        end
         if strat then
             IndexStrat(strat)
             loaded = loaded + 1
-        else
+        elseif not (type(raw) == "table" and raw.disabledReason) then
             skipped = skipped + 1
         end
     end

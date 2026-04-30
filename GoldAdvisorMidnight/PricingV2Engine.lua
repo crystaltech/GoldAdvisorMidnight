@@ -108,6 +108,35 @@ function Engine.Install(Pricing, deps)
         return input, profileDef
     end
 
+    local function GetV2PricingMode(strat, opts)
+        local mode = tostring(opts and opts.v2PricingMode or ""):lower()
+        if mode == "fixed_crafts" or mode == "fixedcrafts" or mode == "craftsim" then
+            return "fixed_crafts"
+        end
+        if mode == "fixed_input" or mode == "fixedinput" or mode == "spreadsheet" then
+            return "fixed_input"
+        end
+
+        local defaultMode = tostring((GAM.C and GAM.C.DEFAULT_V2_PRICING_MODE) or "fixed_crafts"):lower()
+        if defaultMode == "fixed_input" then
+            return "fixed_input"
+        end
+        return "fixed_crafts"
+    end
+
+    local function ApplyFixedInputEconomics(input)
+        local formula = GetFormulaV2()
+        local saveBase = input.resourcefulnessSaveBase
+            or (formula and formula.DEFAULT_RESOURCEFULNESS_SAVE_BASE)
+            or 0.30
+        input.mcMultiplier = input.supportsMulticraft
+            and ((GAM.C and GAM.C.BASE_MCM) or 1.25) * (1 + (tonumber(input.mcExtra) or 0))
+            or 0
+        input.resourceSaveFraction = input.supportsResourcefulness
+            and saveBase * (1 + (tonumber(input.resExtra) or 0))
+            or 0
+    end
+
     local function GetV2StatsForStrat(strat, opts, ctx)
         local resolver = GAM.CraftingStatsV2 and GAM.CraftingStatsV2.ResolveForStrat
         if type(resolver) ~= "function" then
@@ -210,9 +239,16 @@ function Engine.Install(Pricing, deps)
         local formula = GetFormulaV2()
         local input, profileDef = BuildV2FormulaInput(strat, opts, baseYield, crafts, requiredCraftCost, constants)
         input.statFallbackReason = (statSnapshot and statSnapshot.fallbackReason) or statFallbackReason
+        input.pricingMode = GetV2PricingMode(strat, opts)
         ApplyV2ResolvedStats(input, statSnapshot)
         local result
-        if formula and type(formula.CalculateFixedCrafts) == "function" then
+        if input.pricingMode == "fixed_input"
+                and formula
+                and type(formula.CalculateFixedInputEquivalent) == "function" then
+            ApplyFixedInputEconomics(input)
+            result = formula.CalculateFixedInputEquivalent(input)
+            result.model = "fixedInput"
+        elseif formula and type(formula.CalculateFixedCrafts) == "function" then
             result = formula.CalculateFixedCrafts(input)
         else
             result = {
@@ -233,6 +269,9 @@ function Engine.Install(Pricing, deps)
         result.statFallbackReason = input.statFallbackReason
         result.statQuality = input.statQuality
         result.nodeHash = input.nodeHash
+        result.pricingMode = input.pricingMode
+        result.mcMultiplier = input.mcMultiplier
+        result.resourceSaveFraction = input.resourceSaveFraction
         result.nodeStats = statSnapshot and statSnapshot.nodeStats or nil
         result.totalStats = statSnapshot and statSnapshot.totalStats or nil
         return result
@@ -393,6 +432,7 @@ function Engine.Install(Pricing, deps)
             mcExtra = formulaResult.mcExtra,
             resPercent = formulaResult.resPercent,
             resExtra = formulaResult.resExtra,
+            pricingMode = formulaResult.pricingMode,
             expectedYieldPerCraft = formulaResult.expectedYieldPerCraft,
         }
     end
@@ -636,7 +676,10 @@ function Engine.Install(Pricing, deps)
 
     function Pricing.GetActivePricingEngine()
         local opts = GetOpts()
-        return (opts and opts.pricingEngine == "v2") and "v2" or "legacy"
+        if opts and opts.pricingEngine == "legacy" then
+            return "legacy"
+        end
+        return "v2"
     end
 
     function Pricing.CalculateStratMetricsActive(strat, patchTag, craftQty)

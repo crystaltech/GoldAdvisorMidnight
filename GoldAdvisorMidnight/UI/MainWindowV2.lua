@@ -187,7 +187,7 @@ local filterPatch      = GAM.C.DEFAULT_PATCH
 local filterProf       = "All"
 local filterProfSet    = nil
 local filterMode       = "mine"
-local filterProfSingle = "All"   -- specific profession sub-filter within the current pool
+local filterProfSingleSet = {}   -- checked professions; empty table = show all in current pool
 local sortKey       = "roi"
 local sortAsc       = true
 local scanning      = false
@@ -837,7 +837,7 @@ local function SafeBuildSection(label, fn)
 end
 
 local function StratMatchesFilter(strat)
-    return Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingle, GetOpts().rankPolicy)
+    return Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingleSet, GetOpts().rankPolicy)
 end
 
 local function GetActiveColumnConfig()
@@ -948,6 +948,9 @@ local function ItemRowEnter(self)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_FULL_COST"]) or "Full Cost: %s", tt.totalCostFull and GAM.Pricing.FormatPrice(tt.totalCostFull) or "|cff888888—|r"), 1, 0.82, 0)
             if tt.totalCost and tt.totalCostFull and tt.totalCost ~= tt.totalCostFull then
                 GameTooltip:AddLine(string.format((L and L["TT_ROW_BUY_NOW_COST"]) or "Buy Now Cost: %s", GAM.Pricing.FormatPrice(tt.totalCost)), 1, 0.82, 0)
+            end
+            if tt.sourceNote and tt.sourceNote ~= "" then
+                GameTooltip:AddLine("Cost source: " .. tt.sourceNote, 0.75, 0.75, 0.75, true)
             end
         elseif tt.kind == "output" then
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
@@ -1142,6 +1145,37 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     local seenIDs = {}
     local seenNames = {}
     local strategyKey = strat.id or strat.key or strat.stratName
+    local callbackPending = false
+    local pendingCallbackArgs = nil
+    local lastCallbackAt = GetTime()
+    local callbackInterval = GAM.C.SCAN_UI_REFRESH_INTERVAL or 2.0
+
+    local function throttledCallback(...)
+        if not callback then
+            return
+        end
+        local now = GetTime()
+        if (now - lastCallbackAt) >= callbackInterval then
+            lastCallbackAt = now
+            pendingCallbackArgs = nil
+            callback(...)
+            return
+        end
+        pendingCallbackArgs = { ... }
+        if callbackPending then
+            return
+        end
+        callbackPending = true
+        C_Timer.After(callbackInterval, function()
+            callbackPending = false
+            if GAM.AHScan and GAM.AHScan.IsScanning and GAM.AHScan.IsScanning() then
+                lastCallbackAt = GetTime()
+                local args = pendingCallbackArgs
+                pendingCallbackArgs = nil
+                callback(unpack(args or {}))
+            end
+        end)
+    end
 
     local function queueItem(item, reason)
         if not item or not item.name then return end
@@ -1153,14 +1187,14 @@ local function ScanSingleStrategy(strat, patchTag, callback)
             for _, id in ipairs(ids) do
                 if not seenIDs[id] then
                     seenIDs[id] = true
-                    GAM.AHScan.QueueItemScan(id, callback, reason, strategyKey)
+                    GAM.AHScan.QueueItemScan(id, callback and throttledCallback or nil, reason, strategyKey)
                 end
             end
         else
             local nameKey = item.name .. "@" .. pt
             if not seenNames[nameKey] then
                 seenNames[nameKey] = true
-                GAM.AHScan.QueueNameScan(item.name, pt, callback, reason, strategyKey)
+                GAM.AHScan.QueueNameScan(item.name, pt, callback and throttledCallback or nil, reason, strategyKey)
             end
         end
     end
@@ -1271,9 +1305,9 @@ RebuildList = function()
             selectedStratID = nil
         end
     end
-    for _, s in ipairs(filteredList) do
-        GetListMetric(s)
-    end
+    -- Performance: rows calculate metrics lazily when they are drawn. Profit/ROI
+    -- sorting fills this cache as needed, but name/profession/filter changes
+    -- should not eagerly reprice every filtered strategy.
     scrollOffset = 0
     if RefreshScanButtonLabels then
         RefreshScanButtonLabels()
@@ -1361,6 +1395,11 @@ RefreshScanButtonLabels = function()
 end
 
 local function SetScanningState(isScanning)
+    if isScanning and not scanning then
+        lastScanRefreshAt = GetTime()
+    elseif not isScanning then
+        lastScanRefreshAt = 0
+    end
     scanning = isScanning
     local L = GetL()
     local lbl = isScanning
@@ -1959,11 +1998,11 @@ local function BuildLeftPanelContent(L, C, LP)
         setFilterProfSet = function(value)
             filterProfSet = value
         end,
-        getFilterProfSingle = function()
-            return filterProfSingle
+        getFilterProfSingleSet = function()
+            return filterProfSingleSet
         end,
-        setFilterProfSingle = function(value)
-            filterProfSingle = value
+        setFilterProfSingleSet = function(value)
+            filterProfSingleSet = value or {}
         end,
         setActiveColConfig = function(value)
             activeColConfig = value
@@ -2282,14 +2321,14 @@ function MW2.OnScanProgress(done, total, isComplete)
         end
         if frame:IsShown() and done and done > 0 then
             local now = GetTime()
-            if (now - lastScanRefreshAt) >= 0.75 then
+            local refreshInterval = GAM.C.SCAN_UI_REFRESH_INTERVAL or 2.0
+            if (now - lastScanRefreshAt) >= refreshInterval then
                 lastScanRefreshAt = now
                 ClearListMetricCache()
-                -- Skip RebuildList during scan: prices update per-item so the sort
-                -- order is unstable mid-scan, and the sort itself is expensive when
-                -- the price cache is warm. Full re-sort happens at OnScanComplete.
+                -- Performance: keep progress live, but batch the expensive
+                -- visible-row/detail repricing work while AH results are streaming.
+                -- Full re-sort happens at OnScanComplete.
                 MW2.RefreshRows()
-                RefreshBestStratCard()
                 if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
                     ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
                 end
@@ -2307,6 +2346,13 @@ function MW2.OnScanComplete()
         RefreshBestStratCard()
         if leftPanel and leftPanel.refreshStatEditors then
             leftPanel.refreshStatEditors()
+        end
+        if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
+            local refreshed = rpDetail.currentStrat.id and GAM.Importer.GetStratByID(rpDetail.currentStrat.id)
+            if refreshed then
+                rpDetail.currentStrat = refreshed
+                ShowInlineDetail(refreshed, rpDetail.currentPatch)
+            end
         end
         SetScanningState(false)
     end

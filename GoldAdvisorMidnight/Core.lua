@@ -81,7 +81,8 @@ local DB_DEFAULTS = {
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         v2Theme             = "classic",
-        pricingEngine        = "legacy",
+        pricingEngine        = "v2",
+        v2PricingMode        = GAM.C.DEFAULT_V2_PRICING_MODE,
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
         leftPanelCollapsed  = false,   -- left panel collapse state
@@ -96,7 +97,7 @@ local DB_DEFAULTS = {
     scanState  = {},
     itemKeyDB  = {},   -- persisted full AH itemKeys discovered via browse fallback
     v2StatCache = {
-        version = 1,
+        version = 2,
         characters = {},
     },
     userStrats = {},   -- user-created strategies (same schema as GAM_STRATS_MANUAL entries)
@@ -291,6 +292,33 @@ local MIGRATIONS = {
             end
             if opts.bsMcNode == nil or approxEqual(opts.bsMcNode, 0.0) then
                 opts.bsMcNode = 12
+            end
+        end,
+    },
+    {
+        -- dataVersion 14: Add explicit V2 formula economics mode.
+        dataVersion = 14,
+        migrate = function(db)
+            if type(db.options) == "table" and db.options.v2PricingMode == nil then
+                db.options.v2PricingMode = GAM.C.DEFAULT_V2_PRICING_MODE
+            end
+        end,
+    },
+    {
+        -- dataVersion 15: Default to the live craft-count model so expected
+        -- output matches pressing Craft N times in CraftSim/WoW.
+        dataVersion = 15,
+        migrate = function(db)
+            if type(db.options) ~= "table" then
+                return
+            end
+
+            local opts = db.options
+            if opts.pricingEngine == nil or opts.pricingEngine == "legacy" then
+                opts.pricingEngine = "v2"
+            end
+            if opts.v2PricingMode == nil or opts.v2PricingMode == "fixed_input" then
+                opts.v2PricingMode = GAM.C.DEFAULT_V2_PRICING_MODE
             end
         end,
     },
@@ -1018,8 +1046,28 @@ local function HandlePricingEngineCommand(args)
         return
     end
 
-    GAM.Log.Info("Pricing engine: %s", tostring(opts.pricingEngine or "legacy"))
-    print("|cffff8800[GAM]|r Pricing engine: " .. tostring(opts.pricingEngine or "legacy"))
+    GAM.Log.Info("Pricing engine: %s", tostring(opts.pricingEngine or "v2"))
+    print("|cffff8800[GAM]|r Pricing engine: " .. tostring(opts.pricingEngine or "v2"))
+    RefreshPricingViews()
+end
+
+local function HandleV2PricingModeCommand(args)
+    local choice = (args or ""):lower():match("^%s*(%S*)") or ""
+    local opts = GAM:GetOptions()
+    if choice == "fixed_input" or choice == "input" or choice == "spreadsheet" then
+        opts.v2PricingMode = "fixed_input"
+    elseif choice == "fixed_crafts" or choice == "crafts" or choice == "craftsim" then
+        opts.v2PricingMode = "fixed_crafts"
+    elseif choice == "toggle" or choice == "" then
+        opts.v2PricingMode = (opts.v2PricingMode == "fixed_crafts") and "fixed_input" or "fixed_crafts"
+    else
+        print("|cffff8800[GAM]|r Usage: /gam v2mode fixed_input | fixed_crafts | toggle")
+        return
+    end
+
+    local defaultMode = (GAM.C and GAM.C.DEFAULT_V2_PRICING_MODE) or "fixed_crafts"
+    GAM.Log.Info("V2 pricing mode: %s", tostring(opts.v2PricingMode or defaultMode))
+    print("|cffff8800[GAM]|r V2 pricing mode: " .. tostring(opts.v2PricingMode or defaultMode))
     RefreshPricingViews()
 end
 
@@ -1094,6 +1142,8 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
         HandleV2CaptureCommand()
     elseif cmd == "engine" or cmd == "pricing" then
         HandlePricingEngineCommand(args)
+    elseif cmd == "v2mode" then
+        HandleV2PricingModeCommand(args)
     elseif cmd == "smoketest" then
         HandleSmokeTestCommand()
     elseif cmd == "create" then

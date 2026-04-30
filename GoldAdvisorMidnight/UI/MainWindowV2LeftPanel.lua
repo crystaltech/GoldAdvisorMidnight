@@ -135,8 +135,8 @@ function LeftPanelUI.Build(args)
     local setFilterProf = args.setFilterProf or Noop
     local getFilterProfSet = args.getFilterProfSet or function() return nil end
     local setFilterProfSet = args.setFilterProfSet or Noop
-    local getFilterProfSingle = args.getFilterProfSingle or function() return "All" end
-    local setFilterProfSingle = args.setFilterProfSingle or Noop
+    local getFilterProfSingleSet = args.getFilterProfSingleSet or function() return {} end
+    local setFilterProfSingleSet = args.setFilterProfSingleSet or Noop
     local setActiveColConfig = args.setActiveColConfig or Noop
     local softInk = layoutMode == "soft"
     local labelColor = softInk and bodyTextColor or { 0.9, 0.9, 0.9, 1.0 }
@@ -201,35 +201,90 @@ function LeftPanelUI.Build(args)
     ddProf:SetPoint("TOPLEFT", panel, "TOPLEFT", LP - 16, -136)
     UIDropDownMenu_SetWidth(ddProf, panelWidth - LP * 2 - 20)
 
-    local function InitProfDD()
-        UIDropDownMenu_Initialize(ddProf, function()
-            local pool = {}
-            local filterMode = getFilterMode()
-            local filterProfSet = getFilterProfSet()
-            if filterMode == "mine" and hasAnyEntries(filterProfSet) then
-                for prof in pairs(filterProfSet) do
-                    pool[#pool + 1] = prof
-                end
-                table.sort(pool)
-            else
-                pool = GAM.Importer.GetAllProfessions(getFilterPatch()) or {}
+    local function UpdateProfDDText()
+        local currentSet = getFilterProfSingleSet()
+        if next(currentSet) == nil then
+            UIDropDownMenu_SetText(ddProf, allFilterText)
+        else
+            local names = {}
+            for prof in pairs(currentSet) do
+                names[#names + 1] = prof
             end
-            table.insert(pool, 1, "All")
-            for _, prof in ipairs(pool) do
+            table.sort(names)
+            local text = (#names <= 2) and table.concat(names, ", ") or (#names .. " Profs")
+            UIDropDownMenu_SetText(ddProf, text)
+        end
+    end
+
+    local CHECK_ON  = "|TInterface\\Buttons\\UI-CheckBox-Check:14:14|t "
+    local CHECK_OFF = "|TInterface\\Buttons\\UI-CheckBox-Highlight:14:14|t "
+
+    local ddPool = {}  -- ordered profession list; mirrors button slots 2..N
+
+    local function RefreshDDButtonTexts()
+        local currentSet = getFilterProfSingleSet()
+        local b0 = _G["DropDownList1Button1"]
+        if b0 and b0:IsShown() then
+            b0:SetText((next(currentSet) == nil and CHECK_ON or CHECK_OFF) .. allFilterText)
+        end
+        for i, p in ipairs(ddPool) do
+            local btn = _G["DropDownList1Button" .. (i + 1)]
+            if btn and btn:IsShown() then
+                btn:SetText((currentSet[p] and CHECK_ON or CHECK_OFF) .. p)
+            end
+        end
+    end
+
+    local function InitProfDD()
+        wipe(ddPool)
+        local filterMode = getFilterMode()
+        local filterProfSet = getFilterProfSet()
+        if filterMode == "mine" and hasAnyEntries(filterProfSet) then
+            for prof in pairs(filterProfSet) do
+                ddPool[#ddPool + 1] = prof
+            end
+            table.sort(ddPool)
+        else
+            for _, p in ipairs(GAM.Importer.GetAllProfessions(getFilterPatch()) or {}) do
+                ddPool[#ddPool + 1] = p
+            end
+        end
+
+        UIDropDownMenu_Initialize(ddProf, function()
+            local allChecked = next(getFilterProfSingleSet()) == nil
+            local allInfo = UIDropDownMenu_CreateInfo()
+            allInfo.text = (allChecked and CHECK_ON or CHECK_OFF) .. allFilterText
+            allInfo.notCheckable = true
+            allInfo.keepShownOnClick = true
+            allInfo.func = function()
+                setFilterProfSingleSet({})
+                UpdateProfDDText()
+                rebuildList()
+                refreshRows()
+                RefreshDDButtonTexts()
+            end
+            UIDropDownMenu_AddButton(allInfo)
+
+            for _, p in ipairs(ddPool) do
+                local pp = p
+                local isChecked = getFilterProfSingleSet()[pp] == true
                 local info = UIDropDownMenu_CreateInfo()
-                info.text = (prof == "All") and allFilterText or prof
-                info.value = prof
+                info.text = (isChecked and CHECK_ON or CHECK_OFF) .. pp
+                info.value = pp
+                info.notCheckable = true
+                info.keepShownOnClick = true
                 info.func = function()
-                    setFilterProfSingle(prof)
-                    UIDropDownMenu_SetText(ddProf, (prof == "All") and allFilterText or prof)
+                    local s = getFilterProfSingleSet()
+                    if s[pp] then s[pp] = nil else s[pp] = true end
+                    UpdateProfDDText()
                     rebuildList()
                     refreshRows()
+                    RefreshDDButtonTexts()
                 end
                 UIDropDownMenu_AddButton(info)
             end
         end)
-        local currentProf = getFilterProfSingle()
-        UIDropDownMenu_SetText(ddProf, (currentProf == "All") and allFilterText or currentProf)
+        UpdateProfDDText()
     end
 
     panel.ddProf = ddProf
@@ -647,7 +702,7 @@ function LeftPanelUI.Build(args)
         setFilterMode("all")
         setFilterProf("All")
         setFilterProfSet(nil)
-        setFilterProfSingle("All")
+        setFilterProfSingleSet({})
         if panel.initProfDD then
             panel.initProfDD()
         elseif panel.ddProf then
@@ -668,7 +723,7 @@ function LeftPanelUI.Build(args)
             setFilterMode("all")
             setFilterProfSet(nil)
         end
-        setFilterProfSingle("All")
+        setFilterProfSingleSet({})
         if panel.initProfDD then
             panel.initProfDD()
         elseif panel.ddProf then

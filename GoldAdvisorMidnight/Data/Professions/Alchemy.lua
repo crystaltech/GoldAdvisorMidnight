@@ -925,6 +925,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
         itemRef = "Stabilized Derivate",
         itemIDs = { 242651 },
         amount = 2,
+        skipDerivation = true,
       },
     },
     outputs = {
@@ -951,6 +952,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
         itemRef = "Stabilized Derivate",
         itemIDs = { 242651 },
         amount = 2,
+        skipDerivation = true,
       },
     },
     outputs = {
@@ -977,6 +979,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
         itemRef = "Stabilized Derivate",
         itemIDs = { 242651 },
         amount = 2,
+        skipDerivation = true,
       },
     },
     outputs = {
@@ -1003,6 +1006,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
         itemRef = "Stabilized Derivate",
         itemIDs = { 242651 },
         amount = 2,
+        skipDerivation = true,
       },
     },
     outputs = {

@@ -150,19 +150,19 @@ end
 
 -- ===== Price computation =====
 
-local function ExpandResultsToUnitPrices(results, targetQty)
-    local out = {}
-    if not results or #results == 0 then return out end
-    table.sort(results, function(a, b) return a.unitPrice < b.unitPrice end)
-    local collected = 0
-    for _, r in ipairs(results) do
-        local take = math.min(r.quantity or 0, targetQty - collected)
-        if take <= 0 then break end
-        for _ = 1, take do out[#out + 1] = r.unitPrice end
-        collected = collected + take
-        if collected >= targetQty then break end
+local function NormalizeTargetQty(targetQty)
+    local qty = tonumber(targetQty) or GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+    return math.max(1, math.floor(qty + 0.5))
+end
+
+local function EnsureResultsSorted(results)
+    if not results or results._gamSortedByUnitPrice then
+        return
     end
-    return out
+    table.sort(results, function(a, b)
+        return (a.unitPrice or math.huge) < (b.unitPrice or math.huge)
+    end)
+    results._gamSortedByUnitPrice = true
 end
 
 -- ARP-style percentage trim: fill to targetQty from cheapest listings first,
@@ -171,28 +171,91 @@ end
 -- median-multiple approach across both deep and thin markets.
 local function ComputeStatsFromResults(results, targetQty)
     if not results or #results == 0 then return nil end
+    targetQty = NormalizeTargetQty(targetQty)
+    EnsureResultsSorted(results)
 
-    local units = ExpandResultsToUnitPrices(results, targetQty)
-    local n = #units
-    if n == 0 then return nil end
+    -- Performance: this is a hot path during scan repricing.  Work directly
+    -- against listing buckets instead of allocating one temporary entry per AH
+    -- unit and sorting it on every visible-row/detail refresh.
+    local totalUnits = 0
+    local totalSum = 0
+    local minP = nil
+    local maxP = nil
+    local lastIndex = nil
+    local lastTake = 0
 
-    -- Sort descending so the most expensive units are at the front
-    table.sort(units, function(a, b) return a > b end)
+    for i, r in ipairs(results) do
+        local price = r and r.unitPrice
+        local available = r and (r.quantity or 0) or 0
+        if price and price > 0 and available > 0 then
+            local remaining = targetQty - totalUnits
+            if remaining <= 0 then
+                break
+            end
+            local take = math.min(available, remaining)
+            if take > 0 then
+                minP = minP or price
+                maxP = price
+                totalUnits = totalUnits + take
+                totalSum = totalSum + (price * take)
+                lastIndex = i
+                lastTake = take
+            end
+        end
+    end
+
+    if totalUnits == 0 then return nil end
 
     local trimPct   = GAM.C.TRIM_PCT or 2
-    local trimCount = math.floor(n * (trimPct / 100))
-    if trimCount >= n then trimCount = n - 1 end  -- always keep at least 1
+    local trimCount = math.floor(totalUnits * (trimPct / 100))
+    if trimCount >= totalUnits then trimCount = totalUnits - 1 end  -- always keep at least 1
 
-    -- After descending sort: cheapest is at index n, most expensive at index 1.
-    local sum, minP, maxP = 0, units[n], units[n]
-    for i = trimCount + 1, n do
-        local p = units[i]
-        sum = sum + p
-        if p < minP then minP = p end
-        if p > maxP then maxP = p end
+    local removedSum = 0
+    local remainingTrim = trimCount
+    local keptMaxP = maxP
+    if remainingTrim > 0 and lastIndex then
+        keptMaxP = nil
+        for i = lastIndex, 1, -1 do
+            local r = results[i]
+            local price = r and r.unitPrice
+            local rowTake = (i == lastIndex) and lastTake or (r and (r.quantity or 0) or 0)
+            if price and price > 0 and rowTake > 0 then
+                if remainingTrim <= 0 then
+                    keptMaxP = price
+                    break
+                end
+                local remove = math.min(rowTake, remainingTrim)
+                removedSum = removedSum + (remove * price)
+                remainingTrim = remainingTrim - remove
+                if remove < rowTake then
+                    keptMaxP = price
+                    break
+                end
+            end
+        end
     end
-    local kept = n - trimCount
-    return sum / kept, minP, maxP, kept
+
+    local kept = totalUnits - trimCount
+    return (totalSum - removedSum) / kept, minP, keptMaxP or minP, kept
+end
+
+local function ComputeStatsForCache(cached, targetQty)
+    if not (cached and cached.prices and #cached.prices > 0) then
+        return nil
+    end
+
+    local normalizedQty = NormalizeTargetQty(targetQty)
+    cached.statsByQty = cached.statsByQty or {}
+    local stats = cached.statsByQty[normalizedQty]
+    if not stats then
+        local avg, minP, maxP, count = ComputeStatsFromResults(cached.prices, normalizedQty)
+        if not avg then
+            return nil
+        end
+        stats = { avg = avg, minP = minP, maxP = maxP, count = count }
+        cached.statsByQty[normalizedQty] = stats
+    end
+    return stats.avg, stats.minP, stats.maxP, stats.count
 end
 
 function AHScan.RunSmokeChecks()
@@ -225,12 +288,12 @@ function AHScan.ComputePriceForQty(itemID, requiredQty)
     -- 1. Live commodity session cache (R1 items)
     local cached = commodityCache[itemID]
     if cached and cached.prices and #cached.prices > 0 then
-        return ComputeStatsFromResults(cached.prices, requiredQty)
+        return ComputeStatsForCache(cached, requiredQty)
     end
     -- 2. Live item session cache (R2 quality items)
     local icached = itemCache[itemID]
     if icached and icached.prices and #icached.prices > 0 then
-        return ComputeStatsFromResults(icached.prices, requiredQty)
+        return ComputeStatsForCache(icached, requiredQty)
     end
     -- 3. Persisted raw from last session (via Pricing module)
     if GAM.Pricing and GAM.Pricing.GetRawCache then
@@ -258,8 +321,9 @@ local function ReadCommodityResults(itemID, targetQty)
         if not r then break end
         raw[#raw + 1] = { unitPrice = r.unitPrice, quantity = r.quantity or 0 }
     end
-    commodityCache[itemID] = { prices = raw, ts = time() }
-    return ComputeStatsFromResults(raw, targetQty)
+    local cached = { prices = raw, ts = time() }
+    commodityCache[itemID] = cached
+    return ComputeStatsForCache(cached, targetQty)
 end
 
 -- ===== Queue helpers =====
@@ -644,14 +708,13 @@ function AHScan.OnItemResults(itemKey)
                 raw[#raw + 1] = { unitPrice = math.floor(r.buyoutAmount / qty), quantity = qty }
             end
         end
-        table.sort(raw, function(a, b) return a.unitPrice < b.unitPrice end)
-
         -- Use configured fill qty.
         local targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
 
-        itemCache[entry.itemID] = { prices = raw, ts = time() }
+        local cached = { prices = raw, ts = time() }
+        itemCache[entry.itemID] = cached
 
-        local avg, minP, maxP, count = ComputeStatsFromResults(raw, targetQty)
+        local avg, minP, maxP, count = ComputeStatsForCache(cached, targetQty)
         if avg then
             local price = math.floor(avg)
             GAM.Pricing.StorePrice(entry.itemID, price)

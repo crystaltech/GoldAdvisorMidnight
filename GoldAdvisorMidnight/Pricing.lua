@@ -1089,6 +1089,7 @@ function Pricing.RunSmokeChecks()
                 local fakeOpts = {
                     rankPolicy = "lowest",
                     shallowFillQty = 50,
+                    v2PricingMode = "fixed_crafts",
                     v2Res = 50,
                     v2RsNode = 50,
                 }
@@ -1148,6 +1149,20 @@ function Pricing.RunSmokeChecks()
                         shadowMetrics.expectedConsumedCostFull or 0))
                 assert(shadowMetrics.requiredCostFull > shadowMetrics.expectedConsumedCostFull,
                     "V2 resourcefulness expected cost reduction missing")
+
+                fakeOpts.v2PricingMode = "fixed_input"
+                local fixedInputShadow = Pricing.CalculateStratMetricsV2Shadow(
+                    directStrat, GAM.C.DEFAULT_PATCH, 1, legacyMetrics)
+                assert(fixedInputShadow and fixedInputShadow.formula
+                        and fixedInputShadow.formula.pricingMode == "fixed_input",
+                    "V2 fixed-input mode selection failed")
+                assert(math.abs((fixedInputShadow.expectedConsumedCostFull or 0) - 2000) < 0.001,
+                    string.format("V2 fixed-input should keep full input budget as cost: got %.6f",
+                        fixedInputShadow.expectedConsumedCostFull or 0))
+                assert(((fixedInputShadow.output and fixedInputShadow.output.expectedQtyRaw) or 0)
+                        > ((shadowMetrics.output and shadowMetrics.output.expectedQtyRaw) or 0),
+                    "V2 fixed-input resourcefulness should increase expected output")
+                fakeOpts.v2PricingMode = "fixed_crafts"
 
                 fakeOpts.pigmentCostSource = "mill"
                 local producer = {
@@ -1259,10 +1274,12 @@ function Pricing.RunSmokeChecks()
                 assert(largeShadow
                         and largeShadow.reagents
                         and largeShadow.reagents[1]
-                        and largeShadow.reagents[1].required == 3080,
-                    string.format("V2 VI execution shopping should not be reduced by resourcefulness: got %s",
+                        and largeShadow.reagents[1].required == 4000,
+                    string.format("V2 VI direct display should keep recipe input quantity: got %s",
                         tostring(largeShadow and largeShadow.reagents and largeShadow.reagents[1]
                             and largeShadow.reagents[1].required)))
+                assert(largeShadow.reagents[1].sourceNote == "via V2 Shadow Large Producer",
+                    "V2 VI direct display should annotate crafted input source")
 
                 GAM.CraftingStatsV2 = {
                     ResolveForStrat = function(strat)
@@ -1524,18 +1541,19 @@ function Pricing.RunSmokeChecks()
                     assert(soulCipher, "soul cipher strat unavailable")
                     local soulMetrics = Pricing.CalculateStratMetrics(soulCipher, GAM.C.DEFAULT_PATCH, 1)
                     local soulSeen = collectSeenIDs(soulMetrics and soulMetrics.reagents)
-                    assert((soulSeen[236761] or soulSeen[236767]), "soul cipher VI must expand to herbs")
-                    assert(not soulSeen[245805] and not soulSeen[245806] and not soulSeen[245801] and not soulSeen[245802],
-                        "soul cipher VI must not display ink rows")
+                    assert((soulSeen[245805] or soulSeen[245806]) and (soulSeen[245801] or soulSeen[245802]),
+                        "soul cipher detail rows must display direct ink inputs")
+                    assert(not soulSeen[236761] and not soulSeen[236767],
+                        "soul cipher detail rows must not replace inks with herb leaves")
 
                     local codified = GAM.Importer.GetStratByID("inscription__codified_azeroot__midnight_1")
                     assert(codified, "codified azeroot strat unavailable")
                     local codifiedMetrics = Pricing.CalculateStratMetrics(codified, GAM.C.DEFAULT_PATCH, 1)
                     local codifiedSeen = collectSeenIDs(codifiedMetrics and codifiedMetrics.reagents)
-                    assert((codifiedSeen[236761] or codifiedSeen[236767]),
-                        "codified azeroot VI must recurse through soul cipher herbs")
-                    assert(not codifiedSeen[245766] and not codifiedSeen[245767],
-                        "codified azeroot VI must not display direct soul cipher rows")
+                    assert((codifiedSeen[245766] or codifiedSeen[245767]),
+                        "codified azeroot detail rows must display direct soul cipher input")
+                    assert(not codifiedSeen[236761] and not codifiedSeen[236767],
+                        "codified azeroot detail rows must not replace soul cipher with herb leaves")
 
                     local peerless = GAM.Importer.GetStratByID("inscription__peerless_missive__midnight_1")
                     assert(peerless, "peerless missive strat unavailable")
@@ -1559,26 +1577,21 @@ function Pricing.RunSmokeChecks()
                             displayQtyByID[row.itemID] = row.required
                         end
                     end
-                    assert(displayQtyByID[236761] and displayQtyByID[236761] > 0,
-                        "peerless missive VI must plan tranquility bloom")
-                    assert(displayQtyByID[236776] and displayQtyByID[236776] > 0,
-                        "peerless missive VI must plan argentleaf")
-                    assert(displayQtyByID[236770] and displayQtyByID[236770] > 0,
-                        "peerless missive VI must plan sanguithorn")
-                    assert(displayQtyByID[236778] and displayQtyByID[236778] > 0,
-                        "peerless missive VI must plan mana lily")
-                    assert(not displayQtyByID[245801] and not displayQtyByID[245802]
-                        and not displayQtyByID[245805] and not displayQtyByID[245806],
-                        "peerless missive VI must not display direct ink rows")
+                    assert((displayQtyByID[245801] or displayQtyByID[245802])
+                            and (displayQtyByID[245805] or displayQtyByID[245806]),
+                        "peerless missive detail rows must display direct ink inputs")
+                    assert(not displayQtyByID[236761] and not displayQtyByID[236776]
+                            and not displayQtyByID[236770] and not displayQtyByID[236778],
+                        "peerless missive detail rows must not replace inks with herb leaves")
 
                     local imbuedBolt = GAM.Importer.GetStratByID("tailoring__imbued_bright_linen_bolt__midnight_1")
                     assert(imbuedBolt, "imbued bright linen bolt strat unavailable")
                     local boltMetrics = Pricing.CalculateStratMetrics(imbuedBolt, GAM.C.DEFAULT_PATCH, 1)
                     local boltSeen = collectSeenIDs(boltMetrics and boltMetrics.reagents)
-                    assert((boltSeen[236963] or boltSeen[236965]) and boltSeen[251665],
-                        "imbued bright linen bolt VI must expand to linen + thread")
-                    assert(not boltSeen[239700] and not boltSeen[239701],
-                        "imbued bright linen bolt VI must not display direct bolt rows")
+                    assert((boltSeen[239700] or boltSeen[239701]) and boltSeen[251665],
+                        "imbued bright linen bolt detail rows must display direct bolt + thread inputs")
+                    assert(not boltSeen[236963] and not boltSeen[236965],
+                        "imbued bright linen bolt detail rows must not replace bolts with linen leaves")
 
                     local refulgentIngot = GAM.Importer.GetStratByID("blacksmithing__refulgent_copper_ingot__midnight_1")
                     assert(refulgentIngot, "refulgent copper ingot strat unavailable")
@@ -1793,6 +1806,36 @@ function Pricing.RunSmokeChecks()
             end
             checkWorkbookParity("jewelcrafting__crushing__midnight_1", 1, 348.5378743,
                 "Jewelcrafting crushing G23")
+
+            local lens = GAM.Importer.GetStratByID("jewelcrafting__sin_dorei_lens_crafting__midnight_1")
+            if lens and Pricing.CalculateStratMetricsV2Shadow then
+                local originalGetOptions = GAM.GetOptions
+                local fixedCraftOpts = {}
+                if originalGetOptions then
+                    local liveOpts = GAM:GetOptions()
+                    if type(liveOpts) == "table" then
+                        for k, v in pairs(liveOpts) do
+                            fixedCraftOpts[k] = v
+                        end
+                    end
+                end
+                fixedCraftOpts.pricingEngine = "v2"
+                fixedCraftOpts.v2PricingMode = "fixed_crafts"
+                fixedCraftOpts.jcCraftMulti = 7.9
+                fixedCraftOpts.jcCraftRes = 28.8
+                fixedCraftOpts.jcMcNode = 65
+                fixedCraftOpts.jcRsNode = 50
+                GAM.GetOptions = function()
+                    return fixedCraftOpts
+                end
+                local ok, metrics = pcall(Pricing.CalculateStratMetricsV2Shadow, lens, GAM.C.DEFAULT_PATCH, 0.1, nil)
+                GAM.GetOptions = originalGetOptions
+                assert(ok, metrics)
+                local qty = metrics and metrics.output and metrics.output.expectedQtyRaw
+                assert(qty and qty > 115 and qty < 119,
+                    string.format("Lens fixed-crafts output should be about 117 for 100 crafts, got %.6f",
+                        qty or 0))
+            end
 
             local jcRefulgent = GAM.Importer.GetStratByID("jewelcrafting__refulgent_copper_ore_prospecting__midnight_1")
             if jcRefulgent then
@@ -2544,6 +2587,133 @@ local function BuildGraphLeafMetrics(ctx, mode)
     }
 end
 
+local function SummarizeDisplayReagentRows(rows)
+    local totalCostToBuy = 0
+    local totalCostRequired = 0
+    local hasStale = false
+    local missingPrices = {}
+
+    for _, row in ipairs(rows or {}) do
+        if row.isStale then
+            hasStale = true
+        end
+        if row.missingPrice then
+            missingPrices[#missingPrices + 1] = row.name
+        else
+            totalCostToBuy = totalCostToBuy + (row.totalCost or 0)
+            totalCostRequired = totalCostRequired + (row.totalCostFull or 0)
+        end
+    end
+
+    return {
+        reagentResults = rows or {},
+        totalCostToBuy = totalCostToBuy,
+        totalCostRequired = totalCostRequired,
+        hasStale = hasStale,
+        missingPrices = missingPrices,
+    }
+end
+
+local function CloneContextForSingleReagent(ctx, reagent)
+    local copy = {}
+    for key, value in pairs(ctx or {}) do
+        copy[key] = value
+    end
+    local active = {}
+    for key, value in pairs(ctx.active or {}) do
+        active[key] = value
+    end
+    active.reagents = { reagent }
+    copy.active = active
+    return copy
+end
+
+local function BuildDirectDisplayReagentMetrics(ctx, modelReagents)
+    local rows = {}
+    local inputPolicy = GetInputRankPolicy(ctx.strat)
+
+    for index, reagent in ipairs(ctx.active.reagents or {}) do
+        local requiredRaw = GetRequiredReagentAmountRaw(reagent, ctx.startingAmt, ctx.crafts)
+        local required = QuantizeRequiredAmount(requiredRaw, "nearest")
+        local qtyForPricing = math.max(1, required)
+        local resolvedEntry = ResolveGraphNodeEntry(ctx, reagent, qtyForPricing)
+        local model = modelReagents and modelReagents[index] or nil
+        local itemID = resolvedEntry and resolvedEntry.itemID or (model and model.itemID) or nil
+        local itemIDs = resolvedEntry and resolvedEntry.itemIDs or (model and model.sourceItemIDs) or {}
+        local displayName = resolvedEntry and resolvedEntry.name or (model and model.name) or GetItemLabel(reagent)
+        local excludeFromCost = reagent.excludeFromCost and true or false
+        local userHave = CountOwnedReagentItems(itemID, itemIDs)
+        local needToBuy = math.max(0, required - userHave)
+        local unitPrice = model and model.unitPrice or nil
+        local totalCost = model and model.totalCost or nil
+        local totalCostFull = model and model.totalCostFull or nil
+        local isStale = model and model.isStale or false
+        local missingPrice = model and model.missingPrice or false
+        local sourceNote = nil
+
+        if ctx.chainActive and resolvedEntry and not resolvedEntry.excludeFromCost and not resolvedEntry.skipDerivation then
+            local producer = FindProducerMatch(ctx, resolvedEntry.itemID, { activeProducerKeys = {} })
+            if producer then
+                local singleCtx = CloneContextForSingleReagent(ctx, reagent)
+                local chainMetrics = BuildGraphLeafMetrics(singleCtx, "economic")
+                if chainMetrics then
+                    local chainMissing = #(chainMetrics.missingPrices or {}) > 0
+                    if chainMissing then
+                        totalCostFull = nil
+                        totalCost = nil
+                        unitPrice = nil
+                        missingPrice = true
+                    elseif chainMetrics.totalCostRequired and chainMetrics.totalCostRequired > 0 then
+                        totalCostFull = chainMetrics.totalCostRequired
+                        totalCost = chainMetrics.totalCostToBuy
+                        unitPrice = (requiredRaw and requiredRaw > 0)
+                            and math.floor((chainMetrics.totalCostRequired / requiredRaw) + 0.5)
+                            or unitPrice
+                        missingPrice = false
+                    end
+                    isStale = chainMetrics.hasStale
+                    sourceNote = "via " .. tostring(producer.strat and producer.strat.stratName or "craft chain")
+                end
+            end
+        end
+
+        if not unitPrice and model then
+            unitPrice = model.unitPrice
+        end
+        if not totalCostFull and unitPrice then
+            totalCostFull = excludeFromCost and 0 or (required * unitPrice)
+        end
+        if not totalCost and unitPrice then
+            totalCost = excludeFromCost and 0 or ((needToBuy == 0) and 0 or (needToBuy * unitPrice))
+        end
+        missingPrice = (not excludeFromCost) and (needToBuy > 0) and not unitPrice
+
+        rows[#rows + 1] = {
+            name = displayName,
+            itemID = itemID,
+            sourceItemIDs = itemIDs,
+            scanItemIDs = resolvedEntry and resolvedEntry.scanItemIDs or (model and model.scanItemIDs),
+            unitPrice = unitPrice,
+            required = required,
+            requiredRaw = requiredRaw,
+            have = userHave,
+            needToBuy = needToBuy,
+            totalCost = totalCost,
+            totalCostFull = totalCostFull,
+            isStale = isStale,
+            missingPrice = missingPrice,
+            excludeFromCost = excludeFromCost,
+            skipDerivation = reagent.skipDerivation and true or false,
+            sourceNote = sourceNote,
+            selectedAlternativeName = model and model.selectedAlternativeName or nil,
+            selectedAlternativeItemID = model and model.selectedAlternativeItemID or nil,
+            selectionMode = model and model.selectionMode or nil,
+        }
+    end
+
+    return SummarizeDisplayReagentRows(rows)
+end
+
 local function BuildBreakdownNodePricing(ctx, resolvedEntry, requiredRaw, required)
     local inputPolicy = GetInputRankPolicy(ctx.strat)
     local itemID = resolvedEntry and resolvedEntry.itemID or nil
@@ -2922,7 +3092,11 @@ BuildReagentMetrics = function(ctx)
 end
 
 BuildDisplayReagentMetrics = function(ctx, modelReagents)
-    return BuildGraphLeafMetrics(ctx, "execution")
+    -- Keep the detail panel anchored to the selected recipe's direct inputs.
+    -- VI economics may price an intermediate through a craft chain, but showing
+    -- the chain leaves here makes recipes look like they directly consume those
+    -- raw materials. The VI breakdown window remains the expanded view.
+    return BuildDirectDisplayReagentMetrics(ctx, modelReagents)
 end
 
 local function GetPrimaryOutput(ctx)

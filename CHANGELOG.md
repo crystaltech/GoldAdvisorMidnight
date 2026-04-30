@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+## [1.9.0-testing] — 2026-04-30
+
+### Pricing / Craft Counts
+- **V2 fixed-crafts is now the default model** — Existing saved configs migrate to V2 `Fixed Crafts`, so expected output matches pressing Craft N times instead of using the older fixed-input reinvestment model.
+- **Lens craft-count guard added** — Smoke coverage now checks `Sin'dorei Lens Crafting` around the 100-craft case so inflated `132`-style output does not return.
+- **Profession output facts normalized as per-craft yields** — Compact profession data `baseAmount` fields are now treated as per-craft output amounts when normalized.
+
+### Performance / UI
+- **Scan repricing is less choppy** — AH scan pricing avoids per-unit allocation and batches expensive row/detail refreshes while scan results stream in.
+- **Direct reagent display improved** — VI-enabled detail rows show direct recipe inputs with source notes like `via Crushing` instead of replacing crafted intermediates with raw leaves.
+- **Profession node settings clarified** — Node settings now use explicit profession buttons and row context text instead of a cycling profession button.
+
 ### Bug Fixes
 - **Thalassian Phoenix Oil R2 dust corrected** — The strategy now keeps both Eversinging Dust ranks so R2 mats resolve to Q2 dust (`243600`) instead of staying pinned to Q1 dust (`243599`).
 

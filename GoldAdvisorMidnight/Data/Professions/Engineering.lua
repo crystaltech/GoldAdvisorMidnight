@@ -365,7 +365,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     outputs = {
       {
         itemRef = "Perfected Cogwheel",
-        itemIDs = { 244701 },
+        itemIDs = { 244701, 244702 },
         baseAmount = 1,
       },
     },
@@ -401,7 +401,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     outputs = {
       {
         itemRef = "Greased Cogwheel",
-        itemIDs = { 244699 },
+        itemIDs = { 244699, 244700 },
         baseAmount = 1,
       },
     },
@@ -437,7 +437,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     outputs = {
       {
         itemRef = "Consistent Cogwheel",
-        itemIDs = { 244703 },
+        itemIDs = { 244703, 244704 },
         baseAmount = 1,
       },
     },
@@ -473,7 +473,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     outputs = {
       {
         itemRef = "Flux Cogwheel",
-        itemIDs = { 244697 },
+        itemIDs = { 244697, 244698 },
         baseAmount = 1,
       },
     },
@@ -2360,7 +2360,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     outputs = {
       {
         itemRef = "Kinetic Ankle Primers",
-        itemIDs = { 248132 },
+        itemIDs = { 248132, 248133 },
         baseAmount = 1,
       },
     },
@@ -2391,7 +2391,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     outputs = {
       {
         itemRef = "HU5H, Nonchalant Pup",
-        itemIDs = { 255843 },
+        itemIDs = { 255843, 255844 },
         baseAmount = 1,
       },
     },
@@ -2422,7 +2422,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     outputs = {
       {
         itemRef = "B1P, Scorcher of Souls",
-        itemIDs = { 248135 },
+        itemIDs = { 248135, 248592 },
         baseAmount = 1,
       },
     },
@@ -3092,298 +3092,305 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     outputs = {
       {
         itemRef = "B0P, Curator of Booms",
-        itemIDs = { 257735 },
+        itemIDs = { 257735, 257741 },
         baseAmount = 1,
       },
     },
   },
-  {
-    id = "engineering__head_mounted_beam_bummer__midnight_1",
-    name = "Head-Mounted Beam Bummer",
-    patchTag = "midnight-1",
-    recipeID = 1264523,
-    formulaProfile = "engineering_craft",
-    inputs = {
-      {
-        itemRef = "Malleable Wireframe",
-        itemIDs = { 253302 },
-        amount = 1,
-      },
-      {
-        itemRef = "Majestic Fin",
-        itemIDs = { 238530 },
-        amount = 1,
-      },
-      {
-        itemRef = "Fused Vitality",
-        itemIDs = { 245345 },
-        amount = 20,
-      },
-      {
-        itemRef = "Aetherlume",
-        itemIDs = { 243578, 243579 },
-        amount = 4,
-      },
-      {
-        itemRef = "Evercore",
-        itemIDs = { 243581, 243582 },
-        amount = 2,
-      },
-    },
-    outputs = {
-      {
-        itemRef = "Head-Mounted Beam Bummer",
-        itemIDs = { 259171 },
-        baseAmount = 1,
-      },
-    },
-  },
-  {
-    id = "engineering__rock_bonkin_hardhat__midnight_1",
-    name = "Rock Bonkin' Hardhat",
-    patchTag = "midnight-1",
-    recipeID = 1264524,
-    formulaProfile = "engineering_craft",
-    inputs = {
-      {
-        itemRef = "Malleable Wireframe",
-        itemIDs = { 253302 },
-        amount = 1,
-      },
-      {
-        itemRef = "Majestic Hide",
-        itemIDs = { 238529 },
-        amount = 1,
-      },
-      {
-        itemRef = "Fused Vitality",
-        itemIDs = { 245345 },
-        amount = 20,
-      },
-      {
-        itemRef = "Aetherlume",
-        itemIDs = { 243578, 243579 },
-        amount = 4,
-      },
-      {
-        itemRef = "Evercore",
-        itemIDs = { 243581, 243582 },
-        amount = 2,
-      },
-    },
-    outputs = {
-      {
-        itemRef = "Rock Bonkin' Hardhat",
-        itemIDs = { 259173 },
-        baseAmount = 1,
-      },
-    },
-  },
-  {
-    id = "engineering__heavy_duty_rock_assister__midnight_1",
-    name = "Heavy-Duty Rock Assister",
-    patchTag = "midnight-1",
-    recipeID = 1264525,
-    formulaProfile = "engineering_craft",
-    inputs = {
-      {
-        itemRef = "Malleable Wireframe",
-        itemIDs = { 253302 },
-        amount = 1,
-      },
-      {
-        itemRef = "Majestic Hide",
-        itemIDs = { 238529 },
-        amount = 1,
-      },
-      {
-        itemRef = "Fused Vitality",
-        itemIDs = { 245345 },
-        amount = 20,
-      },
-      {
-        itemRef = "Aetherlume",
-        itemIDs = { 243578, 243579 },
-        amount = 4,
-      },
-      {
-        itemRef = "Evercore",
-        itemIDs = { 243581, 243582 },
-        amount = 2,
-      },
-    },
-    outputs = {
-      {
-        itemRef = "Heavy-Duty Rock Assister",
-        itemIDs = { 259175 },
-        baseAmount = 1,
-      },
-    },
-  },
-  {
-    id = "engineering__self_sharpening_sindorei_snippers__midnight_1",
-    name = "Self-Sharpening Sin'dorei Snippers",
-    patchTag = "midnight-1",
-    recipeID = 1264526,
-    formulaProfile = "engineering_craft",
-    inputs = {
-      {
-        itemRef = "Malleable Wireframe",
-        itemIDs = { 253302 },
-        amount = 1,
-      },
-      {
-        itemRef = "Majestic Claw",
-        itemIDs = { 238528 },
-        amount = 1,
-      },
-      {
-        itemRef = "Fused Vitality",
-        itemIDs = { 245345 },
-        amount = 20,
-      },
-      {
-        itemRef = "Aetherlume",
-        itemIDs = { 243578, 243579 },
-        amount = 4,
-      },
-      {
-        itemRef = "Evercore",
-        itemIDs = { 243581, 243582 },
-        amount = 2,
-      },
-    },
-    outputs = {
-      {
-        itemRef = "Self-Sharpening Sin'dorei Snippers",
-        itemIDs = { 259177 },
-        baseAmount = 1,
-      },
-    },
-  },
-  {
-    id = "engineering__sindorei_reelers_rod__midnight_1",
-    name = "Sin'dorei Reeler's Rod",
-    patchTag = "midnight-1",
-    recipeID = 1264527,
-    formulaProfile = "engineering_craft",
-    inputs = {
-      {
-        itemRef = "Malleable Wireframe",
-        itemIDs = { 253302 },
-        amount = 1,
-      },
-      {
-        itemRef = "Majestic Fin",
-        itemIDs = { 238530 },
-        amount = 1,
-      },
-      {
-        itemRef = "Fused Vitality",
-        itemIDs = { 245345 },
-        amount = 20,
-      },
-      {
-        itemRef = "Aetherlume",
-        itemIDs = { 243578, 243579 },
-        amount = 4,
-      },
-      {
-        itemRef = "Evercore",
-        itemIDs = { 243581, 243582 },
-        amount = 2,
-      },
-    },
-    outputs = {
-      {
-        itemRef = "Sin'dorei Reeler's Rod",
-        itemIDs = { 259179 },
-        baseAmount = 1,
-      },
-    },
-  },
-  {
-    id = "engineering__giga_gem_grippers__midnight_1",
-    name = "Giga-Gem Grippers",
-    patchTag = "midnight-1",
-    recipeID = 1264528,
-    formulaProfile = "engineering_craft",
-    inputs = {
-      {
-        itemRef = "Malleable Wireframe",
-        itemIDs = { 253302 },
-        amount = 1,
-      },
-      {
-        itemRef = "Majestic Fin",
-        itemIDs = { 238530 },
-        amount = 1,
-      },
-      {
-        itemRef = "Fused Vitality",
-        itemIDs = { 245345 },
-        amount = 20,
-      },
-      {
-        itemRef = "Aetherlume",
-        itemIDs = { 243578, 243579 },
-        amount = 4,
-      },
-      {
-        itemRef = "Evercore",
-        itemIDs = { 243581, 243582 },
-        amount = 2,
-      },
-    },
-    outputs = {
-      {
-        itemRef = "Giga-Gem Grippers",
-        itemIDs = { 259181 },
-        baseAmount = 1,
-      },
-    },
-  },
-  {
-    id = "engineering__turbo_junkers_multitool_v9__midnight_1",
-    name = "Turbo-Junker's Multitool v9",
-    patchTag = "midnight-1",
-    recipeID = 1264529,
-    formulaProfile = "engineering_craft",
-    inputs = {
-      {
-        itemRef = "Malleable Wireframe",
-        itemIDs = { 253302 },
-        amount = 1,
-      },
-      {
-        itemRef = "Majestic Claw",
-        itemIDs = { 238528 },
-        amount = 1,
-      },
-      {
-        itemRef = "Fused Vitality",
-        itemIDs = { 245345 },
-        amount = 20,
-      },
-      {
-        itemRef = "Aetherlume",
-        itemIDs = { 243578, 243579 },
-        amount = 3,
-      },
-      {
-        itemRef = "Evercore",
-        itemIDs = { 243581, 243582 },
-        amount = 2,
-      },
-    },
-    outputs = {
-      {
-        itemRef = "Turbo-Junker's Multitool v9",
-        itemIDs = { 259183 },
-        baseAmount = 1,
-      },
-    },
-  },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "engineering__head_mounted_beam_bummer__midnight_1",
+--     name = "Head-Mounted Beam Bummer",
+--     patchTag = "midnight-1",
+--     recipeID = 1264523,
+--     formulaProfile = "engineering_craft",
+--     inputs = {
+--       {
+--         itemRef = "Malleable Wireframe",
+--         itemIDs = { 253302 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Majestic Fin",
+--         itemIDs = { 238530 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Fused Vitality",
+--         itemIDs = { 245345 },
+--         amount = 20,
+--       },
+--       {
+--         itemRef = "Aetherlume",
+--         itemIDs = { 243578, 243579 },
+--         amount = 4,
+--       },
+--       {
+--         itemRef = "Evercore",
+--         itemIDs = { 243581, 243582 },
+--         amount = 2,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "Head-Mounted Beam Bummer",
+--         itemIDs = { 259171 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "engineering__rock_bonkin_hardhat__midnight_1",
+--     name = "Rock Bonkin' Hardhat",
+--     patchTag = "midnight-1",
+--     recipeID = 1264524,
+--     formulaProfile = "engineering_craft",
+--     inputs = {
+--       {
+--         itemRef = "Malleable Wireframe",
+--         itemIDs = { 253302 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Majestic Hide",
+--         itemIDs = { 238529 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Fused Vitality",
+--         itemIDs = { 245345 },
+--         amount = 20,
+--       },
+--       {
+--         itemRef = "Aetherlume",
+--         itemIDs = { 243578, 243579 },
+--         amount = 4,
+--       },
+--       {
+--         itemRef = "Evercore",
+--         itemIDs = { 243581, 243582 },
+--         amount = 2,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "Rock Bonkin' Hardhat",
+--         itemIDs = { 259173 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "engineering__heavy_duty_rock_assister__midnight_1",
+--     name = "Heavy-Duty Rock Assister",
+--     patchTag = "midnight-1",
+--     recipeID = 1264525,
+--     formulaProfile = "engineering_craft",
+--     inputs = {
+--       {
+--         itemRef = "Malleable Wireframe",
+--         itemIDs = { 253302 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Majestic Hide",
+--         itemIDs = { 238529 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Fused Vitality",
+--         itemIDs = { 245345 },
+--         amount = 20,
+--       },
+--       {
+--         itemRef = "Aetherlume",
+--         itemIDs = { 243578, 243579 },
+--         amount = 4,
+--       },
+--       {
+--         itemRef = "Evercore",
+--         itemIDs = { 243581, 243582 },
+--         amount = 2,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "Heavy-Duty Rock Assister",
+--         itemIDs = { 259175 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "engineering__self_sharpening_sindorei_snippers__midnight_1",
+--     name = "Self-Sharpening Sin'dorei Snippers",
+--     patchTag = "midnight-1",
+--     recipeID = 1264526,
+--     formulaProfile = "engineering_craft",
+--     inputs = {
+--       {
+--         itemRef = "Malleable Wireframe",
+--         itemIDs = { 253302 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Majestic Claw",
+--         itemIDs = { 238528 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Fused Vitality",
+--         itemIDs = { 245345 },
+--         amount = 20,
+--       },
+--       {
+--         itemRef = "Aetherlume",
+--         itemIDs = { 243578, 243579 },
+--         amount = 4,
+--       },
+--       {
+--         itemRef = "Evercore",
+--         itemIDs = { 243581, 243582 },
+--         amount = 2,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "Self-Sharpening Sin'dorei Snippers",
+--         itemIDs = { 259177 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "engineering__sindorei_reelers_rod__midnight_1",
+--     name = "Sin'dorei Reeler's Rod",
+--     patchTag = "midnight-1",
+--     recipeID = 1264527,
+--     formulaProfile = "engineering_craft",
+--     inputs = {
+--       {
+--         itemRef = "Malleable Wireframe",
+--         itemIDs = { 253302 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Majestic Fin",
+--         itemIDs = { 238530 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Fused Vitality",
+--         itemIDs = { 245345 },
+--         amount = 20,
+--       },
+--       {
+--         itemRef = "Aetherlume",
+--         itemIDs = { 243578, 243579 },
+--         amount = 4,
+--       },
+--       {
+--         itemRef = "Evercore",
+--         itemIDs = { 243581, 243582 },
+--         amount = 2,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "Sin'dorei Reeler's Rod",
+--         itemIDs = { 259179 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "engineering__giga_gem_grippers__midnight_1",
+--     name = "Giga-Gem Grippers",
+--     patchTag = "midnight-1",
+--     recipeID = 1264528,
+--     formulaProfile = "engineering_craft",
+--     inputs = {
+--       {
+--         itemRef = "Malleable Wireframe",
+--         itemIDs = { 253302 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Majestic Fin",
+--         itemIDs = { 238530 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Fused Vitality",
+--         itemIDs = { 245345 },
+--         amount = 20,
+--       },
+--       {
+--         itemRef = "Aetherlume",
+--         itemIDs = { 243578, 243579 },
+--         amount = 4,
+--       },
+--       {
+--         itemRef = "Evercore",
+--         itemIDs = { 243581, 243582 },
+--         amount = 2,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "Giga-Gem Grippers",
+--         itemIDs = { 259181 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "engineering__turbo_junkers_multitool_v9__midnight_1",
+--     name = "Turbo-Junker's Multitool v9",
+--     patchTag = "midnight-1",
+--     recipeID = 1264529,
+--     formulaProfile = "engineering_craft",
+--     inputs = {
+--       {
+--         itemRef = "Malleable Wireframe",
+--         itemIDs = { 253302 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Majestic Claw",
+--         itemIDs = { 238528 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Fused Vitality",
+--         itemIDs = { 245345 },
+--         amount = 20,
+--       },
+--       {
+--         itemRef = "Aetherlume",
+--         itemIDs = { 243578, 243579 },
+--         amount = 3,
+--       },
+--       {
+--         itemRef = "Evercore",
+--         itemIDs = { 243581, 243582 },
+--         amount = 2,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "Turbo-Junker's Multitool v9",
+--         itemIDs = { 259183 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
   {
     id = "engineering__evercore_dome_dinger__midnight_1",
     name = "Evercore Dome Dinger",
@@ -3410,57 +3417,58 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
       },
     },
   },
-  {
-    id = "engineering__p_o_w_x3__midnight_1",
-    name = "P.O.W. x3",
-    patchTag = "midnight-1",
-    recipeID = 1282456,
-    formulaProfile = "engineering_craft",
-    inputs = {
-      {
-        itemRef = "Malleable Wireframe",
-        itemIDs = { 253302 },
-        amount = 6,
-      },
-      {
-        itemRef = "Mote of Wild Magic",
-        itemIDs = { 236951 },
-        amount = 6,
-      },
-      {
-        itemRef = "Mote of Primal Energy",
-        itemIDs = { 236950 },
-        amount = 6,
-      },
-      {
-        itemRef = "Dazzling Thorium",
-        itemIDs = { 237366 },
-        amount = 3,
-      },
-      {
-        itemRef = "Tormented Tantalum",
-        itemIDs = { 251283 },
-        amount = 1,
-      },
-      {
-        itemRef = "Aetherlume",
-        itemIDs = { 243578, 243579 },
-        amount = 10,
-      },
-      {
-        itemRef = "Evercore",
-        itemIDs = { 243581, 243582 },
-        amount = 4,
-      },
-    },
-    outputs = {
-      {
-        itemRef = "P.O.W. x3",
-        itemIDs = { 268477 },
-        baseAmount = 1,
-      },
-    },
-  },
+  -- DISABLED: Output is Bind on Pickup or Warbound on Wowhead; excluded from pricing.
+--   {
+--     id = "engineering__p_o_w_x3__midnight_1",
+--     name = "P.O.W. x3",
+--     patchTag = "midnight-1",
+--     recipeID = 1282456,
+--     formulaProfile = "engineering_craft",
+--     inputs = {
+--       {
+--         itemRef = "Malleable Wireframe",
+--         itemIDs = { 253302 },
+--         amount = 6,
+--       },
+--       {
+--         itemRef = "Mote of Wild Magic",
+--         itemIDs = { 236951 },
+--         amount = 6,
+--       },
+--       {
+--         itemRef = "Mote of Primal Energy",
+--         itemIDs = { 236950 },
+--         amount = 6,
+--       },
+--       {
+--         itemRef = "Dazzling Thorium",
+--         itemIDs = { 237366 },
+--         amount = 3,
+--       },
+--       {
+--         itemRef = "Tormented Tantalum",
+--         itemIDs = { 251283 },
+--         amount = 1,
+--       },
+--       {
+--         itemRef = "Aetherlume",
+--         itemIDs = { 243578, 243579 },
+--         amount = 10,
+--       },
+--       {
+--         itemRef = "Evercore",
+--         itemIDs = { 243581, 243582 },
+--         amount = 4,
+--       },
+--     },
+--     outputs = {
+--       {
+--         itemRef = "P.O.W. x3",
+--         itemIDs = { 268477 },
+--         baseAmount = 1,
+--       },
+--     },
+--   },
   {
     id = "engineering__thalassian_competitors_rifle__midnight_1",
     name = "Thalassian Competitor's Rifle",
