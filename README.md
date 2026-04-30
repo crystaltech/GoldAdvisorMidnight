@@ -105,9 +105,7 @@ The addon folder must remain named `GoldAdvisorMidnight/`.
 - `GoldAdvisorMidnight/`: installable addon folder
 - `GoldAdvisorMidnight/Data/`: checked-in generated strategy and workbook data
 - `GoldAdvisorMidnight/Data/Professions/`: compact generated craft facts split by profession
-- `docs/reports/strategy_coverage_report.md`: generated shipped-strategy coverage snapshot
 - `CHANGELOG.md`: release history
-- `releases/`: packaged release zips
 - `LICENSE`: usage terms
 
 ## Accuracy Notes
@@ -129,17 +127,8 @@ The addon folder must remain named `GoldAdvisorMidnight/`.
 Useful local checks:
 
 - `luac -p GoldAdvisorMidnight/...` for syntax validation
-- `python3 tools/compare_strats.py <workbook.xlsx>` for workbook parity checks
-- `python3 tools/audit_strategy_coverage.py` to refresh the shipped strategy coverage report
 - `/gam smoketest` for in-game smoke checks
 - `/gam scandump` for selected-strategy pricing traces
-
-Maintainer release helper:
-
-- Local `./Release_GitHub.command [patch|minor|major|x.y.z]` is the canonical public release flow. It runs from `main`, bumps the addon version, builds `releases/GoldAdvisorMidnight-vX.X.X.zip`, commits release-ready changes, pushes `main` and tag `vX.X.X`, and creates the latest GitHub release with the zip attached.
-- Testing-suffix builds such as `1.9.0-testing` should use the package script directly instead of the semver release helper.
-- On Windows, run `pwsh -ExecutionPolicy Bypass -File .\Package_Addon.ps1` to build the same release zip.
-- On Windows, run `pwsh -ExecutionPolicy Bypass -File .\Sync_Addon.ps1` to copy the addon into the first detected WoW Retail AddOns folder, or pass `-Destination "C:\path\to\World of Warcraft\_retail_\Interface\AddOns\GoldAdvisorMidnight"`.
 
 Release metadata is tracked in:
 
