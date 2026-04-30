@@ -1,11 +1,8 @@
 # Changelog — Gold Advisor Midnight
 
-## [1.8.8] — 2026-04-16
-
-### Bug Fixes
-- **Ink Songwater quantity corrected** — Sienna Ink and Munsell Ink strategies had `qtyPerCraft = 30` for Thalassian Songwater due to a 10x-inflated value in the spreadsheet; corrected the source data to 3 per craft and regenerated.
-
 ## [Unreleased]
+
+- No unreleased changes.
 
 ## [1.9.0-testing] — 2026-04-30
 
@@ -25,13 +22,18 @@
 ### Data / Workbook
 - **Cooking workbook import shipped** — The addon now includes `11` workbook-backed Cooking strategies, covering meals, feasts, and tea chains across the new `Cooking` sheet.
 - **Cooking stat defaults and vendor pricing added** — Cooking now has its own workbook formula profile, saved stat defaults, settings-row controls, and static vendor pricing for core Cooking vendor mats.
-- **Coverage/docs refreshed for shipped data** — The README and strategy coverage report now reflect the current `73` built-in strategies across `9` professions.
+- **Coverage/docs refreshed for shipped data** — The README and strategy coverage report now reflect the current `597` built-in strategies across `9` professions.
 
 ### Tooling
 - **Seed-based workbook import path added** — New workbook-backed strategies can now be introduced from checked-in seed records instead of hand-editing generated Lua blocks.
 - **Dazzling Thorium validation corrected** — The strategy comparer now accepts the intended full ranked output ID arrays for `Dazzling Thorium Prospecting`, matching runtime pricing behavior.
 - **One-step GitHub release helper added** — `Release_GitHub.command` can bump the addon version, package the zip, commit, push, and create the GitHub release in one flow.
 - **GitHub release workflow clarified** — Release docs now treat `Release_GitHub.command` as the canonical public release path for version bumps, zips, commits, pushes, tags, and GitHub Releases.
+
+## [1.8.8] — 2026-04-16
+
+### Bug Fixes
+- **Ink Songwater quantity corrected** — Sienna Ink and Munsell Ink strategies had `qtyPerCraft = 30` for Thalassian Songwater due to a 10x-inflated value in the spreadsheet; corrected the source data to 3 per craft and regenerated.
 
 ## [1.8.0] — 2026-04-12
 

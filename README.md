@@ -137,6 +137,7 @@ Useful local checks:
 Maintainer release helper:
 
 - Local `./Release_GitHub.command [patch|minor|major|x.y.z]` is the canonical public release flow. It runs from `main`, bumps the addon version, builds `releases/GoldAdvisorMidnight-vX.X.X.zip`, commits release-ready changes, pushes `main` and tag `vX.X.X`, and creates the latest GitHub release with the zip attached.
+- Testing-suffix builds such as `1.9.0-testing` should use the package script directly instead of the semver release helper.
 - On Windows, run `pwsh -ExecutionPolicy Bypass -File .\Package_Addon.ps1` to build the same release zip.
 - On Windows, run `pwsh -ExecutionPolicy Bypass -File .\Sync_Addon.ps1` to copy the addon into the first detected WoW Retail AddOns folder, or pass `-Destination "C:\path\to\World of Warcraft\_retail_\Interface\AddOns\GoldAdvisorMidnight"`.
 
