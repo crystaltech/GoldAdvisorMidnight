@@ -18,24 +18,24 @@ This repository contains the full addon source, generated strategy data, develop
 
 ## Shipped Strategy Scope
 
-The addon currently ships with `73` built-in strategies across `9` professions:
+The addon currently ships with `597` built-in strategies across `9` professions:
 
-- `Alchemy`: 15
-- `Blacksmithing`: 3
-- `Cooking`: 11
-- `Enchanting`: 5
-- `Engineering`: 12
-- `Inscription`: 14
-- `Jewelcrafting`: 7
-- `Leatherworking`: 4
-- `Tailoring`: 2
+- `Alchemy`: 29
+- `Blacksmithing`: 24
+- `Cooking`: 41
+- `Enchanting`: 92
+- `Engineering`: 105
+- `Inscription`: 81
+- `Jewelcrafting`: 46
+- `Leatherworking`: 101
+- `Tailoring`: 78
 
 Notable shipped behavior:
 
 - `Crushing` uses dynamic cheapest-eligible gem selection at runtime
 - `Dazzling Thorium Prospecting` keeps full ranked output item IDs so runtime quality resolution can pick the correct output tier
 - Manual Thalassian missives use a conservative estimated inscription output profile
-- Cooking ships `11` workbook-backed meals and teas, with static vendor pricing for Cooking vendor mats
+- Cooking includes workbook-backed meals and teas plus broader Wowhead-seeded recipe coverage, with static vendor pricing for Cooking vendor mats
 - Vertical integration can recurse through intermediate crafts like inks, `Soul Cipher`, and Cooking tea chains
 
 ## Current UI Workflow
@@ -67,6 +67,8 @@ The addon currently supports:
 /gam ids
 /gam scandump
 /gam smoketest
+/gam engine
+/gam v2mode
 /gam create
 /gam edit
 /gam quickbuy
@@ -82,6 +84,8 @@ Command notes:
 - `/gam ids`: dump known item IDs into the debug log
 - `/gam scandump`: dump the selected strategy's scan and pricing inputs
 - `/gam smoketest`: run pricing, AH scan, and state smoke checks
+- `/gam engine`: switch pricing between legacy and V2 modes
+- `/gam v2mode`: switch V2 math between `fixed_crafts` and `fixed_input`
 - `/gam create`: open the custom strategy creator
 - `/gam edit`: open the custom strategy edit picker
 - `/gam quickbuy`: reset or report the Quick Buy flow state
@@ -100,6 +104,7 @@ The addon folder must remain named `GoldAdvisorMidnight/`.
 
 - `GoldAdvisorMidnight/`: installable addon folder
 - `GoldAdvisorMidnight/Data/`: checked-in generated strategy and workbook data
+- `GoldAdvisorMidnight/Data/Professions/`: compact generated craft facts split by profession
 - `docs/reports/strategy_coverage_report.md`: generated shipped-strategy coverage snapshot
 - `CHANGELOG.md`: release history
 - `releases/`: packaged release zips
@@ -116,7 +121,7 @@ The addon folder must remain named `GoldAdvisorMidnight/`.
 ## Current Limitations
 
 - Theme support is currently limited to the shipped V2 `classic` and `soft` layouts.
-- Runtime formula math is spreadsheet-authoritative; the shipped workbook profiles drive fixed sheet multipliers for parity.
+- V2 `fixed_crafts` is the default runtime model; the older spreadsheet-style `fixed_input` mode is still available for comparison.
 - Some advanced debugging and export flows are aimed at spreadsheet verification and addon development, not general gameplay use.
 
 ## Development and Verification
@@ -132,6 +137,8 @@ Useful local checks:
 Maintainer release helper:
 
 - Local `./Release_GitHub.command [patch|minor|major|x.y.z]` is the canonical public release flow. It runs from `main`, bumps the addon version, builds `releases/GoldAdvisorMidnight-vX.X.X.zip`, commits release-ready changes, pushes `main` and tag `vX.X.X`, and creates the latest GitHub release with the zip attached.
+- On Windows, run `pwsh -ExecutionPolicy Bypass -File .\Package_Addon.ps1` to build the same release zip.
+- On Windows, run `pwsh -ExecutionPolicy Bypass -File .\Sync_Addon.ps1` to copy the addon into the first detected WoW Retail AddOns folder, or pass `-Destination "C:\path\to\World of Warcraft\_retail_\Interface\AddOns\GoldAdvisorMidnight"`.
 
 Release metadata is tracked in:
 

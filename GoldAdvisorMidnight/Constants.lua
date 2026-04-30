@@ -15,8 +15,8 @@ local function ProfileDefault(profileKey, field, fallback)
 end
 
 GAM.C = {
-    ADDON_VERSION        = "1.8.12",
-    DATA_VERSION         = 13,
+    ADDON_VERSION        = "1.9.0-testing",
+    DATA_VERSION         = 15,
     DEFAULT_PATCH        = "midnight-1",
 
     -- Canonical profession names used by filters, creator dropdowns, and
@@ -58,6 +58,7 @@ GAM.C = {
     RESULT_RETRY_DELAY   = 0.5,    -- between retry attempts
     MAX_RETRY            = 5,
     EVENT_PROCESS_DELAY  = 0.8,    -- wait after event before reading results
+    SCAN_UI_REFRESH_INTERVAL = 2.0, -- debounce expensive row/detail repricing while scans are active
 
     -- Pricing
     PRICE_STALE_SECONDS  = 600,    -- 10-minute cache freshness
@@ -73,6 +74,7 @@ GAM.C = {
     DEFAULT_PIGMENT_COST_SOURCE  = "ah",  -- "ah" | "mill"
     DEFAULT_BOLT_COST_SOURCE     = "ah",  -- "ah" | "craft"
     DEFAULT_INGOT_COST_SOURCE    = "ah",  -- "ah" | "craft"
+    DEFAULT_V2_PRICING_MODE      = "fixed_crafts",
 
     -- Crafting stat defaults (percent values; decimals allowed; match workbook baseline values)
     -- Milling, Prospecting, Crushing, Shattering: no Multicraft stat (profession window doesn't show it).
@@ -150,5 +152,6 @@ GAM.C = {
         [242645] = 1125,   -- Ripened Vegetable Assortment (11s 25c)
         [242646] = 1075,   -- Pouch of Spices          (10s 75c)
         [242647] = 1000,   -- Tavern Fixings           (10s)
+        [242642] = 1225,   -- Thalassian Herbs         (12s 25c)
     },
 }

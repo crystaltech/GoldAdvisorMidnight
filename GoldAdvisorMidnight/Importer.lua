@@ -88,6 +88,7 @@ local function NormalizeOutput(output, startingAmt, defaultCrafts)
     if start <= 0 then start = crafts end
 
     local baseYieldPerCraft = tonumber(output.baseYieldPerCraft)
+        or tonumber(output.baseAmount)
     local baseYield = tonumber(output.baseYield)
     if type(baseYield) ~= "number" then
         baseYield = tonumber(output.baseYieldMultiplier) or tonumber(output.qtyMultiplier)
@@ -298,10 +299,13 @@ local function NormalizeStrat(raw, src, isUser)
         stratName = stratName,
         sourceTab = raw.sourceTab or profession,
         sourceBlock = raw.sourceBlock,
+        recipeID = tonumber(raw.recipeID),
+        recipeName = raw.recipeName,
         defaultStartingAmount = startingAmt,
         defaultCrafts = defaultCrafts,
         qualityPolicy = raw.qualityPolicy or ((stratName:lower():find("q2", 1, true) and "force_q2_inputs") or "normal"),
         formulaProfile = raw.formulaProfile,
+        statProfileKey = raw.statProfileKey or raw.formulaProfile,
         calcMode = raw.calcMode or (raw.formulaProfile and "formula") or "fixed",
         outputQualityMode = raw.outputQualityMode or "rank_policy",
         notes = raw.notes or "",
@@ -438,11 +442,16 @@ local function LoadRecipeList(list, src, isUser)
     end
 
     for _, raw in ipairs(list) do
-        local strat = NormalizeStrat(raw, src, isUser)
+        local strat = nil
+        if type(raw) == "table" and raw.disabledReason then
+            skipped = skipped + 1
+        else
+            strat = NormalizeStrat(raw, src, isUser)
+        end
         if strat then
             IndexStrat(strat)
             loaded = loaded + 1
-        else
+        elseif not (type(raw) == "table" and raw.disabledReason) then
             skipped = skipped + 1
         end
     end
@@ -519,6 +528,14 @@ function Importer.GetAllPatchTags()
     end
     table.sort(tags)
     return tags
+end
+
+function Importer.GetProfessionCraftFacts(profession)
+    local facts = GAM_PROFESSION_CRAFTS or {}
+    if profession then
+        return facts[profession] or {}
+    end
+    return facts
 end
 
 function Importer.GetAllProfessions(patchTag)

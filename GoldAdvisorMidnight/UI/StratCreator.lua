@@ -1367,12 +1367,47 @@ local function Build()
     qtyTip:SetText("Sets the baseline batch size. Qty values below are totals for this many inputs.")
     qtyTip:SetTextColor(0.6, 0.6, 0.6)
 
+    local recipeIDLbl = metaBox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    recipeIDLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -150)
+    recipeIDLbl:SetText("Recipe ID")
+
+    local recipeIDHelpBtn = CreateHelpButton(
+        metaBox,
+        "Recipe ID",
+        "Optional Blizzard recipe ID. V2 can use this for exact native stat capture when the recipe is open."
+    )
+    recipeIDHelpBtn:SetPoint("LEFT", recipeIDLbl, "RIGHT", 6, 0)
+
+    local recipeIDEB = CreateFrame("EditBox", nil, metaBox, "InputBoxTemplate")
+    recipeIDEB:SetSize(90, 20)
+    recipeIDEB:SetPoint("LEFT", recipeIDHelpBtn, "RIGHT", 6, 0)
+    recipeIDEB:SetAutoFocus(false)
+    recipeIDEB:SetNumeric(true)
+    frame.recipeIDEB = recipeIDEB
+
+    local statProfileLbl = metaBox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    statProfileLbl:SetPoint("TOPLEFT", metaBox, "TOPLEFT", 12, -184)
+    statProfileLbl:SetText("Stat Profile")
+
+    local statProfileHelpBtn = CreateHelpButton(
+        metaBox,
+        "Stat Profile",
+        "Optional V2 profile key such as insc_ink or insc_milling. Leave blank for fixed-ratio strategies."
+    )
+    statProfileHelpBtn:SetPoint("LEFT", statProfileLbl, "RIGHT", 6, 0)
+
+    local statProfileEB = CreateFrame("EditBox", nil, metaBox, "InputBoxTemplate")
+    statProfileEB:SetSize(150, 20)
+    statProfileEB:SetPoint("LEFT", statProfileHelpBtn, "RIGHT", 6, 0)
+    statProfileEB:SetAutoFocus(false)
+    frame.statProfileEB = statProfileEB
+
     local fixedModeNoteFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     fixedModeNoteFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, -218)
     fixedModeNoteFS:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -20, -218)
     fixedModeNoteFS:SetJustifyH("LEFT")
     fixedModeNoteFS:SetWordWrap(true)
-    fixedModeNoteFS:SetText("Custom strategies save fixed ratios only in this pass. Formula pricing is not configurable here yet.")
+    fixedModeNoteFS:SetText("Custom strategies save fixed ratios by default. Add a Stat Profile when this strategy should use V2 formula stats.")
     fixedModeNoteFS:SetTextColor(0.72, 0.72, 0.72)
     frame.fixedModeNoteFS = fixedModeNoteFS
 
@@ -1437,6 +1472,8 @@ local function Build()
         local stratName = TrimText(frame.nameEB:GetText())
         local inputQty = tonumber(frame.inputQtyEB:GetText()) or 1000
         local notes = frame.notesEB:GetText() or ""
+        local recipeID = tonumber(frame.recipeIDEB and frame.recipeIDEB:GetText())
+        local statProfileKey = TrimText(frame.statProfileEB and frame.statProfileEB:GetText() or "")
         local outputs = CollectItemsFromRows(outputRows, inputQty)
         local reagents = CollectItemsFromRows(reagentRows, inputQty)
 
@@ -1455,6 +1492,15 @@ local function Build()
             reagents = reagents,
             notes = notes,
         }
+        if recipeID and recipeID > 0 then
+            strat.recipeID = math.floor(recipeID)
+            strat.recipeName = stratName
+        end
+        if statProfileKey ~= "" then
+            strat.formulaProfile = statProfileKey
+            strat.statProfileKey = statProfileKey
+            strat.calcMode = "formula"
+        end
         if #outputs > 1 then
             strat.outputs = outputs
         end
@@ -1632,6 +1678,8 @@ local function ClearForm()
     SetEditText(frame.nameEB, "")
     SetEditText(frame.inputQtyEB, "1000")
     SetEditText(frame.notesEB, "")
+    SetEditText(frame.recipeIDEB, "")
+    SetEditText(frame.statProfileEB, "")
     SetEditText(frame.customProfEB, "")
     frame.customProfEB:Hide()
 
@@ -1670,6 +1718,8 @@ local function PopulateForm(strat)
     SetEditText(frame.nameEB, strat.stratName or "")
     SetEditText(frame.inputQtyEB, tostring(strat.defaultStartingAmount or 1000))
     SetEditText(frame.notesEB, strat.notes or "")
+    SetEditText(frame.recipeIDEB, strat.recipeID and tostring(strat.recipeID) or "")
+    SetEditText(frame.statProfileEB, strat.statProfileKey or strat.formulaProfile or "")
 
     local outs = strat.outputs or (strat.output and { strat.output } or {})
     local outCount = math.max(1, math.min(MAX_OUTPUTS, #outs))

@@ -1,13 +1,32 @@
-## Interface: 120001
+## Interface: 120005
 ## Title: Gold Advisor Midnight
+## Category: Professions
 ## Notes: Crafting profit advisor for WoW Midnight. Scans AH, computes ROI per strategy.
-## Version: 1.8.12
+## Version: 1.9.0-testing
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled
 ## X-License: All Rights Reserved
 
 Data\WorkbookGenerated.lua
+Data\ProfessionCrafts.lua
+Data\Professions\Alchemy.lua
+Data\Professions\Blacksmithing.lua
+Data\Professions\Cooking.lua
+Data\Professions\Enchanting.lua
+Data\Professions\Engineering.lua
+Data\Professions\Inscription.lua
+Data\Professions\Jewelcrafting.lua
+Data\Professions\Leatherworking.lua
+Data\Professions\Tailoring.lua
+Data\SpecializationData\Midnight\Alchemy.lua
+Data\SpecializationData\Midnight\Blacksmithing.lua
+Data\SpecializationData\Midnight\Enchanting.lua
+Data\SpecializationData\Midnight\Engineering.lua
+Data\SpecializationData\Midnight\Inscription.lua
+Data\SpecializationData\Midnight\Jewelcrafting.lua
+Data\SpecializationData\Midnight\Leatherworking.lua
+Data\SpecializationData\Midnight\Tailoring.lua
 Constants.lua
 Locale.lua
 Locale\deDE.lua
@@ -29,10 +48,14 @@ DataBroker.lua
 UI\WindowManager.lua
 Settings.lua
 PricingDerivation.lua
+PricingV2Formula.lua
+PricingV2Engine.lua
+CraftingStatsV2.lua
 Pricing.lua
 AHScan.lua
 Importer.lua
 Data\StratsGenerated.lua
+CraftSimPriceOverrides.lua
 CraftSimBridge.lua
 UI\DebugLog.lua
 UI\MainWindowV2Common.lua

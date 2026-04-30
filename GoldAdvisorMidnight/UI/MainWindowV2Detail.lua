@@ -1571,7 +1571,11 @@ function Detail.Render(args)
         local reagentMetric = reagentMetrics[i]
         if reagentMetric then
             local display = getItemDisplayData(reagentMetric.itemID, reagentMetric.name)
-            row.nameFS:SetText(display.displayText)
+            local nameText = display.displayText
+            if reagentMetric.sourceNote and reagentMetric.sourceNote ~= "" then
+                nameText = nameText .. " |cff888888(" .. reagentMetric.sourceNote .. ")|r"
+            end
+            row.nameFS:SetText(nameText)
             bindItemRow(row, display)
             row.qtyEB:Hide()
             row.qtyFS:Show()
@@ -1585,6 +1589,7 @@ function Detail.Render(args)
                 needToBuy = reagentMetric.needToBuy,
                 totalCost = reagentMetric.totalCost,
                 totalCostFull = reagentMetric.totalCostFull,
+                sourceNote = reagentMetric.sourceNote,
             }
             row:Show()
         else

@@ -635,7 +635,7 @@ function Common.HasAnyEntries(set)
     return set and next(set) ~= nil
 end
 
-function Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingle, rankPolicy)
+function Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingleSet, rankPolicy)
     local poolOK
     if filterMode == "mine" and Common.HasAnyEntries(filterProfSet) then
         poolOK = filterProfSet[strat.profession] == true
@@ -645,7 +645,7 @@ function Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf,
     if not poolOK then
         return false
     end
-    if filterProfSingle ~= "All" and strat.profession ~= filterProfSingle then
+    if filterProfSingleSet and next(filterProfSingleSet) ~= nil and not filterProfSingleSet[strat.profession] then
         return false
     end
     if rankPolicy == "highest"
