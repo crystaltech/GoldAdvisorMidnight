@@ -683,7 +683,11 @@ local function ShouldPreserveExistingSnapshot(existing, incoming)
     return (not IsCraftSimSnapshot(existing)) and IsCraftSimSnapshot(incoming)
 end
 
-local function ApplySnapshotToDefaults(defaults, snapshot, statSource, fallbackReason)
+local function ApplySnapshotToDefaults(defaults, snapshot, statSource, fallbackReason, includeHiddenNodeState)
+    if includeHiddenNodeState == nil then
+        includeHiddenNodeState = true
+    end
+
     local result = {}
     for key, value in pairs(defaults or {}) do
         result[key] = value
@@ -691,16 +695,20 @@ local function ApplySnapshotToDefaults(defaults, snapshot, statSource, fallbackR
     snapshot = snapshot or {}
 
     result.profileKey = snapshot.profileKey or result.profileKey
-    result.recipeID = NormalizeRecipeID(snapshot.recipeID) or result.recipeID
-    result.recipeName = snapshot.recipeName or result.recipeName
+    if includeHiddenNodeState then
+        result.recipeID = NormalizeRecipeID(snapshot.recipeID) or result.recipeID
+        result.recipeName = snapshot.recipeName or result.recipeName
+    end
     result.profession = snapshot.profession or result.profession
     result.statSource = statSource or snapshot.source or result.statSource
     result.fallbackReason = fallbackReason
     result.capturedAt = snapshot.capturedAt
     result.cachedSource = snapshot.cachedSource
     result.statQuality = snapshot.statQuality
-    result.nodeHash = snapshot.nodeHash
-    result.nodeCount = snapshot.nodeCount
+    if includeHiddenNodeState then
+        result.nodeHash = snapshot.nodeHash
+        result.nodeCount = snapshot.nodeCount
+    end
 
     if snapshot.supportsMulticraft ~= nil then
         result.supportsMulticraft = snapshot.supportsMulticraft and true or false
@@ -715,10 +723,10 @@ local function ApplySnapshotToDefaults(defaults, snapshot, statSource, fallbackR
     if snapshot.resPercent ~= nil and result.supportsResourcefulness then
         result.resPercent = ClampPercent(snapshot.resPercent)
     end
-    if snapshot.multiExtra ~= nil and result.supportsMulticraft then
+    if includeHiddenNodeState and snapshot.multiExtra ~= nil and result.supportsMulticraft then
         result.multiExtra = ClampNonNegative(snapshot.multiExtra)
     end
-    if snapshot.resExtra ~= nil and result.supportsResourcefulness then
+    if includeHiddenNodeState and snapshot.resExtra ~= nil and result.supportsResourcefulness then
         result.resExtra = ClampNonNegative(snapshot.resExtra)
     end
 
@@ -731,15 +739,17 @@ local function ApplySnapshotToDefaults(defaults, snapshot, statSource, fallbackR
     result.multicraftConstants = CopyNumericTable(snapshot.multicraftConstants)
     local nestedFields = {
         "totalStats",
-        "nodeStats",
         "baseStats",
         "gearStats",
         "buffStats",
         "modifierStats",
-        "nodeRanks",
     }
     for _, field in ipairs(nestedFields) do
         result[field] = CopySerializableTable(snapshot[field])
+    end
+    if includeHiddenNodeState then
+        result.nodeStats = CopySerializableTable(snapshot.nodeStats)
+        result.nodeRanks = CopySerializableTable(snapshot.nodeRanks)
     end
     return result
 end
@@ -1122,7 +1132,8 @@ function Stats.GetProfile(profileKey)
         if type(cached) == "table" then
             local source = SourceForCachedSnapshot(cached, "gam-cache-profile")
             return ApplySpecializationNodeState(
-                ApplySnapshotToDefaults(manualDefaults, cached, source),
+                ApplySnapshotToDefaults(manualDefaults, cached, source,
+                    "profile-visible-stats-only", false),
                 profileKey,
                 character), source
         end
@@ -1176,7 +1187,8 @@ function Stats.ResolveForStrat(strat, opts)
     if openMatchKind == "profile" then
         Stats.SaveSnapshot(openSnapshot)
         return ApplySpecializationNodeState(
-            ApplySnapshotToDefaults(manualDefaults, openSnapshot, "native-open-profile"),
+            ApplySnapshotToDefaults(manualDefaults, openSnapshot, "native-open-profile",
+                "profile-visible-stats-only", false),
             profileKey,
             character,
             recipeID)
@@ -1190,7 +1202,8 @@ function Stats.ResolveForStrat(strat, opts)
     if profileSnapshot and not IsCraftSimSnapshot(profileSnapshot) then
         return ApplySpecializationNodeState(
             ApplySnapshotToDefaults(manualDefaults, profileSnapshot,
-                SourceForCachedSnapshot(profileSnapshot, "gam-cache-profile")),
+                SourceForCachedSnapshot(profileSnapshot, "gam-cache-profile"),
+                "profile-visible-stats-only", false),
             profileKey,
             character,
             recipeID)
@@ -1203,7 +1216,8 @@ function Stats.ResolveForStrat(strat, opts)
 
     if IsCraftSimSnapshot(profileSnapshot) then
         return ApplySnapshotToDefaults(manualDefaults, profileSnapshot,
-            SourceForCachedSnapshot(profileSnapshot, "gam-cache-profile"))
+            SourceForCachedSnapshot(profileSnapshot, "gam-cache-profile"),
+            "profile-visible-stats-only", false)
     end
 
     if hasManualProfile then
@@ -1909,6 +1923,62 @@ function Stats.RunSmokeChecks()
         assert(blacksmithing.statSource == "gam-manual-nodes"
                 and math.abs((blacksmithing.multiExtra or 0) - 0.12) < 0.0001,
             "blacksmithing rating-only catalog should preserve workbook node multiplier")
+
+        local jcOpts = {
+            jcCraftMulti = 30,
+            jcCraftRes = 20,
+            jcMcNode = 50,
+            jcRsNode = 50,
+        }
+        local jcDefault = Stats.ResolveForStrat({
+            profession = "Jewelcrafting",
+            formulaProfile = "jc_craft",
+            recipeID = 1230476,
+        }, jcOpts)
+        assert(jcDefault and math.abs((jcDefault.multiExtra or 0) - 0.50) < 0.0001,
+            "JC Sunglass Vial workbook hidden MC default failed")
+
+        local jcNodes = Stats.CaptureProfessionNodes("Jewelcrafting", {
+            [106991] = 1,
+            [106995] = 1,
+            [106998] = 1,
+            [107000] = 1,
+        }, "gam-native-nodes")
+        assert(jcNodes and jcNodes.nodeHash, "JC node capture failed")
+        local jcCaptured = Stats.ResolveForStrat({
+            profession = "Jewelcrafting",
+            formulaProfile = "jc_craft",
+            recipeID = 1230476,
+        }, jcOpts)
+        assert(jcCaptured.statSource == "gam-native-nodes"
+                and math.abs((jcCaptured.multiExtra or 0) - 0.25) < 0.0001
+                and math.abs((jcCaptured.resExtra or 0) - 0.35) < 0.0001,
+            "JC recipe-scoped captured hidden nodes failed")
+
+        assert(Stats.SaveSnapshot({
+            source = "native-open",
+            recipeID = 1230475,
+            recipeName = "Sin'dorei Lens",
+            profession = "Jewelcrafting",
+            profileKey = "jc_craft",
+            multiPercent = 30,
+            multiExtra = 0.25,
+            supportsMulticraft = true,
+            resPercent = 20,
+            resExtra = 0.35,
+            supportsResourcefulness = true,
+            nodeHash = "106991:1|106995:1",
+        }))
+        local jcUnscoped = Stats.ResolveForStrat({
+            profession = "Jewelcrafting",
+            formulaProfile = "jc_craft",
+        }, jcOpts)
+        assert(jcUnscoped.statSource == "gam-cache-profile"
+                and jcUnscoped.fallbackReason == "profile-visible-stats-only"
+                and math.abs((jcUnscoped.multiPercent or 0) - 30) < 0.0001
+                and math.abs((jcUnscoped.multiExtra or 0) - 0.50) < 0.0001
+                and not jcUnscoped.nodeHash,
+            "JC unscoped profile snapshot leaked hidden node extras")
     end)
     testOpenSnapshot = originalOpen
     testOpenProfessionNodes = originalProfessionNodes

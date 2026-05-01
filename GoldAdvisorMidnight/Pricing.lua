@@ -1218,6 +1218,69 @@ function Pricing.RunSmokeChecks()
                     string.format("V2 VI expected consumed cost failed: got %.6f",
                         rootShadow.expectedConsumedCostFull or 0))
 
+                prices[81005] = 50
+                local directCheapProducer = {
+                    id = "v2_shadow_direct_cheap_producer",
+                    stratName = "V2 Shadow Direct Cheap Producer",
+                    calcMode = "formula",
+                    formulaProfile = "__v2_shadow_smoke",
+                    defaultCrafts = 10,
+                    defaultStartingAmount = 10,
+                    reagents = {
+                        { name = "V2 Raw", itemIDs = { 81002 }, qtyPerCraft = 2 },
+                    },
+                    outputs = {
+                        { name = "V2 Direct Cheap Intermediate", itemIDs = { 81005 }, baseYieldPerCraft = 1 },
+                    },
+                }
+                local directCheapRoot = {
+                    id = "v2_shadow_direct_cheap_root",
+                    stratName = "V2 Shadow Direct Cheap Root",
+                    calcMode = "fixed",
+                    defaultCrafts = 1,
+                    defaultStartingAmount = 1,
+                    reagents = {
+                        { name = "V2 Direct Cheap Intermediate", itemIDs = { 81005 }, qtyPerCraft = 10 },
+                    },
+                    outputs = {
+                        { name = "V2 Finished", itemIDs = { 81003 }, baseYieldPerCraft = 1 },
+                    },
+                }
+                GAM.Importer.GetProducerCandidates = function(itemID)
+                    if itemID == 81001 then
+                        return {
+                            { stratID = "v2_shadow_producer" },
+                        }
+                    end
+                    if itemID == 81005 then
+                        return {
+                            { stratID = "v2_shadow_direct_cheap_producer" },
+                        }
+                    end
+                    return {}
+                end
+                GAM.Importer.GetStratByID = function(id)
+                    if id == "v2_shadow_direct_cheap_producer" then
+                        return directCheapProducer
+                    end
+                    if id == "v2_shadow_producer" then
+                        return producer
+                    end
+                    if originalGetStratByID then
+                        return originalGetStratByID(id)
+                    end
+                    return nil
+                end
+                local directCheapShadow = Pricing.CalculateStratMetricsV2Shadow(directCheapRoot, GAM.C.DEFAULT_PATCH, 1)
+                assert(directCheapShadow and math.abs((directCheapShadow.requiredCostFull or 0) - 500) < 0.001,
+                    "V2 VI should keep direct buy cost when direct is cheaper")
+                assert(math.abs((directCheapShadow.expectedConsumedCostFull or 0) - 500) < 0.001,
+                    string.format("V2 VI direct-cheaper expected consumed cost failed: got %.6f",
+                        directCheapShadow.expectedConsumedCostFull or 0))
+                assert(directCheapShadow.reagents and directCheapShadow.reagents[1]
+                        and directCheapShadow.reagents[1].sourceNote == nil,
+                    "V2 VI direct-cheaper display should not annotate crafted source")
+
                 local largeProducer = {
                     id = "v2_shadow_large_producer",
                     stratName = "V2 Shadow Large Producer",
@@ -2652,7 +2715,13 @@ local function BuildDirectDisplayReagentMetrics(ctx, modelReagents)
         local sourceNote = nil
 
         if ctx.chainActive and resolvedEntry and not resolvedEntry.excludeFromCost and not resolvedEntry.skipDerivation then
-            local producer = FindProducerMatch(ctx, resolvedEntry.itemID, { activeProducerKeys = {} })
+            local economicChoice = ctx.v2EconomicChoices
+                and resolvedEntry.itemID
+                and ctx.v2EconomicChoices[tostring(resolvedEntry.itemID)]
+                or nil
+            local producer = (not economicChoice or economicChoice.source == "producer")
+                and FindProducerMatch(ctx, resolvedEntry.itemID, { activeProducerKeys = {} })
+                or nil
             if producer then
                 local singleCtx = CloneContextForSingleReagent(ctx, reagent)
                 local chainMetrics = BuildGraphLeafMetrics(singleCtx, "economic")

@@ -415,6 +415,38 @@ function Engine.Install(Pricing, deps)
         end
     end
 
+    local function HasMissingEconomicCost(result)
+        return type(result) ~= "table"
+            or (type(result.missingPrices) == "table" and #result.missingPrices > 0)
+    end
+
+    local function PreferProducerEconomicCost(directCost, producerCost)
+        local directMissing = HasMissingEconomicCost(directCost)
+        local producerMissing = HasMissingEconomicCost(producerCost)
+        if directMissing ~= producerMissing then
+            return directMissing and not producerMissing
+        end
+        if directMissing then
+            return false
+        end
+        return (producerCost.expectedConsumedCostFull or math.huge)
+            < (directCost.expectedConsumedCostFull or math.huge)
+    end
+
+    local function StoreV2EconomicChoice(ctx, itemID, source, producer, directCost, producerCost)
+        if type(ctx) ~= "table" or type(ctx.v2EconomicChoices) ~= "table" or not itemID then
+            return
+        end
+        ctx.v2EconomicChoices[tostring(itemID)] = {
+            source = source,
+            producerName = producer and producer.strat and producer.strat.stratName or nil,
+            directExpectedCost = directCost and directCost.expectedConsumedCostFull or nil,
+            producerExpectedCost = producerCost and producerCost.expectedConsumedCostFull or nil,
+            directRequiredCost = directCost and directCost.requiredCostFull or nil,
+            producerRequiredCost = producerCost and producerCost.requiredCostFull or nil,
+        }
+    end
+
     local function RecordV2StatUsage(ctx, strat, formulaResult)
         if type(ctx) ~= "table" or type(ctx.v2StatUsages) ~= "table" or type(formulaResult) ~= "table" then
             return
@@ -496,13 +528,15 @@ function Engine.Install(Pricing, deps)
             }
         end
 
+        local directCost = BuildV2LeafEconomicCost(ctx, resolvedEntry, requiredQty)
+
         if resolvedEntry.excludeFromCost or resolvedEntry.skipDerivation or not ctx.chainActive then
-            return BuildV2LeafEconomicCost(ctx, resolvedEntry, requiredQty)
+            return directCost
         end
 
         local producer = FindProducerMatch(ctx, resolvedEntry.itemID, state)
         if not producer then
-            return BuildV2LeafEconomicCost(ctx, resolvedEntry, requiredQty)
+            return directCost
         end
 
         local expectedOutputPerCraft = GetV2ExpectedOutputPerCraft(
@@ -510,15 +544,20 @@ function Engine.Install(Pricing, deps)
             producer.active,
             ctx)
         if not expectedOutputPerCraft or expectedOutputPerCraft <= 0 then
-            return BuildV2LeafEconomicCost(ctx, resolvedEntry, requiredQty)
+            return directCost
         end
 
         local craftsNeeded = requiredQty / expectedOutputPerCraft
         local key = producer.key
         state.activeProducerKeys[key] = true
-        local result = BuildV2RecipeEconomicCost(ctx, producer.strat, producer.active, craftsNeeded, state)
+        local producerCost = BuildV2RecipeEconomicCost(ctx, producer.strat, producer.active, craftsNeeded, state)
         state.activeProducerKeys[key] = nil
-        return result
+        if PreferProducerEconomicCost(directCost, producerCost) then
+            StoreV2EconomicChoice(ctx, resolvedEntry.itemID, "producer", producer, directCost, producerCost)
+            return producerCost
+        end
+        StoreV2EconomicChoice(ctx, resolvedEntry.itemID, "direct", producer, directCost, producerCost)
+        return directCost
     end
 
     BuildV2RecipeEconomicCost = function(ctx, strat, active, crafts, state)
@@ -568,8 +607,8 @@ function Engine.Install(Pricing, deps)
         return BuildV2RecipeEconomicCost(ctx, ctx.strat, ctx.active, ctx.crafts, state)
     end
 
-    local function BuildV2ShadowFinalMetrics(ctx, outputData, legacyMetrics, displayReagentData, costReagentData)
-        local economicData = BuildV2EconomicMetrics(ctx)
+    local function BuildV2ShadowFinalMetrics(ctx, outputData, legacyMetrics, displayReagentData, costReagentData, economicData)
+        economicData = economicData or BuildV2EconomicMetrics(ctx)
         local missingPrices = {}
         local seenMissing = {}
 
@@ -656,14 +695,16 @@ function Engine.Install(Pricing, deps)
         local ctx = BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
         ctx.v2StatResolutions = {}
         ctx.v2StatUsages = {}
+        ctx.v2EconomicChoices = {}
         ctx.v2ExecutionPlan = true
         local costReagentData = BuildReagentMetrics(ctx)
-        local displayReagentData = BuildDisplayReagentMetrics(ctx, costReagentData and costReagentData.reagentResults)
         local outputData = BuildV2OutputMetrics(ctx)
         if not outputData then
             return nil
         end
-        return BuildV2ShadowFinalMetrics(ctx, outputData, legacyMetrics, displayReagentData, costReagentData)
+        local economicData = BuildV2EconomicMetrics(ctx)
+        local displayReagentData = BuildDisplayReagentMetrics(ctx, costReagentData and costReagentData.reagentResults)
+        return BuildV2ShadowFinalMetrics(ctx, outputData, legacyMetrics, displayReagentData, costReagentData, economicData)
     end
 
     function Pricing.CalculateStratMetricsV2(strat, patchTag, craftQty)

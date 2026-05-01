@@ -31,6 +31,7 @@ GAM_SPECIALIZATION_DATA.MIDNIGHT.Jewelcrafting = {
     sourceLicense = "MIT",
     sourcePath = "Data/SpecializationData/Midnight/Jewelcrafting.lua",
     profiles = PROFILES,
+    recipeScoped = true,
 
     uiGroups = {
         {

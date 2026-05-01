@@ -51,6 +51,67 @@ local function FormatQuantityValue(value)
     return AddThousandsSeparators(text)
 end
 
+local function FormatPercentForDetail(value)
+    local n = tonumber(value)
+    if n == nil then
+        return nil
+    end
+    if math.abs(n) <= 1.5 then
+        n = n * 100
+    end
+    local rounded = math.floor(n + 0.5)
+    if math.abs(n - rounded) < 0.05 then
+        return tostring(rounded) .. "%"
+    end
+    return string.format("%.1f%%", n)
+end
+
+local function GetRootFormula(metrics)
+    if type(metrics) ~= "table" then
+        return nil
+    end
+    if type(metrics.formula) == "table" then
+        return metrics.formula
+    end
+    if type(metrics.statUsages) == "table" then
+        for _, usage in ipairs(metrics.statUsages) do
+            if usage.role == "root" then
+                return usage
+            end
+        end
+        return metrics.statUsages[1]
+    end
+    return nil
+end
+
+local function FormatResolvedStats(metrics)
+    local formula = GetRootFormula(metrics)
+    if type(formula) ~= "table" then
+        return nil
+    end
+
+    local statBits = {}
+    local mc = FormatPercentForDetail(formula.mcPercent)
+    local mcExtra = FormatPercentForDetail(formula.mcExtra)
+    if mc then
+        statBits[#statBits + 1] = "MC " .. mc .. (mcExtra and (" (extra " .. mcExtra .. ")") or "")
+    end
+    local res = FormatPercentForDetail(formula.resPercent)
+    local resExtra = FormatPercentForDetail(formula.resExtra)
+    if res then
+        statBits[#statBits + 1] = "Res " .. res .. (resExtra and (" (save +" .. resExtra .. ")") or "")
+    end
+    if #statBits == 0 then
+        return nil
+    end
+
+    local source = tostring(formula.statSource or "options")
+    if formula.statFallbackReason then
+        source = source .. " (" .. tostring(formula.statFallbackReason) .. ")"
+    end
+    return tostring(formula.profileKey or "stats") .. " " .. source .. ": " .. table.concat(statBits, ", ")
+end
+
 local function GetCommitButtonText(localizer)
     return "OK"
 end
@@ -1537,6 +1598,10 @@ function Detail.Render(args)
     local dash = "|cff888888—|r"
     rpDetail.metCostFS:SetText(
         (metrics and metrics.totalCostFull) and formatPrice(metrics.totalCostFull) or dash)
+    if rpDetail.metExpectedCostFS then
+        rpDetail.metExpectedCostFS:SetText(
+            (metrics and metrics.expectedConsumedCostFull) and formatPrice(metrics.expectedConsumedCostFull) or dash)
+    end
     if rpDetail.metBuyNowFS then
         rpDetail.metBuyNowFS:SetText(
             (metrics and metrics.totalCostToBuy) and formatPrice(metrics.totalCostToBuy) or dash)
@@ -1557,6 +1622,9 @@ function Detail.Render(args)
     end
     rpDetail.metBreakevenFS:SetText(
         (metrics and metrics.breakEvenSell) and formatPrice(metrics.breakEvenSell) or dash)
+    if rpDetail.metStatsFS then
+        rpDetail.metStatsFS:SetText(FormatResolvedStats(metrics) or dash)
+    end
 
     if metrics and metrics.missingPrices and #metrics.missingPrices > 0 then
         rpDetail.missingFS:SetText((L and L["MISSING_PRICES"] or "Missing prices") .. ": " .. table.concat(metrics.missingPrices, ", "))
@@ -1884,6 +1952,10 @@ function Detail.Build(args)
     rpDetail.metCostFS, y = MakeMetricRow(L and L["LBL_COST"] or "Cost:", y)
     MakeMetricTooltip(yCost, "TT_LBL_COST_TITLE", "TT_LBL_COST_BODY")
 
+    local yExpectedCost = y
+    rpDetail.metExpectedCostFS, y = MakeMetricRow(L and L["LBL_EXPECTED_COST"] or "Expected Cost:", y)
+    MakeMetricTooltip(yExpectedCost, "TT_LBL_EXPECTED_COST_TITLE", "TT_LBL_EXPECTED_COST_BODY")
+
     local yBuyNow = y
     rpDetail.metBuyNowFS, y = MakeMetricRow(L and L["LBL_BUY_NOW_COST"] or "Buy Now Cost:", y)
     MakeMetricTooltip(yBuyNow, "TT_LBL_BUY_NOW_COST_TITLE", "TT_LBL_BUY_NOW_COST_BODY")
@@ -1905,6 +1977,10 @@ function Detail.Build(args)
     local yBreakeven = y
     rpDetail.metBreakevenFS, y = MakeMetricRow(L and L["LBL_BREAKEVEN"] or "Break-even:", y)
     MakeMetricTooltip(yBreakeven, "TT_LBL_BREAKEVEN_TITLE", "TT_LBL_BREAKEVEN_BODY")
+
+    local yStats = y
+    rpDetail.metStatsFS, y = MakeMetricRow(L and L["LBL_STATS"] or "Stats:", y)
+    MakeMetricTooltip(yStats, "TT_LBL_STATS_TITLE", "TT_LBL_STATS_BODY")
 
     local missingFS = bodyRoot:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     missingFS:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, y)

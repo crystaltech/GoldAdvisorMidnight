@@ -271,6 +271,7 @@ GAM_PROFESSION_CRAFTS["Jewelcrafting"] = {
     id = "jewelcrafting__sin_dorei_lens_crafting__midnight_1",
     name = "Sin'dorei Lens Crafting",
     patchTag = "midnight-1",
+    recipeID = 1230475,
     formulaProfile = "jc_craft",
     inputs = {
       {
@@ -296,6 +297,7 @@ GAM_PROFESSION_CRAFTS["Jewelcrafting"] = {
     id = "jewelcrafting__sunglass_vial_crafting__midnight_1",
     name = "Sunglass Vial Crafting",
     patchTag = "midnight-1",
+    recipeID = 1230476,
     formulaProfile = "jc_craft",
     inputs = {
       {

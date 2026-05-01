@@ -180,6 +180,28 @@ function Formula.RunSmokeChecks()
         })
         assertNear(fixedInput.expectedOutput, 3443.708609, "fixed-input formula example")
 
+        local sunglassDefault = Formula.CalculateFixedCrafts({
+            crafts = 20,
+            baseYield = 1,
+            mcPercent = 0.30,
+            mcExtra = 0.50,
+            supportsMulticraft = true,
+        })
+        assertNear(sunglassDefault.expectedOutput, 32.45, "Sunglass Vial default hidden MC")
+        assert(math.floor((sunglassDefault.expectedOutput or 0) + 0.5) == 32,
+            "Sunglass Vial default hidden MC should round to 32")
+
+        local sunglassPartial = Formula.CalculateFixedCrafts({
+            crafts = 20,
+            baseYield = 1,
+            mcPercent = 0.30,
+            mcExtra = 0.25,
+            supportsMulticraft = true,
+        })
+        assertNear(sunglassPartial.expectedOutput, 30.875, "Sunglass Vial partial hidden MC")
+        assert(math.floor((sunglassPartial.expectedOutput or 0) + 0.5) == 31,
+            "Sunglass Vial partial hidden MC should round to 31")
+
         local fixedCrafts = Formula.CalculateFixedCrafts({
             crafts = 1000,
             baseYield = 2,
