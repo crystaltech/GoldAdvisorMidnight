@@ -936,7 +936,7 @@ function Bridge.ImportCachedV2StatSnapshotsFromCraftSim()
     local count = 0
     for _, snapshot in pairs(snapshots) do
         local ok, status = StoreV2ProfileSnapshot(snapshot.profession, snapshot)
-        if ok and status ~= "preserved-existing" then
+        if ok and not status then
             count = count + 1
         end
     end

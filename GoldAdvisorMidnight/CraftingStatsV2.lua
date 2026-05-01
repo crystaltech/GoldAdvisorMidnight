@@ -115,6 +115,7 @@ local function EnsureCache()
     db.v2StatCache = db.v2StatCache or {}
     local cache = db.v2StatCache
     cache.version = CACHE_VERSION
+    cache.revision = tonumber(cache.revision) or 0
     cache.characters = cache.characters or {}
 
     -- Lazily migrate the first test-branch profile cache shape:
@@ -142,6 +143,90 @@ local function EnsureCache()
     character.manualProfiles = character.manualProfiles or {}
     character.nodeState = character.nodeState or {}
     return character, uid, cache
+end
+
+local runtimeRevision = 0
+
+local function TouchRevision(character, cache)
+    runtimeRevision = runtimeRevision + 1
+    if type(cache) ~= "table" then
+        local ignoredCharacter, ignoredUID
+        ignoredCharacter, ignoredUID, cache = EnsureCache()
+    end
+    if type(cache) == "table" then
+        cache.revision = (tonumber(cache.revision) or 0) + 1
+    end
+    if type(character) == "table" then
+        character.revision = (tonumber(character.revision) or 0) + 1
+    end
+end
+
+function Stats.GetRevision()
+    local _, _, cache = EnsureCache()
+    if type(cache) == "table" then
+        return tonumber(cache.revision) or 0
+    end
+    return runtimeRevision
+end
+
+local MATERIAL_SNAPSHOT_FIELDS = {
+    "source",
+    "cachedSource",
+    "profileKey",
+    "recipeID",
+    "recipeName",
+    "profession",
+    "statQuality",
+    "multiPercent",
+    "resPercent",
+    "multiExtra",
+    "resExtra",
+    "supportsMulticraft",
+    "supportsResourcefulness",
+    "mcConstant",
+    "resourcefulnessSaveBase",
+    "nodeHash",
+}
+
+local function ScalarEqual(a, b)
+    local na = tonumber(a)
+    local nb = tonumber(b)
+    if na ~= nil or nb ~= nil then
+        return na ~= nil and nb ~= nil and math.abs(na - nb) < 0.000001
+    end
+    return a == b
+end
+
+local function NumericTableEqual(a, b)
+    if a == nil and b == nil then
+        return true
+    end
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+    for key, value in pairs(a) do
+        if not ScalarEqual(value, b[key]) then
+            return false
+        end
+    end
+    for key in pairs(b) do
+        if a[key] == nil then
+            return false
+        end
+    end
+    return true
+end
+
+local function SnapshotMateriallyEqual(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+    for _, field in ipairs(MATERIAL_SNAPSHOT_FIELDS) do
+        if not ScalarEqual(a[field], b[field]) then
+            return false
+        end
+    end
+    return NumericTableEqual(a.multicraftConstants, b.multicraftConstants)
 end
 
 local function ResolveProfessionDef(profession)
@@ -968,7 +1053,7 @@ function Stats.SaveSnapshot(snapshot)
         return false, "missing-profile"
     end
 
-    local character = EnsureCache()
+    local character, _, cache = EnsureCache()
     if not character then
         return false, "no-db"
     end
@@ -976,29 +1061,40 @@ function Stats.SaveSnapshot(snapshot)
     normalized.capturedAt = normalized.capturedAt or GetCurrentTimestamp()
     normalized.source = normalized.source or "gam-cache-profile"
     local preservedExisting = false
+    local changed = false
 
     if normalized.recipeID then
         local recipeKey = tostring(normalized.recipeID)
         if ShouldPreserveExistingSnapshot(character.recipes[recipeKey], normalized) then
             preservedExisting = true
-        else
+        elseif not SnapshotMateriallyEqual(character.recipes[recipeKey], normalized) then
             character.recipes[recipeKey] = CopySnapshot(normalized)
+            changed = true
         end
     end
 
     if ShouldPreserveExistingSnapshot(character.profiles[normalized.profileKey], normalized) then
         preservedExisting = true
-    else
+    elseif not SnapshotMateriallyEqual(character.profiles[normalized.profileKey], normalized) then
         character.profiles[normalized.profileKey] = CopySnapshot(normalized)
+        changed = true
     end
-    return true, preservedExisting and "preserved-existing" or nil
+
+    if changed then
+        TouchRevision(character, cache)
+        return true, nil
+    end
+    if preservedExisting then
+        return true, "preserved-existing"
+    end
+    return true, "unchanged"
 end
 
 function Stats.SetManualProfile(profileKey, values)
     if not profileKey then
         return false, "missing-profile"
     end
-    local character = EnsureCache()
+    local character, _, cache = EnsureCache()
     if not character then
         return false, "no-db"
     end
@@ -1007,7 +1103,10 @@ function Stats.SetManualProfile(profileKey, values)
     manual.profileKey = profileKey
     manual.source = "manual"
     manual.capturedAt = GetCurrentTimestamp()
-    character.manualProfiles[profileKey] = manual
+    if not SnapshotMateriallyEqual(character.manualProfiles[profileKey], manual) then
+        character.manualProfiles[profileKey] = manual
+        TouchRevision(character, cache)
+    end
     return true, nil
 end
 
@@ -1127,7 +1226,7 @@ function Stats.CaptureOpenRecipe()
 end
 
 function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
-    local character = EnsureCache()
+    local character, _, cache = EnsureCache()
     if not character then
         return nil, "no-db"
     end
@@ -1187,6 +1286,7 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
     if type(meta) == "table" then
         state.meta = CopySerializableTable(meta)
     end
+    TouchRevision(character, cache)
 
     return CopySerializableTable(state), nil
 end
@@ -1207,7 +1307,7 @@ function Stats.CaptureOpenProfessionNodes(profession)
 end
 
 function Stats.SetManualNodeRank(profession, nodeID, rank, season)
-    local character = EnsureCache()
+    local character, _, cache = EnsureCache()
     if not character then
         return false, "no-db"
     end
@@ -1223,6 +1323,7 @@ function Stats.SetManualNodeRank(profession, nodeID, rank, season)
     state.manualOverrides = state.manualOverrides or {}
     state.manualOverrides[tonumber(nodeID)] = ClampRank(rank, node.maxRank)
     state.manualUpdatedAt = GetCurrentTimestamp()
+    TouchRevision(character, cache)
     return true, nil
 end
 
@@ -1240,18 +1341,19 @@ function Stats.SetManualNodeRanks(profession, ranks, season)
 end
 
 function Stats.ResetProfessionNodesToCaptured(profession, season)
-    local character = EnsureCache()
+    local character, _, cache = EnsureCache()
     local state = character and EnsureProfessionNodeState(character, profession, season or SEASON_KEY)
     if not state then
         return false, "unsupported-profession"
     end
     state.manualOverrides = {}
     state.manualUpdatedAt = GetCurrentTimestamp()
+    TouchRevision(character, cache)
     return true, nil
 end
 
 function Stats.ResetProfessionNodesToDefaults(profession, season)
-    local character = EnsureCache()
+    local character, _, cache = EnsureCache()
     if not character then
         return false, "no-db"
     end
@@ -1273,6 +1375,7 @@ function Stats.ResetProfessionNodesToDefaults(profession, season)
         end
     end
     state.manualUpdatedAt = GetCurrentTimestamp()
+    TouchRevision(character, cache)
     return true, nil
 end
 

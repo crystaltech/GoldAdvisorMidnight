@@ -211,6 +211,7 @@ local compactBtn      = nil -- compact mode toggle button ref
 local compactActive   = false -- tracks whether compact mode layout is currently applied
 local listMetricCache = {}
 local listMetricPatch = nil
+local listMetricSignature = nil
 local bestStratCardDirty = true
 local builtThemeKey   = nil
 local scrollBarTopOffset = LIST_TOP_PAD + 4
@@ -254,6 +255,62 @@ local function GetL() return GAM.L end
 
 local function IsShiftScanModifierActive()
     return IsShiftKeyDown and IsShiftKeyDown()
+end
+
+local function AddMetricSignaturePart(parts, key, value)
+    parts[#parts + 1] = tostring(key or "?") .. "=" .. tostring(value == nil and "" or value)
+end
+
+local function GetCraftingStatsRevision()
+    if GAM.CraftingStatsV2 and type(GAM.CraftingStatsV2.GetRevision) == "function" then
+        return GAM.CraftingStatsV2.GetRevision()
+    end
+    return 0
+end
+
+local metricStatOptionKeys = nil
+
+local function GetMetricStatOptionKeys()
+    if metricStatOptionKeys then
+        return metricStatOptionKeys
+    end
+
+    local statKeys = {}
+    local seenKeys = {}
+    for _, profileDef in pairs(GetFormulaProfiles() or {}) do
+        for _, field in ipairs({ "multiKey", "resKey", "mcNodeKey", "rsNodeKey" }) do
+            local key = profileDef and profileDef[field]
+            if key and not seenKeys[key] then
+                seenKeys[key] = true
+                statKeys[#statKeys + 1] = key
+            end
+        end
+    end
+    table.sort(statKeys)
+    metricStatOptionKeys = statKeys
+    return metricStatOptionKeys
+end
+
+local function BuildListMetricSignature()
+    local opts = GetOpts()
+    local parts = {}
+
+    AddMetricSignaturePart(parts, "patch", filterPatch)
+    AddMetricSignaturePart(parts, "fill", opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY)
+    AddMetricSignaturePart(parts, "rank", opts.rankPolicy or GAM.C.DEFAULT_RANK_POLICY)
+    AddMetricSignaturePart(parts, "engine", opts.pricingEngine or "v2")
+    AddMetricSignaturePart(parts, "v2mode", opts.v2PricingMode or GAM.C.DEFAULT_V2_PRICING_MODE)
+    AddMetricSignaturePart(parts, "ahCut", opts.ahCut or GAM.C.AH_CUT)
+    AddMetricSignaturePart(parts, "pigment", opts.pigmentCostSource or "ah")
+    AddMetricSignaturePart(parts, "bolt", opts.boltCostSource or "ah")
+    AddMetricSignaturePart(parts, "ingot", opts.ingotCostSource or "ah")
+    AddMetricSignaturePart(parts, "statsRev", GetCraftingStatsRevision())
+
+    for _, key in ipairs(GetMetricStatOptionKeys()) do
+        AddMetricSignaturePart(parts, key, opts[key])
+    end
+
+    return table.concat(parts, "|")
 end
 
 local function RememberWindowState(isOpen)
@@ -591,12 +648,13 @@ end
 local function ClearListMetricCache()
     listMetricCache = {}
     listMetricPatch = filterPatch
+    listMetricSignature = BuildListMetricSignature()
     bestStratCardDirty = true
 end
 
 local function GetListMetric(strat)
     if not strat then return nil end
-    if listMetricPatch ~= filterPatch then
+    if listMetricPatch ~= filterPatch or listMetricSignature ~= BuildListMetricSignature() then
         ClearListMetricCache()
     end
     local id = strat.id
@@ -620,13 +678,26 @@ local function InvalidateListMetric(stratID, patchTag)
     ClearListMetricCache()
 end
 
-local function GetStratMetric(strat, patchTag)
+local function StoreListMetric(strat, patchTag, metrics)
+    if not (strat and strat.id and metrics) then
+        return
+    end
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    if patchTag ~= filterPatch then
+        return
+    end
+    if listMetricPatch ~= filterPatch or listMetricSignature ~= BuildListMetricSignature() then
+        ClearListMetricCache()
+    end
+    listMetricCache[strat.id] = metrics
+end
+
+local function GetFreshStratMetric(strat, patchTag)
     if not strat then return nil end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    if patchTag == filterPatch then
-        return GetListMetric(strat)
-    end
-    return GAM.Pricing.CalculateStratMetricsActive(strat, patchTag)
+    local metrics = GAM.Pricing.CalculateStratMetricsActive(strat, patchTag)
+    StoreListMetric(strat, patchTag, metrics)
+    return metrics
 end
 
 local function BuildPlayerProfessionSet()
@@ -973,7 +1044,7 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
         return nil
     end
     if not strat then return nil end
-    local m = GetStratMetric(strat, patchTag or GAM.C.DEFAULT_PATCH)
+    local m = GetFreshStratMetric(strat, patchTag or GAM.C.DEFAULT_PATCH)
     if not m then return nil end
 
     local addonName  = "GoldAdvisorMidnight"
@@ -1140,7 +1211,7 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     GAM.AHScan.StopScan()
     GAM.AHScan.ResetQueue()
 
-    local displayedMetrics = GetStratMetric(strat, pt)
+    local displayedMetrics = GetFreshStratMetric(strat, pt)
     local displayed = (GAM.Pricing and GAM.Pricing.GetDisplayedItemSet and GAM.Pricing.GetDisplayedItemSet(strat, pt, displayedMetrics)) or strat
     local seenIDs = {}
     local seenNames = {}
@@ -1208,11 +1279,11 @@ local function ScanSingleStrategy(strat, patchTag, callback)
 end
 
 local function ScanSelectedStrategyAction(strat, patchTag, callback)
-    if not strat then
-        return
-    end
     if IsShiftScanModifierActive() then
         ScanVisibleFavoriteStrats()
+        return
+    end
+    if not strat then
         return
     end
     ScanSingleStrategy(strat, patchTag, callback)
@@ -1344,6 +1415,15 @@ local function GetVisibleFavoriteStrats()
     return favorites
 end
 
+local function HasVisibleFavorites()
+    for _, strat in ipairs(filteredList or {}) do
+        if strat and strat.id and IsFavorite(strat.id) then
+            return true
+        end
+    end
+    return false
+end
+
 ScanVisibleFavoriteStrats = function()
     local L = GetL()
     if not GAM.AHScan then
@@ -1384,6 +1464,16 @@ RefreshScanButtonLabels = function()
             and ((L and L["BTN_SCAN_FAVS"]) or "Scan Favs")
             or ((L and L["BTN_SCAN_SELECTED"]) or "Scan Selected Strat")
         selectedScanBtn:SetText(selectedLabel)
+
+        local canScan = (selectedStratID and rpDetail and rpDetail.currentStrat)
+            or (shiftActive and HasVisibleFavorites())
+        if canScan then
+            selectedScanBtn:Enable()
+            selectedScanBtn:SetAlpha(1)
+        else
+            selectedScanBtn:Disable()
+            selectedScanBtn:SetAlpha(0.45)
+        end
     end
 
     if rpDetail and rpDetail.btnScanStrat then
@@ -1769,7 +1859,7 @@ ShowInlineDetail = function(strat, patchTag)
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     GAM.Pricing.PreloadStratItemData(strat, patchTag)
     RefreshBestStratCard()
-    local metrics = GetStratMetric(strat, patchTag)
+    local metrics = GetFreshStratMetric(strat, patchTag)
     local rendered = DetailUI.Render({
         rpDetail = rpDetail,
         strat = strat,
@@ -1846,7 +1936,6 @@ local function BuildInlineDetail(panel)
             end
         end,
         onScanSelected = function()
-            if not rpDetail.currentStrat then return end
             ScanSelectedStrategyAction(
                 rpDetail.currentStrat,
                 rpDetail.currentPatch,
@@ -1950,7 +2039,6 @@ local function BuildLeftPanelContent(L, C, LP)
         end,
         doScan = DoScan,
         scanSelectedStrat = function()
-            if not rpDetail.currentStrat then return end
             ScanSelectedStrategyAction(
                 rpDetail.currentStrat,
                 rpDetail.currentPatch,

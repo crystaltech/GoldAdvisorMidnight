@@ -1013,6 +1013,7 @@ local function HandleV2CaptureCommand()
             tostring(snapshot.recipeID or "-"),
             tostring(snapshot.source or snapshot.cachedSource or "-"),
             tostring(snapshot.nodeHash or "-"))
+        RefreshPricingViews()
         return
     end
 
@@ -1023,6 +1024,7 @@ local function HandleV2CaptureCommand()
     if imported > 0 then
         GAM.Log.Info("CraftingStatsV2: no open recipe captured; imported %d cached CraftSim profile snapshot(s) instead.",
             imported)
+        RefreshPricingViews()
     elseif craftSimErr or nativeErr then
         GAM.Log.Warn("CraftingStatsV2: capture failed: CraftSim=%s native=%s. Open a profession recipe first, then run /gam v2capture.",
             tostring(craftSimErr or "unavailable"),
