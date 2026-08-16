@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Tailoring"] = {
     id = "tailoring__bright_linen_bolt__midnight_1",
     name = "Bright Linen Bolt",
     patchTag = "midnight-1",
+    recipeID = 1228939,
     formulaProfile = "tailoring",
     inputs = {
       {
@@ -33,6 +34,7 @@ GAM_PROFESSION_CRAFTS["Tailoring"] = {
     id = "tailoring__imbued_bright_linen_bolt__midnight_1",
     name = "Imbued Bright Linen Bolt",
     patchTag = "midnight-1",
+    recipeID = 1228940,
     formulaProfile = "tailoring",
     inputs = {
       {

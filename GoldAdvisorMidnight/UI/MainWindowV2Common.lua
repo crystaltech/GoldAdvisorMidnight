@@ -132,7 +132,7 @@ Common.SOFT_LAYOUT = {
     detailWidth = 408,
     cardGap = 18,
     outerPadding = 18,
-    guideHeight = 176,
+    guideHeight = 58,
     cardContentInsets = { left = 22, right = 22, top = 20, bottom = 20 },
     collapseGap = 12,
     compactPadding = 18,
@@ -656,60 +656,27 @@ function Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf,
     return true
 end
 
-function Common.GetActiveColumnConfig(filterMode, filterProf, listColumnsAll, listColumnsFiltered)
-    if filterMode == "mine" then
-        return listColumnsAll
-    end
-    return (filterProf == "All") and listColumnsAll or listColumnsFiltered
-end
+function Common.BuildRuntimeColumns(rowW)
+    -- Keep the comparison model stable as panels open and close. Profession is
+    -- already represented by the filter and row tooltip; missing prices use the
+    -- existing dash plus tooltip instead of consuming a mostly-empty Status column.
+    local gap = 8
+    -- Reserve the scrollbar/collapse-button gutter so ROI never sits under the
+    -- right panel toggle or clips against the center panel edge.
+    local usable = math.max(300, rowW - 40)
+    local roiW = 68
+    local profitW = math.min(156, math.max(118, math.floor(usable * 0.24)))
+    local nameW = usable - profitW - roiW - gap * 2
+    local x = 10
+    local cols = {
+        { id="stratName", x=x, w=nameW, hKey="COL_STRAT", sKey="stratName", j="LEFT" },
+    }
+    x = x + nameW + gap
+    cols[#cols + 1] = { id="profit", x=x, w=profitW, hKey="COL_PROFIT", sKey="profit", j="RIGHT" }
+    x = x + profitW + gap
+    cols[#cols + 1] = { id="roi", x=x, w=roiW, hKey="COL_ROI", sKey="roi", j="RIGHT" }
 
-function Common.BuildRuntimeColumns(rowW, showProfession)
-    local cols = {}
-    local showStatus = rowW >= (showProfession and 560 or 430)
-    local gap = 6
-    local usable = math.max(220, rowW - 12)
-
-    if showProfession then
-        local statusW = showStatus and 56 or 0
-        local roiW = 58
-        local profitW = 100
-        local profW = math.max(76, math.floor(usable * 0.18))
-        local nameW = usable - profW - profitW - roiW - statusW - gap * (showStatus and 4 or 3)
-        if nameW < 150 then
-            local delta = 150 - nameW
-            profW = math.max(68, profW - delta)
-            nameW = usable - profW - profitW - roiW - statusW - gap * (showStatus and 4 or 3)
-        end
-        local x = 10
-        cols[#cols + 1] = { id="stratName",  x=x, w=nameW,  hKey="COL_STRAT",  sKey="stratName",  j="LEFT"  }
-        x = x + nameW + gap
-        cols[#cols + 1] = { id="profession", x=x, w=profW,  hKey="COL_PROF",   sKey="profession", j="LEFT"  }
-        x = x + profW + gap
-        cols[#cols + 1] = { id="profit",     x=x, w=profitW,hKey="COL_PROFIT", sKey="profit",     j="CENTER" }
-        x = x + profitW + gap
-        cols[#cols + 1] = { id="roi",        x=x, w=roiW,   hKey="COL_ROI",    sKey="roi",        j="CENTER" }
-        if showStatus then
-            x = x + roiW + gap
-            cols[#cols + 1] = { id="status", x=x, w=statusW,hKey="COL_STATUS", sKey=nil,          j="LEFT"  }
-        end
-    else
-        local statusW = showStatus and 58 or 0
-        local roiW = 58
-        local profitW = 110
-        local nameW = usable - profitW - roiW - statusW - gap * (showStatus and 3 or 2)
-        local x = 10
-        cols[#cols + 1] = { id="stratName", x=x, w=nameW,  hKey="COL_STRAT",  sKey="stratName", j="LEFT"  }
-        x = x + nameW + gap
-        cols[#cols + 1] = { id="profit",    x=x, w=profitW,hKey="COL_PROFIT", sKey="profit",    j="CENTER" }
-        x = x + profitW + gap
-        cols[#cols + 1] = { id="roi",       x=x, w=roiW,   hKey="COL_ROI",    sKey="roi",       j="CENTER" }
-        if showStatus then
-            x = x + roiW + gap
-            cols[#cols + 1] = { id="status", x=x, w=statusW,hKey="COL_STATUS", sKey=nil,        j="LEFT"  }
-        end
-    end
-
-    return cols, showProfession
+    return cols
 end
 
 function Common.GetVisibleListRows(listHost, rowHeight, maxRows)
@@ -724,7 +691,7 @@ function Common.GetVisibleListRows(listHost, rowHeight, maxRows)
 end
 
 function Common.ApplyColumnLayout(args)
-    local runtimeCols, showProfession = Common.BuildRuntimeColumns(args.rowW or 0, args.showProfession)
+    local runtimeCols = Common.BuildRuntimeColumns(args.rowW or 0)
     local L = args.localizer
     local colHeaderBtns = args.colHeaderBtns or {}
     local rowFrames = args.rowFrames or {}
@@ -757,23 +724,17 @@ function Common.ApplyColumnLayout(args)
         end
 
         row.nameText:Hide()
-        row.profText:Hide()
         row.profitText:Hide()
         row.roiText:Hide()
-        row.missingText:Hide()
 
         for _, col in ipairs(runtimeCols) do
             local fs
             if col.id == "stratName" then
                 fs = row.nameText
-            elseif col.id == "profession" then
-                fs = row.profText
             elseif col.id == "profit" then
                 fs = row.profitText
             elseif col.id == "roi" then
                 fs = row.roiText
-            elseif col.id == "status" then
-                fs = row.missingText
             end
 
             if fs then
@@ -787,9 +748,7 @@ function Common.ApplyColumnLayout(args)
             end
         end
 
-        row.profText:SetShown(showProfession)
-        row.profSubText:Hide()
     end
 
-    return runtimeCols, showProfession
+    return runtimeCols
 end

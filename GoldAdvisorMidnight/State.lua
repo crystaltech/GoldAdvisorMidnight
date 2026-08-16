@@ -13,6 +13,7 @@ local PATCH_TABLE_KEYS = {
     "priceOverrides",
     "inputQtyOverrides",
     "craftsOverrides",
+    "gearModes",
 }
 
 local FAVORITE_POLICIES = {
@@ -193,60 +194,6 @@ end
 function State.GetItemKeyDB()
     local db = EnsureDB()
     return (db and db.itemKeyDB) or {}
-end
-
-function State.GetUserStrats()
-    local db = EnsureDB()
-    return (db and db.userStrats) or {}
-end
-
-function State.AddUserStrat(strat)
-    local db = EnsureDB()
-    if not db or not strat then
-        return nil
-    end
-    db.userStrats[#db.userStrats + 1] = strat
-    return #db.userStrats
-end
-
-function State.ReplaceUserStrat(index, strat)
-    local db = EnsureDB()
-    if not db or not index or not strat then
-        return false
-    end
-    db.userStrats[index] = strat
-    return true
-end
-
-function State.DeleteUserStratAt(index)
-    local db = EnsureDB()
-    if not db or not index or not db.userStrats[index] then
-        return nil
-    end
-    return table.remove(db.userStrats, index)
-end
-
-function State.FindUserStratIndex(strat)
-    if not strat then
-        return nil
-    end
-
-    for i, existing in ipairs(State.GetUserStrats()) do
-        if existing == strat or
-            (existing.stratName == strat.stratName and existing.profession == strat.profession) then
-            return i
-        end
-    end
-
-    return nil
-end
-
-function State.DeleteUserStrat(strat)
-    local index = State.FindUserStratIndex(strat)
-    if not index then
-        return nil
-    end
-    return State.DeleteUserStratAt(index)
 end
 
 function State.RunSmokeChecks()

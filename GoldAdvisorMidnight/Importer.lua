@@ -11,312 +11,23 @@ local stratsByPatch = {}
 local stratsByProfession = {}
 local allStrats = {}
 local producerIndexByPatch = {}
+local lastInitStats = {}
 
 local function GetSupportedProfessionSeed()
     return (GAM.C and GAM.C.SUPPORTED_PROFESSIONS) or {}
 end
 
-local function NormStr(s)
-    return (s or ""):lower():gsub("[^a-z0-9]", "_"):gsub("_+", "_"):gsub("^_", ""):gsub("_$", "")
-end
-
-local function MakeStratID(profession, stratName, patchTag)
-    return NormStr(profession) .. "__" .. NormStr(stratName) .. "__" .. NormStr(patchTag)
-end
-
-local function GetItemCatalog()
-    return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.itemCatalog) or {}
-end
-
-local function CatalogIDsFor(itemRef)
-    local catalog = GetItemCatalog()
-    local ids = catalog[itemRef]
-    if ids and #ids > 0 then
-        return ids
-    end
-    return {}
-end
-
-local function CopyIDs(ids)
-    local out = {}
-    if type(ids) == "table" then
-        for i, id in ipairs(ids) do
-            out[i] = id
-        end
-    end
-    return out
-end
-
-local function NormalizeCheapestOf(list)
-    if type(list) ~= "table" or #list == 0 then
-        return nil
-    end
-
-    local out = {}
-    for _, alt in ipairs(list) do
-        if type(alt) == "table" then
-            local itemRef = alt.itemRef or alt.name
-            local itemIDs = CopyIDs(alt.itemIDs)
-            if #itemIDs == 0 and itemRef then
-                itemIDs = CopyIDs(CatalogIDsFor(itemRef))
-            end
-            if itemRef or #itemIDs > 0 then
-                out[#out + 1] = {
-                    itemRef = itemRef,
-                    name = itemRef,
-                    itemIDs = itemIDs,
-                }
-            end
-        end
-    end
-
-    if #out == 0 then
-        return nil
-    end
-    return out
-end
-
-local function NormalizeOutput(output, startingAmt, defaultCrafts)
-    if type(output) ~= "table" then
-        return nil
-    end
-
-    local itemRef = output.itemRef or output.name
-    local crafts = tonumber(defaultCrafts) or tonumber(startingAmt) or 1
-    if crafts <= 0 then crafts = 1 end
-    local start = tonumber(startingAmt) or crafts
-    if start <= 0 then start = crafts end
-
-    local baseYieldPerCraft = tonumber(output.baseYieldPerCraft)
-        or tonumber(output.baseAmount)
-    local baseYield = tonumber(output.baseYield)
-    if type(baseYield) ~= "number" then
-        baseYield = tonumber(output.baseYieldMultiplier) or tonumber(output.qtyMultiplier)
-    end
-    if type(baseYieldPerCraft) ~= "number" and type(baseYield) == "number" then
-        baseYieldPerCraft = (baseYield * start) / crafts
-    end
-    if type(baseYield) ~= "number" and type(baseYieldPerCraft) == "number" then
-        baseYield = (baseYieldPerCraft * crafts) / start
-    end
-    if type(baseYieldPerCraft) ~= "number" or baseYieldPerCraft < 0 or type(baseYield) ~= "number" or baseYield < 0 then
-        return nil
-    end
-
-    local itemIDs = CopyIDs(output.itemIDs)
-    if #itemIDs == 0 and itemRef then
-        itemIDs = CopyIDs(CatalogIDsFor(itemRef))
-    end
-
-    return {
-        itemRef = itemRef,
-        name = itemRef,
-        itemIDs = itemIDs,
-        baseYieldPerCraft = baseYieldPerCraft,
-        baseYield = baseYield,
-        baseYieldMultiplier = baseYield,
-        qtyMultiplier = baseYield,
-        workbookExpectedQty = tonumber(output.workbookExpectedQty),
-    }
-end
-
-local function NormalizeReagent(reagent, startingAmt, defaultCrafts)
-    if type(reagent) ~= "table" then
-        return nil
-    end
-
-    local itemRef = reagent.itemRef or reagent.name
-    local crafts = tonumber(defaultCrafts) or tonumber(startingAmt) or 1
-    if crafts <= 0 then crafts = 1 end
-    local start = tonumber(startingAmt) or crafts
-    if start <= 0 then start = crafts end
-
-    local qtyPerCraft = tonumber(reagent.qtyPerCraft)
-    local qtyPerStart = tonumber(reagent.qtyPerStart)
-    if type(qtyPerStart) ~= "number" then
-        qtyPerStart = tonumber(reagent.qtyMultiplier)
-    end
-    if type(qtyPerCraft) ~= "number" and type(qtyPerStart) == "number" then
-        qtyPerCraft = (qtyPerStart * start) / crafts
-    end
-    if type(qtyPerStart) ~= "number" and type(qtyPerCraft) == "number" then
-        qtyPerStart = (qtyPerCraft * crafts) / start
-    end
-    if type(qtyPerCraft) ~= "number" or qtyPerCraft < 0 or type(qtyPerStart) ~= "number" or qtyPerStart < 0 then
-        return nil
-    end
-
-    local itemIDs = CopyIDs(reagent.itemIDs)
-    if #itemIDs == 0 and itemRef then
-        itemIDs = CopyIDs(CatalogIDsFor(itemRef))
-    end
-
-    return {
-        itemRef = itemRef,
-        name = itemRef,
-        itemIDs = itemIDs,
-        qtyPerCraft = qtyPerCraft,
-        qtyPerStart = qtyPerStart,
-        qtyMultiplier = qtyPerStart,
-        workbookTotalQty = tonumber(reagent.workbookTotalQty),
-        cheapestOf = NormalizeCheapestOf(reagent.cheapestOf),
-        excludeFromCost = reagent.excludeFromCost and true or false,
-        skipDerivation = reagent.skipDerivation and true or false,
-    }
-end
-
-local function NormalizeVariant(rawVariant, src, profession, stratName, patchTag, fallbackStartingAmt, fallbackCrafts)
-    if type(rawVariant) ~= "table" then
-        return nil
-    end
-    local startingAmt = tonumber(rawVariant.defaultStartingAmount) or tonumber(fallbackStartingAmt) or 1000
-    if startingAmt <= 0 then
-        startingAmt = tonumber(fallbackStartingAmt) or 1000
-    end
-    local defaultCrafts = tonumber(rawVariant.defaultCrafts) or tonumber(fallbackCrafts) or startingAmt
-    if defaultCrafts <= 0 then
-        defaultCrafts = startingAmt
-    end
-
-    local outputs = {}
-    for _, output in ipairs(rawVariant.outputs or {}) do
-        local normalized = NormalizeOutput(output, startingAmt, defaultCrafts)
-        if normalized then
-            outputs[#outputs + 1] = normalized
-        end
-    end
-    if #outputs == 0 and type(rawVariant.output) == "table" then
-        local normalized = NormalizeOutput(rawVariant.output, startingAmt, defaultCrafts)
-        if normalized then outputs[1] = normalized end
-    end
-    if #outputs == 0 then
-        GAM.Log.Warn("Importer: %s '%s' — invalid rank variant outputs", src, stratName)
-        return nil
-    end
-
-    local reagents = {}
-    for i, reagent in ipairs(rawVariant.reagents or {}) do
-        local normalized = NormalizeReagent(reagent, startingAmt, defaultCrafts)
-        if not normalized then
-            GAM.Log.Warn("Importer: %s '%s' — invalid rank variant reagent[%d]", src, stratName, i)
-            return nil
-        end
-        reagents[#reagents + 1] = normalized
-    end
-    if #reagents == 0 then
-        GAM.Log.Warn("Importer: %s '%s' — invalid rank variant reagents", src, stratName)
-        return nil
-    end
-
-    return {
-        defaultStartingAmount = startingAmt,
-        defaultCrafts = defaultCrafts,
-        outputs = outputs,
-        output = outputs[1],
-        reagents = reagents,
-    }
-end
-
 local function NormalizeStrat(raw, src, isUser)
-    if type(raw) ~= "table" then
-        GAM.Log.Warn("Importer: %s — skipping non-table entry", src)
+    local model = GAM.StrategyModel
+    if not (model and model.Normalize) then
+        GAM.Log.Warn("Importer: StrategyModel is unavailable")
         return nil
     end
-
-    local profession = raw.profession
-    local stratName = raw.stratName
-    if type(profession) ~= "string" or profession == "" then
-        GAM.Log.Warn("Importer: %s — missing profession", src)
-        return nil
+    local strategy, err = model.Normalize(raw, src, isUser)
+    if not strategy then
+        GAM.Log.Warn("Importer: %s", tostring(err or "normalization failed"))
     end
-    if type(stratName) ~= "string" or stratName == "" then
-        GAM.Log.Warn("Importer: %s — missing stratName", src)
-        return nil
-    end
-
-    local patchTag = raw.patchTag or GAM.C.DEFAULT_PATCH
-    local startingAmt = tonumber(raw.defaultStartingAmount) or 1000
-    if startingAmt <= 0 then
-        startingAmt = 1000
-    end
-    local defaultCrafts = tonumber(raw.defaultCrafts) or startingAmt
-    if defaultCrafts <= 0 then
-        defaultCrafts = startingAmt
-    end
-
-    local outputs = {}
-    if type(raw.outputs) == "table" and #raw.outputs > 0 then
-        for _, output in ipairs(raw.outputs) do
-            local normalized = NormalizeOutput(output, startingAmt, defaultCrafts)
-            if normalized then
-                outputs[#outputs + 1] = normalized
-            end
-        end
-    elseif type(raw.output) == "table" then
-        local normalized = NormalizeOutput(raw.output, startingAmt, defaultCrafts)
-        if normalized then
-            outputs[1] = normalized
-        end
-    end
-
-    if #outputs == 0 then
-        GAM.Log.Warn("Importer: %s '%s' — missing valid outputs", src, stratName)
-        return nil
-    end
-
-    local reagents = {}
-    if type(raw.reagents) ~= "table" then
-        GAM.Log.Warn("Importer: %s '%s' — missing reagents table", src, stratName)
-        return nil
-    end
-    for i, reagent in ipairs(raw.reagents) do
-        local normalized = NormalizeReagent(reagent, startingAmt, defaultCrafts)
-        if not normalized then
-            GAM.Log.Warn("Importer: %s '%s' — invalid reagent[%d]", src, stratName, i)
-            return nil
-        end
-        reagents[#reagents + 1] = normalized
-    end
-
-    local rankVariants = nil
-    if type(raw.rankVariants) == "table" then
-        rankVariants = {}
-        for variantKey, variantRaw in pairs(raw.rankVariants) do
-            local normalized = NormalizeVariant(variantRaw, src, profession, stratName, patchTag, startingAmt, defaultCrafts)
-            if normalized then
-                rankVariants[variantKey] = normalized
-            end
-        end
-        if next(rankVariants) == nil then
-            rankVariants = nil
-        end
-    end
-
-    local strat = {
-        id = raw.id or MakeStratID(profession, stratName, patchTag),
-        patchTag = patchTag,
-        profession = profession,
-        stratName = stratName,
-        sourceTab = raw.sourceTab or profession,
-        sourceBlock = raw.sourceBlock,
-        recipeID = tonumber(raw.recipeID),
-        recipeName = raw.recipeName,
-        defaultStartingAmount = startingAmt,
-        defaultCrafts = defaultCrafts,
-        qualityPolicy = raw.qualityPolicy or ((stratName:lower():find("q2", 1, true) and "force_q2_inputs") or "normal"),
-        formulaProfile = raw.formulaProfile,
-        statProfileKey = raw.statProfileKey or raw.formulaProfile,
-        calcMode = raw.calcMode or (raw.formulaProfile and "formula") or "fixed",
-        outputQualityMode = raw.outputQualityMode or "rank_policy",
-        notes = raw.notes or "",
-        outputs = outputs,
-        output = outputs[1],
-        reagents = reagents,
-        rankVariants = rankVariants,
-        _isUser = isUser or raw._isUser or false,
-    }
-
-    return strat
+    return strategy
 end
 
 local function IndexStrat(s)
@@ -344,17 +55,8 @@ local function IndexStrat(s)
 end
 
 local function BuildRecipeView(strat, variant)
-    if not strat then
-        return nil
-    end
-    variant = variant or {}
-    return {
-        defaultStartingAmount = variant.defaultStartingAmount or strat.defaultStartingAmount,
-        defaultCrafts = variant.defaultCrafts or strat.defaultCrafts or strat.defaultStartingAmount,
-        outputs = variant.outputs or strat.outputs,
-        output = (variant.outputs and variant.outputs[1]) or variant.output or strat.output,
-        reagents = variant.reagents or strat.reagents,
-    }
+    local model = GAM.StrategyModel
+    return model and model.ResolveRecipeView and model.ResolveRecipeView(strat, variant) or nil
 end
 
 local function IsEligibleProducerView(view)
@@ -392,32 +94,8 @@ local function IndexProducerView(strat, view, variantKey)
 end
 
 local function GetOrderedVariantKeys(rankVariants)
-    local ordered = {}
-    if type(rankVariants) ~= "table" then
-        return ordered
-    end
-
-    if rankVariants.lowest then
-        ordered[#ordered + 1] = "lowest"
-    end
-    if rankVariants.highest then
-        ordered[#ordered + 1] = "highest"
-    end
-
-    local extras = {}
-    for variantKey in pairs(rankVariants) do
-        if variantKey ~= "lowest" and variantKey ~= "highest" then
-            extras[#extras + 1] = variantKey
-        end
-    end
-    table.sort(extras, function(a, b)
-        return tostring(a) < tostring(b)
-    end)
-    for _, variantKey in ipairs(extras) do
-        ordered[#ordered + 1] = variantKey
-    end
-
-    return ordered
+    local model = GAM.StrategyModel
+    return model and model.GetOrderedVariantKeys and model.GetOrderedVariantKeys(rankVariants) or {}
 end
 
 local function RebuildProducerIndex()
@@ -437,25 +115,38 @@ end
 local function LoadRecipeList(list, src, isUser)
     local loaded = 0
     local skipped = 0
+    local commoditySkipped = 0
+    local disabledSkipped = 0
     if type(list) ~= "table" then
-        return loaded, skipped
+        return loaded, skipped, commoditySkipped, disabledSkipped
     end
 
     for _, raw in ipairs(list) do
         local strat = nil
+        local commodityRejected = false
         if type(raw) == "table" and raw.disabledReason then
             skipped = skipped + 1
+            disabledSkipped = disabledSkipped + 1
         else
-            strat = NormalizeStrat(raw, src, isUser)
+            local catalog = GAM.CommodityCatalog
+            local eligible = catalog and catalog.IsStrategyEligible
+                and catalog.IsStrategyEligible(raw)
+            if eligible then
+                strat = NormalizeStrat(raw, src, isUser)
+            else
+                skipped = skipped + 1
+                commoditySkipped = commoditySkipped + 1
+                commodityRejected = true
+            end
         end
         if strat then
             IndexStrat(strat)
             loaded = loaded + 1
-        elseif not (type(raw) == "table" and raw.disabledReason) then
+        elseif not commodityRejected and not (type(raw) == "table" and raw.disabledReason) then
             skipped = skipped + 1
         end
     end
-    return loaded, skipped
+    return loaded, skipped, commoditySkipped, disabledSkipped
 end
 
 function Importer.Init()
@@ -467,37 +158,94 @@ function Importer.Init()
 
     local loaded = 0
     local skipped = 0
+    local builtInLoaded = 0
+    local userLoaded = 0
+    local shadowedUserSkipped = 0
+    local commoditySkipped = 0
+    local disabledSkipped = 0
 
     if type(GAM_RECIPES_GENERATED) == "table" then
-        local l, s = LoadRecipeList(GAM_RECIPES_GENERATED, "Generated", false)
+        local l, s, c, d = LoadRecipeList(GAM_RECIPES_GENERATED, "Generated", false)
         loaded = loaded + l
         skipped = skipped + s
+        builtInLoaded = builtInLoaded + l
+        commoditySkipped = commoditySkipped + c
+        disabledSkipped = disabledSkipped + d
     elseif type(GAM_STRATS_GENERATED) == "table" then
-        local l, s = LoadRecipeList(GAM_STRATS_GENERATED, "GeneratedLegacy", false)
+        local l, s, c, d = LoadRecipeList(GAM_STRATS_GENERATED, "GeneratedLegacy", false)
         loaded = loaded + l
         skipped = skipped + s
+        builtInLoaded = builtInLoaded + l
+        commoditySkipped = commoditySkipped + c
+        disabledSkipped = disabledSkipped + d
         GAM.Log.Warn("Importer: using legacy generated strats fallback")
     else
         GAM.Log.Warn("Importer: no generated recipe table found")
     end
 
     if GAM.db and type(GAM.db.userStrats) == "table" then
-        local migrated = {}
         for _, raw in ipairs(GAM.db.userStrats) do
-            local strat = NormalizeStrat(raw, "User", true)
-            if strat then
-                migrated[#migrated + 1] = strat
-                IndexStrat(strat)
-                loaded = loaded + 1
+            local catalog = GAM.CommodityCatalog
+            local eligible = catalog and catalog.IsStrategyEligible
+                and catalog.IsStrategyEligible(raw)
+            if eligible then
+                local strat = NormalizeStrat(raw, "User", true)
+                if strat then
+                    local legacyID = type(raw) == "table" and raw.legacyID or nil
+                    local existing = stratsByID[strat.id]
+                    if not existing and legacyID then
+                        existing = stratsByID[legacyID]
+                    end
+                    if existing and not existing._isUser then
+                        -- Preserve the SavedVariables entry, but do not let a
+                        -- stale custom copy erase canonical recipe IDs,
+                        -- profiles, or rank data added to the shipped catalog.
+                        -- Migrated user entries may retain a generated strategy
+                        -- identity in legacyID while using a new user__ ID.
+                        skipped = skipped + 1
+                        shadowedUserSkipped = shadowedUserSkipped + 1
+                        GAM.Log.Warn(
+                            "Importer: preserved inactive user strategy '%s'; built-in '%s' is authoritative",
+                            tostring(strat.id), tostring(existing.id))
+                    else
+                        IndexStrat(strat)
+                        loaded = loaded + 1
+                        userLoaded = userLoaded + 1
+                    end
+                else
+                    skipped = skipped + 1
+                end
             else
+                -- Commodity-only 2.0 does not activate unverified custom
+                -- strategies, but SavedVariables remain intact for migration,
+                -- export, or a future commodity recipe editor.
                 skipped = skipped + 1
+                commoditySkipped = commoditySkipped + 1
             end
         end
-        GAM.db.userStrats = migrated
     end
 
     RebuildProducerIndex()
-    GAM.Log.Info("Importer: loaded %d strats, skipped %d", loaded, skipped)
+    local manifestCount = GAM.CommodityCatalog and GAM.CommodityCatalog.GetStrategyCount
+        and GAM.CommodityCatalog.GetStrategyCount() or 0
+    if manifestCount > 0 and builtInLoaded ~= manifestCount then
+        GAM.Log.Warn("Importer: commodity manifest expected %d built-ins, loaded %d",
+            manifestCount, builtInLoaded)
+    end
+    lastInitStats = {
+        loaded = loaded,
+        skipped = skipped,
+        builtInLoaded = builtInLoaded,
+        userLoaded = userLoaded,
+        commoditySkipped = commoditySkipped,
+        disabledSkipped = disabledSkipped,
+        shadowedUserSkipped = shadowedUserSkipped,
+        manifestCount = manifestCount,
+    }
+    GAM.Log.Info(
+        "Importer: loaded %d strats (%d built-in, %d user), skipped %d (%d noncommodity, %d disabled, %d shadowed)",
+        loaded, builtInLoaded, userLoaded, skipped, commoditySkipped, disabledSkipped,
+        shadowedUserSkipped)
 end
 
 function Importer.GetAllStrats(patchTag)
@@ -563,6 +311,14 @@ function Importer.GetStratCount(patchTag)
         return #(stratsByPatch[patchTag] or {})
     end
     return #allStrats
+end
+
+function Importer.GetInitStats()
+    local copy = {}
+    for key, value in pairs(lastInitStats) do
+        copy[key] = value
+    end
+    return copy
 end
 
 function Importer.GetProducerCandidates(itemID, patchTag)

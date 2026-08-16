@@ -12,7 +12,7 @@ local lastScanRefreshAt = 0
 -- ===== Layout constants =====
 local ROW_H        = 22
 local VISIBLE_ROWS = 40
-local CARD_H       = 120
+local CARD_H       = 52
 local LIST_SECTION_H = 22
 local HDR_H        = 20
 local LIST_TOP_PAD = CARD_H + LIST_SECTION_H + HDR_H + 16   -- offset from center top to listHost
@@ -22,6 +22,8 @@ local PANEL_TOGGLE_GAP = 10   -- px gap between left/right panels and center for
 local C_GR, C_GG, C_GB = 1.0, 0.82, 0.0        -- gold
 local C_DR, C_DG, C_DB, C_DA = 0.7, 0.57, 0.0, 0.7  -- dimmed gold (rules)
 local WindowManager = GAM.UI.WindowManager
+local StrategyListModel = GAM.UI.StrategyListModel
+local StrategyDetailModel = GAM.UI.StrategyDetailModel
 local Common = GAM.UI.MainWindowV2Common
 local DetailUI = GAM.UI.MainWindowV2Detail
 local LeftPanelUI = GAM.UI.MainWindowV2LeftPanel
@@ -123,23 +125,6 @@ local ApplyFontSize = Common.ApplyFontSize
 local ApplyTextShadow = Common.ApplyTextShadow
 local GetFormulaProfiles = Common.GetFormulaProfiles
 
--- ===== Column configs =====
--- ALL mode: show profession column
-local LIST_COLUMNS_ALL = {
-    { id="stratName",  x=14,  w=180, hKey="COL_STRAT",  sKey="stratName",  j="LEFT"  },
-    { id="profession", x=200, w=100, hKey="COL_PROF",   sKey="profession", j="LEFT"  },
-    { id="profit",     x=306, w=100, hKey="COL_PROFIT", sKey="profit",     j="CENTER" },
-    { id="roi",        x=412, w=58,  hKey="COL_ROI",    sKey="roi",        j="CENTER" },
-    { id="status",     x=476, w=60,  hKey="COL_STATUS", sKey=nil,          j="LEFT"  },
-}
--- FILTERED mode: wider name, profession shown as subtitle, no profession column
-local LIST_COLUMNS_FILTERED = {
-    { id="stratName", x=14,  w=270, hKey="COL_STRAT",  sKey="stratName", j="LEFT"  },
-    { id="profit",    x=290, w=110, hKey="COL_PROFIT", sKey="profit",    j="CENTER" },
-    { id="roi",       x=406, w=58,  hKey="COL_ROI",    sKey="roi",       j="CENTER" },
-    { id="status",    x=470, w=60,  hKey="COL_STATUS", sKey=nil,         j="LEFT"  },
-}
-
 local function NewThemeRefs()
     return {
         collapseButtons = {},
@@ -192,7 +177,6 @@ local sortKey       = "roi"
 local sortAsc       = true
 local scanning      = false
 local scanBtnLeft, scanBtnStatus
-local activeColConfig = LIST_COLUMNS_ALL
 local rpDetail      = {}   -- inline right-panel detail widget refs
 local suppressScrollCallback = false
 local selectedCraftSimBtn, selectedVIBreakdownBtn, selectedShoppingBtn, selectedScanBtn
@@ -209,9 +193,13 @@ local discordPopup
 local leftPanelChecks = {}  -- refs for left-panel cost source checkboxes
 local compactBtn      = nil -- compact mode toggle button ref
 local compactActive   = false -- tracks whether compact mode layout is currently applied
-local listMetricCache = {}
-local listMetricPatch = nil
-local listMetricSignature = nil
+local listMetricCache = StrategyListModel.NewMetricCache(function(strat, patchTag)
+    local facade = GAM.PricingFacade
+    if not (facade and facade.CalculateCurrent) then
+        return nil, "pricing-facade-unavailable"
+    end
+    return facade.CalculateCurrent(strat, patchTag)
+end)
 local bestStratCardDirty = true
 local builtThemeKey   = nil
 local scrollBarTopOffset = LIST_TOP_PAD + 4
@@ -298,8 +286,8 @@ local function BuildListMetricSignature()
     AddMetricSignaturePart(parts, "patch", filterPatch)
     AddMetricSignaturePart(parts, "fill", opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY)
     AddMetricSignaturePart(parts, "rank", opts.rankPolicy or GAM.C.DEFAULT_RANK_POLICY)
-    AddMetricSignaturePart(parts, "engine", opts.pricingEngine or "v2")
     AddMetricSignaturePart(parts, "v2mode", opts.v2PricingMode or GAM.C.DEFAULT_V2_PRICING_MODE)
+    AddMetricSignaturePart(parts, "priceSource", opts.priceSource or "ah")
     AddMetricSignaturePart(parts, "ahCut", opts.ahCut or GAM.C.AH_CUT)
     AddMetricSignaturePart(parts, "pigment", opts.pigmentCostSource or "ah")
     AddMetricSignaturePart(parts, "bolt", opts.boltCostSource or "ah")
@@ -442,32 +430,11 @@ local function ApplyTheme()
                     row.nameText:SetShadowColor(0, 0, 0, 0.08)
                 end
             end
-            if row.profText then
-                local muted = theme.mutedText or theme.bodyText
-                row.profText:SetTextColor(muted[1], muted[2], muted[3], muted[4] or 1)
-                ApplyFontSize(row.profText, theme == Common.THEMES.soft and 9 or 10)
-                if theme == Common.THEMES.soft and row.profText.SetShadowColor then
-                    row.profText:SetShadowOffset(1, -1)
-                    row.profText:SetShadowColor(0, 0, 0, 0.06)
-                end
-            end
-            if row.profSubText then
-                local muted = theme.mutedText or theme.bodyText
-                row.profSubText:SetTextColor(muted[1], muted[2], muted[3], muted[4] or 1)
-                ApplyFontSize(row.profSubText, theme == Common.THEMES.soft and 9 or 10)
-                if theme == Common.THEMES.soft and row.profSubText.SetShadowColor then
-                    row.profSubText:SetShadowOffset(1, -1)
-                    row.profSubText:SetShadowColor(0, 0, 0, 0.06)
-                end
-            end
             if row.profitText then
                 ApplyFontSize(row.profitText, theme == Common.THEMES.soft and 9 or 10)
             end
             if row.roiText then
                 ApplyFontSize(row.roiText, theme == Common.THEMES.soft and 9 or 10)
-            end
-            if row.missingText then
-                ApplyFontSize(row.missingText, theme == Common.THEMES.soft and 9 or 10)
             end
         end
         if rpDetail.profFS then
@@ -646,22 +613,13 @@ local function IsClickInFavoriteGutter(frameObj)
 end
 
 local function ClearListMetricCache()
-    listMetricCache = {}
-    listMetricPatch = filterPatch
-    listMetricSignature = BuildListMetricSignature()
+    listMetricCache:Reset(filterPatch, BuildListMetricSignature())
     bestStratCardDirty = true
 end
 
 local function GetListMetric(strat)
     if not strat then return nil end
-    if listMetricPatch ~= filterPatch or listMetricSignature ~= BuildListMetricSignature() then
-        ClearListMetricCache()
-    end
-    local id = strat.id
-    if id and listMetricCache[id] == nil then
-        listMetricCache[id] = GAM.Pricing.CalculateStratMetricsActive(strat, filterPatch)
-    end
-    return id and listMetricCache[id] or GAM.Pricing.CalculateStratMetricsActive(strat, filterPatch)
+    return listMetricCache:Get(strat, filterPatch, BuildListMetricSignature())
 end
 
 local function InvalidateListMetric(stratID, patchTag)
@@ -670,34 +628,11 @@ local function InvalidateListMetric(stratID, patchTag)
         return
     end
     if stratID then
-        listMetricCache[stratID] = nil
-        listMetricPatch = filterPatch
+        listMetricCache:Invalidate(stratID, patchTag)
         bestStratCardDirty = true
         return
     end
     ClearListMetricCache()
-end
-
-local function StoreListMetric(strat, patchTag, metrics)
-    if not (strat and strat.id and metrics) then
-        return
-    end
-    patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    if patchTag ~= filterPatch then
-        return
-    end
-    if listMetricPatch ~= filterPatch or listMetricSignature ~= BuildListMetricSignature() then
-        ClearListMetricCache()
-    end
-    listMetricCache[strat.id] = metrics
-end
-
-local function GetFreshStratMetric(strat, patchTag)
-    if not strat then return nil end
-    patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    local metrics = GAM.Pricing.CalculateStratMetricsActive(strat, patchTag)
-    StoreListMetric(strat, patchTag, metrics)
-    return metrics
 end
 
 local function BuildPlayerProfessionSet()
@@ -826,7 +761,7 @@ local function BuildStatusAndTicker(L, C, SB_H)
     tickerBorder:SetColorTexture(C_DR, C_DG, C_DB, 0.35)
     themeRefs.tickerBorder = tickerBorder
 
-    local SEP = "   \124cff888888\183\124r   "
+    local SEP = "   \124cff888888-\124r   "
     local tickerFS = tickerClip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     tickerFS:SetPoint("LEFT",  tickerClip, "LEFT",  8, 0)
     tickerFS:SetPoint("RIGHT", tickerClip, "RIGHT", -8, 0)
@@ -909,10 +844,6 @@ end
 
 local function StratMatchesFilter(strat)
     return Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingleSet, GetOpts().rankPolicy)
-end
-
-local function GetActiveColumnConfig()
-    return Common.GetActiveColumnConfig(filterMode, filterProf, LIST_COLUMNS_ALL, LIST_COLUMNS_FILTERED)
 end
 
 local function SetInputQtyOverride(stratID, patchTag, value)
@@ -1027,7 +958,7 @@ local function ItemRowEnter(self)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", FormatExpectedOutputTooltip(tt.expectedQty, tt.expectedQtyRaw)), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_NET_REVENUE"]) or "Total Net Revenue: %s", tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
-            GameTooltip:AddLine((L and L["TT_ROW_NET_NOTE"]) or "The visible Net column is craft-level net revenue, not a per-item price.", 1, 0.82, 0, true)
+            GameTooltip:AddLine((L and L["TT_ROW_NET_NOTE"]) or "Net is the total expected sale value for this craft plan, not the price of one item.", 1, 0.82, 0, true)
         end
     end
     GameTooltip:Show()
@@ -1044,8 +975,10 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
         return nil
     end
     if not strat then return nil end
-    local m = GetFreshStratMetric(strat, patchTag or GAM.C.DEFAULT_PATCH)
-    if not m then return nil end
+    local canonicalResult = GAM.PricingFacade.CalculateCurrent(
+        strat,
+        patchTag or GAM.C.DEFAULT_PATCH)
+    if not canonicalResult then return nil end
 
     local addonName  = "GoldAdvisorMidnight"
     local hasConvert = type(Auctionator.API.v1.ConvertToSearchString) == "function"
@@ -1053,7 +986,7 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
     local signatureParts = {}
     local items = {}
 
-    for _, rm in ipairs(m.reagents or {}) do
+    for _, rm in ipairs(canonicalResult.shoppingReagents or {}) do
         local qty = math.floor(rm.needToBuy or 0)
         if qty > 0 then
             local entry
@@ -1079,6 +1012,7 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
                     itemID = rm.itemID,
                     name = searchData.displayName,
                     quantity = qty,
+                    unitPrice = rm.unitPrice,
                 }
             end
         end
@@ -1089,7 +1023,7 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
     return {
         addonName = addonName,
         listName = GAM.L["AUCTIONATOR_LIST_NAME"],
-        metrics = m,
+        canonicalResult = canonicalResult,
         searchStrings = searchStrings,
         items = items,
         signature = signature,
@@ -1105,11 +1039,16 @@ local function CreateAuctionatorShoppingList(strat, patchTag, quiet)
     end
 
     Auctionator.API.v1.CreateShoppingList(payload.addonName, payload.listName, payload.searchStrings)
-    GAM.quickBuyList = {
+    local quickBuyList = {
         listName = payload.listName,
         entries = payload.items,
         signature = payload.signature,
     }
+    if GAM.QuickBuy and GAM.QuickBuy.SetList then
+        GAM.QuickBuy.SetList(quickBuyList)
+    else
+        GAM.quickBuyList = quickBuyList
+    end
     if not quiet then
         print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_CREATED"], payload.listName, #payload.searchStrings))
     end
@@ -1149,11 +1088,16 @@ local function RefreshShoppingSync()
     end
 
     Auctionator.API.v1.CreateShoppingList(payload.addonName, payload.listName, payload.searchStrings)
-    GAM.quickBuyList = {
+    local quickBuyList = {
         listName = payload.listName,
         entries = payload.items,
         signature = payload.signature,
     }
+    if GAM.QuickBuy and GAM.QuickBuy.SetList then
+        GAM.QuickBuy.SetList(quickBuyList)
+    else
+        GAM.quickBuyList = quickBuyList
+    end
     shoppingSync.lastSignature = payload.signature
     if leftPanel and leftPanel.refreshVisiblePanels then
         leftPanel.refreshVisiblePanels()
@@ -1211,7 +1155,7 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     GAM.AHScan.StopScan()
     GAM.AHScan.ResetQueue()
 
-    local displayedMetrics = GetFreshStratMetric(strat, pt)
+    local displayedMetrics = GAM.PricingFacade.CalculateCurrent(strat, pt)
     local displayed = (GAM.Pricing and GAM.Pricing.GetDisplayedItemSet and GAM.Pricing.GetDisplayedItemSet(strat, pt, displayedMetrics)) or strat
     local seenIDs = {}
     local seenNames = {}
@@ -1275,6 +1219,9 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     for _, r in ipairs(displayed.reagents or {}) do queueItem(r, "selected strategy input") end
     local extraScanItems = (GAM.Pricing and GAM.Pricing.GetExtraScanItems and GAM.Pricing.GetExtraScanItems(strat, pt)) or {}
     for _, extra in ipairs(extraScanItems) do queueItem(extra, "selected flexible pool") end
+    local viScanItems = (GAM.Pricing and GAM.Pricing.GetVerticalIntegrationScanItems
+        and GAM.Pricing.GetVerticalIntegrationScanItems(strat, pt)) or {}
+    for _, item in ipairs(viScanItems) do queueItem(item, "selected VI material") end
     GAM.AHScan.StartScan()
 end
 
@@ -1308,62 +1255,24 @@ local function GetVisibleListRows()
     return Common.GetVisibleListRows(listHost, ROW_H, GetLayoutSpec().maxVisibleRows or VISIBLE_ROWS)
 end
 
--- ===== Sort =====
-local SORT_FNS = {
-    stratName  = function(a, b) return a.stratName < b.stratName end,
-    profession = function(a, b) return a.profession < b.profession end,
-    profit = function(a, b)
-        local ma = GetListMetric(a)
-        local mb = GetListMetric(b)
-        return ((ma and ma.profit) or -math.huge) > ((mb and mb.profit) or -math.huge)
-    end,
-    roi = function(a, b)
-        local ma = GetListMetric(a)
-        local mb = GetListMetric(b)
-        return ((ma and ma.roi) or -math.huge) > ((mb and mb.roi) or -math.huge)
-    end,
-}
-
 RebuildList = function()
     local all = GAM.Importer.GetAllStrats(filterPatch)
-    local out = {}
     ClearListMetricCache()
     if selectedStratID and not GAM.Importer.GetStratByID(selectedStratID) then
         selectedStratID = nil
     end
-    for _, s in ipairs(all) do
-        if StratMatchesFilter(s) then
-            out[#out + 1] = s
-        end
-    end
-
     -- Pre-compute metrics for expensive sort keys so each strategy is evaluated
     -- exactly once (O(n)) rather than once per comparison pair (O(n log n)).
     -- Fixes severe FPS drop on second scan when the price cache is populated
     -- and ComputePriceForQty runs the full order-book simulation per call.
-    local fn = SORT_FNS[sortKey]
-    if sortKey == "profit" or sortKey == "roi" then
-        if sortKey == "profit" then
-            fn = function(a, b)
-                local ma, mb = GetListMetric(a), GetListMetric(b)
-                return ((ma and ma.profit) or -math.huge) > ((mb and mb.profit) or -math.huge)
-            end
-        else
-            fn = function(a, b)
-                local ma, mb = GetListMetric(a), GetListMetric(b)
-                return ((ma and ma.roi) or -math.huge) > ((mb and mb.roi) or -math.huge)
-            end
-        end
-    end
-    fn = fn or SORT_FNS.roi
-
-    table.sort(out, function(a, b)
-        local af, bf = IsFavorite(a.id), IsFavorite(b.id)
-        if af and not bf then return true end
-        if bf and not af then return false end
-        if sortAsc then return fn(a, b) else return fn(b, a) end
-    end)
-    filteredList = out
+    filteredList = StrategyListModel.BuildVisibleList({
+        strategies = all,
+        matches = StratMatchesFilter,
+        isFavorite = IsFavorite,
+        getMetric = GetListMetric,
+        sortKey = sortKey,
+        sortAscending = sortAsc,
+    })
     if selectedStratID then
         local stillVisible = false
         for _, s in ipairs(filteredList) do
@@ -1455,7 +1364,7 @@ RefreshScanButtonLabels = function()
             and ((L and L["BTN_SCAN_STOP"]) or "Stop Scan")
             or (shiftActive
                 and ((L and L["BTN_SCAN_EVERYTHING"]) or "Scan Everything")
-                or ((L and L["BTN_SCAN_ALL"]) or "Scan All"))
+                or ((L and L["BTN_SCAN_ALL"]) or "Scan Current List"))
         scanBtnLeft:SetText(mainLabel)
     end
 
@@ -1518,7 +1427,45 @@ local function EnsureInlineDetailReady()
     return rightPanel and rightPanel:IsShown() and ShowInlineDetail
 end
 
-SelectStrategyByID = function(stratID)
+local missingCrafterNoticeByProfession = {}
+
+local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
+    local stats = GAM.CraftingStatsV2
+    if not strat or not stats or not stats.OpenRecipeForStrat then return false end
+    local opened, reason = stats.OpenRecipeForStrat(strat, function()
+        if rpDetail.currentStrat
+                and rpDetail.currentStrat.id == strat.id then
+            ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+            MW2.RefreshRows()
+        end
+    end)
+    if not opened and reportFailure then
+        local L = GetL()
+        if reason == "profession-not-known" then
+            local status = stats.GetRecipeCacheStatus and stats.GetRecipeCacheStatus(strat) or nil
+            local cachedCrafter = status
+                and (status.cachedCrafterName or status.cachedCrafterUID)
+                or nil
+            if cachedCrafter then
+                print(string.format(
+                    "|cffff8800[GAM]|r %s is using cached stats from %s. Log into that crafter to refresh this recipe.",
+                    tostring(strat.profession or "This profession"),
+                    tostring(cachedCrafter)))
+            else
+                print(string.format(
+                    "|cffff8800[GAM]|r This character does not know %s. Log into a crafter and select this recipe once to cache its exact stats.",
+                    tostring(strat.profession or "this profession")))
+            end
+        else
+            print("|cffff8800[GAM]|r "
+                .. ((L and L["MSG_REFRESH_RECIPE_FAILED"]) or "Could not open the selected recipe")
+                .. ": " .. tostring(reason or "unknown"))
+        end
+    end
+    return opened and true or false
+end
+
+SelectStrategyByID = function(stratID, fromHardwareEvent)
     if not stratID or not GAM.Importer or not GAM.Importer.GetStratByID then
         return nil
     end
@@ -1528,6 +1475,7 @@ SelectStrategyByID = function(stratID)
         return nil
     end
 
+    local wasSelected = selectedStratID == stratID
     selectedStratID = stratID
     if EnsureInlineDetailReady() then
         ShowInlineDetail(strat, filterPatch)
@@ -1537,6 +1485,25 @@ SelectStrategyByID = function(stratID)
 
     if leftPanel and leftPanel.refreshStatEditors then
         leftPanel.refreshStatEditors()
+    end
+
+    if fromHardwareEvent then
+        local stats = GAM.CraftingStatsV2
+        local status = stats and stats.GetRecipeCacheStatus
+            and stats.GetRecipeCacheStatus(strat)
+            or nil
+        local shouldRefresh = wasSelected or (status and status.needsRefresh)
+        if shouldRefresh then
+            OpenAndRefreshSelectedRecipe(strat, wasSelected)
+        elseif status
+                and status.currentHasProfession == false
+                and not status.hasCachedCrafter
+                and not missingCrafterNoticeByProfession[strat.profession] then
+            missingCrafterNoticeByProfession[strat.profession] = true
+            print(string.format(
+                "|cffff8800[GAM]|r No cached %s crafter yet. Log into one and select a recipe once to capture its stats.",
+                tostring(strat.profession or "profession")))
+        end
     end
 
     return strat
@@ -1563,10 +1530,9 @@ local function MakeRowFrame(parent, idx)
 end
 
 -- ===== ApplyColumnLayout — re-anchors headers + row cells =====
-local function ApplyColumnLayout(config, rowW)
+local function ApplyColumnLayout(rowW)
     return Common.ApplyColumnLayout({
         rowW = rowW or 0,
-        showProfession = (config == LIST_COLUMNS_ALL),
         localizer = GetL(),
         colHeaderBtns = colHeaderBtns,
         rowFrames = rowFrames,
@@ -1796,8 +1762,7 @@ RelayoutPanels = function()
 
     for _, r in ipairs(rowFrames) do r:SetWidth(rowW) end
 
-    activeColConfig = GetActiveColumnConfig()
-    ApplyColumnLayout(activeColConfig, rowW)
+    ApplyColumnLayout(rowW)
 
     UpdateCollapseButtonAnchors()
     UpdateCollapseTogglePositions(false)
@@ -1859,12 +1824,19 @@ ShowInlineDetail = function(strat, patchTag)
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     GAM.Pricing.PreloadStratItemData(strat, patchTag)
     RefreshBestStratCard()
-    local metrics = GetFreshStratMetric(strat, patchTag)
-    local rendered = DetailUI.Render({
+    local canonicalResult, canonicalErr = GAM.PricingFacade.CalculateCurrent(strat, patchTag)
+    local detailSnapshot, snapshotErr = StrategyDetailModel.CreateSnapshot(canonicalResult)
+    if not detailSnapshot and GAM.Log and GAM.Log.Warn then
+        GAM.Log.Warn("Canonical detail projection failed for '%s': %s",
+            tostring(strat.stratName or strat.id or "?"),
+            tostring(canonicalErr or snapshotErr or "unknown error"))
+    end
+    DetailUI.Render({
         rpDetail = rpDetail,
         strat = strat,
         patchTag = patchTag,
-        metrics = metrics,
+        projection = detailSnapshot and detailSnapshot.projection or {},
+        canonicalResult = detailSnapshot and detailSnapshot.canonicalResult or canonicalResult,
         isCompactMode = compactActive,
         localizer = GetL(),
         rightPanel = rightPanel,
@@ -1877,24 +1849,36 @@ ShowInlineDetail = function(strat, patchTag)
         selectedShoppingBtn = selectedShoppingBtn,
         refreshCompactButtonEnabledState = RefreshCompactButtonEnabledState,
         rowHeight = ROW_H,
+        canOpenRecipe = function(selectedStrat)
+            local stats = GAM.CraftingStatsV2
+            return stats and stats.CanOpenRecipeForStrat
+                and stats.CanOpenRecipeForStrat(selectedStrat)
+                or false
+        end,
         onAfterRender = function()
             if leftPanel and leftPanel.refreshStatEditors then
                 leftPanel.refreshStatEditors()
+            end
+            if leftPanel and leftPanel.refreshGearPlan then
+                leftPanel.refreshGearPlan()
             end
             if RefreshScanButtonLabels then
                 RefreshScanButtonLabels()
             end
         end,
     })
+    if GAM.UI and GAM.UI.CooldownTrackerWindow then
+        GAM.UI.CooldownTrackerWindow.Refresh(strat)
+    end
     if DetailUI and DetailUI.ShowBreakdownWindow and ShouldShowVIBreakdown() then
-        DetailUI.ShowBreakdownWindow(strat, patchTag, rendered)
+        DetailUI.ShowBreakdownWindow(strat, patchTag, canonicalResult)
     elseif DetailUI and DetailUI.HideBreakdownWindow then
         DetailUI.HideBreakdownWindow()
     end
     if RefreshScanButtonLabels then
         RefreshScanButtonLabels()
     end
-    return rendered
+    return canonicalResult
 end
 
 local function BuildInlineDetail(panel)
@@ -1941,12 +1925,15 @@ local function BuildInlineDetail(panel)
                 rpDetail.currentPatch,
                 function() ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch) end)
         end,
+        onOpenRecipe = function()
+            OpenAndRefreshSelectedRecipe(rpDetail.currentStrat, true)
+        end,
         onPushCraftSim = function()
             if not rpDetail.currentStrat then return end
             local pushed, err = GAM.CraftSimBridge.PushStratPrices(
                 rpDetail.currentStrat,
                 rpDetail.currentPatch,
-                rpDetail.metrics)
+                rpDetail.canonicalResult)
             if err then
                 print("|cffff8800[GAM]|r CraftSim: " .. tostring(err))
             else
@@ -1958,19 +1945,10 @@ local function BuildInlineDetail(panel)
         end,
         onShowBreakdown = function()
             if rpDetail.currentStrat and DetailUI and DetailUI.ShowBreakdownWindow then
-                DetailUI.ShowBreakdownWindow(rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.metrics)
-            end
-        end,
-        onEditSelected = function()
-            if rpDetail.currentStrat and GAM.UI.StratCreator then
-                GAM.UI.StratCreator.ShowEdit(rpDetail.currentStrat)
-            end
-        end,
-        onDeleteSelected = function()
-            if rpDetail.currentStrat and GAM.UI.StratDetail and GAM.UI.StratDetail.ConfirmDeleteStrat then
-                GAM.UI.StratDetail.ConfirmDeleteStrat(rpDetail.currentStrat)
-            elseif rpDetail.currentStrat and GAM.UI.StratDetail then
-                GAM.UI.StratDetail.Show(rpDetail.currentStrat, rpDetail.currentPatch)
+                DetailUI.ShowBreakdownWindow(
+                    rpDetail.currentStrat,
+                    rpDetail.currentPatch,
+                    rpDetail.canonicalResult)
             end
         end,
     })
@@ -2015,7 +1993,6 @@ local function BuildLeftPanelContent(L, C, LP)
         formatStatPercentValue = FormatStatPercentValue,
         buildPlayerProfessionSet = BuildPlayerProfessionSet,
         hasAnyEntries = HasAnyEntries,
-        getActiveColumnConfig = GetActiveColumnConfig,
         getSelectedFormulaProfile = GetSelectedFormulaProfile,
         rebuildList = RebuildList,
         refreshRows = MW2.RefreshRows,
@@ -2053,7 +2030,7 @@ local function BuildLeftPanelContent(L, C, LP)
             local pushed, err = GAM.CraftSimBridge.PushStratPrices(
                 rpDetail.currentStrat,
                 rpDetail.currentPatch,
-                rpDetail.metrics)
+                rpDetail.canonicalResult)
             if err then
                 print("|cffff8800[GAM]|r CraftSim: " .. tostring(err))
             else
@@ -2063,6 +2040,51 @@ local function BuildLeftPanelContent(L, C, LP)
         showARPExport = function()
             if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.ShowARPExport then
                 GAM.UI.DebugLog.ShowARPExport()
+            end
+        end,
+        showCooldowns = function()
+            if GAM.UI and GAM.UI.CooldownTrackerWindow then
+                GAM.UI.CooldownTrackerWindow.Toggle(rpDetail.currentStrat)
+            end
+        end,
+        showQuickBuy = function()
+            if GAM.QuickBuy and GAM.QuickBuy.Show then
+                GAM.QuickBuy.Show()
+            end
+        end,
+        getGearStatus = function()
+            local strat = GetSelectedFormulaProfile()
+            local stats = GAM.CraftingStatsV2
+            return strat and stats and stats.GetGearPresetStatus
+                and stats.GetGearPresetStatus(strat, filterPatch)
+                or nil
+        end,
+        setGearMode = function(mode)
+            local strat = GetSelectedFormulaProfile()
+            local stats = GAM.CraftingStatsV2
+            if strat and stats and stats.SetGearModeForStrat then
+                local ok, err = stats.SetGearModeForStrat(strat, mode, filterPatch)
+                if not ok then
+                    print("|cffff8800[GAM]|r Could not change stat gear plan: " .. tostring(err))
+                end
+            end
+        end,
+        captureGearPreset = function(mode)
+            local stats = GAM.CraftingStatsV2
+            local snapshot, err
+            if stats and stats.CaptureOpenRecipeAsGearPreset then
+                snapshot, err = stats.CaptureOpenRecipeAsGearPreset(mode)
+            else
+                err = "stat-cache-unavailable"
+            end
+            if snapshot then
+                print(string.format(
+                    "|cff55ff55[GAM]|r Saved %s setup for %s.",
+                    mode == "multicraft" and "Multicraft" or "Resourcefulness",
+                    tostring(snapshot.recipeName or "the open recipe")))
+            else
+                print("|cffff8800[GAM]|r Equip that gear set and open the exact selected profession recipe first ("
+                    .. tostring(err) .. ").")
             end
         end,
         getFilterPatch = function()
@@ -2091,9 +2113,6 @@ local function BuildLeftPanelContent(L, C, LP)
         end,
         setFilterProfSingleSet = function(value)
             filterProfSingleSet = value or {}
-        end,
-        setActiveColConfig = function(value)
-            activeColConfig = value
         end,
     })
 
@@ -2166,7 +2185,7 @@ local function BuildPanelSurfaces(L, layout)
 
     local leftTitle = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     leftTitle:SetPoint("TOP", leftPanel, "TOP", 0, -12)
-    leftTitle:SetText((L and L["V2_TOOLS_TITLE"]) or "Strategy Tools")
+    leftTitle:SetText((L and L["V2_TOOLS_TITLE"]) or "Crafting Planner")
     leftTitle:SetTextColor(C_GR, C_GG, C_GB)
     ApplyFontSize(leftTitle, layout.key == "soft" and 14 or 13)
     ApplyTextShadow(leftTitle)
@@ -2347,12 +2366,12 @@ local function BuildCenterContent(L, C, layout)
             getLocalizer = GetL,
         },
         onBestCardOpen = function(stratID)
-            if SelectStrategyByID(stratID) then
+            if SelectStrategyByID(stratID, true) then
                 MW2.RefreshRows()
             end
         end,
         onBestCardClick = function(stratID)
-            SelectStrategyByID(stratID)
+            SelectStrategyByID(stratID, true)
             MW2.RefreshRows()
         end,
         dismissOnboarding = DismissOnboarding,
@@ -2517,5 +2536,5 @@ function MW2.IsShown()
 end
 
 function MW2.GetCurrentDetailContext()
-    return rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.metrics
+    return rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.canonicalResult
 end

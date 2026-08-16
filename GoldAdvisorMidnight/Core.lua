@@ -22,7 +22,7 @@ GAM.realmKey  = nil   -- set on PLAYER_LOGIN
 -- ===== Default DB schema =====
 local DB_DEFAULTS = {
     addonVersion = GAM.C.ADDON_VERSION,
-    dataVersion  = GAM.C.DATA_VERSION,
+    strategySchemaVersion = GAM.C.STRATEGY_SCHEMA_VERSION,
     options = {
         ahCut        = GAM.C.AH_CUT,
         scanDelay    = GAM.C.DEFAULT_SCAN_DELAY,
@@ -60,7 +60,7 @@ local DB_DEFAULTS = {
         engCraftMulti    = GAM.C.DEFAULT_ENG_CRAFT_MULTI,
         engCraftRes      = GAM.C.DEFAULT_ENG_CRAFT_RES,
         -- Per-profession spec node bonuses (percent values; default = value baked into spreadsheet)
-        -- Used by CalculateStratMetrics to scale from the spreadsheet's baked-in stats
+        -- Used by canonical pricing to scale from the spreadsheet's baked-in stats
         -- to the user's actual spec tree allocation.
         alchMcNode       = ProfileDefault("alchemy", "defaultMcNode", 20),
         alchRsNode       = ProfileDefault("alchemy", "defaultRsNode", 0),
@@ -81,7 +81,6 @@ local DB_DEFAULTS = {
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         v2Theme             = "classic",
-        pricingEngine        = "v2",
         v2PricingMode        = GAM.C.DEFAULT_V2_PRICING_MODE,
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
@@ -322,21 +321,58 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        -- dataVersion 16: Mark the canonical commodity strategy schema. User
+        -- strategies remain byte-for-byte intact; Importer creates runtime
+        -- models without rewriting SavedVariables.
+        dataVersion = 16,
+        migrate = function(db)
+            db.strategySchemaVersion = GAM.C.STRATEGY_SCHEMA_VERSION
+            if type(db.userStrats) ~= "table" then
+                db.userStrats = {}
+            end
+        end,
+    },
+    {
+        -- dataVersion 17: The commodity mass-crafting model replaces the first
+        -- V2 fixed-input approximation. Keep Fixed Crafts available as a
+        -- comparison mode, but make Exhaust Materials the active refocus default.
+        dataVersion = 17,
+        migrate = function(db)
+            if type(db.options) ~= "table" then
+                db.options = {}
+            end
+            db.options.v2PricingMode = GAM.C.DEFAULT_V2_PRICING_MODE
+        end,
+    },
+    {
+        -- dataVersion 18: Every production consumer now uses PricingFacade.
+        -- Retire the user-selectable legacy engine flag before deleting the
+        -- spreadsheet-era calculator and comparison diagnostic.
+        dataVersion = 18,
+        migrate = function(db)
+            if type(db.options) == "table" then
+                db.options.pricingEngine = nil
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)
-    local current = db.dataVersion or 0
     for _, m in ipairs(MIGRATIONS) do
+        local current = tonumber(db.dataVersion) or 0
         if current < m.dataVersion then
             GAM.Log.Info("Migrating DB to dataVersion %d", m.dataVersion)
             local ok, err = pcall(m.migrate, db)
             if not ok then
                 GAM.Log.Warn("Migration %d failed: %s", m.dataVersion, tostring(err))
+                return false, err
             else
                 db.dataVersion = m.dataVersion
             end
         end
     end
+    return true
 end
 
 -- ===== Deep-merge defaults into target =====
@@ -370,6 +406,8 @@ function GAM:GetPatchDB(patchTag)
             rankGroups      = {},
             priceOverrides    = {},
             inputQtyOverrides = {},
+            craftsOverrides   = {},
+            gearModes         = {},
         }
     end
     return db.patch[patchTag]
@@ -394,228 +432,6 @@ function GAM:GetRealmCache()
     self.db.priceCache        = self.db.priceCache or {}
     self.db.priceCache[key]   = self.db.priceCache[key] or {}
     return self.db.priceCache[key]
-end
-
--- ===== Auctionator Quick Buy =====
-GAM.quickBuyList = GAM.quickBuyList or nil
-GAM.quickBuyState = {
-    active = false,
-    searchPending = false,
-    searchRetries = 0,
-    resultRows = {},
-    currentSearchString = nil,
-    pendingItemID = nil,
-    pendingQty = nil,
-    confirmSent = false,   -- prevents double-buy from THROTTLED_SYSTEM_READY firing multiple times
-    confirmReady = false,
-    statusNotice = nil,
-    readySignature = nil,
-}
-
-local function BuildQuickBuySignature(searchStrings)
-    local parts = {}
-    for _, searchString in ipairs(searchStrings or {}) do
-        if searchString and searchString ~= "" then
-            parts[#parts + 1] = searchString
-        end
-    end
-    table.sort(parts)
-    return table.concat(parts, "\031")
-end
-
-local function ResetQuickBuy(silent)
-    local qb = GAM.quickBuyState
-    qb.active = false
-    qb.searchPending = false
-    qb.searchRetries = 0
-    qb.resultRows = {}
-    qb.currentSearchString = nil
-    qb.pendingItemID = nil
-    qb.pendingQty = nil
-    qb.confirmSent = false
-    qb.confirmReady = false
-    qb.statusNotice = nil
-    qb.readySignature = nil
-    if not silent then
-        print("|cffff8800[GAM]|r Auctionator quick buy stopped.")
-    end
-end
-
-local function GetQuickBuyContext()
-    if not GAM.ahOpen then
-        return nil, "Open the Auction House first."
-    end
-    if not Auctionator or not Auctionator.API or not Auctionator.API.v1 then
-        return nil, "Auctionator is required for quick buy."
-    end
-    if not AuctionatorShoppingFrame then
-        return nil, "Open the Auctionator Shopping tab first."
-    end
-    if not GAM.quickBuyList or not GAM.quickBuyList.entries or #GAM.quickBuyList.entries == 0 then
-        return nil, "Create a GAM shopping list first."
-    end
-    local listName = GAM.quickBuyList.listName or (GAM.L and GAM.L["AUCTIONATOR_LIST_NAME"]) or "Gold Advisor Midnight"
-    local listManager = Auctionator.Shopping and Auctionator.Shopping.ListManager
-    local listIndex = listManager and listManager:GetIndexForName(listName)
-    if not listIndex then
-        return nil, "Create a GAM shopping list first."
-    end
-    local list = listManager:GetByIndex(listIndex)
-    if not list then
-        return nil, "Create a GAM shopping list first."
-    end
-    return {
-        listName = listName,
-        list = list,
-        listsContainer = AuctionatorShoppingFrame.ListsContainer,
-        resultsList = AuctionatorShoppingFrame.ResultsListing,
-        searchStrings = list:GetAllItems() or {},
-        entries = GAM.quickBuyList.entries,
-        signature = BuildQuickBuySignature(list:GetAllItems() or {}),
-    }
-end
-
-local function RefreshQuickBuyListSignature()
-    if not GAM.quickBuyList then return end
-    local parts = {}
-    for _, entry in ipairs(GAM.quickBuyList.entries or {}) do
-        if entry and entry.searchString then
-            parts[#parts + 1] = entry.searchString
-        end
-    end
-    GAM.quickBuyList.signature = BuildQuickBuySignature(parts)
-end
-
-local function MapQuickBuyResultRows(entries, resultsList)
-    local mapped = {}
-    if not resultsList or not resultsList.dataProvider then
-        return mapped, false
-    end
-    local rows = {}
-    local used = {}
-    for i = 1, resultsList.dataProvider:GetCount() do
-        rows[#rows + 1] = resultsList.dataProvider:GetEntryAt(i)
-    end
-    local allMatched = true
-    for _, entry in ipairs(entries or {}) do
-        local match
-        for idx, row in ipairs(rows) do
-            if not used[idx] and row and row.itemKey and row.itemKey.itemID == entry.itemID then
-                match = row
-                used[idx] = true
-                break
-            end
-        end
-        if match then
-            mapped[entry.searchString] = match
-        else
-            allMatched = false
-        end
-    end
-    return mapped, allMatched
-end
-
-local AdvanceQuickBuy
-AdvanceQuickBuy = function(fromClick)
-    local qb = GAM.quickBuyState
-    if not qb.active then return end
-
-    local ctx, err = GetQuickBuyContext()
-    if not ctx then
-        ResetQuickBuy(true)
-        print("|cffff8800[GAM]|r " .. err)
-        return
-    end
-
-    if #ctx.searchStrings == 0 or #ctx.entries == 0 then
-        ResetQuickBuy(true)
-        print("|cffff8800[GAM]|r No items left in the GAM shopping list.")
-        return
-    end
-
-    if ctx.listsContainer and ctx.listsContainer.IsListExpanded and not ctx.listsContainer:IsListExpanded(ctx.list) then
-        ctx.listsContainer:ExpandList(ctx.list)
-    end
-
-    local allMatched
-    local canUseCurrentResults = qb.searchPending or qb.readySignature == ctx.signature
-    if canUseCurrentResults then
-        qb.resultRows, allMatched = MapQuickBuyResultRows(ctx.entries, ctx.resultsList)
-    else
-        qb.resultRows = {}
-        allMatched = false
-    end
-
-    if not allMatched then
-        -- Results unavailable — search only if not already pending
-        if not qb.searchPending and fromClick then
-            qb.searchPending = true
-            qb.searchRetries = 0
-            qb.statusNotice = "searching"
-            qb.readySignature = nil
-            AuctionatorShoppingFrame:DoSearch(ctx.searchStrings)
-        end
-        if not qb.searchPending then
-            print("|cffff8800[GAM]|r Quick buy is waiting for a fresh Auctionator search. Press your macro again to search.")
-            return
-        end
-        if qb.searchRetries >= 40 then
-            ResetQuickBuy(true)
-            print("|cffff8800[GAM]|r Quick buy timed out waiting for Auctionator search results.")
-            return
-        end
-        qb.searchRetries = qb.searchRetries + 1
-        C_Timer.After(0.20, function()
-            AdvanceQuickBuy(false)
-        end)
-        return
-    end
-
-    qb.searchPending = false
-    qb.searchRetries = 0
-    qb.readySignature = ctx.signature
-    if qb.statusNotice == "searching" then
-        qb.statusNotice = "results_ready"
-        print("|cffff8800[GAM]|r Quick buy found results. Press your macro again to start the purchase.")
-    end
-
-    local nextEntry = ctx.entries[1]
-    local row = nextEntry and qb.resultRows[nextEntry.searchString]
-    if not row or not row.itemKey or not row.purchaseQuantity or row.purchaseQuantity <= 0 then
-        ResetQuickBuy(true)
-        print("|cffff8800[GAM]|r Quick buy only works for commodity rows with an available purchase quantity.")
-        return
-    end
-
-    qb.currentSearchString = nextEntry.searchString
-    qb.pendingItemID = row.itemKey.itemID
-    qb.pendingQty = nextEntry.quantity or row.purchaseQuantity
-
-    if qb.statusNotice == "awaiting_ready" and not qb.confirmReady then
-        if fromClick then
-            print("|cffff8800[GAM]|r Waiting for the Auction House purchase prompt. Press your macro again once it appears.")
-        end
-        return
-    end
-
-    if qb.confirmReady then
-        if not fromClick then
-            return
-        end
-        qb.confirmReady = false
-        qb.confirmSent = true
-        qb.statusNotice = "confirming"
-        C_AuctionHouse.ConfirmCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
-        return
-    end
-
-    if not fromClick then
-        return
-    end
-
-    qb.confirmSent = false
-    qb.statusNotice = "awaiting_ready"
-    C_AuctionHouse.StartCommoditiesPurchase(qb.pendingItemID, qb.pendingQty)
 end
 
 -- ===== Event frame =====
@@ -643,13 +459,17 @@ end)
 handlers["ADDON_LOADED"] = function(self, _, name)
     if name ~= ADDON_NAME then return end
 
-    -- Init SavedVariables
+    -- Initialize only the containers migrations need. Full defaults must come
+    -- afterward so they cannot mask legacy values a migration needs to inspect.
     GoldAdvisorMidnightDB = GoldAdvisorMidnightDB or {}
-    ApplyDefaults(GoldAdvisorMidnightDB, DB_DEFAULTS)
     self.db = GoldAdvisorMidnightDB
+    self.db.options = type(self.db.options) == "table" and self.db.options or {}
 
-    -- Run migrations
-    RunMigrations(self.db)
+    local migrationsOK = RunMigrations(self.db)
+    if not migrationsOK then
+        GAM.Log.Warn("Database migration stopped; defaults will fill only missing fields")
+    end
+    ApplyDefaults(self.db, DB_DEFAULTS)
 
     -- Update addonVersion in DB
     self.db.addonVersion = GAM.C.ADDON_VERSION
@@ -694,25 +514,13 @@ handlers["PLAYER_LOGIN"] = function(self)
     if self.DataBroker and self.DataBroker.Init then
         self.DataBroker.Init()
     end
+    if self.CooldownTracker and self.CooldownTracker.Init then
+        self.CooldownTracker.Init()
+    end
 
-    -- Hidden button for QuickBuy macro support.
-    -- Users create an in-game macro with:  /click GAMQuickBuyBtn
-    -- Each keypress provides a hardware event, satisfying the AH purchase requirement.
-    local qbBtn = CreateFrame("Button", "GAMQuickBuyBtn", UIParent)
-    qbBtn:SetSize(1, 1)
-    qbBtn:SetAlpha(0)
-    qbBtn:SetPoint("CENTER", UIParent, "CENTER", 9999, 9999)
-    qbBtn:SetScript("OnClick", function()
-        if not GAM.quickBuyState.active then
-            -- Auto-arm on first press if a shopping list is ready
-            if not GAM.quickBuyList or not GAM.quickBuyList.entries or #GAM.quickBuyList.entries == 0 then
-                print("|cffff8800[GAM]|r No shopping list loaded. Open a strategy and click Shopping List first.")
-                return
-            end
-            GAM.quickBuyState.active = true
-        end
-        AdvanceQuickBuy(true)
-    end)
+    if self.QuickBuy and self.QuickBuy.Init then
+        self.QuickBuy.Init()
+    end
     -- Pre-warm WoW item cache for all strat itemIDs so crafting quality API
     -- calls (used by ARP Export) return correct data on first use.
     if self.Importer and self.Importer.GetAllStrats then
@@ -807,7 +615,9 @@ end
 handlers["AUCTION_HOUSE_CLOSED"] = function(self)
     self.ahOpen = false
     self.Log.Debug("AH closed.")
-    ResetQuickBuy(true)
+    if self.QuickBuy and self.QuickBuy.Reset then
+        self.QuickBuy.Reset()
+    end
     if self.AHScan then
         self.AHScan.OnAHClosed()
     end
@@ -836,91 +646,27 @@ handlers["AUCTION_HOUSE_BROWSE_RESULTS_UPDATED"] = function(self)
     end
 end
 
-handlers["AUCTION_HOUSE_THROTTLED_SYSTEM_READY"] = function(self)
-    local qb = self.quickBuyState
-    if qb and qb.active and qb.pendingItemID and qb.pendingQty and not qb.confirmSent then
-        qb.confirmReady = true
-        if qb.statusNotice ~= "ready_to_confirm" then
-            qb.statusNotice = "ready_to_confirm"
-            print("|cffff8800[GAM]|r Review the commodity purchase, then press your macro again to confirm.")
-        end
+handlers["COMMODITY_PRICE_UPDATED"] = function(self, _, unitPrice, totalPrice)
+    if self.QuickBuy and self.QuickBuy.OnPriceUpdated then
+        self.QuickBuy.OnPriceUpdated(unitPrice, totalPrice)
+    end
+end
+
+handlers["COMMODITY_PRICE_UNAVAILABLE"] = function(self)
+    if self.QuickBuy and self.QuickBuy.OnPriceUnavailable then
+        self.QuickBuy.OnPriceUnavailable()
     end
 end
 
 handlers["COMMODITY_PURCHASE_SUCCEEDED"] = function(self)
-    local qb = self.quickBuyState
-    if not (qb and qb.active and qb.currentSearchString and qb.pendingQty) then
-        return
+    if self.QuickBuy and self.QuickBuy.OnPurchaseSucceeded then
+        self.QuickBuy.OnPurchaseSucceeded()
     end
-
-    local listName = self.quickBuyList and self.quickBuyList.listName
-    local oldSearchString = qb.currentSearchString
-    local purchasedQty = qb.pendingQty
-
-    qb.pendingItemID = nil
-    qb.pendingQty = nil
-    qb.currentSearchString = nil
-    qb.searchPending = false
-    qb.searchRetries = 0
-    qb.confirmReady = false
-    qb.confirmSent = false
-    qb.statusNotice = nil
-    qb.readySignature = nil
-    qb.resultRows = {}
-
-    if Auctionator and Auctionator.API and Auctionator.API.v1 and listName then
-        local oldTerms = Auctionator.API.v1.ConvertFromSearchString(ADDON_NAME, oldSearchString)
-        if oldTerms and oldTerms.quantity then
-            local newQty = oldTerms.quantity - purchasedQty
-            if newQty > 0 then
-                oldTerms.quantity = newQty
-                local newSearchString = Auctionator.API.v1.ConvertToSearchString(ADDON_NAME, oldTerms)
-                pcall(Auctionator.API.v1.AlterShoppingListItem, ADDON_NAME, listName, oldSearchString, newSearchString)
-                if self.quickBuyList and self.quickBuyList.entries then
-                    for _, entry in ipairs(self.quickBuyList.entries) do
-                        if entry.searchString == oldSearchString then
-                            entry.searchString = newSearchString
-                            entry.quantity = newQty
-                            break
-                        end
-                    end
-                end
-            else
-                pcall(Auctionator.API.v1.DeleteShoppingListItem, ADDON_NAME, listName, oldSearchString)
-                if self.quickBuyList and self.quickBuyList.entries then
-                    for idx, entry in ipairs(self.quickBuyList.entries) do
-                        if entry.searchString == oldSearchString then
-                            table.remove(self.quickBuyList.entries, idx)
-                            break
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    RefreshQuickBuyListSignature()
-
-    local ctx = GetQuickBuyContext()
-    if ctx and #ctx.searchStrings > 0 then
-        qb.searchPending = true
-        qb.searchRetries = 0
-        qb.statusNotice = "searching"
-        AuctionatorShoppingFrame:DoSearch(ctx.searchStrings)
-        C_Timer.After(0.20, function()
-            AdvanceQuickBuy(false)
-        end)
-    end
-
-    -- Do NOT auto-advance: each purchase requires a hardware event.
-    -- User presses their macro (/click GAMQuickBuyBtn) for each item.
 end
 
 handlers["COMMODITY_PURCHASE_FAILED"] = function(self)
-    local qb = self.quickBuyState
-    if qb and qb.active then
-        ResetQuickBuy(true)
-        print("|cffff8800[GAM]|r Commodity purchase failed. Quick buy stopped.")
+    if self.QuickBuy and self.QuickBuy.OnPurchaseFailed then
+        self.QuickBuy.OnPurchaseFailed()
     end
 end
 
@@ -932,240 +678,29 @@ GAM:RegisterEvent("AUCTION_HOUSE_CLOSED")
 GAM:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED")
 GAM:RegisterEvent("ITEM_SEARCH_RESULTS_UPDATED")
 GAM:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-GAM:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY")
+GAM:RegisterEvent("COMMODITY_PRICE_UPDATED")
+GAM:RegisterEvent("COMMODITY_PRICE_UNAVAILABLE")
 GAM:RegisterEvent("COMMODITY_PURCHASE_SUCCEEDED")
 GAM:RegisterEvent("COMMODITY_PURCHASE_FAILED")
 
 -- ===== Slash command =====
-local function ShowDebugLog()
-    if GAM.UI and GAM.UI.DebugLog then
-        GAM.UI.DebugLog.Show()
-    end
-end
-
-local function RefreshPricingViews()
-    if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
-        GAM.UI.MainWindowV2.Refresh()
-    end
-    if GAM.UI and GAM.UI.StratDetail
-            and GAM.UI.StratDetail.IsShown
-            and GAM.UI.StratDetail.Refresh
-            and GAM.UI.StratDetail.IsShown() then
-        GAM.UI.StratDetail.Refresh()
-    end
-end
-
-local function RunSmokeCheck(label, owner, fnName)
-    if owner and type(owner[fnName]) == "function" then
-        return owner[fnName]()
-    end
-    return false, label .. " smoke checks unavailable"
-end
-
-local function PrintSmokeFailure(ok, label, err)
-    if not ok then
-        print("|cffff0000[GAM]|r " .. label .. " smoke test failed: " .. tostring(err))
-    end
-end
-
-local function HandleSmokeTestCommand()
-    local pricingOK, pricingErr = RunSmokeCheck("Pricing", GAM.Pricing, "RunSmokeChecks")
-    local scanOK, scanErr = RunSmokeCheck("AH scan", GAM.AHScan, "RunSmokeChecks")
-    local stateOK, stateErr = RunSmokeCheck("State", GAM.State, "RunSmokeChecks")
-    local creatorOK, creatorErr = RunSmokeCheck("Strategy creator",
-        GAM.UI and GAM.UI.StratCreator,
-        "RunSmokeChecks")
-    local bridgeOK, bridgeErr = RunSmokeCheck("CraftSim bridge",
-        GAM.CraftSimBridge,
-        "RunSmokeChecks")
-    local statsOK, statsErr = RunSmokeCheck("CraftingStatsV2",
-        GAM.CraftingStatsV2,
-        "RunSmokeChecks")
-
-    if pricingOK and scanOK and stateOK and creatorOK and bridgeOK and statsOK then
-        print("|cffff8800[GAM]|r Smoke tests passed.")
-        return
-    end
-
-    PrintSmokeFailure(pricingOK, "Pricing", pricingErr)
-    PrintSmokeFailure(scanOK, "AH scan", scanErr)
-    PrintSmokeFailure(stateOK, "State", stateErr)
-    PrintSmokeFailure(creatorOK, "Strategy creator", creatorErr)
-    PrintSmokeFailure(bridgeOK, "CraftSim bridge", bridgeErr)
-    PrintSmokeFailure(statsOK, "CraftingStatsV2", statsErr)
-end
-
-local function HandleV2CaptureCommand()
-    ShowDebugLog()
-
-    local snapshot, craftSimErr, nativeErr
-    if GAM.CraftSimBridge and GAM.CraftSimBridge.CaptureOpenRecipeStatsV2 then
-        snapshot, craftSimErr = GAM.CraftSimBridge.CaptureOpenRecipeStatsV2()
-    end
-    if not snapshot and GAM.CraftingStatsV2 and GAM.CraftingStatsV2.CaptureOpenRecipe then
-        snapshot, nativeErr = GAM.CraftingStatsV2.CaptureOpenRecipe()
-    end
-
-    if snapshot then
-        GAM.Log.Info("CraftingStatsV2: captured %s profile=%s recipeID=%s source=%s nodeHash=%s",
-            tostring(snapshot.recipeName or "?"),
-            tostring(snapshot.profileKey or "-"),
-            tostring(snapshot.recipeID or "-"),
-            tostring(snapshot.source or snapshot.cachedSource or "-"),
-            tostring(snapshot.nodeHash or "-"))
-        RefreshPricingViews()
-        return
-    end
-
-    local imported = 0
-    if GAM.CraftSimBridge and GAM.CraftSimBridge.ImportCachedV2StatSnapshotsFromCraftSim then
-        imported = GAM.CraftSimBridge.ImportCachedV2StatSnapshotsFromCraftSim() or 0
-    end
-    if imported > 0 then
-        GAM.Log.Info("CraftingStatsV2: no open recipe captured; imported %d cached CraftSim profile snapshot(s) instead.",
-            imported)
-        RefreshPricingViews()
-    elseif craftSimErr or nativeErr then
-        GAM.Log.Warn("CraftingStatsV2: capture failed: CraftSim=%s native=%s. Open a profession recipe first, then run /gam v2capture.",
-            tostring(craftSimErr or "unavailable"),
-            tostring(nativeErr or "unavailable"))
-    else
-        GAM.Log.Warn("CraftingStatsV2: open recipe capture unavailable")
-    end
-end
-
-local function HandlePricingEngineCommand(args)
-    local choice = (args or ""):lower():match("^%s*(%S*)") or ""
-    local opts = GAM:GetOptions()
-    if choice == "v2" or choice == "2" then
-        opts.pricingEngine = "v2"
-    elseif choice == "v1" or choice == "legacy" or choice == "1" then
-        opts.pricingEngine = "legacy"
-    elseif choice == "toggle" or choice == "" then
-        opts.pricingEngine = (opts.pricingEngine == "v2") and "legacy" or "v2"
-    else
-        print("|cffff8800[GAM]|r Usage: /gam engine v1 | v2 | toggle")
-        return
-    end
-
-    GAM.Log.Info("Pricing engine: %s", tostring(opts.pricingEngine or "v2"))
-    print("|cffff8800[GAM]|r Pricing engine: " .. tostring(opts.pricingEngine or "v2"))
-    RefreshPricingViews()
-end
-
-local function HandleV2PricingModeCommand(args)
-    local choice = (args or ""):lower():match("^%s*(%S*)") or ""
-    local opts = GAM:GetOptions()
-    if choice == "fixed_input" or choice == "input" or choice == "spreadsheet" then
-        opts.v2PricingMode = "fixed_input"
-    elseif choice == "fixed_crafts" or choice == "crafts" or choice == "craftsim" then
-        opts.v2PricingMode = "fixed_crafts"
-    elseif choice == "toggle" or choice == "" then
-        opts.v2PricingMode = (opts.v2PricingMode == "fixed_crafts") and "fixed_input" or "fixed_crafts"
-    else
-        print("|cffff8800[GAM]|r Usage: /gam v2mode fixed_input | fixed_crafts | toggle")
-        return
-    end
-
-    local defaultMode = (GAM.C and GAM.C.DEFAULT_V2_PRICING_MODE) or "fixed_crafts"
-    GAM.Log.Info("V2 pricing mode: %s", tostring(opts.v2PricingMode or defaultMode))
-    print("|cffff8800[GAM]|r V2 pricing mode: " .. tostring(opts.v2PricingMode or defaultMode))
-    RefreshPricingViews()
-end
-
 SLASH_GOLDADVISORMIDNIGHT1 = "/gam"
 SLASH_GOLDADVISORMIDNIGHT2 = "/goldadvisor"
 SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
     local rawInput = input or ""
     local cmd = rawInput:lower():match("^%s*(%S*)")
-    local args = rawInput:match("^%s*%S+%s*(.-)%s*$") or ""
     if cmd == "log" then
         if GAM.UI and GAM.UI.DebugLog then
             GAM.UI.DebugLog.Toggle()
         end
-    elseif cmd == "scan" then
-        if not GAM.ahOpen then
-            print("|cffff8800[GAM]|r " .. GAM.L["ERR_NO_AH"])
-        else
-            GAM.AHScan.ResetQueue()
-            GAM.AHScan.QueueAllStratItems(GAM.C.DEFAULT_PATCH)
-            GAM.AHScan.StartScan()
-        end
-    elseif cmd == "clearcache" then
-        GAM:GetRealmCache()  -- ensures exists
-        if GAM.State and GAM.State.ClearPriceCache then
-            GAM.State.ClearPriceCache()
-        else
-            wipe(GAM.db.priceCache)
-        end
-        GAM.Log.Info("Price cache cleared.")
-        print("|cffff8800[GAM]|r Price cache cleared.")
-    elseif cmd == "reload" then
-        GAM.Importer.Init()
-        GAM.Log.Info("Data reloaded.")
-        print("|cffff8800[GAM]|r Data reloaded.")
-    elseif cmd == "ids" then
-        ShowDebugLog()
-        if GAM.UI and GAM.UI.DebugLog then
-            GAM.UI.DebugLog.DumpItemIDs()
-        end
-    elseif cmd == "scans" or cmd == "scandump" then
-        if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.DumpSelectedStrategyScans then
-            ShowDebugLog()
-            GAM.UI.DebugLog.DumpSelectedStrategyScans()
-        end
-    elseif cmd == "v2dump" then
-        if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.DumpSelectedStrategyV2Shadow then
-            ShowDebugLog()
-            GAM.UI.DebugLog.DumpSelectedStrategyV2Shadow(args)
-        end
-    elseif cmd == "csdump" or cmd == "craftsimdump" then
-        ShowDebugLog()
-        if GAM.CraftSimBridge and GAM.CraftSimBridge.DumpOpenRecipeStats then
-            GAM.CraftSimBridge.DumpOpenRecipeStats()
-        else
-            GAM.Log.Warn("CraftSimBridge: open recipe stat dump unavailable")
-        end
-    elseif cmd == "v2stats" then
-        ShowDebugLog()
-        if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.DumpProfiles then
-            GAM.CraftingStatsV2.DumpProfiles(args)
-        else
-            GAM.Log.Warn("CraftingStatsV2: stat profile dump unavailable")
-        end
-    elseif cmd == "v2audit" then
-        ShowDebugLog()
-        if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.DumpAudit then
-            GAM.CraftingStatsV2.DumpAudit(args)
-        else
-            GAM.Log.Warn("CraftingStatsV2: stat profile audit unavailable")
-        end
-    elseif cmd == "v2capture" then
-        HandleV2CaptureCommand()
-    elseif cmd == "engine" or cmd == "pricing" then
-        HandlePricingEngineCommand(args)
-    elseif cmd == "v2mode" then
-        HandleV2PricingModeCommand(args)
-    elseif cmd == "smoketest" then
-        HandleSmokeTestCommand()
-    elseif cmd == "create" then
-        if GAM.UI and GAM.UI.StratCreator then
-            GAM.UI.StratCreator.Show()
-        end
-    elseif cmd == "edit" then
-        if GAM.UI and GAM.UI.StratCreator and GAM.UI.StratCreator.ShowEditPicker then
-            GAM.UI.StratCreator.ShowEditPicker()
-        end
-    elseif cmd == "quickbuy" then
-        if GAM.quickBuyState.active then
-            ResetQuickBuy()
-        else
-            print("|cffff8800[GAM]|r Quick buy is not active. Press your /click GAMQuickBuyBtn macro to begin.")
-        end
-    else
+    elseif cmd == "help" then
+        print("|cffff8800[GAM]|r /gam — toggle window; /gam log — support log; /gam help — commands")
+    elseif cmd == "" then
         if GAM.UI and GAM.UI.MainWindowV2 then
             GAM.UI.MainWindowV2.Toggle()
         end
+    else
+        print("|cffff8800[GAM]|r Unknown command. Use /gam help.")
     end
 end
 

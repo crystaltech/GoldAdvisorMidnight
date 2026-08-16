@@ -7,6 +7,25 @@ local ADDON_NAME, GAM = ...
 local Engine = {}
 GAM.PricingV2Engine = Engine
 
+-- Pure chooser kept outside the WoW pricing context so Auto gear behavior is
+-- deterministic and independently regression-testable.
+function Engine.SelectGearMetrics(multicraft, resourcefulness)
+    if not multicraft then return resourcefulness, "resourcefulness" end
+    if not resourcefulness then return multicraft, "multicraft" end
+    if multicraft.profit ~= nil and resourcefulness.profit ~= nil then
+        if resourcefulness.profit > multicraft.profit then
+            return resourcefulness, "resourcefulness"
+        end
+        return multicraft, "multicraft"
+    end
+    local multicraftCost = tonumber(multicraft.expectedConsumedCostFull)
+    local resourcefulnessCost = tonumber(resourcefulness.expectedConsumedCostFull)
+    if multicraftCost and resourcefulnessCost and resourcefulnessCost < multicraftCost then
+        return resourcefulness, "resourcefulness"
+    end
+    return multicraft, "multicraft"
+end
+
 function Engine.Install(Pricing, deps)
     if type(Pricing) ~= "table" or type(deps) ~= "table" then
         return false, "missing-dependencies"
@@ -113,28 +132,17 @@ function Engine.Install(Pricing, deps)
         if mode == "fixed_crafts" or mode == "fixedcrafts" or mode == "craftsim" then
             return "fixed_crafts"
         end
-        if mode == "fixed_input" or mode == "fixedinput" or mode == "spreadsheet" then
-            return "fixed_input"
+        if mode == "exhaust_materials" or mode == "exhaust" or mode == "exhaustmaterials"
+                or mode == "fixed_input" or mode == "fixedinput" or mode == "spreadsheet" then
+            return "exhaust_materials"
         end
 
-        local defaultMode = tostring((GAM.C and GAM.C.DEFAULT_V2_PRICING_MODE) or "fixed_crafts"):lower()
-        if defaultMode == "fixed_input" then
-            return "fixed_input"
+        local defaultMode = tostring(
+            (GAM.C and GAM.C.DEFAULT_V2_PRICING_MODE) or "exhaust_materials"):lower()
+        if defaultMode == "fixed_crafts" then
+            return "fixed_crafts"
         end
-        return "fixed_crafts"
-    end
-
-    local function ApplyFixedInputEconomics(input)
-        local formula = GetFormulaV2()
-        local saveBase = input.resourcefulnessSaveBase
-            or (formula and formula.DEFAULT_RESOURCEFULNESS_SAVE_BASE)
-            or 0.30
-        input.mcMultiplier = input.supportsMulticraft
-            and ((GAM.C and GAM.C.BASE_MCM) or 1.25) * (1 + (tonumber(input.mcExtra) or 0))
-            or 0
-        input.resourceSaveFraction = input.supportsResourcefulness
-            and saveBase * (1 + (tonumber(input.resExtra) or 0))
-            or 0
+        return "exhaust_materials"
     end
 
     local function GetV2StatsForStrat(strat, opts, ctx)
@@ -143,11 +151,17 @@ function Engine.Install(Pricing, deps)
             return nil, "no-stat-resolver"
         end
 
+        local gearMode = type(ctx) == "table"
+            and ctx.gearModeOverride
+            and ctx.strat == strat
+            and ctx.gearModeOverride
+            or "auto"
         local profileKey = strat and (strat.statProfileKey or strat.formulaProfile) or nil
         local cacheKey = table.concat({
             tostring(strat and (strat.id or strat.stratName) or "?"),
             tostring(profileKey or "-"),
             tostring(strat and strat.recipeID or "-"),
+            tostring(gearMode),
         }, ":")
 
         if type(ctx) == "table" and type(ctx.v2StatResolutions) == "table" then
@@ -160,8 +174,14 @@ function Engine.Install(Pricing, deps)
             end
         end
 
+        local resolverOpts = opts or GetOpts()
+        if gearMode ~= "auto" then
+            resolverOpts = {}
+            for key, value in pairs(opts or GetOpts()) do resolverOpts[key] = value end
+            resolverOpts._gamGearModeOverride = gearMode
+        end
         local ok, snapshot = pcall(function()
-            return resolver(strat, opts or GetOpts())
+            return resolver(strat, resolverOpts)
         end)
         if not ok or type(snapshot) ~= "table" then
             if type(ctx) == "table" and type(ctx.v2StatResolutions) == "table" then
@@ -202,6 +222,9 @@ function Engine.Install(Pricing, deps)
                 input.mcExtra = math.max(0, multiExtra)
                 used = true
             end
+        else
+            input.mcPercent = 0
+            input.mcExtra = 0
         end
 
         if input.supportsResourcefulness then
@@ -215,6 +238,9 @@ function Engine.Install(Pricing, deps)
                 input.resExtra = math.max(0, resExtra)
                 used = true
             end
+        else
+            input.resPercent = 0
+            input.resExtra = 0
         end
 
         if snapshot.multicraftConstants then
@@ -232,22 +258,24 @@ function Engine.Install(Pricing, deps)
             input.statSource = snapshot.statSource or snapshot.source or input.statSource
             input.statQuality = snapshot.statQuality
             input.nodeHash = snapshot.nodeHash
+            input.crafterUID = snapshot.crafterUID
+            input.crafterName = snapshot.crafterName
+            input.crafterRealm = snapshot.crafterRealm
+            input.crossCharacter = snapshot.crossCharacter and true or nil
         end
     end
 
-    local function CalculateV2FixedCrafts(strat, opts, baseYield, crafts, requiredCraftCost, constants, statSnapshot, statFallbackReason)
+    local function CalculateV2Formula(strat, opts, baseYield, crafts, requiredCraftCost, constants, statSnapshot, statFallbackReason)
         local formula = GetFormulaV2()
         local input, profileDef = BuildV2FormulaInput(strat, opts, baseYield, crafts, requiredCraftCost, constants)
         input.statFallbackReason = (statSnapshot and statSnapshot.fallbackReason) or statFallbackReason
         input.pricingMode = GetV2PricingMode(strat, opts)
         ApplyV2ResolvedStats(input, statSnapshot)
         local result
-        if input.pricingMode == "fixed_input"
+        if input.pricingMode == "exhaust_materials"
                 and formula
-                and type(formula.CalculateFixedInputEquivalent) == "function" then
-            ApplyFixedInputEconomics(input)
-            result = formula.CalculateFixedInputEquivalent(input)
-            result.model = "fixedInput"
+                and type(formula.CalculateExhaustMaterials) == "function" then
+            result = formula.CalculateExhaustMaterials(input)
         elseif formula and type(formula.CalculateFixedCrafts) == "function" then
             result = formula.CalculateFixedCrafts(input)
         else
@@ -269,10 +297,13 @@ function Engine.Install(Pricing, deps)
         result.statFallbackReason = input.statFallbackReason
         result.statQuality = input.statQuality
         result.nodeHash = input.nodeHash
+        result.crafterUID = input.crafterUID
+        result.crafterName = input.crafterName
+        result.crafterRealm = input.crafterRealm
+        result.crossCharacter = input.crossCharacter
         result.pricingMode = input.pricingMode
-        result.mcMultiplier = input.mcMultiplier
-        result.resourceSaveFraction = input.resourceSaveFraction
         result.nodeStats = statSnapshot and statSnapshot.nodeStats or nil
+        result.nodeBonusDetails = statSnapshot and statSnapshot.nodeBonusDetails or nil
         result.totalStats = statSnapshot and statSnapshot.totalStats or nil
         return result
     end
@@ -284,7 +315,7 @@ function Engine.Install(Pricing, deps)
         strat = strat or ctx.strat
         local baseYield = GetOutputBaseYield(outputDef) or 0
         local basis = GetOutputQuantityBasis(outputDef, ctx.startingAmt, ctx.crafts) or 0
-        local formulaResult = CalculateV2FixedCrafts(
+        local formulaResult = CalculateV2Formula(
             strat,
             ctx.opts,
             baseYield,
@@ -305,7 +336,7 @@ function Engine.Install(Pricing, deps)
             return nil
         end
         local baseYield = GetOutputBaseYield(output) or 0
-        local formulaResult = CalculateV2FixedCrafts(
+        local formulaResult = CalculateV2Formula(
             strat,
             (ctx and ctx.opts) or GetOpts(),
             baseYield,
@@ -444,6 +475,8 @@ function Engine.Install(Pricing, deps)
             producerExpectedCost = producerCost and producerCost.expectedConsumedCostFull or nil,
             directRequiredCost = directCost and directCost.requiredCostFull or nil,
             producerRequiredCost = producerCost and producerCost.requiredCostFull or nil,
+            directMissing = HasMissingEconomicCost(directCost),
+            producerMissing = HasMissingEconomicCost(producerCost),
         }
     end
 
@@ -459,13 +492,21 @@ function Engine.Install(Pricing, deps)
             profileKey = formulaResult.profileKey,
             statSource = formulaResult.statSource,
             statFallbackReason = formulaResult.statFallbackReason,
+            crafterUID = formulaResult.crafterUID,
+            crafterName = formulaResult.crafterName,
+            crafterRealm = formulaResult.crafterRealm,
+            crossCharacter = formulaResult.crossCharacter,
             nodeHash = formulaResult.nodeHash,
+            nodeBonusDetails = formulaResult.nodeBonusDetails,
             mcPercent = formulaResult.mcPercent,
             mcExtra = formulaResult.mcExtra,
             resPercent = formulaResult.resPercent,
             resExtra = formulaResult.resExtra,
             pricingMode = formulaResult.pricingMode,
             expectedYieldPerCraft = formulaResult.expectedYieldPerCraft,
+            expectedYieldPerActualCraft = formulaResult.expectedYieldPerActualCraft,
+            effectiveCrafts = formulaResult.effectiveCrafts,
+            consumptionFactor = formulaResult.consumptionFactor,
         }
     end
 
@@ -578,7 +619,7 @@ function Engine.Install(Pricing, deps)
 
         local primaryOut = (active.outputs and active.outputs[1]) or active.output
         local baseYield = GetOutputBaseYield(primaryOut) or 0
-        local formulaResult = CalculateV2FixedCrafts(
+        local formulaResult = CalculateV2Formula(
             strat,
             ctx.opts,
             baseYield,
@@ -607,7 +648,7 @@ function Engine.Install(Pricing, deps)
         return BuildV2RecipeEconomicCost(ctx, ctx.strat, ctx.active, ctx.crafts, state)
     end
 
-    local function BuildV2ShadowFinalMetrics(ctx, outputData, legacyMetrics, displayReagentData, costReagentData, economicData)
+    local function BuildV2FinalMetrics(ctx, outputData, displayReagentData, costReagentData, economicData)
         economicData = economicData or BuildV2EconomicMetrics(ctx)
         local missingPrices = {}
         local seenMissing = {}
@@ -638,21 +679,8 @@ function Engine.Install(Pricing, deps)
             breakEven = economicData.expectedConsumedCostFull / (outputData.outputQtyRaw * (1 - ctx.ahCut))
         end
 
-        local deltas = nil
-        if legacyMetrics then
-            deltas = {
-                totalCostFull = economicData.requiredCostFull - (legacyMetrics.totalCostFull or 0),
-                expectedConsumedCostFull = economicData.expectedConsumedCostFull - (legacyMetrics.totalCostFull or 0),
-                netRevenue = (outputData.netRevenue or 0) - (legacyMetrics.netRevenue or 0),
-                profit = profit and legacyMetrics.profit and (profit - legacyMetrics.profit) or nil,
-                roi = roi and legacyMetrics.roi and (roi - legacyMetrics.roi) or nil,
-                outputQtyRaw = (outputData.outputQtyRaw or 0)
-                    - ((legacyMetrics.output and legacyMetrics.output.expectedQtyRaw) or 0),
-            }
-        end
-
         return {
-            model = "v2-shadow",
+            model = "v2",
             startingAmount = ctx.startingAmt,
             crafts = ctx.crafts,
             reagents = displayReagentData and displayReagentData.reagentResults or nil,
@@ -675,15 +703,14 @@ function Engine.Install(Pricing, deps)
             selectionNotes = costReagentData and costReagentData.selectionNotes or nil,
             formula = economicData.formula,
             statUsages = ctx.v2StatUsages,
-            deltas = deltas,
+            economicChoices = ctx.v2EconomicChoices,
+            gearModeRequested = ctx.gearModeRequested,
+            gearModeResolved = ctx.gearModeResolved,
+            gearPresetMissing = ctx.gearPresetMissing and true or false,
         }
     end
 
-    function Pricing.CalculateStratMetricsV2Shadow(strat, patchTag, craftQty, legacyMetrics)
-        if not strat then return nil end
-        patchTag = patchTag or GAM.C.DEFAULT_PATCH
-        craftQty = craftQty or 1
-
+    local function CalculateStratMetricsV2Once(strat, patchTag, craftQty, gearModeOverride)
         local opts = GetOpts()
         local ahCut = opts.ahCut or GAM.C.AH_CUT
         local pdb = GetPatchDB(patchTag)
@@ -697,6 +724,7 @@ function Engine.Install(Pricing, deps)
         ctx.v2StatUsages = {}
         ctx.v2EconomicChoices = {}
         ctx.v2ExecutionPlan = true
+        ctx.gearModeOverride = gearModeOverride
         local costReagentData = BuildReagentMetrics(ctx)
         local outputData = BuildV2OutputMetrics(ctx)
         if not outputData then
@@ -704,33 +732,55 @@ function Engine.Install(Pricing, deps)
         end
         local economicData = BuildV2EconomicMetrics(ctx)
         local displayReagentData = BuildDisplayReagentMetrics(ctx, costReagentData and costReagentData.reagentResults)
-        return BuildV2ShadowFinalMetrics(ctx, outputData, legacyMetrics, displayReagentData, costReagentData, economicData)
+        return BuildV2FinalMetrics(ctx, outputData, displayReagentData, costReagentData, economicData)
     end
 
     function Pricing.CalculateStratMetricsV2(strat, patchTag, craftQty)
-        local metrics = Pricing.CalculateStratMetricsV2Shadow(strat, patchTag, craftQty, nil)
+        if not strat then return nil end
+        patchTag = patchTag or GAM.C.DEFAULT_PATCH
+        craftQty = craftQty or 1
+
+        local stats = GAM.CraftingStatsV2
+        local requested = stats and stats.GetGearModeForStrat
+            and stats.GetGearModeForStrat(strat, patchTag)
+            or "auto"
+        local available = stats and stats.GetAvailableGearPresetModes
+            and stats.GetAvailableGearPresetModes(strat)
+            or { multicraft = false, resourcefulness = false }
+        local resolved = nil
+        local metrics = nil
+
+        if requested == "multicraft" or requested == "resourcefulness" then
+            resolved = available[requested] and requested or "current"
+            metrics = CalculateStratMetricsV2Once(
+                strat, patchTag, craftQty, available[requested] and requested or nil)
+        elseif available.multicraft and available.resourcefulness then
+            local multicraft = CalculateStratMetricsV2Once(
+                strat, patchTag, craftQty, "multicraft")
+            local resourcefulness = CalculateStratMetricsV2Once(
+                strat, patchTag, craftQty, "resourcefulness")
+            metrics, resolved = Engine.SelectGearMetrics(multicraft, resourcefulness)
+        elseif available.multicraft or available.resourcefulness then
+            resolved = available.multicraft and "multicraft" or "resourcefulness"
+            metrics = CalculateStratMetricsV2Once(strat, patchTag, craftQty, resolved)
+        else
+            resolved = "current"
+            metrics = CalculateStratMetricsV2Once(strat, patchTag, craftQty, nil)
+        end
+
         if metrics then
-            metrics.model = "v2"
-        end
-        return metrics
-    end
-
-    function Pricing.GetActivePricingEngine()
-        local opts = GetOpts()
-        if opts and opts.pricingEngine == "legacy" then
-            return "legacy"
-        end
-        return "v2"
-    end
-
-    function Pricing.CalculateStratMetricsActive(strat, patchTag, craftQty)
-        if Pricing.GetActivePricingEngine() == "v2" then
-            local metrics = Pricing.CalculateStratMetricsV2(strat, patchTag, craftQty)
-            if metrics then
-                return metrics
+            metrics.gearModeRequested = requested
+            metrics.gearModeResolved = resolved
+            metrics.gearPresetMissing = requested ~= "auto"
+                and not available[requested]
+                or false
+            if type(metrics.formula) == "table" then
+                metrics.formula.gearModeRequested = requested
+                metrics.formula.gearModeResolved = resolved
+                metrics.formula.gearPresetMissing = metrics.gearPresetMissing
             end
         end
-        return Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
+        return metrics
     end
 
     Pricing.GetFormulaV2 = GetFormulaV2

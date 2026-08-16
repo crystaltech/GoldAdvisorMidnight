@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Leatherworking"] = {
     id = "leatherworking__scale_woven_hide__midnight_1",
     name = "Scale Woven Hide",
     patchTag = "midnight-1",
+    recipeID = 1237572,
     formulaProfile = "leatherworking",
     inputs = {
       {
@@ -33,6 +34,7 @@ GAM_PROFESSION_CRAFTS["Leatherworking"] = {
     id = "leatherworking__sin_dorei_armor_banding__midnight_1",
     name = "Sin'Dorei Armor Banding",
     patchTag = "midnight-1",
+    recipeID = 1237574,
     formulaProfile = "leatherworking",
     inputs = {
       {
@@ -63,6 +65,7 @@ GAM_PROFESSION_CRAFTS["Leatherworking"] = {
     id = "leatherworking__silvermoon_weapon_wrap__midnight_1",
     name = "Silvermoon Weapon Wrap",
     patchTag = "midnight-1",
+    recipeID = 1237575,
     formulaProfile = "leatherworking",
     inputs = {
       {
@@ -93,6 +96,7 @@ GAM_PROFESSION_CRAFTS["Leatherworking"] = {
     id = "leatherworking__void_touched_drums__midnight_1",
     name = "Void-Touched Drums",
     patchTag = "midnight-1",
+    recipeID = 1237547,
     formulaProfile = "leatherworking",
     inputs = {
       {

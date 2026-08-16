@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__recycling_argentleaf_pigment__midnight_1",
     name = "Recycling Argentleaf Pigment",
     patchTag = "midnight-1",
+    recipeID = 1229930,
     formulaProfile = "engineering_recycling",
     inputs = {
       {
@@ -29,6 +30,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__recycling_bright_linen_bolt__midnight_1",
     name = "Recycling Bright Linen Bolt",
     patchTag = "midnight-1",
+    recipeID = 1229930,
     formulaProfile = "engineering_recycling",
     inputs = {
       {
@@ -50,6 +52,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__recycling_codified_azeroot__midnight_1",
     name = "Recycling Codified Azeroot",
     patchTag = "midnight-1",
+    recipeID = 1229930,
     formulaProfile = "engineering_recycling",
     inputs = {
       {
@@ -71,6 +74,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__recycling_imbued_bright_linen_bolt__midnight_1",
     name = "Recycling Imbued Bright Linen Bolt",
     patchTag = "midnight-1",
+    recipeID = 1229930,
     formulaProfile = "engineering_recycling",
     inputs = {
       {
@@ -92,6 +96,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__recycling_powder_pigment__midnight_1",
     name = "Recycling Powder Pigment",
     patchTag = "midnight-1",
+    recipeID = 1229930,
     formulaProfile = "engineering_recycling",
     inputs = {
       {
@@ -113,6 +118,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__soul_sprocket__midnight_1",
     name = "Soul Sprocket",
     patchTag = "midnight-1",
+    recipeID = 1229853,
     formulaProfile = "engineering_craft",
     inputs = {
       {
@@ -143,6 +149,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__song_gear__midnight_1",
     name = "Song Gear",
     patchTag = "midnight-1",
+    recipeID = 1229755,
     formulaProfile = "engineering_craft",
     inputs = {
       {
@@ -173,6 +180,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__farstrider_hawkeye__midnight_1",
     name = "Farstrider Hawkeye",
     patchTag = "midnight-1",
+    recipeID = 1261866,
     formulaProfile = "engineering_craft",
     inputs = {
       {
@@ -208,6 +216,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__emergency_soul_link__midnight_1",
     name = "Emergency Soul Link",
     patchTag = "midnight-1",
+    recipeID = 1229923,
     formulaProfile = "engineering_craft",
     inputs = {
       {
@@ -233,6 +242,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__smugglers_lynxeye__midnight_1",
     name = "Smugglers Lynxeye",
     patchTag = "midnight-1",
+    recipeID = 1261893,
     formulaProfile = "engineering_craft",
     inputs = {
       {
@@ -268,6 +278,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__laced_zoomshots__midnight_1",
     name = "Laced Zoomshots",
     patchTag = "midnight-1",
+    recipeID = 1261895,
     formulaProfile = "engineering_craft",
     inputs = {
       {
@@ -303,6 +314,7 @@ GAM_PROFESSION_CRAFTS["Engineering"] = {
     id = "engineering__weighted_boomshots__midnight_1",
     name = "Weighted Boomshots",
     patchTag = "midnight-1",
+    recipeID = 1261913,
     formulaProfile = "engineering_craft",
     inputs = {
       {

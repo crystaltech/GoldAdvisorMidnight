@@ -1,8 +1,73 @@
 # Changelog — Gold Advisor Midnight
 
-## [Unreleased]
+## [2.0.1] — 2026-08-15
 
-- No unreleased changes.
+### Midnight 12.1 / Profession Nodes
+- Updated the addon interface target to `120100` for Midnight 12.1.
+- Added nine verified 12.1 commodity strategies: three Alchemy consumables, Rite of the Hash'ey, R0CKY-To-Go, Vantus Rune: Tides, Contract: Zul'jarra's Forces, and two Jewelcrafting refinement recipes.
+- Added a selected-strategy `Refresh Recipe` action that opens only the exact Blizzard recipe and refreshes its visible stats and learned nodes through the existing event capture path.
+- Exact recipe snapshots no longer fall back to another recipe merely because both strategies share a profession formula profile.
+- Moved learned specialization-node ownership into GAM: opening a profession now reads the selected expansion skill line through Blizzard's `C_ProfSpecs`/`C_Traits` APIs and refreshes the character's node ranks.
+- Added delayed capture retries plus trait-config/list-update refreshes so node state is collected after the profession frame finishes initializing and after learned ranks are committed.
+- CraftSim no longer syncs node bonuses at login or supplies hidden Multicraft/Resourcefulness node modifiers to pricing; its optional recipe snapshots are limited to recipe identity, capabilities, visible stats, and shared formula constants.
+- Repeated profession refreshes with unchanged ranks no longer invalidate the pricing revision.
+- Strategy details now show the hidden node bonuses actually applied to the selected recipe, with exact contributing node IDs, names, ranks, and per-node values available in the row tooltip.
+- Profession Node settings now use localized in-game path names captured through Blizzard's trait definitions, backed by verified English names for directly mapped trait IDs and catalog labels only as a final fallback.
+
+### Commodity Refocus
+- Refreshed the pinned commodity manifest to live build `12.1.0.69299`; it retains 282 strategies and 477 output item IDs across all nine professions while preserving excluded user data.
+- Split patch additions into dedicated runtime and compact-fact modules so the launch catalog stays generated and the 12.1 review boundary remains explicit.
+- Added one canonical strategy schema, a shared profession/stat registry, deterministic SavedVariables migrations, and live recipe identity auditing.
+- Removed custom-strategy create/import/edit/delete controls and slash entry points from the release workflow; existing eligible SavedVariables entries remain readable and untouched.
+
+### Pricing
+- Added a versioned pricing request/result contract and a V2-only authoritative pricing facade.
+- Migrated the strategy list, both detail surfaces, shopping, selected scans, scan diagnostics, VI/crushing analyzers, and CraftSim price pushes to canonical facade results.
+- Removed the retired V1/V2 production engine selector, its SavedVariables option, the spreadsheet-era calculator, and the V2-shadow/delta shape; canonical formula evidence is covered by offline regression tests.
+- Made Exhaust Materials the default expected-value model while retaining Fixed Crafts for controlled comparison.
+- Refocused release settings and strategy detail wording on the mass-crafting model: the starting reagent pool is charged once and expected Resourcefulness savings are reinvested into additional attempts.
+- Added a conservative whole-craft recommendation: expected-value attempts remain precise internally, while the actionable plan rounds down so the addon never recommends a fractional craft.
+
+### Architecture
+- Reduced the public slash-command surface to `/gam`, `/goldadvisor`, `/gam log`, and `/gam help`; scans, Quick Buy, exports, cache maintenance, and other player actions remain available in the UI.
+- Stopped shipping the retired 1,905-line strategy creator and its mutation controls while preserving existing SavedVariables strategies as read-only compatible inputs.
+- Moved crafting-stat audit/report code out of the 3,000-line capture/formula module into a focused compatibility module, and kept recipe catalog auditing outside the live TOC.
+- Replaced Quick Buy's Auctionator-frame scraping and throttle-event polling with a dedicated, testable commodity quote state machine driven by Blizzard's purchase events.
+- Split the VI breakdown and crushing analyzer windows out of the inline base-detail renderer.
+- Added a pure canonical detail projection so visible cost, revenue, profit, ROI, break-even, reagent/output, and stat-caption fields can be verified without constructing WoW frames.
+- Removed unreachable best-strategy pricing helpers after the canonical list model became the sole owner of list ranking.
+- Added attempt-generation guards to Auction House scanning so delayed callbacks cannot mutate a reset or resumed scan, and made retry completion/failure counts single-outcome.
+- Removed the post-locale English `ShortUI` override and added a coverage check so every runtime localization key has a base definition without replacing translated labels.
+
+### UI / Workflow
+- VI crafting-order rows now name the selected flexible input for processing recipes, such as `Craft Glimmering Gemdust — use Tenebrous Amethyst`, and preserve that choice when repeated intermediate steps are merged.
+- Rebuilt VI Breakdown as an action plan: required vendor purchases appear first, grouped Auction House purchases second, and a dependency-safe crafting queue last. Shared inputs and repeated intermediate recipes are consolidated, whole intermediate batches are completed before consumers, and the final output craft is always the last step.
+- Polished the planning surfaces: centered the current character, separated the AH quantity input from its label, shortened the vertical-integration toggle, reserved a clipping-safe strategy-list gutter, and made the Crushing Analyzer auto-fit its result rows.
+- Replaced cooldown crafter arrows with a six-row scrollable dropdown and added Blizzard-style help explaining per-character snapshots, countdowns, charges, offline state, and reset verification.
+- Rebuilt Quick Buy around a visible purchase panel showing the current item, quantity, expected price, live quote, and retry/skip state. A normal quote needs one click per commodity; missing estimates or live prices more than 5% above the estimate require explicit approval.
+- Simplified the strategy list to three stable columns: Strategy, Profit, and ROI. Removed the empty Status column and the space-hungry Profession column; profession and missing-price context now live in the row tooltip, and numeric columns stay right-aligned as panels open or close.
+- Cleaned up Strategy Detail into a decision-first layout: Profit, ROI, and break-even now lead; duplicate output/provenance rows and the redundant Exhaust Materials expected-cost row were removed; Materials, Craft Setup, and Expected Output are easier to scan; empty scrollbars are hidden.
+- Simplified the left panel into a clearer profession, pricing, gear, and action flow. Stat-gear modes/capture now live in one selector, craft-step controls appear only when enabled, and Cooldowns, Shopping, CraftSim, and Export moved into `More Tools`.
+- Rewrote end-user help in plain language, removed redundant filter and profit/ROI tooltips, and kept technical recipe sources and node IDs out of the primary detail tooltips.
+- Replaced the oversized persistent guidance card with a compact Crafting Estimates strip and tooltip, returning more height to the strategy list.
+- Switched the estimates helper to Blizzard's native help icon and raised the selected-recipe refresh action into its reserved footer so the button is no longer clipped by the detail panel edge.
+- Added exact per-recipe, per-crafter Multicraft and Resourcefulness gear presets. `Auto` compares both captured setups using current prices; either setup can also be forced, with an explicit warning instead of silent substitution when it has not been captured.
+- Added `Stat Gear` capture controls to the primary workflow: equip a set, open the exact Blizzard recipe, and save that recipe's visible stats for the logged-in crafter.
+- Fixed the live Strategy Detail overflow shown in collapsed-panel acceptance captures: stat/node summaries are now single-line with full evidence in tooltips, list sections use bounded scroll areas, and the selected-recipe action remains inside the panel footer.
+- Replaced the washed-out locked row highlight with a persistent dark selected backdrop and gold accent, and replaced unsupported selector/footer glyphs with client-safe ASCII.
+- Removed profile-wide Craft Stats fields from the primary left panel and relabeled their Settings controls as advanced manual fallbacks.
+- Strategy selection now opens the exact recipe only when the current crafter snapshot is missing or older than 24 hours; clicking the selected row again forces a refresh, while the star remains the sole favorite control.
+- Exact recipe stats and that same character's learned nodes can now resolve from the most recently verified cached crafter when the current character lacks the profession. Cached crafter attribution appears in Strategy Detail, and broad profile snapshots never cross character boundaries.
+- Added a crafter-selectable `Craft Cooldowns` panel. A tracked strategy can be assigned to any cached character, the currently open Blizzard recipe can be added to the logged-in character, and offline alts retain their last-known ready time or charge state until they log in again.
+- Tightened the cooldown panel with correct singular/plural counts, contextual open-recipe help, and scrollbars only when the list overflows.
+- Cooldown snapshots convert session-relative spell timers into persisted epoch timestamps, distinguish unlearned/restricted/pending states, and refresh after profession updates and successful player casts.
+- Fixed the Input Items panel so toggling `Use own items/crafts` immediately switches between the selected recipe's direct reagents and its recursively expanded VI material plan instead of retaining direct intermediate rows.
+- Cleaned up Profession Node settings into compact single-line rows, removed repeated formula instructions, moved node descriptions/effects into hover help, and clarified captured/default/override state.
+- Renamed the ambiguous `Scan Visible` action to `Scan Current List` and clarified that it follows the active profession filters; Shift-click still scans every supported profession.
+
+### Verification
+- Added offline catalog, migration, formula, pricing-contract, facade, strategy-list, strategy-detail, crafting-stat, craft-cooldown, CraftSim, Auction House scanner lifecycle, recipe-audit, TOC, and syntax checks to the local and CI verification path.
+- Completed all active planner, tooltip, Quick Buy, and VI translations for all ten shipped locales; CI now rejects a locale missing any runtime key.
 
 ## [1.9.0-testing] — 2026-04-30
 

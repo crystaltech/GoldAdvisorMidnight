@@ -14,40 +14,41 @@ local function ProfileDefault(profileKey, field, fallback)
     return value
 end
 
+-- Shared profession registry for importing, native stat capture, CraftSim, and UI.
+-- Keep profile ownership here so integrations cannot silently omit a profession.
+local PROFESSION_REGISTRY = {
+    { name = "Alchemy",        enumName = "Alchemy",        skillLineID = 171, profKey = "alch", profiles = { "alchemy" }, aliases = { "alchemy", "alch" } },
+    { name = "Blacksmithing",  enumName = "Blacksmithing",  skillLineID = 164, profKey = "bs",   profiles = { "blacksmithing" }, aliases = { "blacksmith", "bs" } },
+    { name = "Cooking",        enumName = "Cooking",        skillLineID = 185, profKey = "cook", profiles = { "cooking" }, aliases = { "cooking", "cook" } },
+    { name = "Enchanting",     enumName = "Enchanting",     skillLineID = 333, profKey = "ench", profiles = { "ench_shatter", "ench_craft" }, aliases = { "enchant", "ench" } },
+    { name = "Engineering",    enumName = "Engineering",    skillLineID = 202, profKey = "eng",  profiles = { "engineering_recycling", "engineering_craft" }, aliases = { "engineer", "eng" } },
+    { name = "Inscription",    enumName = "Inscription",    skillLineID = 773, profKey = "insc", profiles = { "insc_milling", "insc_ink", "insc_missive_estimated", "insc_codified" }, aliases = { "inscription", "insc" } },
+    { name = "Jewelcrafting",  enumName = "Jewelcrafting",  skillLineID = 755, profKey = "jc",   profiles = { "jc_prospect", "jc_crush", "jc_craft" }, aliases = { "jewelcraft", "jc" } },
+    { name = "Leatherworking", enumName = "Leatherworking", skillLineID = 165, profKey = "lw",   profiles = { "leatherworking" }, aliases = { "leather", "lw" } },
+    { name = "Tailoring",      enumName = "Tailoring",      skillLineID = 197, profKey = "tail", profiles = { "tailoring" }, aliases = { "tailor", "tail" } },
+}
+
+local SUPPORTED_PROFESSIONS = {}
+local PROFESSION_SKILL_LINES = {}
+for _, profession in ipairs(PROFESSION_REGISTRY) do
+    SUPPORTED_PROFESSIONS[#SUPPORTED_PROFESSIONS + 1] = profession.name
+    PROFESSION_SKILL_LINES[profession.name] = profession.skillLineID
+end
+
 GAM.C = {
-    ADDON_VERSION        = "1.9.1-testing",
-    DATA_VERSION         = 15,
+    ADDON_VERSION        = "2.0.1",
+    DATA_VERSION         = 18,
+    STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",
 
-    -- Canonical profession names used by filters, creator dropdowns, and
-    -- skill-line matching. Professions may exist here before any shipped strats
-    -- are added so the UI can be scaffolded ahead of data imports.
-    SUPPORTED_PROFESSIONS = {
-        "Alchemy",
-        "Blacksmithing",
-        "Cooking",
-        "Enchanting",
-        "Engineering",
-        "Inscription",
-        "Jewelcrafting",
-        "Leatherworking",
-        "Tailoring",
-    },
-    PROFESSION_SKILL_LINES = {
-        Alchemy = 171,
-        Blacksmithing = 164,
-        Cooking = 185,
-        Enchanting = 333,
-        Engineering = 202,
-        Inscription = 773,
-        Jewelcrafting = 755,
-        Leatherworking = 165,
-        Tailoring = 197,
-    },
+    PROFESSION_REGISTRY = PROFESSION_REGISTRY,
+    SUPPORTED_PROFESSIONS = SUPPORTED_PROFESSIONS,
+    PROFESSION_SKILL_LINES = PROFESSION_SKILL_LINES,
 
-    -- Base crafting-stat multipliers (game-level, before talent/spec node bonuses)
-    BASE_MCM             = 1.25,   -- Multicraft multiplier base (MCm before any node bonus)
-    BASE_RS              = 0.30,   -- Resourcefulness saved fraction base (Rs before any node bonus)
+    -- Legacy spreadsheet compatibility only. Exhaust Materials reads the
+    -- CraftSim-derived constants owned by PricingV2Formula/CraftingStatsV2.
+    BASE_MCM             = 1.25,
+    BASE_RS              = 0.30,
 
     -- Economy
     AH_CUT               = 0.05,   -- 5% AH fee (also used as the DB default)
@@ -74,7 +75,7 @@ GAM.C = {
     DEFAULT_PIGMENT_COST_SOURCE  = "ah",  -- "ah" | "mill"
     DEFAULT_BOLT_COST_SOURCE     = "ah",  -- "ah" | "craft"
     DEFAULT_INGOT_COST_SOURCE    = "ah",  -- "ah" | "craft"
-    DEFAULT_V2_PRICING_MODE      = "fixed_crafts",
+    DEFAULT_V2_PRICING_MODE      = "exhaust_materials",
 
     -- Crafting stat defaults (percent values; decimals allowed; match workbook baseline values)
     -- Milling, Prospecting, Crushing, Shattering: no Multicraft stat (profession window doesn't show it).
@@ -136,8 +137,6 @@ GAM.C = {
     TICKER_H                = 18,    -- community info scrolling ticker height
 
     -- Best Strategy scoring thresholds
-    BEST_STRAT_MIN_PROFIT   = 50000, -- 5g minimum profit to qualify (copper)
-    BEST_STRAT_MIN_ROI      = 5,     -- 5% minimum ROI to qualify
 
     -- Vendor-purchasable items: static buy prices in copper.
     -- Checked in GetEffectivePrice after manual overrides — no AH scan needed.

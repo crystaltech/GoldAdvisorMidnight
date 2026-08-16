@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Blacksmithing"] = {
     id = "blacksmithing__refulgent_copper_ingot__midnight_1",
     name = "Refulgent Copper Ingot",
     patchTag = "midnight-1",
+    recipeID = 1230761,
     formulaProfile = "blacksmithing",
     inputs = {
       {
@@ -82,6 +83,7 @@ GAM_PROFESSION_CRAFTS["Blacksmithing"] = {
     id = "blacksmithing__gloaming_alloy__midnight_1",
     name = "Gloaming Alloy",
     patchTag = "midnight-1",
+    recipeID = 1230762,
     formulaProfile = "blacksmithing",
     inputs = {
       {
@@ -171,6 +173,7 @@ GAM_PROFESSION_CRAFTS["Blacksmithing"] = {
     id = "blacksmithing__sterling_alloy__midnight_1",
     name = "Sterling Alloy",
     patchTag = "midnight-1",
+    recipeID = 1230763,
     formulaProfile = "blacksmithing",
     inputs = {
       {

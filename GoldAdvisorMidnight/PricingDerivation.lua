@@ -13,6 +13,32 @@ local function GetFormulaProfiles()
     return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
 end
 
+local function NormalizeProfession(value)
+    return tostring(value or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+-- The original workbook only crafts intermediate inputs within the same
+-- profession. Do not silently assume access to another profession's producer.
+function Derivation.CanVerticallyIntegrate(rootStrat, producerStrat)
+    local rootProfession = NormalizeProfession(rootStrat and rootStrat.profession)
+    local producerProfession = NormalizeProfession(producerStrat and producerStrat.profession)
+    return rootProfession ~= "" and rootProfession == producerProfession
+end
+
+-- Keep the UI's reagent projection policy explicit and testable. "direct"
+-- describes the recipe as written; "execution" describes the materials needed
+-- after applying the selected VI producer choices.
+function Derivation.GetDisplayPlanMode(verticalIntegrationEnabled)
+    return verticalIntegrationEnabled and "execution" or "direct"
+end
+
+function Derivation.ShouldExpandDisplayIntermediate(mode, economicChoice)
+    if mode ~= "execution" then
+        return false
+    end
+    return not (type(economicChoice) == "table" and economicChoice.source == "direct")
+end
+
 local function HasRequiredDeps(deps)
     return deps and deps.PickItemID and deps.GetEffectivePrice
 end

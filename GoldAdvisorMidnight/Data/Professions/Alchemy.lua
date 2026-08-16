@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__composite_flora__midnight_1",
     name = "Composite Flora",
     patchTag = "midnight-1",
+    recipeID = 1230855,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -43,6 +44,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__vicious_thalassian_flask_of_honor__midnight_1",
     name = "Vicious Thalassian Flask of Honor",
     patchTag = "midnight-1",
+    recipeID = 1230883,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -78,6 +80,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__flask_of_the_blood_knights__midnight_1",
     name = "Flask of the Blood Knights",
     patchTag = "midnight-1",
+    recipeID = 1230877,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -118,6 +121,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__haranir_phial_of_perception__midnight_1",
     name = "Haranir Phial of Perception",
     patchTag = "midnight-1",
+    recipeID = 1230873,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -158,6 +162,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__haranir_phial_of_finesse__midnight_1",
     name = "Haranir Phial of Finesse",
     patchTag = "midnight-1",
+    recipeID = 1230870,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -178,12 +183,12 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
       {
         itemRef = "Azeroot",
         itemIDs = { 236774, 236775 },
-        amount = 6,
+        amount = 3,
       },
       {
-        itemRef = "Argentleaf",
-        itemIDs = { 236776, 236777 },
-        amount = 3,
+        itemRef = "Mana Lily",
+        itemIDs = { 236778, 236779 },
+        amount = 6,
       },
     },
     outputs = {
@@ -198,6 +203,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__flask_of_the_shattered_sun__midnight_1",
     name = "Flask of the Shattered Sun",
     patchTag = "midnight-1",
+    recipeID = 1230878,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -238,6 +244,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__amani_extract__midnight_1",
     name = "Amani Extract",
     patchTag = "midnight-1",
+    recipeID = 1230864,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -268,6 +275,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__potion_of_recklessness__midnight_1",
     name = "Potion of Recklessness",
     patchTag = "midnight-1",
+    recipeID = 1230859,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -303,6 +311,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__void_shrouded_tincture__midnight_1",
     name = "Void-Shrouded Tincture",
     patchTag = "midnight-1",
+    recipeID = 1230867,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -338,6 +347,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__silvermoon_health_potion__midnight_1",
     name = "Silvermoon Health Potion",
     patchTag = "midnight-1",
+    recipeID = 1230866,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -363,6 +373,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__potion_of_zealotry__midnight_1",
     name = "Potion of Zealotry",
     patchTag = "midnight-1",
+    recipeID = 1230863,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -398,6 +409,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__lightfused_mana_potion__midnight_1",
     name = "Lightfused Mana Potion",
     patchTag = "midnight-1",
+    recipeID = 1230865,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -428,6 +440,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__draught_of_rampant_abandon__midnight_1",
     name = "Draught of Rampant Abandon",
     patchTag = "midnight-1",
+    recipeID = 1230860,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -468,6 +481,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__light_s_potential__midnight_1",
     name = "Light's Potential",
     patchTag = "midnight-1",
+    recipeID = 1230869,
     formulaProfile = "alchemy",
     inputs = {
       {
@@ -508,6 +522,7 @@ GAM_PROFESSION_CRAFTS["Alchemy"] = {
     id = "alchemy__flask_of_the_magisters__midnight_1",
     name = "Flask of the Magisters",
     patchTag = "midnight-1",
+    recipeID = 1230876,
     formulaProfile = "alchemy",
     inputs = {
       {

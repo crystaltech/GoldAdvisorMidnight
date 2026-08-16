@@ -29,6 +29,10 @@ function CenterUI.MakeRowFrame(args, parent, idx)
     row:SetHeight(rowHeight)
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(idx - 1) * rowHeight)
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestLogTitleHighlight", "ADD")
+    local highlightTexture = row:GetHighlightTexture()
+    if highlightTexture then
+        highlightTexture:SetAlpha(0.16)
+    end
     row._rowIndex = idx
 
     local bg = row:CreateTexture(nil, "BACKGROUND")
@@ -66,7 +70,7 @@ function CenterUI.MakeRowFrame(args, parent, idx)
         if not parentRow or not parentRow.stratID then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(isFavorite(parentRow.stratID) and "Remove Favorite" or "Add Favorite", 1, 1, 1)
-        GameTooltip:AddLine("Click the star to toggle favorite without reordering issues.", 1, 0.82, 0, true)
+        GameTooltip:AddLine("Click the star to add or remove this strategy from Favorites.", 1, 0.82, 0, true)
         GameTooltip:Show()
     end)
     starBtn:SetScript("OnLeave", function()
@@ -81,42 +85,19 @@ function CenterUI.MakeRowFrame(args, parent, idx)
     applyTextShadow(nameText)
     row.nameText = nameText
 
-    local profSubText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    profSubText:SetJustifyH("LEFT")
-    profSubText:SetTextColor(0.65, 0.65, 0.65, 0.85)
-    profSubText:SetWordWrap(false)
-    applyFontSize(profSubText, 10)
-    applyTextShadow(profSubText, 0.75)
-    row.profSubText = profSubText
-
-    local profText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    profText:SetJustifyH("LEFT")
-    profText:SetWordWrap(false)
-    applyFontSize(profText, 10)
-    applyTextShadow(profText, 0.75)
-    row.profText = profText
-
     local profitText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    profitText:SetJustifyH("CENTER")
+    profitText:SetJustifyH("RIGHT")
     profitText:SetWordWrap(false)
     applyFontSize(profitText, 10)
     applyTextShadow(profitText)
     row.profitText = profitText
 
     local roiText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    roiText:SetJustifyH("CENTER")
+    roiText:SetJustifyH("RIGHT")
     roiText:SetWordWrap(false)
     applyFontSize(roiText, 10)
     applyTextShadow(roiText)
     row.roiText = roiText
-
-    local missingText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    missingText:SetJustifyH("LEFT")
-    missingText:SetTextColor(1, 0.6, 0)
-    missingText:SetWordWrap(false)
-    applyFontSize(missingText, 10)
-    applyTextShadow(missingText)
-    row.missingText = missingText
 
     row.missingPriceList = {}
 
@@ -128,15 +109,7 @@ function CenterUI.MakeRowFrame(args, parent, idx)
             refreshRows()
             return
         end
-        selectStrategyByID(self.stratID)
-        refreshRows()
-    end)
-
-    row:SetScript("OnDoubleClick", function(self)
-        if not self.stratID then return end
-        if isClickInFavoriteGutter(self) then return end
-        toggleFavorite(self.stratID)
-        rebuildList()
+        selectStrategyByID(self.stratID, true)
         refreshRows()
     end)
 
@@ -144,16 +117,20 @@ function CenterUI.MakeRowFrame(args, parent, idx)
         if not self.stratID then return end
         local strat = getStratByID(self.stratID)
         if not strat then return end
-        local hasNotes = strat.notes and strat.notes ~= ""
         local hasMissing = self.missingPriceList and #self.missingPriceList > 0
-        if not hasNotes and not hasMissing then return end
+        local L = getLocalizer()
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(strat.stratName, 1, 1, 1)
-        if hasNotes then
-            GameTooltip:AddLine(strat.notes, 0.8, 0.8, 0.8, true)
+        if strat.profession and strat.profession ~= "" then
+            GameTooltip:AddDoubleLine(
+                (L and L["COL_PROF"] or "Profession") .. ":",
+                strat.profession,
+                0.65, 0.65, 0.65,
+                1, 0.82, 0
+            )
         end
         if hasMissing then
-            GameTooltip:AddLine("Missing prices:", 1, 0.6, 0)
+            GameTooltip:AddLine((L and L["MISSING_PRICES"] or "Missing prices") .. ":", 1, 0.6, 0)
             for _, name in ipairs(self.missingPriceList) do
                 GameTooltip:AddLine("  " .. name, 1, 0.8, 0.3)
             end
@@ -182,8 +159,6 @@ function CenterUI.PopulateRow(args, row, strat)
     row.star:SetAlpha(favorite and 1 or 0.35)
 
     row.nameText:SetText(strat.stratName)
-    row.profText:SetText(strat.profession)
-    row.profSubText:SetText("")
 
     local metrics = getListMetric(strat)
     local noPrice = "|cff888888" .. (L and L["NO_PRICE"] or "—") .. "|r"
@@ -195,16 +170,13 @@ function CenterUI.PopulateRow(args, row, strat)
             and ((metrics.roi >= 0 and "|cff55ff55" or "|cffff5555") .. string.format("%.1f%%", metrics.roi) .. "|r")
             or "|cff888888—|r")
         if #metrics.missingPrices > 0 then
-            row.missingText:SetText(L and L["MISSING_PRICES"] or "!")
             row.missingPriceList = metrics.missingPrices
         else
-            row.missingText:SetText("")
             row.missingPriceList = {}
         end
     else
         row.profitText:SetText(noPrice)
         row.roiText:SetText("|cff888888—|r")
-        row.missingText:SetText(L and L["MISSING_PRICES"] or "!")
         row.missingPriceList = {}
     end
 
@@ -225,11 +197,10 @@ function CenterUI.PopulateRow(args, row, strat)
         end
     end
 
-    if selected then
-        row:LockHighlight()
-    else
-        row:UnlockHighlight()
-    end
+    -- The selected-row backdrop and gold accent are persistent indicators.
+    -- Locking Blizzard's additive highlight washes text out on the classic
+    -- theme, so reserve that texture for pointer hover only.
+    row:UnlockHighlight()
     row:Show()
 end
 
@@ -332,20 +303,20 @@ function CenterUI.Build(args)
         bestStratCardShell:SetPoint("TOPRIGHT", centerPanel, "TOPRIGHT", -4, -4)
     end
     if bestStratCardShell.EnableMouse then
-        bestStratCardShell:EnableMouse(false)
+        bestStratCardShell:EnableMouse(true)
     end
 
     local guideLeft = (layoutMode == "soft") and 18 or 22
     local guideRight = (layoutMode == "soft") and 18 or 22
-    local guideTop = (layoutMode == "soft") and -18 or -18
+    local guideTop = (layoutMode == "soft") and -18 or -15
     local guideRuleTop = (layoutMode == "soft") and -46 or -42
     local guideBottom = (layoutMode == "soft") and 16 or 16
 
     local infoTitle = bestStratCard:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     infoTitle:SetPoint("TOPLEFT", bestStratCard, "TOPLEFT", guideLeft, guideTop)
-    infoTitle:SetPoint("TOPRIGHT", bestStratCard, "TOPRIGHT", -guideRight, guideTop)
+    infoTitle:SetPoint("TOPRIGHT", bestStratCard, "TOPRIGHT", -(guideRight + 32), guideTop)
     infoTitle:SetJustifyH("LEFT")
-    infoTitle:SetText((L and L["V2_GUIDE_TITLE"]) or "Before You Craft")
+    infoTitle:SetText((L and L["V2_ESTIMATES_TITLE"]) or "Crafting Estimates")
     infoTitle:SetTextColor(gold[1], gold[2], gold[3])
     applyFontSize(infoTitle, (layoutMode == "soft") and 17 or 15)
     applyTextShadow(infoTitle)
@@ -373,9 +344,41 @@ function CenterUI.Build(args)
     applyTextShadow(infoBody, (layoutMode == "soft") and 0.12 or 0.75)
     bestStratCard.infoBodyFS = infoBody
     themeRefs.infoPanelBody = infoBody
+    infoRule:Hide()
+    infoBody:Hide()
+
+    local infoButton = CreateFrame("Button", nil, bestStratCard)
+    infoButton:SetSize(22, 22)
+    infoButton:SetPoint("RIGHT", bestStratCard, "RIGHT", -guideRight, 0)
+    infoButton:SetHitRectInsets(-3, -3, -3, -3)
+    infoButton:SetNormalTexture("Interface\\Common\\help-i")
+    infoButton:SetPushedTexture("Interface\\Common\\help-i")
+    infoButton:SetHighlightTexture("Interface\\Common\\help-i", "ADD")
+    if infoButton:GetNormalTexture() then
+        infoButton:GetNormalTexture():SetAllPoints(infoButton)
+    end
+    if infoButton:GetPushedTexture() then
+        infoButton:GetPushedTexture():ClearAllPoints()
+        infoButton:GetPushedTexture():SetPoint("TOPLEFT", infoButton, "TOPLEFT", 1, -1)
+        infoButton:GetPushedTexture():SetPoint("BOTTOMRIGHT", infoButton, "BOTTOMRIGHT", 1, -1)
+    end
+    if infoButton:GetHighlightTexture() then
+        infoButton:GetHighlightTexture():SetAllPoints(infoButton)
+        infoButton:GetHighlightTexture():SetAlpha(0.35)
+    end
+    infoButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText((L and L["V2_GUIDE_TITLE"]) or "Before You Craft", 1, 1, 1)
+        GameTooltip:AddLine((L and L["V2_GUIDE_BODY"])
+            or "Estimates use average crafting results and current market prices.\nActual results can vary, especially for small batches.\nReview missing prices and materials before crafting.",
+            1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    infoButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    bestStratCard.infoButton = infoButton
 
     local colHeaderBtns = {}
-    for i = 1, 5 do
+    for i = 1, 3 do
         local btn = CreateFrame("Button", nil, listPanel)
         btn:SetHeight(headerHeight)
         local lbl = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")

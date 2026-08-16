@@ -287,6 +287,7 @@ local arpPopup
 local arpPopupEB
 local arpPopupSF
 local arpPopupSizer
+local arpPopupTitle
 
 local function RefreshARPExportPopupLayout()
     if not (arpPopupEB and arpPopupSF and arpPopupSizer) then return end
@@ -324,6 +325,7 @@ local function BuildARPExportPopup()
     local title = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", arpPopup, "TOP", 0, -14)
     title:SetText((GAM.L and GAM.L["BTN_ARP_EXPORT"]) or "ARP Export")
+    arpPopupTitle = title
 
     -- Close button (top-right X)
     local closeBtn = CreateFrame("Button", nil, arpPopup, "UIPanelCloseButton")
@@ -367,9 +369,10 @@ local function BuildARPExportPopup()
     end)
 end
 
-local function ShowARPExportPopup(text)
+local function ShowTextExportPopup(title, text)
     if not frame then Build() end
     if not arpPopup then BuildARPExportPopup() end
+    if arpPopupTitle then arpPopupTitle:SetText(title or "Export") end
     arpPopupSF:SetVerticalScroll(0)
     arpPopupEB:SetText(text or "")
     RefreshARPExportPopupLayout()
@@ -377,6 +380,10 @@ local function ShowARPExportPopup(text)
     WindowManager.Present(arpPopup, nil, { owner = frame, levelOffset = 8 })
     arpPopupEB:SetFocus()
     arpPopupEB:HighlightText()
+end
+
+local function ShowARPExportPopup(text)
+    ShowTextExportPopup((GAM.L and GAM.L["BTN_ARP_EXPORT"]) or "ARP Export", text)
 end
 
 -- ===== Build frame =====
@@ -520,85 +527,24 @@ local function FormatPriceSafe(copper)
     return tostring(copper)
 end
 
+local function FormatNumberSafe(value, decimals)
+    local number = tonumber(value)
+    if number == nil then return "-" end
+    return string.format("%." .. tostring(decimals or 3) .. "f", number)
+end
+
+local function FormatPercentSafe(value)
+    local number = tonumber(value)
+    if number == nil then return "-" end
+    return string.format("%.2f%%", number * 100)
+end
+
 local function GetCurrentDetailContext()
     local mw = GAM.UI and GAM.UI.MainWindowV2
     if not (mw and mw.GetCurrentDetailContext) then
         return nil, nil, nil
     end
     return mw.GetCurrentDetailContext()
-end
-
-local function TrimText(value)
-    if type(value) ~= "string" then return "" end
-    return value:match("^%s*(.-)%s*$") or ""
-end
-
-local function NormalizeSearchText(value)
-    local text = TrimText(value):lower()
-    text = text:gsub("[_%-%p]+", " ")
-    text = text:gsub("%s+", " ")
-    return TrimText(text)
-end
-
-local function StrategySearchText(strat)
-    if type(strat) ~= "table" then return "" end
-    return NormalizeSearchText(table.concat({
-        tostring(strat.id or ""),
-        tostring(strat.stratName or ""),
-        tostring(strat.profession or ""),
-    }, " "))
-end
-
-local function FormatStrategyRef(strat)
-    if type(strat) ~= "table" then return "?" end
-    local name = tostring(strat.stratName or strat.id or "?")
-    local id = tostring(strat.id or "?")
-    if name == id then
-        return id
-    end
-    return string.format("%s [%s]", name, id)
-end
-
-local function FindStrategyForDebugQuery(query)
-    local q = TrimText(query)
-    if q == "" then
-        local strat, patchTag, metrics = GetCurrentDetailContext()
-        return strat, patchTag, metrics, nil
-    end
-
-    if not (GAM.Importer and GAM.Importer.GetAllStrats) then
-        return nil, nil, nil, "importer"
-    end
-
-    if GAM.Importer.GetStratByID then
-        local exact = GAM.Importer.GetStratByID(q) or GAM.Importer.GetStratByID(q:lower())
-        if exact then
-            return exact, exact.patchTag or (GAM.C and GAM.C.DEFAULT_PATCH), nil, nil
-        end
-    end
-
-    local normalizedQuery = NormalizeSearchText(q)
-    local matches = {}
-    for _, strat in ipairs(GAM.Importer.GetAllStrats()) do
-        local id = tostring(strat.id or "")
-        local name = tostring(strat.stratName or "")
-        if id:lower() == q:lower() or name:lower() == q:lower() then
-            matches = { strat }
-            break
-        end
-        if normalizedQuery ~= "" and StrategySearchText(strat):find(normalizedQuery, 1, true) then
-            matches[#matches + 1] = strat
-        end
-    end
-
-    if #matches == 1 then
-        local strat = matches[1]
-        return strat, strat.patchTag or (GAM.C and GAM.C.DEFAULT_PATCH), nil, nil
-    end
-    if #matches > 1 then
-        return nil, nil, nil, "ambiguous", matches
-    end
-    return nil, nil, nil, "missing"
 end
 
 local function DumpSelectedStrategyScans()
@@ -609,7 +555,9 @@ local function DumpSelectedStrategyScans()
     end
 
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    metrics = metrics or (GAM.Pricing and GAM.Pricing.CalculateStratMetricsActive and GAM.Pricing.CalculateStratMetricsActive(strat, patchTag))
+    metrics = metrics or (GAM.PricingFacade
+        and GAM.PricingFacade.CalculateCurrent
+        and GAM.PricingFacade.CalculateCurrent(strat, patchTag))
     if not metrics then
         GAM.Log.Warn("DumpSelectedStrategyScans: metrics unavailable for '%s'", tostring(strat.stratName or strat.id or "?"))
         return
@@ -618,10 +566,12 @@ local function DumpSelectedStrategyScans()
     local opts = (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
     local fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY
     local rankPolicy = opts.rankPolicy or "lowest"
-    local output = metrics.output or {}
+    local output = (metrics.outputs and metrics.outputs[1]) or metrics.output or {}
     local outputQtyRaw = tonumber(output.expectedQtyRaw) or 0
     local outputQtyRounded = tonumber(output.expectedQty) or math.max(1, math.floor(outputQtyRaw + 0.5))
-    local pricingQty = math.max(1, math.floor((tonumber(fillQty) or GAM.C.DEFAULT_FILL_QTY) + 0.5))
+    -- Output revenue uses the current lowest sell listing. Fill quantity still
+    -- applies to reagent acquisition and is logged separately below.
+    local pricingQty = 1
 
     local outputAllIDs = {}
     local seenOutputIDs = {}
@@ -641,9 +591,10 @@ local function DumpSelectedStrategyScans()
     local function DumpItem(section, name, itemID, qtyHint)
         local qTag = GetQualityTag(itemID)
         local itemLabel = name or ("item:" .. tostring(itemID or 0))
-        local storedPrice, storedStale = nil, false
+        local storedPrice, storedMinimum, storedStale = nil, nil, false
         if GAM.Pricing and GAM.Pricing.GetUnitPrice then
             storedPrice, storedStale = GAM.Pricing.GetUnitPrice(itemID)
+            storedMinimum = GAM.Pricing.GetUnitPrice(itemID, true)
         end
         local raw = GAM.AHScan and GAM.AHScan.GetRawScanSnapshot and GAM.AHScan.GetRawScanSnapshot(itemID) or nil
 
@@ -652,9 +603,10 @@ local function DumpSelectedStrategyScans()
             itemLabel,
             tostring(itemID or 0),
             qTag and (" " .. qTag) or "")
-        GAM.Log.Info("  qty=%s stored=%s%s",
+        GAM.Log.Info("  qty=%s storedAvg=%s storedMin=%s%s",
             tostring(qtyHint or "-"),
             FormatPriceSafe(storedPrice),
+            FormatPriceSafe(storedMinimum),
             storedStale and " (stale)" or "")
 
         if raw and raw.prices and #raw.prices > 0 then
@@ -702,13 +654,54 @@ local function DumpSelectedStrategyScans()
         pricingQty,
         fillQty)
 
+    local diagnostics = metrics.diagnostics or {}
+    local formula = diagnostics.formula or {}
+    GAM.Log.Info("economics: mode=%s revenue=%s requiredCost=%s consumedCost=%s saved=%s profit=%s roi=%s breakEven=%s",
+        tostring(metrics.pricingMode or formula.pricingMode or "-"),
+        FormatPriceSafe(metrics.netRevenue),
+        FormatPriceSafe(metrics.requiredCostFull),
+        FormatPriceSafe(metrics.expectedConsumedCostFull),
+        FormatPriceSafe(metrics.averageSavedCost),
+        FormatPriceSafe(metrics.profit),
+        FormatNumberSafe(metrics.roi, 2),
+        FormatPriceSafe(metrics.breakEvenSell))
+    GAM.Log.Info("formula: profile=%s stats=%s nodeHash=%s baseYield=%s mc=%s mcExtra=%s mcConst=%s res=%s resExtra=%s saveFraction=%s crafts=%s effectiveCrafts=%s actualYield=%s budgetYield=%s expectedOutput=%s",
+        tostring(formula.profileKey or strat.formulaProfile or "-"),
+        tostring(formula.statSource or "options"),
+        tostring(formula.nodeHash or "-"),
+        FormatNumberSafe(formula.baseYield, 6),
+        FormatPercentSafe(formula.mcPercent),
+        FormatPercentSafe(formula.mcExtra),
+        FormatNumberSafe(formula.mcConstant, 3),
+        FormatPercentSafe(formula.resPercent),
+        FormatPercentSafe(formula.resExtra),
+        FormatPercentSafe(formula.resourceSaveFraction),
+        FormatNumberSafe(formula.crafts, 3),
+        FormatNumberSafe(formula.effectiveCrafts, 3),
+        FormatNumberSafe(formula.expectedYieldPerActualCraft, 6),
+        FormatNumberSafe(formula.expectedYieldPerCraft, 6),
+        FormatNumberSafe(formula.expectedOutput, 3))
+
+    if diagnostics.statUsages and #diagnostics.statUsages > 1 then
+        GAM.Log.Info("stat graph:")
+        for _, usage in ipairs(diagnostics.statUsages) do
+            GAM.Log.Info("  %s profile=%s stats=%s nodeHash=%s strat=%s yieldPerCraft=%s",
+                tostring(usage.role or "-"),
+                tostring(usage.profileKey or "-"),
+                tostring(usage.statSource or "options"),
+                tostring(usage.nodeHash or "-"),
+                tostring(usage.stratName or usage.stratID or "-"),
+                FormatNumberSafe(usage.expectedYieldPerCraft, 6))
+        end
+    end
+
     if #outputAllIDs == 0 and output.itemID then
         outputAllIDs[1] = output.itemID
     end
     for _, itemID in ipairs(outputAllIDs) do
         DumpItem(itemID == output.itemID and "output" or "output-alt", output.name, itemID, pricingQty)
     end
-    for _, row in ipairs(metrics.reagents or {}) do
+    for _, row in ipairs(metrics.shoppingReagents or metrics.reagents or {}) do
         DumpItem("input", row.name, row.itemID, row.required)
     end
     local queueSnapshot = GAM.AHScan and GAM.AHScan.GetQueueSnapshot and GAM.AHScan.GetQueueSnapshot() or {}
@@ -730,174 +723,13 @@ local function DumpSelectedStrategyScans()
     GAM.Log.Info("=== End Scan Dump ===")
 end
 
-local function FormatNumberSafe(value, decimals)
-    local n = tonumber(value)
-    if n == nil then
-        return "-"
-    end
-    return string.format("%." .. tostring(decimals or 3) .. "f", n)
-end
-
-local function FormatPercentSafe(value)
-    local n = tonumber(value)
-    if n == nil then
-        return "-"
-    end
-    return string.format("%.2f%%", n * 100)
-end
-
-local function FormatDeltaCopper(value)
-    local n = tonumber(value)
-    if n == nil then
-        return "-"
-    end
-    local sign = n >= 0 and "+" or ""
-    return sign .. FormatPriceSafe(n)
-end
-
-local function FormatDeltaNumber(value, decimals)
-    local n = tonumber(value)
-    if n == nil then
-        return "-"
-    end
-    local sign = n >= 0 and "+" or ""
-    return sign .. FormatNumberSafe(n, decimals)
-end
-
-local function DumpSelectedStrategyV2Shadow(query)
-    local strat, patchTag, legacy, lookupStatus, matches = FindStrategyForDebugQuery(query)
-    if not strat then
-        local q = TrimText(query)
-        if lookupStatus == "importer" then
-            GAM.Log.Warn("DumpSelectedStrategyV2Shadow: importer not ready")
-        elseif lookupStatus == "ambiguous" then
-            GAM.Log.Warn("DumpSelectedStrategyV2Shadow: '%s' matched multiple strategies; use a more specific name or id", q)
-            for i = 1, math.min(#matches, 6) do
-                GAM.Log.Info("  match %d: %s", i, FormatStrategyRef(matches[i]))
-            end
-            if #matches > 6 then
-                GAM.Log.Info("  ... %d more match(es)", #matches - 6)
-            end
-        elseif q ~= "" then
-            GAM.Log.Warn("DumpSelectedStrategyV2Shadow: no strategy matched '%s'", q)
-        else
-            GAM.Log.Warn("DumpSelectedStrategyV2Shadow: no selected GoldAdvisor strategy; select one in /gam or run /gam v2dump <strategy id/name>")
-        end
-        return
-    end
-    if not (GAM.Pricing and GAM.Pricing.CalculateStratMetricsV2Shadow) then
-        GAM.Log.Warn("DumpSelectedStrategyV2Shadow: V2 shadow pricing unavailable")
-        return
-    end
-
-    patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    legacy = legacy or (GAM.Pricing.CalculateStratMetrics and GAM.Pricing.CalculateStratMetrics(strat, patchTag))
-    if not legacy then
-        GAM.Log.Warn("DumpSelectedStrategyV2Shadow: legacy metrics unavailable for '%s'",
-            tostring(strat.stratName or strat.id or "?"))
-        return
-    end
-
-    local v2 = GAM.Pricing.CalculateStratMetricsV2Shadow(strat, patchTag, nil, legacy)
-    if not v2 then
-        GAM.Log.Warn("DumpSelectedStrategyV2Shadow: V2 shadow metrics unavailable for '%s'",
-            tostring(strat.stratName or strat.id or "?"))
-        return
-    end
-
-    local opts = (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
-    local viActive = (opts.pigmentCostSource == "mill")
-        or (opts.boltCostSource == "craft")
-        or (opts.ingotCostSource == "craft")
-    local legacyOutput = legacy.output or {}
-    local v2Output = v2.output or {}
-    local formula = v2.formula or v2Output.formula or {}
-    local deltas = v2.deltas or {}
-    local statSource = tostring(formula.statSource or "options")
-    if formula.statFallbackReason then
-        statSource = statSource .. "(" .. tostring(formula.statFallbackReason) .. ")"
-    end
-
-    GAM.Log.Info("=== GAM V2 Shadow Dump: %s ===", tostring(strat.stratName or strat.id or "?"))
-    GAM.Log.Info("patch=%s profile=%s calcMode=%s vi=%s rankPolicy=%s fillQty=%s",
-        tostring(patchTag),
-        tostring(strat.formulaProfile or "-"),
-        tostring(strat.calcMode or "-"),
-        viActive and "on" or "off",
-        tostring(opts.rankPolicy or "lowest"),
-        tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
-
-    GAM.Log.Info("legacy: crafts=%s outputRaw=%s revenue=%s cost=%s profit=%s roi=%s breakEven=%s",
-        FormatNumberSafe(legacy.crafts, 3),
-        FormatNumberSafe(legacyOutput.expectedQtyRaw, 3),
-        FormatPriceSafe(legacy.netRevenue),
-        FormatPriceSafe(legacy.totalCostFull),
-        FormatPriceSafe(legacy.profit),
-        FormatNumberSafe(legacy.roi, 2),
-        FormatPriceSafe(legacy.breakEvenSell))
-
-    GAM.Log.Info("v2:     crafts=%s outputRaw=%s revenue=%s requiredCost=%s consumedCost=%s saved=%s profit=%s roi=%s breakEven=%s",
-        FormatNumberSafe(v2.crafts, 3),
-        FormatNumberSafe(v2Output.expectedQtyRaw, 3),
-        FormatPriceSafe(v2.netRevenue),
-        FormatPriceSafe(v2.requiredCostFull),
-        FormatPriceSafe(v2.expectedConsumedCostFull),
-        FormatPriceSafe(v2.averageSavedCost),
-        FormatPriceSafe(v2.profit),
-        FormatNumberSafe(v2.roi, 2),
-        FormatPriceSafe(v2.breakEvenSell))
-
-    GAM.Log.Info("delta:  outputRaw=%s revenue=%s requiredCost=%s consumedCost=%s profit=%s roi=%s",
-        FormatDeltaNumber(deltas.outputQtyRaw, 3),
-        FormatDeltaCopper(deltas.netRevenue),
-        FormatDeltaCopper(deltas.totalCostFull),
-        FormatDeltaCopper(deltas.expectedConsumedCostFull),
-        FormatDeltaCopper(deltas.profit),
-        FormatDeltaNumber(deltas.roi, 2))
-
-    GAM.Log.Info("v2 formula: profile=%s stats=%s nodeHash=%s baseYield=%s mc=%s mcExtra=%s mcConst=%s res=%s resExtra=%s yieldPerCraft=%s expectedOutput=%s",
-        tostring(formula.profileKey or strat.formulaProfile or "-"),
-        statSource,
-        tostring(formula.nodeHash or "-"),
-        FormatNumberSafe(formula.baseYield, 6),
-        FormatPercentSafe(formula.mcPercent),
-        FormatPercentSafe(formula.mcExtra),
-        FormatNumberSafe(formula.mcConstant, 3),
-        FormatPercentSafe(formula.resPercent),
-        FormatPercentSafe(formula.resExtra),
-        FormatNumberSafe(formula.expectedYieldPerCraft, 6),
-        FormatNumberSafe(formula.expectedOutput, 3))
-
-    if v2.statUsages and #v2.statUsages > 1 then
-        GAM.Log.Info("v2 stat graph:")
-        for _, usage in ipairs(v2.statUsages) do
-            local usageSource = tostring(usage.statSource or "options")
-            if usage.statFallbackReason then
-                usageSource = usageSource .. "(" .. tostring(usage.statFallbackReason) .. ")"
-            end
-            GAM.Log.Info("  %s profile=%s stats=%s nodeHash=%s strat=%s yieldPerCraft=%s mc=%s/%s res=%s/%s",
-                tostring(usage.role or "-"),
-                tostring(usage.profileKey or "-"),
-                usageSource,
-                tostring(usage.nodeHash or "-"),
-                tostring(usage.stratName or usage.stratID or "-"),
-                FormatNumberSafe(usage.expectedYieldPerCraft, 6),
-                FormatPercentSafe(usage.mcPercent),
-                FormatPercentSafe(usage.mcExtra),
-                FormatPercentSafe(usage.resPercent),
-                FormatPercentSafe(usage.resExtra))
-        end
-    end
-
-    if v2.missingPrices and #v2.missingPrices > 0 then
-        GAM.Log.Info("v2 missing prices: %s", table.concat(v2.missingPrices, ", "))
-    end
-    GAM.Log.Info("=== End V2 Shadow Dump ===")
-end
-
 -- ===== Public API =====
 function DebugLog.ShowARPExport()
     ShowARPExportPopup(GenerateARPExport())
+end
+
+function DebugLog.ShowTextExport(title, text)
+    ShowTextExportPopup(title, text)
 end
 
 function DebugLog.DumpItemIDs()
@@ -908,11 +740,6 @@ end
 function DebugLog.DumpSelectedStrategyScans()
     if not frame then Build() end
     DumpSelectedStrategyScans()
-end
-
-function DebugLog.DumpSelectedStrategyV2Shadow(query)
-    if not frame then Build() end
-    DumpSelectedStrategyV2Shadow(query)
 end
 
 function DebugLog.Show()

@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Jewelcrafting"] = {
     id = "jewelcrafting__refulgent_copper_ore_prospecting__midnight_1",
     name = "Refulgent Copper Ore Prospecting",
     patchTag = "midnight-1",
+    recipeID = 1231127,
     formulaProfile = "jc_prospect",
     inputs = {
       {
@@ -58,6 +59,7 @@ GAM_PROFESSION_CRAFTS["Jewelcrafting"] = {
     id = "jewelcrafting__brilliant_silver_ore_prospecting__midnight_1",
     name = "Brilliant Silver Ore Prospecting",
     patchTag = "midnight-1",
+    recipeID = 1231127,
     formulaProfile = "jc_prospect",
     inputs = {
       {
@@ -108,6 +110,7 @@ GAM_PROFESSION_CRAFTS["Jewelcrafting"] = {
     id = "jewelcrafting__umbral_tin_ore_prospecting__midnight_1",
     name = "Umbral Tin Ore Prospecting",
     patchTag = "midnight-1",
+    recipeID = 1231127,
     formulaProfile = "jc_prospect",
     inputs = {
       {
@@ -158,6 +161,7 @@ GAM_PROFESSION_CRAFTS["Jewelcrafting"] = {
     id = "jewelcrafting__dazzling_thorium_prospecting__midnight_1",
     name = "Dazzling Thorium Prospecting",
     patchTag = "midnight-1",
+    recipeID = 1231127,
     formulaProfile = "jc_prospect",
     inputs = {
       {
@@ -208,6 +212,7 @@ GAM_PROFESSION_CRAFTS["Jewelcrafting"] = {
     id = "jewelcrafting__crushing__midnight_1",
     name = "Crushing",
     patchTag = "midnight-1",
+    recipeID = 1231132,
     formulaProfile = "jc_crush",
     inputs = {
       {

@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Enchanting"] = {
     id = "enchanting__oil_of_dawn__midnight_1",
     name = "Oil of Dawn",
     patchTag = "midnight-1",
+    recipeID = 1236492,
     formulaProfile = "ench_craft",
     inputs = {
       {
@@ -43,6 +44,7 @@ GAM_PROFESSION_CRAFTS["Enchanting"] = {
     id = "enchanting__thalassian_phoenix_oil__midnight_1",
     name = "Thalassian Phoenix Oil",
     patchTag = "midnight-1",
+    recipeID = 1236491,
     formulaProfile = "ench_craft",
     inputs = {
       {
@@ -73,6 +75,7 @@ GAM_PROFESSION_CRAFTS["Enchanting"] = {
     id = "enchanting__smuggler_s_enchanted_edge__midnight_1",
     name = "Smuggler's Enchanted Edge",
     patchTag = "midnight-1",
+    recipeID = 1236493,
     formulaProfile = "ench_craft",
     inputs = {
       {
@@ -108,6 +111,7 @@ GAM_PROFESSION_CRAFTS["Enchanting"] = {
     id = "enchanting__dawn_shatter_q2__midnight_1",
     name = "Dawn Shatter",
     patchTag = "midnight-1",
+    recipeID = 1280401,
     formulaProfile = "ench_shatter",
     inputs = {
       {
@@ -167,6 +171,7 @@ GAM_PROFESSION_CRAFTS["Enchanting"] = {
     id = "enchanting__radiant_shatter_q2__midnight_1",
     name = "Radiant Shatter",
     patchTag = "midnight-1",
+    recipeID = 1280394,
     formulaProfile = "ench_shatter",
     inputs = {
       {

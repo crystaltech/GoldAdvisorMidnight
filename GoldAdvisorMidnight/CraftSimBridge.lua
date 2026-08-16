@@ -17,16 +17,7 @@ local function RoundDecimal(value, places)
     return math.floor(n * mult + 0.5) / mult
 end
 
-local PROFESSION_DEFS = {
-    { enumName = "Inscription",    skillLineID = 773, profKey = "insc" },
-    { enumName = "Jewelcrafting",  skillLineID = 755, profKey = "jc" },
-    { enumName = "Enchanting",     skillLineID = 333, profKey = "ench" },
-    { enumName = "Alchemy",        skillLineID = 171, profKey = "alch" },
-    { enumName = "Tailoring",      skillLineID = 197, profKey = "tail" },
-    { enumName = "Blacksmithing",  skillLineID = 164, profKey = "bs" },
-    { enumName = "Leatherworking", skillLineID = 165, profKey = "lw" },
-    { enumName = "Engineering",    skillLineID = 202, profKey = "eng" },
-}
+local PROFESSION_DEFS = (GAM.C and GAM.C.PROFESSION_REGISTRY) or {}
 
 local function GetProfessionEnumValue(profDef)
     if not (profDef and Enum and Enum.Profession) then
@@ -145,19 +136,13 @@ end
 local function OnLoad()
     if CraftSimAvailable() then
         GAM.Log.Info("CraftSimBridge: CraftSim detected — integration active.")
-        local syncedCount = Bridge.SyncNodeBonusesFromCraftSim and Bridge.SyncNodeBonusesFromCraftSim() or 0
-        if syncedCount and syncedCount > 0 then
-            GAM.Log.Info("CraftSimBridge: synced node bonuses for %d profession(s).", syncedCount)
-        else
-            GAM.Log.Debug("CraftSimBridge: no cached node bonuses were available to sync at login.")
-        end
         local importedCount = Bridge.ImportCachedV2StatSnapshotsFromCraftSim
             and Bridge.ImportCachedV2StatSnapshotsFromCraftSim()
             or 0
         if importedCount and importedCount > 0 then
-            GAM.Log.Info("CraftSimBridge: imported %d V2 stat profile snapshot(s).", importedCount)
+            GAM.Log.Info("CraftSimBridge: imported %d recipe-scoped V2 stat snapshot(s).", importedCount)
         else
-            GAM.Log.Debug("CraftSimBridge: no cached V2 stat profile snapshots were available to import.")
+            GAM.Log.Debug("CraftSimBridge: no cached recipe-scoped V2 stat snapshots were available to import.")
         end
     else
         GAM.Log.Info("CraftSimBridge: CraftSim not found — running standalone.")
@@ -170,7 +155,7 @@ bridgeFrame:RegisterEvent("PLAYER_LOGIN")
 bridgeFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
         OnLoad()
-        GAM.Log.Debug("CraftSimBridge: legacy options keep workbook baselines; V2 uses CraftSim snapshots when available.")
+        GAM.Log.Debug("CraftSimBridge: recipe snapshots are optional; GAM owns specialization node bonuses.")
         bridgeFrame:UnregisterAllEvents()
     end
 end)
@@ -220,7 +205,7 @@ end
 local function BuildCachedRecipeData(recipeID)
     if not CraftSimAvailable() or not recipeID then return nil end
     local crafterData = GetPlayerCrafterData()
-    if not crafterData.name or not crafterData.realm then
+    if not crafterData or not crafterData.name or not crafterData.realm then
         return nil
     end
 
@@ -716,6 +701,13 @@ end
 local function ApplyProfessionSnapshot(snapshot, recipeData, wantsMulti)
     if not snapshot or not recipeData then return end
 
+    if recipeData.supportsMulticraft ~= nil then
+        snapshot.supportsMulticraft = recipeData.supportsMulticraft and true or false
+    end
+    if recipeData.supportsResourcefulness ~= nil then
+        snapshot.supportsResourcefulness = recipeData.supportsResourcefulness and true or false
+    end
+
     ApplyCraftSimStatBreakdown(snapshot, recipeData)
     local recipeStats = GetRecipeProfessionStats(recipeData)
     if recipeStats then
@@ -772,42 +764,6 @@ local function ApplyProfessionSnapshot(snapshot, recipeData, wantsMulti)
     ApplyCraftSimConstants(snapshot)
 end
 
-local function FormatCraftSimStat(stat)
-    if not stat then
-        return "nil"
-    end
-
-    local percent = GetStatPercent(stat)
-    local percentText = percent ~= nil and string.format("%.3f%%", percent) or "-"
-    local decimalText = "-"
-    local okDecimal, decimal = pcall(function()
-        return type(stat.GetPercent) == "function" and stat:GetPercent(true) or nil
-    end)
-    if okDecimal and tonumber(decimal) ~= nil then
-        decimalText = string.format("%.6f", decimal)
-    end
-
-    return string.format("value=%s denom=%s pct=%s decimal=%s extra=%s",
-        tostring(stat.value),
-        tostring(stat.percentDivisionFactor),
-        percentText,
-        decimalText,
-        tostring(GetExtraValue(stat) or 0))
-end
-
-local function DumpCraftSimStatBucket(label, stats)
-    if not stats then
-        GAM.Log.Info("  %s: nil", label)
-        return
-    end
-    GAM.Log.Info("  %s: mc[%s] res[%s] skill=%s difficulty=%s",
-        label,
-        FormatCraftSimStat(stats.multicraft),
-        FormatCraftSimStat(stats.resourcefulness),
-        tostring(stats.skill and stats.skill.value or nil),
-        tostring(stats.recipeDifficulty and stats.recipeDifficulty.value or nil))
-end
-
 local function BuildProfessionSnapshot(profDef, wantsMulti)
     local snapshot = {}
     local seenRecipeIDs = {}
@@ -847,26 +803,11 @@ local function BuildProfessionSnapshot(profDef, wantsMulti)
     return next(snapshot) and snapshot or nil
 end
 
-local function GetProfessionSyncDataFromCraftSim()
-    if not CraftSimDBAvailable() then return {} end
-
-    local syncData = {}
-    for _, profDef in ipairs(PROFESSION_DEFS) do
-        local profKey = profDef.profKey
-        local fieldInfo = PROF_KEY_TO_FIELDS[profKey]
-        local wantsMulti = fieldInfo and fieldInfo.multiFields and #fieldInfo.multiFields > 0
-        local snapshot = BuildProfessionSnapshot(profDef, wantsMulti)
-        if snapshot then
-            syncData[profKey] = snapshot
-        end
-    end
-    return syncData
-end
-
-local function BuildProfileStatSnapshotsFromCraftSim()
+local function BuildRecipeStatSnapshotsFromCraftSim()
     if not CraftSimDBAvailable() then return {} end
 
     local result = {}
+    local seenSnapshotKeys = {}
     local openRecipeData = GetOpenRecipeData()
 
     for _, profDef in ipairs(PROFESSION_DEFS) do
@@ -878,24 +819,26 @@ local function BuildProfileStatSnapshotsFromCraftSim()
             end
 
             local profileKey = InferFormulaProfileKey(recipeData, profDef)
-            if not profileKey or result[profileKey] then
+            local recipeID = tonumber(recipeData.recipeID)
+            local snapshotKey = recipeID and ("recipe:" .. tostring(recipeID))
+                or ("profile:" .. tostring(profileKey or "?") .. ":" .. tostring(cachedSource or "?"))
+            if not profileKey or seenSnapshotKeys[snapshotKey] then
                 return
             end
+            seenSnapshotKeys[snapshotKey] = true
 
-            local supportsMulti, supportsRes = GetProfileSupports(profileKey)
-            if supportsMulti == nil then
-                supportsMulti = recipeData.supportsMulticraft and true or false
-            end
-            if supportsRes == nil then
-                supportsRes = recipeData.supportsResourcefulness and true or false
-            end
+            local profileSupportsMulti, profileSupportsRes = GetProfileSupports(profileKey)
+            local supportsMulti = recipeData.supportsMulticraft
+            local supportsRes = recipeData.supportsResourcefulness
+            if supportsMulti == nil then supportsMulti = profileSupportsMulti end
+            if supportsRes == nil then supportsRes = profileSupportsRes end
 
             local snapshot = {
                 source = "craftsim-imported",
                 cachedSource = cachedSource or "craftsim",
                 profession = profDef.profKey,
                 profileKey = profileKey,
-                recipeID = recipeData.recipeID,
+                recipeID = recipeID,
                 recipeName = recipeData.recipeName or (recipeData.recipeInfo and recipeData.recipeInfo.name),
                 supportsMulticraft = supportsMulti and true or false,
                 supportsResourcefulness = supportsRes and true or false,
@@ -911,7 +854,7 @@ local function BuildProfileStatSnapshotsFromCraftSim()
             end
 
             if snapshot.resPercent ~= nil or snapshot.multiPercent ~= nil then
-                result[profileKey] = snapshot
+                result[#result + 1] = snapshot
             end
         end
 
@@ -932,9 +875,9 @@ local function BuildProfileStatSnapshotsFromCraftSim()
 end
 
 function Bridge.ImportCachedV2StatSnapshotsFromCraftSim()
-    local snapshots = BuildProfileStatSnapshotsFromCraftSim()
+    local snapshots = BuildRecipeStatSnapshotsFromCraftSim()
     local count = 0
-    for _, snapshot in pairs(snapshots) do
+    for _, snapshot in ipairs(snapshots) do
         local ok, status = StoreV2ProfileSnapshot(snapshot.profession, snapshot)
         if ok and not status then
             count = count + 1
@@ -990,6 +933,14 @@ function Bridge.GetOpenProfessionStatSnapshots()
                 snapshot.recipeName = recipeData.recipeName or (recipeData.recipeInfo and recipeData.recipeInfo.name)
                 snapshot.profession = profDef.profKey
                 snapshot.profileKey = InferFormulaProfileKey(recipeData, profDef)
+                if not snapshot.supportsMulticraft then
+                    snapshot.multiPercent = 0
+                    snapshot.multiExtra = 0
+                end
+                if not snapshot.supportsResourcefulness then
+                    snapshot.resPercent = 0
+                    snapshot.resExtra = 0
+                end
                 result[profDef.profKey] = snapshot
                 StoreV2ProfileSnapshot(profDef.profKey, snapshot)
             end
@@ -1062,137 +1013,15 @@ function Bridge.GetFormulaConstants()
     return nil
 end
 
-function Bridge.DumpOpenRecipeStats()
-    if not CraftSimAvailable() then
-        GAM.Log.Warn("CraftSimBridge: CraftSim API unavailable")
-        return
-    end
-
-    local recipeData = GetOpenRecipeData()
-    if not recipeData then
-        GAM.Log.Warn("CraftSimBridge: no open CraftSim recipe data")
-        return
-    end
-
-    local info = recipeData.professionData and recipeData.professionData.professionInfo or {}
-    GAM.Log.Info("=== GAM CraftSim Open Recipe Dump ===")
-    GAM.Log.Info("recipe=%s id=%s baseItemAmount=%s supports stats=%s mc=%s res=%s",
-        tostring(recipeData.recipeName or (recipeData.recipeInfo and recipeData.recipeInfo.name) or "?"),
-        tostring(recipeData.recipeID),
-        tostring(recipeData.baseItemAmount),
-        tostring(recipeData.supportsCraftingStats),
-        tostring(recipeData.supportsMulticraft),
-        tostring(recipeData.supportsResourcefulness))
-    GAM.Log.Info("profession enum=%s skillLine=%s parent=%s",
-        tostring(info.profession),
-        tostring(info.professionID),
-        tostring(info.parentProfessionName))
-
-    DumpCraftSimStatBucket("professionStats", recipeData.professionStats)
-    DumpCraftSimStatBucket("baseProfessionStats", recipeData.baseProfessionStats)
-    DumpCraftSimStatBucket("specializationStats",
-        recipeData.specializationData and recipeData.specializationData.professionStats)
-    DumpCraftSimStatBucket("gearStats",
-        recipeData.professionGearSet and recipeData.professionGearSet.professionStats)
-    DumpCraftSimStatBucket("buffStats",
-        recipeData.buffData and recipeData.buffData.professionStats)
-    DumpCraftSimStatBucket("modifierStats", recipeData.professionStatModifiers)
-
-    local operationInfo = recipeData.baseOperationInfo
-    if operationInfo and type(operationInfo.bonusStats) == "table" then
-        GAM.Log.Info("  operation bonusStats=%d", #operationInfo.bonusStats)
-        for i, statInfo in ipairs(operationInfo.bonusStats) do
-            if i > 12 then
-                GAM.Log.Info("    ... %d more stat row(s)", #operationInfo.bonusStats - 12)
-                break
-            end
-            GAM.Log.Info("    bonus %02d: name=%s value=%s ratingPct=%s",
-                i,
-                tostring(statInfo.bonusStatName),
-                tostring(statInfo.bonusStatValue),
-                tostring(statInfo.ratingPct))
-        end
-    else
-        GAM.Log.Info("  operation bonusStats=nil")
-    end
-
-    local openSnapshots = Bridge.GetOpenProfessionStatSnapshots()
-    for _, profDef in ipairs(PROFESSION_DEFS) do
-        if RecipeMatchesProfession(recipeData, profDef) then
-            local snapshot = openSnapshots and openSnapshots[profDef.profKey]
-            GAM.Log.Info("snapshot prof=%s mc=%s mcExtra=%s res=%s resExtra=%s",
-                tostring(profDef.profKey),
-                tostring(snapshot and snapshot.multiPercent),
-                tostring(snapshot and snapshot.multiExtra),
-                tostring(snapshot and snapshot.resPercent),
-                tostring(snapshot and snapshot.resExtra))
-            GAM.Log.Info("snapshot recipeID=%s profile=%s source=%s",
-                tostring(snapshot and snapshot.recipeID),
-                tostring(snapshot and snapshot.profileKey),
-                tostring(snapshot and snapshot.source))
-            GAM.Log.Info("snapshot nodeHash=%s nodes=%s totalMC=%s nodeMC=%s totalRes=%s nodeRes=%s",
-                tostring(snapshot and snapshot.nodeHash or "-"),
-                tostring(snapshot and snapshot.nodeCount or 0),
-                tostring(snapshot and snapshot.totalStats
-                    and snapshot.totalStats.multicraft
-                    and snapshot.totalStats.multicraft.percent or "-"),
-                tostring(snapshot and snapshot.nodeStats
-                    and snapshot.nodeStats.multicraft
-                    and snapshot.nodeStats.multicraft.percent or "-"),
-                tostring(snapshot and snapshot.totalStats
-                    and snapshot.totalStats.resourcefulness
-                    and snapshot.totalStats.resourcefulness.percent or "-"),
-                tostring(snapshot and snapshot.nodeStats
-                    and snapshot.nodeStats.resourcefulness
-                    and snapshot.nodeStats.resourcefulness.percent or "-"))
-            break
-        end
-    end
-    GAM.Log.Info("=== End CraftSim Open Recipe Dump ===")
-end
-
--- SyncOptionsFromCraftSim() → count, updatedFields
--- Syncs only node bonus fields from cached CraftSim data.
+-- Kept as compatibility no-ops for callers from older GAM builds. Node ranks
+-- and hidden bonuses are now owned exclusively by CraftingStatsV2's Blizzard
+-- profession-trait capture.
 function Bridge.SyncOptionsFromCraftSim()
-    local syncData = GetProfessionSyncDataFromCraftSim()
-    local opts = GetOpts()
-    local count = 0
-    local updatedFields = {}
-
-    for profKey, snapshot in pairs(syncData) do
-        local fieldInfo = PROF_KEY_TO_FIELDS[profKey]
-        if fieldInfo then
-            local updated = false
-
-            if fieldInfo.mcNodeField and snapshot.mcNode ~= nil then
-                local rounded = math.floor(snapshot.mcNode * 100 + 0.5)
-                opts[fieldInfo.mcNodeField] = rounded
-                updatedFields[fieldInfo.mcNodeField] = rounded
-                updated = true
-            end
-
-            if fieldInfo.rsNodeField and snapshot.rsNode ~= nil then
-                local rounded = math.floor(snapshot.rsNode * 100 + 0.5)
-                opts[fieldInfo.rsNodeField] = rounded
-                updatedFields[fieldInfo.rsNodeField] = rounded
-                updated = true
-            end
-
-            if updated then
-                count = count + 1
-            end
-        end
-    end
-
-    return count, updatedFields
+    return 0, {}
 end
 
--- SyncNodeBonusesFromCraftSim() → count (number of professions updated)
--- Imports CraftSim's cached node bonuses so runtime output can scale from the
--- workbook's baked default nodes to the player's actual specialization tree.
 function Bridge.SyncNodeBonusesFromCraftSim()
-    local count = Bridge.SyncOptionsFromCraftSim()
-    return count or 0
+    return 0
 end
 
 if GAM.CraftSimPriceOverrides and type(GAM.CraftSimPriceOverrides.Install) == "function" then
@@ -1314,6 +1143,18 @@ function Bridge.RunSmokeChecks()
 
             local originalEnum = Enum
             local professionMatchOK, professionMatchErr = pcall(function()
+                local inscriptionDef
+                local cookingDef
+                for _, professionDef in ipairs(PROFESSION_DEFS) do
+                    if professionDef.name == "Inscription" then
+                        inscriptionDef = professionDef
+                    elseif professionDef.name == "Cooking" then
+                        cookingDef = professionDef
+                    end
+                end
+                assert(inscriptionDef, "shared Inscription profession definition missing")
+                assert(cookingDef and InferFormulaProfileKey({}, cookingDef) == "cooking",
+                    "shared Cooking CraftSim profile missing")
                 Enum = {
                     Profession = {
                         Inscription = 9001,
@@ -1326,14 +1167,14 @@ function Bridge.RunSmokeChecks()
                             professionID = 999999,
                         },
                     },
-                }, PROFESSION_DEFS[1]), "CraftSim enum profession match failed")
+                }, inscriptionDef), "CraftSim enum profession match failed")
                 assert(RecipeMatchesProfession({
                     professionData = {
                         professionInfo = {
                             professionID = 773,
                         },
                     },
-                }, PROFESSION_DEFS[1]), "CraftSim skill-line profession fallback failed")
+                }, inscriptionDef), "CraftSim skill-line profession fallback failed")
                 assert(not RecipeMatchesProfession({
                     professionData = {
                         professionInfo = {
@@ -1341,7 +1182,7 @@ function Bridge.RunSmokeChecks()
                             professionID = 999999,
                         },
                     },
-                }, PROFESSION_DEFS[1]), "CraftSim profession mismatch should not match")
+                }, inscriptionDef), "CraftSim profession mismatch should not match")
             end)
             Enum = originalEnum
             assert(professionMatchOK, professionMatchErr)
@@ -1445,6 +1286,22 @@ function Bridge.RunSmokeChecks()
             assert(snapshot.multicraftConstants and snapshot.multicraftConstants[2] == 1.83
                 and snapshot.multicraftConstants.DEFAULT == 2.55,
                 "CraftSim multicraft constants snapshot failed")
+
+            local resourcefulnessOnly = {}
+            ApplyProfessionSnapshot(resourcefulnessOnly, {
+                supportsResourcefulness = true,
+                supportsMulticraft = false,
+                professionStats = {
+                    resourcefulness = FakeStat(18.0, 0),
+                    multicraft = FakeStat(24.5, 0),
+                },
+            }, true)
+            assert(resourcefulnessOnly.supportsResourcefulness == true
+                    and resourcefulnessOnly.supportsMulticraft == false,
+                "recipe capability flags must override the broad formula profile")
+            assert(resourcefulnessOnly.resPercent == 18.0,
+                "Resourcefulness-only recipe percent failed")
+
             local constants = Bridge.GetFormulaConstants()
             assert(constants and constants.resourcefulnessSaveBase == 0.32,
                 "CraftSim formula constant reader failed")
@@ -1494,7 +1351,8 @@ function Bridge.RunSmokeChecks()
             },
         }
         local metrics = {
-            costReagents = {
+            engine = "commodity_expected_value",
+            recipeReagents = {
                 {
                     name = "Original Reagent",
                     itemID = 51001,
@@ -1547,7 +1405,8 @@ function Bridge.RunSmokeChecks()
             },
         }
         local cheapestMetrics = {
-            costReagents = {
+            engine = "commodity_expected_value",
+            recipeReagents = {
                 {
                     name = "Chosen Alternative",
                     itemID = 53001,

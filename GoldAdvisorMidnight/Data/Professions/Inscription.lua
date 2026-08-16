@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__tranquility_bloom_milling__midnight_1",
     name = "Tranquility Bloom Milling",
     patchTag = "midnight-1",
+    recipeID = 1269575,
     formulaProfile = "insc_milling",
     inputs = {
       {
@@ -28,6 +29,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__argentleaf_milling__midnight_1",
     name = "Argentleaf Milling",
     patchTag = "midnight-1",
+    recipeID = 1269575,
     formulaProfile = "insc_milling",
     inputs = {
       {
@@ -48,6 +50,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__sanguithorn_milling__midnight_1",
     name = "Sanguithorn Milling",
     patchTag = "midnight-1",
+    recipeID = 1269575,
     formulaProfile = "insc_milling",
     inputs = {
       {
@@ -68,6 +71,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__mana_lily_milling__midnight_1",
     name = "Mana Lily Milling",
     patchTag = "midnight-1",
+    recipeID = 1269575,
     formulaProfile = "insc_milling",
     inputs = {
       {
@@ -88,6 +92,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__sienna_ink__midnight_1",
     name = "Sienna Ink",
     patchTag = "midnight-1",
+    recipeID = 1230016,
     formulaProfile = "insc_ink",
     inputs = {
       {
@@ -124,6 +129,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__munsell_ink__midnight_1",
     name = "Munsell Ink",
     patchTag = "midnight-1",
+    recipeID = 1230017,
     formulaProfile = "insc_ink",
     inputs = {
       {
@@ -160,6 +166,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__soul_cipher__midnight_1",
     name = "Soul Cipher",
     patchTag = "midnight-1",
+    recipeID = 1230019,
     formulaProfile = "insc_ink",
     inputs = {
       {
@@ -200,6 +207,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__codified_azeroot__midnight_1",
     name = "Codified Azeroot",
     patchTag = "midnight-1",
+    recipeID = 1230018,
     formulaProfile = "insc_codified",
     inputs = {
       {
@@ -235,6 +243,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__aurora_missive__midnight_1",
     name = "Thalassian Missive of the Aurora",
     patchTag = "midnight-1",
+    recipeID = 1230042,
     formulaProfile = "insc_ink",
     inputs = {
       {
@@ -245,7 +254,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
       {
         itemRef = "Mote of Primal Energy",
         itemIDs = { 236950 },
-        amount = 3,
+        amount = 1,
       },
       {
         itemRef = "Munsell Ink",
@@ -270,6 +279,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__feverflare_missive__midnight_1",
     name = "Thalassian Missive of the Feverflare",
     patchTag = "midnight-1",
+    recipeID = 1230041,
     formulaProfile = "insc_ink",
     inputs = {
       {
@@ -280,7 +290,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
       {
         itemRef = "Mote of Primal Energy",
         itemIDs = { 236950 },
-        amount = 3,
+        amount = 1,
       },
       {
         itemRef = "Munsell Ink",
@@ -305,6 +315,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__fireflash_missive__midnight_1",
     name = "Thalassian Missive of the Fireflash",
     patchTag = "midnight-1",
+    recipeID = 1230040,
     formulaProfile = "insc_ink",
     inputs = {
       {
@@ -315,7 +326,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
       {
         itemRef = "Mote of Primal Energy",
         itemIDs = { 236950 },
-        amount = 3,
+        amount = 1,
       },
       {
         itemRef = "Munsell Ink",
@@ -340,6 +351,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__harmonious_missive__midnight_1",
     name = "Thalassian Missive of the Harmonious",
     patchTag = "midnight-1",
+    recipeID = 1230039,
     formulaProfile = "insc_ink",
     inputs = {
       {
@@ -375,6 +387,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__peerless_missive__midnight_1",
     name = "Thalassian Missive of the Peerless",
     patchTag = "midnight-1",
+    recipeID = 1230038,
     formulaProfile = "insc_ink",
     inputs = {
       {
@@ -410,6 +423,7 @@ GAM_PROFESSION_CRAFTS["Inscription"] = {
     id = "inscription__quickblade_missive__midnight_1",
     name = "Thalassian Missive of the Quickblade",
     patchTag = "midnight-1",
+    recipeID = 1230037,
     formulaProfile = "insc_ink",
     inputs = {
       {

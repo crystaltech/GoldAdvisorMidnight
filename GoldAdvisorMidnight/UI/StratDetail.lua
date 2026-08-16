@@ -8,6 +8,7 @@ local ADDON_NAME, GAM = ...
 local SD = {}
 GAM.UI.StratDetail = SD
 local WindowManager = GAM.UI.WindowManager
+local StrategyDetailModel = GAM.UI.StrategyDetailModel
 
 local WIN_W, WIN_H = 720, 720
 local ROW_H        = 22
@@ -21,7 +22,8 @@ local ROW_SCAN_BTN_MAX_W = 60
 local frame
 local currentStrat  = nil
 local currentPatch  = nil
-local metricsCache  = nil   -- last computed metrics
+local detailProjection = nil -- canonical visible economics and rows
+local canonicalResult = nil  -- authoritative result for migrated integrations
 local positioned    = false -- true once the initial frame position has been set
 
 -- Section scroll child refs (needed in SD.Refresh)
@@ -187,99 +189,11 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
     button:Hide()
 end
 
--- ===== Delete confirmation (custom frame — avoids StaticPopup strata/close issues) =====
-local confirmFrame
-
-local function BuildConfirmFrame()
-    confirmFrame = CreateFrame("Frame", "GAMDeleteConfirm", UIParent, "BackdropTemplate")
-    confirmFrame:SetSize(300, 130)
-    confirmFrame:SetPoint("CENTER")
-    confirmFrame:SetScale(GetUIScale())
-    confirmFrame:EnableMouse(true)
-    confirmFrame:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left=11, right=12, top=12, bottom=11 },
-    })
-    confirmFrame:SetBackdropColor(0, 0, 0, 1)
-    local bgTex = confirmFrame:CreateTexture(nil, "BACKGROUND", nil, -8)
-    bgTex:SetAllPoints()
-    bgTex:SetColorTexture(0, 0, 0, 1)
-    confirmFrame:Hide()
-    WindowManager.Register(confirmFrame, "modal")
-
-    local msg = confirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    msg:SetPoint("TOP", confirmFrame, "TOP", 0, -22)
-    msg:SetWidth(260)
-    msg:SetJustifyH("CENTER")
-    msg:SetWordWrap(true)
-    confirmFrame.msg = msg
-
-    -- "Delete" confirm button — OnClick is rewired each time ShowDeleteConfirm is called
-    local btnOK = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
-    btnOK:SetSize(100, 22)
-    btnOK:SetText(GAM.L["BTN_DELETE_STRAT"])
-    confirmFrame.btnOK = btnOK
-
-    local btnCancel = CreateFrame("Button", nil, confirmFrame, "UIPanelButtonTemplate")
-    btnCancel:SetSize(80, 22)
-    btnCancel:SetText(GAM.L["BTN_CLOSE"])
-    btnCancel:SetScript("OnClick", function() confirmFrame:Hide() end)
-
-    btnOK:SetWidth(MeasureButtonWidth(confirmFrame, btnOK:GetText(), 100, 220, 24))
-    btnCancel:SetWidth(MeasureButtonWidth(confirmFrame, btnCancel:GetText(), 80, 180, 24))
-    LayoutButtonRowBottom(confirmFrame, { btnOK, btnCancel }, {
-        left = 20, right = 280, bottom = 14, gap = 8, rowGap = 4, align = "center",
-    })
-
-    confirmFrame:SetScript("OnKeyDown", function(self, key)
-        if key == "ESCAPE" then confirmFrame:Hide() end
-    end)
-    confirmFrame:SetPropagateKeyboardInput(true)
-end
-
-local function ShowDeleteConfirm(strat)
-    if not confirmFrame then BuildConfirmFrame() end
-    confirmFrame.msg:SetText(
-        GAM.L["CONFIRM_DELETE_BODY"]:format(strat.stratName or "?"))
-    confirmFrame.btnOK:SetScript("OnClick", function()
-        confirmFrame:Hide()
-        local deleted = nil
-        if GAM.State and GAM.State.DeleteUserStrat then
-            deleted = GAM.State.DeleteUserStrat(strat)
-        elseif GAM.db and GAM.db.userStrats then
-            for i, s in ipairs(GAM.db.userStrats) do
-                if s == strat or (s.stratName == strat.stratName and s.profession == strat.profession) then
-                    deleted = table.remove(GAM.db.userStrats, i)
-                    break
-                end
-            end
-        end
-        if not deleted then
-            return
-        end
-        GAM.Importer.Init()
-        local mainWindow = GAM:GetActiveMainWindow()
-        if mainWindow and mainWindow.Refresh then
-            mainWindow.Refresh()
-        end
-        print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_STRAT_DELETED"], deleted.stratName or "?"))
-        if frame then frame:Hide() end
-    end)
-    confirmFrame:Show()
-    WindowManager.Present(confirmFrame)
-end
-
-function SD.ConfirmDeleteStrat(strat)
-    if not strat then return end
-    ShowDeleteConfirm(strat)
-end
-
 -- ===== Helpers =====
 local function GetPDB() return GAM:GetPatchDB(currentPatch) end
 
--- Save the desired input (primary reagent) qty; drives all calculations via Pricing.CalculateStratMetrics
+-- Save the desired input (primary reagent) qty; both the canonical facade and
+-- compatibility action metrics read the same persisted override.
 local function SetInputQtyOverride(value)
     local pdb = GetPDB()
     pdb.inputQtyOverrides = pdb.inputQtyOverrides or {}
@@ -349,7 +263,7 @@ local function ItemRowEnter(self)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", FormatExpectedOutputTooltip(tt.expectedQty, tt.expectedQtyRaw)), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_NET_REVENUE"]) or "Total Net Revenue: %s", tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
-            GameTooltip:AddLine((L and L["TT_ROW_NET_NOTE"]) or "The visible Net column is craft-level net revenue, not a per-item price.", 1, 0.82, 0, true)
+            GameTooltip:AddLine((L and L["TT_ROW_NET_NOTE"]) or "Net is the total expected sale value for this craft plan, not the price of one item.", 1, 0.82, 0, true)
         end
     end
     GameTooltip:Show()
@@ -367,14 +281,14 @@ local function CreateAuctionatorList()
         return
     end
     if not currentStrat then return end
-    local m = metricsCache or GAM.Pricing.CalculateStratMetricsActive(currentStrat, currentPatch)
-    if not m then return end
+    local result = canonicalResult or GAM.PricingFacade.CalculateCurrent(currentStrat, currentPatch)
+    if not result then return end
 
     local addonName  = "GoldAdvisorMidnight"
     local hasConvert = type(Auctionator.API.v1.ConvertToSearchString) == "function"
     local searchStrings, qtySummary = {}, {}
 
-    for _, rm in ipairs(m.reagents or {}) do
+    for _, rm in ipairs(result.shoppingReagents or {}) do
         local qty = math.floor(rm.needToBuy or 0)
         if qty > 0 then
             local entry
@@ -412,28 +326,28 @@ end
 -- ===== Metrics section =====
 local function RefreshMetrics()
     if not frame or not currentStrat then return end
-    local m = metricsCache   -- already computed by SD.Refresh()
-    if not m then return end
+    local projection = detailProjection
+    if not projection then return end
 
-    frame.metCost:SetText(m.totalCostFull and GAM.Pricing.FormatPrice(m.totalCostFull) or GAM.L["NO_PRICE"])
-    frame.metRevenue:SetText(m.netRevenue and GAM.Pricing.FormatPrice(m.netRevenue) or GAM.L["NO_PRICE"])
-    if m.profit then
-        local c = m.profit >= 0 and "|cff55ff55" or "|cffff5555"
-        frame.metProfit:SetText(c .. GAM.Pricing.FormatPrice(m.profit) .. "|r")
+    frame.metCost:SetText(projection.cost and GAM.Pricing.FormatPrice(projection.cost) or GAM.L["NO_PRICE"])
+    frame.metRevenue:SetText(projection.revenue and GAM.Pricing.FormatPrice(projection.revenue) or GAM.L["NO_PRICE"])
+    if projection.profit then
+        local c = projection.profit >= 0 and "|cff55ff55" or "|cffff5555"
+        frame.metProfit:SetText(c .. GAM.Pricing.FormatPrice(projection.profit) .. "|r")
     else
         frame.metProfit:SetText("|cff888888" .. GAM.L["NO_PRICE"] .. "|r")
     end
 
-    if m.roi then
-        local c = m.roi >= 0 and "|cff55ff55" or "|cffff5555"
-        frame.metROI:SetText(c .. string.format("%.2f%%", m.roi) .. "|r")
+    if projection.roi then
+        local c = projection.roi >= 0 and "|cff55ff55" or "|cffff5555"
+        frame.metROI:SetText(c .. string.format("%.2f%%", projection.roi) .. "|r")
     else
         frame.metROI:SetText("|cff888888—|r")
     end
 
-    frame.metBreakeven:SetText(m.breakEvenSell and GAM.Pricing.FormatPrice(m.breakEvenSell) or "|cff888888—|r")
+    frame.metBreakeven:SetText(projection.breakEvenSell and GAM.Pricing.FormatPrice(projection.breakEvenSell) or "|cff888888—|r")
     if frame.expNotice then
-        local buyNow = m.totalCostToBuy and GAM.Pricing.FormatPrice(m.totalCostToBuy) or GAM.L["NO_PRICE"]
+        local buyNow = projection.buyNowCost and GAM.Pricing.FormatPrice(projection.buyNowCost) or GAM.L["NO_PRICE"]
         frame.expNotice:SetText((GAM.L["LBL_BUY_NOW_COST"] or "Buy Now Cost:") .. " " .. buyNow)
         frame.expNotice:Show()
     end
@@ -441,8 +355,7 @@ end
 
 local function RefreshSelectionNote()
     if not frame or not frame.selectionNoteFS or not currentStrat then return end
-    local m = metricsCache
-    local selectionNames = m and m.selectionNotes or nil
+    local selectionNames = detailProjection and detailProjection.selectionNotes or nil
     if selectionNames and #selectionNames > 0 then
         local key = (#selectionNames > 1) and "DETAIL_SELECTION_NOTE_MULTI" or "DETAIL_SELECTION_NOTE"
         frame.selectionNoteFS:SetText(string.format(
@@ -991,7 +904,7 @@ local function Build()
     btnCraftSim:SetText(L["BTN_PUSH_CRAFTSIM"])
     btnCraftSim:SetScript("OnClick", function()
         if not currentStrat then return end
-        local pushed, err = GAM.CraftSimBridge.PushStratPrices(currentStrat, currentPatch, metricsCache)
+        local pushed, err = GAM.CraftSimBridge.PushStratPrices(currentStrat, currentPatch, canonicalResult)
         if err then
             print("|cffff8800[GAM]|r CraftSim push failed: " .. err)
         elseif pushed == 0 then
@@ -1059,7 +972,7 @@ local function Build()
         -- Use the expanded reagent list from the last metrics computation so that
         -- Scan All queues raw materials (ores, herbs) when vertical integration is on,
         -- not the intermediate crafted items (ingots, pigments) from the base recipe.
-        local activeReagents = metricsCache and metricsCache.reagents
+        local activeReagents = detailProjection and detailProjection.reagents
         if activeReagents and #activeReagents > 0 then
             for _, r in ipairs(activeReagents) do
                 queueItem({ itemIDs = r.itemID and {r.itemID} or {}, name = r.name })
@@ -1110,49 +1023,6 @@ local function Build()
     frame.RelayoutBottomButtons = RelayoutBottomButtons
     RelayoutBottomButtons()
 
-    -- Delete button — top-right, only visible for user-created strats.
-    -- Shows a confirm dialog before removing the strat.
-    local btnDelete = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    btnDelete:SetSize(80, 22)
-    btnDelete:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -36, -6)
-    btnDelete:SetText(L["BTN_DELETE_STRAT"])
-    btnDelete:SetWidth(MeasureButtonWidth(frame, btnDelete:GetText(), 80, 240, 24))
-    btnDelete:SetScript("OnClick", function()
-        if not currentStrat then return end
-        SD.ConfirmDeleteStrat(currentStrat)
-    end)
-    btnDelete:Hide()
-    frame.btnDelete = btnDelete
-
-    -- Edit button — only visible for user-created strats (_isUser = true).
-    -- Opens the StratCreator in edit mode pre-populated with this strat's values.
-    local btnEdit = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    btnEdit:SetSize(65, 22)
-    btnEdit:SetWidth(MeasureButtonWidth(frame, L["BTN_EDIT_STRAT"], 65, 220, 24))
-    btnEdit:SetText(L["BTN_EDIT_STRAT"])
-    btnEdit:SetScript("OnClick", function()
-        if currentStrat and GAM.UI and GAM.UI.StratCreator then
-            GAM.UI.StratCreator.ShowEdit(currentStrat)
-        end
-    end)
-    btnEdit:Hide()
-    frame.btnEdit = btnEdit
-
-    -- Export button — only visible for user-created strats (_isUser = true).
-    -- Opens the export popup with an encoded string and a raw Lua snippet.
-    local btnExport = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    btnExport:SetSize(70, 22)
-    btnExport:SetWidth(MeasureButtonWidth(frame, L["BTN_EXPORT_STRAT"], 70, 220, 24))
-    btnExport:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -36, -34)
-    btnEdit:SetPoint("RIGHT", btnExport, "LEFT", -8, 0)
-    btnExport:SetText(L["BTN_EXPORT_STRAT"])
-    btnExport:SetScript("OnClick", function()
-        if currentStrat and GAM.UI and GAM.UI.StratCreator then
-            GAM.UI.StratCreator.ShowExportPopup(currentStrat)
-        end
-    end)
-    btnExport:Hide()
-    frame.btnExport = btnExport
 end
 
 -- ===== Public API =====
@@ -1192,9 +1062,16 @@ function SD.Refresh()
     frame.stratNameFS:SetText(currentStrat.stratName .. " (" .. currentStrat.profession .. ")")
     frame.notesFS:SetText(currentStrat.notes or "")
 
-    -- Compute metrics
-    local m = GAM.Pricing.CalculateStratMetricsActive(currentStrat, currentPatch)
-    metricsCache = m
+    -- Canonical results own visible values and all retained detail actions.
+    local nextCanonicalResult, canonicalErr = GAM.PricingFacade.CalculateCurrent(currentStrat, currentPatch)
+    local detailSnapshot, snapshotErr = StrategyDetailModel.CreateSnapshot(nextCanonicalResult)
+    canonicalResult = detailSnapshot and detailSnapshot.canonicalResult or nextCanonicalResult
+    detailProjection = detailSnapshot and detailSnapshot.projection or nil
+    if not detailSnapshot and GAM.Log and GAM.Log.Warn then
+        GAM.Log.Warn("Canonical fallback detail projection failed for '%s': %s",
+            tostring(currentStrat.stratName or currentStrat.id or "?"),
+            tostring(canonicalErr or snapshotErr or "unknown error"))
+    end
     RefreshSelectionNote()
 
     -- Rank toggle label
@@ -1205,15 +1082,9 @@ function SD.Refresh()
         if frame.RelayoutBottomButtons then frame.RelayoutBottomButtons() end
     end
 
-    -- Show Delete / Edit / Export only for user-created strats
-    local isUser = currentStrat._isUser == true
-    if frame.btnDelete then frame.btnDelete:SetShown(isUser) end
-    if frame.btnEdit   then frame.btnEdit:SetShown(isUser)   end
-    if frame.btnExport then frame.btnExport:Hide() end
-
     -- Reagents
     -- Only the topmost input row is editable so the field remains stable while browsing.
-    local reagentMetrics = m and m.reagents or {}
+    local reagentMetrics = detailProjection and detailProjection.reagents or {}
 
     -- Guard: only show the editable primary field on row 1 when chain expansion has NOT
     -- changed the first reagent (i.e. the displayed item still matches the base strat's
@@ -1227,7 +1098,7 @@ function SD.Refresh()
         if id == firstMetID then firstUnchanged = true; break end
     end
 
-    -- Render from m.reagents (expanded/merged metrics) as the source of truth so that
+    -- Render from the canonical shopping-reagent projection as the source of truth so that
     -- chain-expanded rows (e.g. ore when craft-ingots is on) display correctly.
     for i, row in ipairs(reagentRows) do
         local rMet = reagentMetrics[i]
@@ -1248,15 +1119,11 @@ function SD.Refresh()
     end
 
     -- Output section
-    -- For multi-output strats, list only explicit outputs[] rows.
-    -- For single-output strats, list m.output.
+    -- Canonical results always normalize single- and multi-output strategies
+    -- into one outputs array.
     local outputItems = {}
-    if m and m.outputs and #m.outputs > 0 then
-        for _, oi in ipairs(m.outputs) do
-            outputItems[#outputItems + 1] = { metric = oi, isPrimary = false }
-        end
-    elseif m and m.output then
-        outputItems[1] = { metric = m.output, isPrimary = true }
+    for index, outputMetric in ipairs((detailProjection and detailProjection.outputs) or {}) do
+        outputItems[#outputItems + 1] = { metric = outputMetric, isPrimary = index == 1 }
     end
 
     for i, row in ipairs(outputRows) do

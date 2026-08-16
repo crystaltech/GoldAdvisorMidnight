@@ -60,41 +60,58 @@ function Formula.GetDefaultMulticraftConstants()
     return CopyConstants(Formula.DEFAULT_MULTICRAFT_CONSTANTS)
 end
 
-function Formula.CalculateFixedCrafts(input)
+local function ResolveFormulaInput(input)
     input = input or {}
+    return {
+        crafts = ClampNonNegative(input.crafts),
+        baseYield = ClampNonNegative(input.baseYield),
+        requiredCraftCost = ClampNonNegative(input.requiredCraftCost),
+        mcPercent = Clamp01(input.mcPercent),
+        resPercent = Clamp01(input.resPercent),
+        mcExtra = ClampNonNegative(input.mcExtra),
+        resExtra = ClampNonNegative(input.resExtra),
+        supportsMulticraft = input.supportsMulticraft and true or false,
+        supportsResourcefulness = input.supportsResourcefulness and true or false,
+        multicraftConstants = input.multicraftConstants or Formula.DEFAULT_MULTICRAFT_CONSTANTS,
+        resourcefulnessSaveBase = ClampNonNegative(
+            input.resourcefulnessSaveBase or Formula.DEFAULT_RESOURCEFULNESS_SAVE_BASE),
+    }
+end
 
-    local crafts = ClampNonNegative(input.crafts)
-    local baseYield = ClampNonNegative(input.baseYield)
-    local requiredCraftCost = ClampNonNegative(input.requiredCraftCost)
-    local mcPercent = Clamp01(input.mcPercent)
-    local resPercent = Clamp01(input.resPercent)
-    local mcExtra = ClampNonNegative(input.mcExtra)
-    local resExtra = ClampNonNegative(input.resExtra)
-    local supportsMulticraft = input.supportsMulticraft and true or false
-    local supportsResourcefulness = input.supportsResourcefulness and true or false
-    local constants = input.multicraftConstants or Formula.DEFAULT_MULTICRAFT_CONSTANTS
-    local saveBase = ClampNonNegative(input.resourcefulnessSaveBase or Formula.DEFAULT_RESOURCEFULNESS_SAVE_BASE)
-
+local function CalculateCraftYield(values)
     local expectedExtraOnProc = 0
-    local expectedYieldPerCraft = baseYield
-    local mcConstant = Formula.GetMulticraftConstant(baseYield, constants)
+    local expectedYieldPerActualCraft = values.baseYield
+    local mcConstant = Formula.GetMulticraftConstant(values.baseYield, values.multicraftConstants)
 
-    if supportsMulticraft and baseYield > 0 and mcPercent > 0 then
-        local maxExtra = mcConstant * baseYield * (1 + mcExtra)
+    if values.supportsMulticraft and values.baseYield > 0 and values.mcPercent > 0 then
+        local maxExtra = mcConstant * values.baseYield * (1 + values.mcExtra)
         expectedExtraOnProc = (1 + maxExtra) / 2
-        expectedYieldPerCraft = baseYield + (mcPercent * expectedExtraOnProc)
+        expectedYieldPerActualCraft = values.baseYield
+            + (values.mcPercent * expectedExtraOnProc)
     end
 
+    return expectedYieldPerActualCraft, expectedExtraOnProc, mcConstant
+end
+
+function Formula.CalculateFixedCrafts(input)
+    local values = ResolveFormulaInput(input)
+    local expectedYieldPerCraft, expectedExtraOnProc, mcConstant = CalculateCraftYield(values)
+
     local averageSavedCost = 0
-    if supportsResourcefulness and requiredCraftCost > 0 and resPercent > 0 then
-        averageSavedCost = requiredCraftCost * resPercent * saveBase * (1 + resExtra)
-        if averageSavedCost > requiredCraftCost then
-            averageSavedCost = requiredCraftCost
+    if values.supportsResourcefulness
+            and values.requiredCraftCost > 0
+            and values.resPercent > 0 then
+        averageSavedCost = values.requiredCraftCost
+            * values.resPercent
+            * values.resourcefulnessSaveBase
+            * (1 + values.resExtra)
+        if averageSavedCost > values.requiredCraftCost then
+            averageSavedCost = values.requiredCraftCost
         end
     end
 
-    local expectedOutput = crafts * expectedYieldPerCraft
-    local expectedConsumedCost = requiredCraftCost - averageSavedCost
+    local expectedOutput = values.crafts * expectedYieldPerCraft
+    local expectedConsumedCost = values.requiredCraftCost - averageSavedCost
     local expectedCostPerItem = nil
     if expectedOutput > 0 then
         expectedCostPerItem = expectedConsumedCost / expectedOutput
@@ -102,65 +119,86 @@ function Formula.CalculateFixedCrafts(input)
 
     return {
         model = "fixedCrafts",
-        crafts = crafts,
-        baseYield = baseYield,
-        mcPercent = mcPercent,
-        resPercent = resPercent,
-        mcExtra = mcExtra,
-        resExtra = resExtra,
+        crafts = values.crafts,
+        effectiveCrafts = values.crafts,
+        baseYield = values.baseYield,
+        mcPercent = values.mcPercent,
+        resPercent = values.resPercent,
+        mcExtra = values.mcExtra,
+        resExtra = values.resExtra,
         mcConstant = mcConstant,
         expectedExtraOnProc = expectedExtraOnProc,
         expectedYieldPerCraft = expectedYieldPerCraft,
+        expectedYieldPerActualCraft = expectedYieldPerCraft,
         expectedOutput = expectedOutput,
-        requiredCraftCost = requiredCraftCost,
+        requiredCraftCost = values.requiredCraftCost,
         averageSavedCost = averageSavedCost,
         expectedConsumedCost = expectedConsumedCost,
         expectedCostPerItem = expectedCostPerItem,
-        supportsMulticraft = supportsMulticraft,
-        supportsResourcefulness = supportsResourcefulness,
+        supportsMulticraft = values.supportsMulticraft,
+        supportsResourcefulness = values.supportsResourcefulness,
     }
 end
 
-function Formula.CalculateFixedInputEquivalent(input)
-    input = input or {}
+-- Treat `crafts` as the initial reagent pool for that many ordinary crafts.
+-- Resourcefulness is reinvested into additional expected craft attempts until
+-- the pool is exhausted. Multicraft affects output, not the number of attempts.
+function Formula.CalculateExhaustMaterials(input)
+    local values = ResolveFormulaInput(input)
+    local expectedYieldPerActualCraft, expectedExtraOnProc, mcConstant = CalculateCraftYield(values)
 
-    local crafts = ClampNonNegative(input.crafts)
-    local baseYield = ClampNonNegative(input.baseYield)
-    local requiredCraftCost = ClampNonNegative(input.requiredCraftCost)
-    local mcPercent = Clamp01(input.mcPercent)
-    local resPercent = Clamp01(input.resPercent)
-    local mcExtra = ClampNonNegative(input.mcExtra)
-    local resExtra = ClampNonNegative(input.resExtra)
-    local mcMultiplier = ClampNonNegative(input.mcMultiplier)
-    local resourceSaveFraction = ClampNonNegative(input.resourceSaveFraction)
-    local denominator = 1 - (resPercent * resourceSaveFraction)
-
-    if denominator <= 0 then
-        denominator = 1
+    local resourceSaveFraction = 0
+    if values.supportsResourcefulness and values.resPercent > 0 then
+        resourceSaveFraction = Clamp01(
+            values.resourcefulnessSaveBase * (1 + values.resExtra))
     end
 
-    local expectedOutput = (crafts * baseYield * (1 + (mcPercent * mcMultiplier))) / denominator
+    local consumptionFactor = 1 - (values.resPercent * resourceSaveFraction)
+    local resourceLoopBounded = consumptionFactor > 0
+    local effectiveCrafts = values.crafts
+    if resourceLoopBounded then
+        effectiveCrafts = values.crafts / consumptionFactor
+    end
+
+    local expectedOutput = effectiveCrafts * expectedYieldPerActualCraft
+    local expectedYieldPerCraft = values.crafts > 0
+        and (expectedOutput / values.crafts)
+        or expectedYieldPerActualCraft
 
     return {
-        model = "fixedInputEquivalent",
-        crafts = crafts,
-        baseYield = baseYield,
-        mcPercent = mcPercent,
-        resPercent = resPercent,
-        mcExtra = mcExtra,
-        resExtra = resExtra,
-        mcMultiplier = mcMultiplier,
+        model = "exhaustMaterials",
+        crafts = values.crafts,
+        effectiveCrafts = effectiveCrafts,
+        baseYield = values.baseYield,
+        mcPercent = values.mcPercent,
+        resPercent = values.resPercent,
+        mcExtra = values.mcExtra,
+        resExtra = values.resExtra,
+        mcConstant = mcConstant,
+        expectedExtraOnProc = expectedExtraOnProc,
         resourceSaveFraction = resourceSaveFraction,
-        denominator = denominator,
+        consumptionFactor = consumptionFactor,
+        denominator = consumptionFactor,
+        resourceLoopBounded = resourceLoopBounded,
         expectedOutput = expectedOutput,
-        expectedYieldPerCraft = (crafts > 0) and (expectedOutput / crafts) or 0,
-        requiredCraftCost = requiredCraftCost,
+        expectedYieldPerCraft = expectedYieldPerCraft,
+        expectedYieldPerActualCraft = expectedYieldPerActualCraft,
+        requiredCraftCost = values.requiredCraftCost,
         averageSavedCost = 0,
-        expectedConsumedCost = requiredCraftCost,
-        expectedCostPerItem = (expectedOutput > 0) and (requiredCraftCost / expectedOutput) or nil,
-        supportsMulticraft = input.supportsMulticraft and true or false,
-        supportsResourcefulness = input.supportsResourcefulness and true or false,
+        expectedConsumedCost = values.requiredCraftCost,
+        expectedCostPerItem = (expectedOutput > 0)
+            and (values.requiredCraftCost / expectedOutput)
+            or nil,
+        supportsMulticraft = values.supportsMulticraft,
+        supportsResourcefulness = values.supportsResourcefulness,
     }
+end
+
+-- Compatibility entry point for saved settings and third-party callers from
+-- the first V2 test branch. Its manual multiplier fields are intentionally no
+-- longer used; the CraftSim-derived model above is authoritative.
+function Formula.CalculateFixedInputEquivalent(input)
+    return Formula.CalculateExhaustMaterials(input)
 end
 
 function Formula.RunSmokeChecks()
@@ -170,15 +208,16 @@ function Formula.RunSmokeChecks()
                 string.format("%s: got %.6f expected %.6f", label, actual or 0, expected))
         end
 
-        local fixedInput = Formula.CalculateFixedInputEquivalent({
+        local exhaust = Formula.CalculateExhaustMaterials({
             crafts = 1000,
             baseYield = 2,
             mcPercent = 0.25,
-            mcMultiplier = 2.5,
             resPercent = 0.15,
-            resourceSaveFraction = 0.375,
+            supportsMulticraft = true,
+            supportsResourcefulness = true,
         })
-        assertNear(fixedInput.expectedOutput, 3443.708609, "fixed-input formula example")
+        assertNear(exhaust.effectiveCrafts, 1047.120419, "exhaust-materials effective crafts")
+        assertNear(exhaust.expectedOutput, 2704.188482, "exhaust-materials formula example")
 
         local sunglassDefault = Formula.CalculateFixedCrafts({
             crafts = 20,
@@ -211,8 +250,8 @@ function Formula.RunSmokeChecks()
             supportsMulticraft = true,
             supportsResourcefulness = true,
         })
-        assert(math.abs(fixedCrafts.expectedOutput - fixedInput.expectedOutput) > 100,
-            "fixed-craft CraftSim parity should differ from fixed-input reinvestment math")
+        assert(math.abs(fixedCrafts.expectedOutput - exhaust.expectedOutput) > 100,
+            "fixed-craft CraftSim parity should differ from exhaustion reinvestment math")
         assertNear(fixedCrafts.expectedOutput, 2582.5, "base-yield 2 CraftSim multicraft")
         assertNear(fixedCrafts.averageSavedCost, 4500, "CraftSim resourcefulness base savings")
 

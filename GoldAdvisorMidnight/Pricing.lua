@@ -54,16 +54,8 @@ local function RequestItemData(itemID)
 end
 
 local function BuildRecipeView(strat, variant)
-    if not strat then return nil end
-    variant = variant or {}
-    return {
-        defaultStartingAmount = variant.defaultStartingAmount or strat.defaultStartingAmount,
-        defaultCrafts = variant.defaultCrafts or strat.defaultCrafts or strat.defaultStartingAmount,
-        outputs = variant.outputs or strat.outputs,
-        output = (variant.outputs and variant.outputs[1]) or variant.output or strat.output
-            or (strat.outputs and strat.outputs[1]),
-        reagents = variant.reagents or strat.reagents,
-    }
+    local model = GAM.StrategyModel
+    return model and model.ResolveRecipeView and model.ResolveRecipeView(strat, variant) or nil
 end
 
 local function GetRecipeViewForVariantKey(strat, variantKey)
@@ -76,11 +68,12 @@ end
 local function GetActiveRecipeView(strat)
     if not strat then return nil end
     local policy = GetOpts().rankPolicy or "lowest"
-    local variantView = GetRecipeViewForVariantKey(strat, policy)
-    if variantView then
-        return variantView
+    local model = GAM.StrategyModel
+    if model and model.ResolveActiveRecipeView then
+        return model.ResolveActiveRecipeView(strat, policy)
     end
-    return BuildRecipeView(strat)
+    local variantView = GetRecipeViewForVariantKey(strat, policy)
+    return variantView or BuildRecipeView(strat)
 end
 
 local GetInputRankPolicy, PickItemID
@@ -99,8 +92,11 @@ function Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
     if not active then return nil end
     local reagentItems = {}
     local inputPolicy = GetInputRankPolicy and GetInputRankPolicy(strat) or ((GetOpts().rankPolicy or "lowest"))
-    if metrics and metrics.reagents and #metrics.reagents > 0 then
-        for _, r in ipairs(metrics.reagents) do
+    local displayedReagents = metrics
+        and (metrics.shoppingReagents or metrics.reagents)
+        or nil
+    if displayedReagents and #displayedReagents > 0 then
+        for _, r in ipairs(displayedReagents) do
             reagentItems[#reagentItems + 1] = {
                 itemIDs = r.scanItemIDs or (r.itemID and { r.itemID } or {}),
                 name = r.name,
@@ -158,17 +154,6 @@ function Pricing.GetExtraScanItems(strat, patchTag)
         end
     end
     return extras
-end
-
-local function GetStrategyScoreFromMetrics(metrics)
-    if not metrics then return nil, nil end
-    local p, r, cost = metrics.profit, metrics.roi, metrics.totalCostFull
-    if not p or not r then return nil, cost end
-    return p * math.sqrt(r), cost
-end
-
-function Pricing.GetStrategyScore(metrics)
-    return GetStrategyScoreFromMetrics(metrics)
 end
 
 local function GetResolvedItemIDs(item, patchTag)
@@ -377,17 +362,19 @@ end
 
 -- GetUnitPrice(itemID) → price in copper, or nil
 -- Reads from realm-scoped price cache.
-function Pricing.GetUnitPrice(itemID)
+function Pricing.GetUnitPrice(itemID, preferMinimum)
     if not itemID then return nil end
     local cache = GAM:GetRealmCache()
     local entry = cache[itemID]
     if not entry then return nil end
+    local price = (preferMinimum and entry.minPrice) or entry.price
+    if not price then return nil end
     -- Stale check
     local staleThresh = GAM.C.PRICE_STALE_SECONDS
     if (time() - (entry.ts or 0)) > staleThresh then
-        return entry.price, true  -- price, isStale
+        return price, true  -- price, isStale
     end
-    return entry.price, false
+    return price, false
 end
 
 -- GetEffectivePrice(itemID, patchTag, qty) → price in copper, or nil
@@ -430,7 +417,7 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     end
 
     -- 5. AH cache fallback — used when only cached/export data exists.
-    local cachedPrice, stale = Pricing.GetUnitPrice(itemID)
+    local cachedPrice, stale = Pricing.GetUnitPrice(itemID, targetQty and targetQty <= 1)
     return cachedPrice, stale
 end
 
@@ -668,6 +655,22 @@ function Pricing.RunSmokeChecks()
         Pricing.GetUnitPrice = originalGetUnitPrice
         GAM.AHScan = originalAHScan
         assert(qtyPricingOK, qtyPricingErr)
+
+        local originalGetRealmCache = GAM.GetRealmCache
+        local cachedMinimumOK, cachedMinimumErr = pcall(function()
+            local fakeCache = {}
+            GAM.GetRealmCache = function()
+                return fakeCache
+            end
+            Pricing.StorePrice(434343, 349716980, 25000000)
+            local average = Pricing.GetUnitPrice(434343)
+            local minimum = Pricing.GetUnitPrice(434343, true)
+            assert(average == 349716980, "cached acquisition average failed")
+            assert(minimum == 25000000, "cached sell-side minimum failed")
+        end)
+        GAM.GetRealmCache = originalGetRealmCache
+        assert(cachedMinimumOK, cachedMinimumErr)
+
         assert((GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[243060]) == 5000,
             "Luminant Flux vendor-price baseline missing")
         assert((GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[251665]) == 5000,
@@ -814,7 +817,7 @@ function Pricing.RunSmokeChecks()
         assert(oilRankOK, oilRankErr)
 
         local originalGetEffectivePriceForOutputQty = Pricing.GetEffectivePrice
-        local outputFillQtyOK, outputFillQtyErr = pcall(function()
+        local outputSellQuoteOK, outputSellQuoteErr = pcall(function()
             Pricing.GetEffectivePrice = function(itemID, patchTag, qty)
                 return qty, false
             end
@@ -864,8 +867,8 @@ function Pricing.RunSmokeChecks()
                 startingAmt = baseCtx.startingAmt,
                 crafts = baseCtx.crafts,
             })
-            assert(singleMetrics and singleMetrics.output and singleMetrics.output.unitPrice == 50,
-                string.format("single-output fill qty regression: got %s expected 50",
+            assert(singleMetrics and singleMetrics.output and singleMetrics.output.unitPrice == 1,
+                string.format("single-output sell quote regression: got %s expected 1",
                     tostring(singleMetrics and singleMetrics.output and singleMetrics.output.unitPrice)))
 
             local multiMetrics = BuildOutputMetrics({
@@ -886,18 +889,18 @@ function Pricing.RunSmokeChecks()
                 crafts = baseCtx.crafts,
             })
             assert(multiMetrics and multiMetrics.outputs and multiMetrics.outputs[1]
-                and multiMetrics.outputs[1].unitPrice == 50,
-                string.format("multi-output fill qty regression: got %s expected 50",
+                and multiMetrics.outputs[1].unitPrice == 1,
+                string.format("multi-output sell quote regression: got %s expected 1",
                     tostring(multiMetrics and multiMetrics.outputs and multiMetrics.outputs[1]
                         and multiMetrics.outputs[1].unitPrice)))
             assert(multiMetrics and multiMetrics.outputs and multiMetrics.outputs[2]
-                and multiMetrics.outputs[2].unitPrice == 50,
-                string.format("second multi-output fill qty regression: got %s expected 50",
+                and multiMetrics.outputs[2].unitPrice == 1,
+                string.format("second multi-output sell quote regression: got %s expected 1",
                     tostring(multiMetrics and multiMetrics.outputs and multiMetrics.outputs[2]
                         and multiMetrics.outputs[2].unitPrice)))
         end)
         Pricing.GetEffectivePrice = originalGetEffectivePriceForOutputQty
-        assert(outputFillQtyOK, outputFillQtyErr)
+        assert(outputSellQuoteOK, outputSellQuoteErr)
 
         local originalGetOptions = GAM.GetOptions
         local originalCraftUIForDrums = C_TradeSkillUI
@@ -956,9 +959,6 @@ function Pricing.RunSmokeChecks()
             assert(type(crushing.reagents[1].cheapestOf) == "table" and #crushing.reagents[1].cheapestOf > 0,
                 "normalized cheapestOf pool unavailable")
         end
-
-        local score = Pricing.GetStrategyScore({ profit = 2500, roi = 9, totalCostFull = 1000 })
-        assert(type(score) == "number", "strategy score unavailable")
 
         local viEconomicsOK, viEconomicsErr = pcall(function()
             local originalBuildDisplayReagentMetrics = BuildDisplayReagentMetrics
@@ -1060,7 +1060,7 @@ function Pricing.RunSmokeChecks()
         end)
         assert(viEconomicsOK, viEconomicsErr)
 
-        local v2ShadowOK, v2ShadowErr = pcall(function()
+        local canonicalV2OK, canonicalV2Err = pcall(function()
             local originalGetPatchDB = GAM.GetPatchDB
             local originalGetOptions = GAM.GetOptions
             local originalGetItemCount = GetItemCount
@@ -1068,9 +1068,9 @@ function Pricing.RunSmokeChecks()
             local originalProducerCandidates = GAM.Importer and GAM.Importer.GetProducerCandidates
             local originalGetStratByID = GAM.Importer and GAM.Importer.GetStratByID
             local originalCraftingStatsV2 = GAM.CraftingStatsV2
-            local originalProfile = profiles.__v2_shadow_smoke
+            local originalProfile = profiles.__canonical_v2_smoke
             local ok, err = pcall(function()
-                profiles.__v2_shadow_smoke = {
+                profiles.__canonical_v2_smoke = {
                     multiKey = nil,
                     resKey = "v2Res",
                     mcNodeKey = nil,
@@ -1114,10 +1114,10 @@ function Pricing.RunSmokeChecks()
                 end
 
                 local directStrat = {
-                    id = "v2_shadow_direct",
-                    stratName = "V2 Shadow Direct",
+                    id = "canonical_v2_direct",
+                    stratName = "Canonical V2 Direct",
                     calcMode = "formula",
-                    formulaProfile = "__v2_shadow_smoke",
+                    formulaProfile = "__canonical_v2_smoke",
                     defaultCrafts = 10,
                     defaultStartingAmount = 10,
                     reagents = {
@@ -1128,48 +1128,43 @@ function Pricing.RunSmokeChecks()
                     },
                 }
 
-                local legacyMetrics = Pricing.CalculateStratMetrics(directStrat, GAM.C.DEFAULT_PATCH, 1)
-                local shadowMetrics = Pricing.CalculateStratMetricsV2Shadow(
-                    directStrat, GAM.C.DEFAULT_PATCH, 1, legacyMetrics)
-                assert(legacyMetrics and legacyMetrics.reagents and legacyMetrics.reagents[1],
-                    "V2 direct smoke legacy metrics unavailable")
-                assert(legacyMetrics.reagents[1].required == 20,
-                    "V2 shadow must not alter visible required reagent quantity")
-                assert(legacyMetrics.reagents[1].needToBuy == 20,
-                    "V2 shadow must not alter shopping need-to-buy quantity")
-                assert(shadowMetrics and shadowMetrics.reagents and shadowMetrics.reagents[1]
-                        and shadowMetrics.reagents[1].required == 20,
-                    "V2 shadow visible reagent quantity failed")
-                assert(shadowMetrics.reagents[1].needToBuy == 20,
-                    "V2 shadow visible need-to-buy quantity failed")
-                assert(shadowMetrics and shadowMetrics.requiredCostFull == 2000,
-                    "V2 shadow required cost failed")
-                assert(math.abs((shadowMetrics.expectedConsumedCostFull or 0) - 1550) < 0.001,
-                    string.format("V2 shadow expected consumed cost failed: got %.6f",
-                        shadowMetrics.expectedConsumedCostFull or 0))
-                assert(shadowMetrics.requiredCostFull > shadowMetrics.expectedConsumedCostFull,
+                local canonicalMetrics = Pricing.CalculateStratMetricsV2(
+                    directStrat, GAM.C.DEFAULT_PATCH, 1)
+                assert(canonicalMetrics and canonicalMetrics.reagents and canonicalMetrics.reagents[1]
+                        and canonicalMetrics.reagents[1].required == 20,
+                    "Canonical V2 visible reagent quantity failed")
+                assert(canonicalMetrics.reagents[1].needToBuy == 20,
+                    "Canonical V2 visible need-to-buy quantity failed")
+                assert(canonicalMetrics and canonicalMetrics.requiredCostFull == 2000,
+                    "Canonical V2 required cost failed")
+                assert(math.abs((canonicalMetrics.expectedConsumedCostFull or 0) - 1550) < 0.001,
+                    string.format("Canonical V2 expected consumed cost failed: got %.6f",
+                        canonicalMetrics.expectedConsumedCostFull or 0))
+                assert(canonicalMetrics.requiredCostFull > canonicalMetrics.expectedConsumedCostFull,
                     "V2 resourcefulness expected cost reduction missing")
 
-                fakeOpts.v2PricingMode = "fixed_input"
-                local fixedInputShadow = Pricing.CalculateStratMetricsV2Shadow(
-                    directStrat, GAM.C.DEFAULT_PATCH, 1, legacyMetrics)
-                assert(fixedInputShadow and fixedInputShadow.formula
-                        and fixedInputShadow.formula.pricingMode == "fixed_input",
-                    "V2 fixed-input mode selection failed")
-                assert(math.abs((fixedInputShadow.expectedConsumedCostFull or 0) - 2000) < 0.001,
-                    string.format("V2 fixed-input should keep full input budget as cost: got %.6f",
-                        fixedInputShadow.expectedConsumedCostFull or 0))
-                assert(((fixedInputShadow.output and fixedInputShadow.output.expectedQtyRaw) or 0)
-                        > ((shadowMetrics.output and shadowMetrics.output.expectedQtyRaw) or 0),
-                    "V2 fixed-input resourcefulness should increase expected output")
+                fakeOpts.v2PricingMode = "exhaust_materials"
+                local exhaustMetrics = Pricing.CalculateStratMetricsV2(
+                    directStrat, GAM.C.DEFAULT_PATCH, 1)
+                assert(exhaustMetrics and exhaustMetrics.formula
+                        and exhaustMetrics.formula.pricingMode == "exhaust_materials"
+                        and exhaustMetrics.formula.model == "exhaustMaterials",
+                    "V2 Exhaust Materials mode selection failed")
+                assert(math.abs((exhaustMetrics.expectedConsumedCostFull or 0) - 2000) < 0.001,
+                    string.format("V2 Exhaust Materials should keep full input budget as cost: got %.6f",
+                        exhaustMetrics.expectedConsumedCostFull or 0))
+                assert(((exhaustMetrics.output and exhaustMetrics.output.expectedQtyRaw) or 0)
+                        > ((canonicalMetrics.output and canonicalMetrics.output.expectedQtyRaw) or 0),
+                    "V2 Exhaust Materials Resourcefulness should increase expected output")
                 fakeOpts.v2PricingMode = "fixed_crafts"
 
                 fakeOpts.pigmentCostSource = "mill"
                 local producer = {
-                    id = "v2_shadow_producer",
-                    stratName = "V2 Shadow Producer",
+                    id = "canonical_v2_producer",
+                    stratName = "Canonical V2 Producer",
+                    profession = "Inscription",
                     calcMode = "formula",
-                    formulaProfile = "__v2_shadow_smoke",
+                    formulaProfile = "__canonical_v2_smoke",
                     defaultCrafts = 10,
                     defaultStartingAmount = 10,
                     reagents = {
@@ -1180,8 +1175,9 @@ function Pricing.RunSmokeChecks()
                     },
                 }
                 local root = {
-                    id = "v2_shadow_root",
-                    stratName = "V2 Shadow Root",
+                    id = "canonical_v2_root",
+                    stratName = "Canonical V2 Root",
+                    profession = "Inscription",
                     calcMode = "fixed",
                     defaultCrafts = 1,
                     defaultStartingAmount = 1,
@@ -1196,13 +1192,13 @@ function Pricing.RunSmokeChecks()
                 GAM.Importer.GetProducerCandidates = function(itemID)
                     if itemID == 81001 then
                         return {
-                            { stratID = "v2_shadow_producer" },
+                            { stratID = "canonical_v2_producer" },
                         }
                     end
                     return {}
                 end
                 GAM.Importer.GetStratByID = function(id)
-                    if id == "v2_shadow_producer" then
+                    if id == "canonical_v2_producer" then
                         return producer
                     end
                     if originalGetStratByID then
@@ -1211,19 +1207,28 @@ function Pricing.RunSmokeChecks()
                     return nil
                 end
 
-                local rootShadow = Pricing.CalculateStratMetricsV2Shadow(root, GAM.C.DEFAULT_PATCH, 1)
-                assert(rootShadow and math.abs((rootShadow.requiredCostFull or 0) - 2000) < 0.001,
+                local rootMetrics = Pricing.CalculateStratMetricsV2(root, GAM.C.DEFAULT_PATCH, 1)
+                assert(rootMetrics and math.abs((rootMetrics.requiredCostFull or 0) - 2000) < 0.001,
                     "V2 VI required cost failed")
-                assert(math.abs((rootShadow.expectedConsumedCostFull or 0) - 1550) < 0.001,
+                assert(math.abs((rootMetrics.expectedConsumedCostFull or 0) - 1550) < 0.001,
                     string.format("V2 VI expected consumed cost failed: got %.6f",
-                        rootShadow.expectedConsumedCostFull or 0))
+                        rootMetrics.expectedConsumedCostFull or 0))
+
+                producer.profession = "Jewelcrafting"
+                local crossProfessionMetrics = Pricing.CalculateStratMetricsV2(
+                    root, GAM.C.DEFAULT_PATCH, 1)
+                assert(crossProfessionMetrics
+                        and math.abs((crossProfessionMetrics.requiredCostFull or 0) - 2500) < 0.001,
+                    "V2 VI must buy an intermediate produced by another profession")
+                producer.profession = "Inscription"
 
                 prices[81005] = 50
                 local directCheapProducer = {
-                    id = "v2_shadow_direct_cheap_producer",
-                    stratName = "V2 Shadow Direct Cheap Producer",
+                    id = "canonical_v2_direct_cheap_producer",
+                    stratName = "Canonical V2 Direct Cheap Producer",
+                    profession = "Inscription",
                     calcMode = "formula",
-                    formulaProfile = "__v2_shadow_smoke",
+                    formulaProfile = "__canonical_v2_smoke",
                     defaultCrafts = 10,
                     defaultStartingAmount = 10,
                     reagents = {
@@ -1234,8 +1239,9 @@ function Pricing.RunSmokeChecks()
                     },
                 }
                 local directCheapRoot = {
-                    id = "v2_shadow_direct_cheap_root",
-                    stratName = "V2 Shadow Direct Cheap Root",
+                    id = "canonical_v2_direct_cheap_root",
+                    stratName = "Canonical V2 Direct Cheap Root",
+                    profession = "Inscription",
                     calcMode = "fixed",
                     defaultCrafts = 1,
                     defaultStartingAmount = 1,
@@ -1249,21 +1255,21 @@ function Pricing.RunSmokeChecks()
                 GAM.Importer.GetProducerCandidates = function(itemID)
                     if itemID == 81001 then
                         return {
-                            { stratID = "v2_shadow_producer" },
+                            { stratID = "canonical_v2_producer" },
                         }
                     end
                     if itemID == 81005 then
                         return {
-                            { stratID = "v2_shadow_direct_cheap_producer" },
+                            { stratID = "canonical_v2_direct_cheap_producer" },
                         }
                     end
                     return {}
                 end
                 GAM.Importer.GetStratByID = function(id)
-                    if id == "v2_shadow_direct_cheap_producer" then
+                    if id == "canonical_v2_direct_cheap_producer" then
                         return directCheapProducer
                     end
-                    if id == "v2_shadow_producer" then
+                    if id == "canonical_v2_producer" then
                         return producer
                     end
                     if originalGetStratByID then
@@ -1271,21 +1277,22 @@ function Pricing.RunSmokeChecks()
                     end
                     return nil
                 end
-                local directCheapShadow = Pricing.CalculateStratMetricsV2Shadow(directCheapRoot, GAM.C.DEFAULT_PATCH, 1)
-                assert(directCheapShadow and math.abs((directCheapShadow.requiredCostFull or 0) - 500) < 0.001,
+                local directCheapMetrics = Pricing.CalculateStratMetricsV2(directCheapRoot, GAM.C.DEFAULT_PATCH, 1)
+                assert(directCheapMetrics and math.abs((directCheapMetrics.requiredCostFull or 0) - 500) < 0.001,
                     "V2 VI should keep direct buy cost when direct is cheaper")
-                assert(math.abs((directCheapShadow.expectedConsumedCostFull or 0) - 500) < 0.001,
+                assert(math.abs((directCheapMetrics.expectedConsumedCostFull or 0) - 500) < 0.001,
                     string.format("V2 VI direct-cheaper expected consumed cost failed: got %.6f",
-                        directCheapShadow.expectedConsumedCostFull or 0))
-                assert(directCheapShadow.reagents and directCheapShadow.reagents[1]
-                        and directCheapShadow.reagents[1].sourceNote == nil,
+                        directCheapMetrics.expectedConsumedCostFull or 0))
+                assert(directCheapMetrics.reagents and directCheapMetrics.reagents[1]
+                        and directCheapMetrics.reagents[1].sourceNote == nil,
                     "V2 VI direct-cheaper display should not annotate crafted source")
 
                 local largeProducer = {
-                    id = "v2_shadow_large_producer",
-                    stratName = "V2 Shadow Large Producer",
+                    id = "canonical_v2_large_producer",
+                    stratName = "Canonical V2 Large Producer",
+                    profession = "Inscription",
                     calcMode = "formula",
-                    formulaProfile = "__v2_shadow_smoke",
+                    formulaProfile = "__canonical_v2_smoke",
                     defaultCrafts = 1,
                     defaultStartingAmount = 10,
                     reagents = {
@@ -1296,8 +1303,9 @@ function Pricing.RunSmokeChecks()
                     },
                 }
                 local largeRoot = {
-                    id = "v2_shadow_large_root",
-                    stratName = "V2 Shadow Large Root",
+                    id = "canonical_v2_large_root",
+                    stratName = "Canonical V2 Large Root",
+                    profession = "Inscription",
                     calcMode = "fixed",
                     defaultCrafts = 1,
                     defaultStartingAmount = 1,
@@ -1311,21 +1319,21 @@ function Pricing.RunSmokeChecks()
                 GAM.Importer.GetProducerCandidates = function(itemID)
                     if itemID == 81001 then
                         return {
-                            { stratID = "v2_shadow_producer" },
+                            { stratID = "canonical_v2_producer" },
                         }
                     end
                     if itemID == 81004 then
                         return {
-                            { stratID = "v2_shadow_large_producer" },
+                            { stratID = "canonical_v2_large_producer" },
                         }
                     end
                     return {}
                 end
                 GAM.Importer.GetStratByID = function(id)
-                    if id == "v2_shadow_large_producer" then
+                    if id == "canonical_v2_large_producer" then
                         return largeProducer
                     end
-                    if id == "v2_shadow_producer" then
+                    if id == "canonical_v2_producer" then
                         return producer
                     end
                     if originalGetStratByID then
@@ -1333,16 +1341,15 @@ function Pricing.RunSmokeChecks()
                     end
                     return nil
                 end
-                local largeShadow = Pricing.CalculateStratMetricsV2Shadow(largeRoot, GAM.C.DEFAULT_PATCH, 1)
-                assert(largeShadow
-                        and largeShadow.reagents
-                        and largeShadow.reagents[1]
-                        and largeShadow.reagents[1].required == 4000,
-                    string.format("V2 VI direct display should keep recipe input quantity: got %s",
-                        tostring(largeShadow and largeShadow.reagents and largeShadow.reagents[1]
-                            and largeShadow.reagents[1].required)))
-                assert(largeShadow.reagents[1].sourceNote == "via V2 Shadow Large Producer",
-                    "V2 VI direct display should annotate crafted input source")
+                local largeMetrics = Pricing.CalculateStratMetricsV2(largeRoot, GAM.C.DEFAULT_PATCH, 1)
+                assert(largeMetrics
+                        and largeMetrics.reagents
+                        and largeMetrics.reagents[1]
+                        and largeMetrics.reagents[1].itemID == 81002
+                        and largeMetrics.reagents[1].required == 3080,
+                    string.format("V2 VI execution display should expand the producer inputs: got %s",
+                        tostring(largeMetrics and largeMetrics.reagents and largeMetrics.reagents[1]
+                            and largeMetrics.reagents[1].required)))
 
                 GAM.CraftingStatsV2 = {
                     ResolveForStrat = function(strat)
@@ -1356,11 +1363,11 @@ function Pricing.RunSmokeChecks()
                     end,
                 }
                 local snapshotStrat = {
-                    id = "v2_shadow_imported_snapshot",
-                    stratName = "V2 Shadow Imported Snapshot",
+                    id = "canonical_v2_imported_snapshot",
+                    stratName = "Canonical V2 Imported Snapshot",
                     profession = "Inscription",
                     calcMode = "formula",
-                    formulaProfile = "__v2_shadow_smoke",
+                    formulaProfile = "__canonical_v2_smoke",
                     defaultCrafts = 10,
                     defaultStartingAmount = 10,
                     reagents = {
@@ -1370,12 +1377,12 @@ function Pricing.RunSmokeChecks()
                         { name = "V2 Output", itemIDs = { 80002 }, baseYieldPerCraft = 1 },
                     },
                 }
-                local snapshotShadow = Pricing.CalculateStratMetricsV2Shadow(snapshotStrat, GAM.C.DEFAULT_PATCH, 1)
-                assert(snapshotShadow and snapshotShadow.formula and snapshotShadow.formula.statSource == "craftsim-imported",
-                    "V2 shadow should use imported stat snapshots from the GAM resolver")
-                assert(math.abs((snapshotShadow.expectedConsumedCostFull or 0) - 1898.75) < 0.001,
+                local snapshotMetrics = Pricing.CalculateStratMetricsV2(snapshotStrat, GAM.C.DEFAULT_PATCH, 1)
+                assert(snapshotMetrics and snapshotMetrics.formula and snapshotMetrics.formula.statSource == "craftsim-imported",
+                    "Canonical V2 should use imported stat snapshots from the GAM resolver")
+                assert(math.abs((snapshotMetrics.expectedConsumedCostFull or 0) - 1898.75) < 0.001,
                     string.format("V2 imported snapshot resourcefulness failed: got %.6f",
-                        snapshotShadow.expectedConsumedCostFull or 0))
+                        snapshotMetrics.expectedConsumedCostFull or 0))
 
                 GAM.CraftingStatsV2 = {
                     ResolveForStrat = function(strat)
@@ -1388,15 +1395,15 @@ function Pricing.RunSmokeChecks()
                         }
                     end,
                 }
-                local cachedProfileShadow = Pricing.CalculateStratMetricsV2Shadow(
+                local cachedProfileMetrics = Pricing.CalculateStratMetricsV2(
                     snapshotStrat, GAM.C.DEFAULT_PATCH, 1)
-                assert(cachedProfileShadow
-                        and cachedProfileShadow.formula
-                        and cachedProfileShadow.formula.statSource == "gam-cache-profile",
-                    "V2 shadow should accept exact profile stat cache from the GAM resolver")
-                assert(math.abs((cachedProfileShadow.expectedConsumedCostFull or 0) - 1898.75) < 0.001,
+                assert(cachedProfileMetrics
+                        and cachedProfileMetrics.formula
+                        and cachedProfileMetrics.formula.statSource == "gam-cache-profile",
+                    "Canonical V2 should accept exact profile stat cache from the GAM resolver")
+                assert(math.abs((cachedProfileMetrics.expectedConsumedCostFull or 0) - 1898.75) < 0.001,
                     string.format("V2 exact profile cache resourcefulness failed: got %.6f",
-                        cachedProfileShadow.expectedConsumedCostFull or 0))
+                        cachedProfileMetrics.expectedConsumedCostFull or 0))
             end)
             GAM.GetPatchDB = originalGetPatchDB
             GAM.GetOptions = originalGetOptions
@@ -1407,10 +1414,10 @@ function Pricing.RunSmokeChecks()
                 GAM.Importer.GetProducerCandidates = originalProducerCandidates
                 GAM.Importer.GetStratByID = originalGetStratByID
             end
-            profiles.__v2_shadow_smoke = originalProfile
+            profiles.__canonical_v2_smoke = originalProfile
             assert(ok, err)
         end)
-        assert(v2ShadowOK, v2ShadowErr)
+        assert(canonicalV2OK, canonicalV2Err)
 
         -- ── Spreadsheet-parity checks ─────────────────────────────────────────
         -- Verify formula profiles reproduce workbookExpectedQty at default stats.
@@ -1602,25 +1609,26 @@ function Pricing.RunSmokeChecks()
 
                     local soulCipher = GAM.Importer.GetStratByID("inscription__soul_cipher__midnight_1")
                     assert(soulCipher, "soul cipher strat unavailable")
-                    local soulMetrics = Pricing.CalculateStratMetrics(soulCipher, GAM.C.DEFAULT_PATCH, 1)
+                    local soulMetrics = Pricing.CalculateStratMetricsV2(soulCipher, GAM.C.DEFAULT_PATCH, 1)
                     local soulSeen = collectSeenIDs(soulMetrics and soulMetrics.reagents)
-                    assert((soulSeen[245805] or soulSeen[245806]) and (soulSeen[245801] or soulSeen[245802]),
-                        "soul cipher detail rows must display direct ink inputs")
-                    assert(not soulSeen[236761] and not soulSeen[236767],
-                        "soul cipher detail rows must not replace inks with herb leaves")
+                    assert(codifiedSeen[236761] or codifiedSeen[236767],
+                        "soul cipher VI detail rows must expand ink inputs to herb leaves")
+                    assert(not soulSeen[245805] and not soulSeen[245806]
+                            and not soulSeen[245801] and not soulSeen[245802],
+                        "soul cipher VI detail rows retained crafted ink intermediates")
 
                     local codified = GAM.Importer.GetStratByID("inscription__codified_azeroot__midnight_1")
                     assert(codified, "codified azeroot strat unavailable")
-                    local codifiedMetrics = Pricing.CalculateStratMetrics(codified, GAM.C.DEFAULT_PATCH, 1)
+                    local codifiedMetrics = Pricing.CalculateStratMetricsV2(codified, GAM.C.DEFAULT_PATCH, 1)
                     local codifiedSeen = collectSeenIDs(codifiedMetrics and codifiedMetrics.reagents)
-                    assert((codifiedSeen[245766] or codifiedSeen[245767]),
-                        "codified azeroot detail rows must display direct soul cipher input")
-                    assert(not codifiedSeen[236761] and not codifiedSeen[236767],
-                        "codified azeroot detail rows must not replace soul cipher with herb leaves")
+                    assert(soulSeen[236761] or soulSeen[236767],
+                        "codified azeroot VI detail rows must expand soul cipher to herb leaves")
+                    assert(not codifiedSeen[245766] and not codifiedSeen[245767],
+                        "codified azeroot VI detail rows retained the soul cipher intermediate")
 
                     local peerless = GAM.Importer.GetStratByID("inscription__peerless_missive__midnight_1")
                     assert(peerless, "peerless missive strat unavailable")
-                    local peerlessMetrics = Pricing.CalculateStratMetrics(peerless, GAM.C.DEFAULT_PATCH, 10)
+                    local peerlessMetrics = Pricing.CalculateStratMetricsV2(peerless, GAM.C.DEFAULT_PATCH, 10)
                     local missiveProfileCtx = BuildProfileContext(peerless, parityOpts)
                     local expectedMissiveQty = ComputeOutputQuantity(
                         (peerless.outputs and peerless.outputs[1]) or peerless.output,
@@ -1640,25 +1648,25 @@ function Pricing.RunSmokeChecks()
                             displayQtyByID[row.itemID] = row.required
                         end
                     end
-                    assert((displayQtyByID[245801] or displayQtyByID[245802])
-                            and (displayQtyByID[245805] or displayQtyByID[245806]),
-                        "peerless missive detail rows must display direct ink inputs")
-                    assert(not displayQtyByID[236761] and not displayQtyByID[236776]
-                            and not displayQtyByID[236770] and not displayQtyByID[236778],
-                        "peerless missive detail rows must not replace inks with herb leaves")
+                    assert(displayQtyByID[236761] or displayQtyByID[236776]
+                            or displayQtyByID[236770] or displayQtyByID[236778],
+                        "peerless missive VI detail rows must expand inks to herb leaves")
+                    assert(not displayQtyByID[245801] and not displayQtyByID[245802]
+                            and not displayQtyByID[245805] and not displayQtyByID[245806],
+                        "peerless missive VI detail rows retained crafted ink intermediates")
 
                     local imbuedBolt = GAM.Importer.GetStratByID("tailoring__imbued_bright_linen_bolt__midnight_1")
                     assert(imbuedBolt, "imbued bright linen bolt strat unavailable")
-                    local boltMetrics = Pricing.CalculateStratMetrics(imbuedBolt, GAM.C.DEFAULT_PATCH, 1)
+                    local boltMetrics = Pricing.CalculateStratMetricsV2(imbuedBolt, GAM.C.DEFAULT_PATCH, 1)
                     local boltSeen = collectSeenIDs(boltMetrics and boltMetrics.reagents)
-                    assert((boltSeen[239700] or boltSeen[239701]) and boltSeen[251665],
-                        "imbued bright linen bolt detail rows must display direct bolt + thread inputs")
-                    assert(not boltSeen[236963] and not boltSeen[236965],
-                        "imbued bright linen bolt detail rows must not replace bolts with linen leaves")
+                    assert((boltSeen[236963] or boltSeen[236965]) and boltSeen[251665],
+                        "imbued bright linen bolt VI rows must expand bolts to linen + thread")
+                    assert(not boltSeen[239700] and not boltSeen[239701],
+                        "imbued bright linen bolt VI rows retained crafted bolt intermediates")
 
                     local refulgentIngot = GAM.Importer.GetStratByID("blacksmithing__refulgent_copper_ingot__midnight_1")
                     assert(refulgentIngot, "refulgent copper ingot strat unavailable")
-                    local ingotMetrics = Pricing.CalculateStratMetrics(refulgentIngot, GAM.C.DEFAULT_PATCH, 1)
+                    local ingotMetrics = Pricing.CalculateStratMetricsV2(refulgentIngot, GAM.C.DEFAULT_PATCH, 1)
                     local ingotSeen = collectSeenIDs(ingotMetrics and ingotMetrics.reagents)
                     assert(ingotSeen[237359] and ingotSeen[243060], "refulgent copper ingot VI must expand to ore + flux")
                     assert(not ingotSeen[238197] and not ingotSeen[238198],
@@ -1666,7 +1674,7 @@ function Pricing.RunSmokeChecks()
 
                     local recycling = GAM.Importer.GetStratByID("engineering__recycling_powder_pigment__midnight_1")
                     assert(recycling, "engineering recycling powder pigment strat unavailable")
-                    local recyclingMetrics = Pricing.CalculateStratMetrics(recycling, GAM.C.DEFAULT_PATCH, 1)
+                    local recyclingMetrics = Pricing.CalculateStratMetricsV2(recycling, GAM.C.DEFAULT_PATCH, 1)
                     local recyclingSeen = collectSeenIDs(recyclingMetrics and recyclingMetrics.reagents)
                     assert(recyclingSeen[245807] and not recyclingSeen[236761] and not recyclingSeen[236767],
                         "engineering recycling VI display must remain direct")
@@ -1675,7 +1683,7 @@ function Pricing.RunSmokeChecks()
                     assert(crushing, "crushing strat unavailable")
                     local analyzer = Pricing.GetCrushingAnalyzerData(crushing, GAM.C.DEFAULT_PATCH)
                     assert(analyzer and analyzer.entries and #analyzer.entries > 0, "crushing analyzer data unavailable")
-                    local scaledCrushingMetrics = Pricing.CalculateStratMetrics(crushing, GAM.C.DEFAULT_PATCH, 2)
+                    local scaledCrushingMetrics = Pricing.CalculateStratMetricsV2(crushing, GAM.C.DEFAULT_PATCH, 2)
                     local scaledAnalyzer = Pricing.GetCrushingAnalyzerData(crushing, GAM.C.DEFAULT_PATCH, scaledCrushingMetrics)
                     assert(scaledAnalyzer and scaledAnalyzer.crafts == scaledCrushingMetrics.crafts,
                         "crushing analyzer must inherit current craft quantity")
@@ -1871,28 +1879,40 @@ function Pricing.RunSmokeChecks()
                 "Jewelcrafting crushing G23")
 
             local lens = GAM.Importer.GetStratByID("jewelcrafting__sin_dorei_lens_crafting__midnight_1")
-            if lens and Pricing.CalculateStratMetricsV2Shadow then
+            if lens and Pricing.CalculateStratMetricsV2 then
                 local originalGetOptions = GAM.GetOptions
-                local fixedCraftOpts = {}
-                if originalGetOptions then
-                    local liveOpts = GAM:GetOptions()
-                    if type(liveOpts) == "table" then
-                        for k, v in pairs(liveOpts) do
-                            fixedCraftOpts[k] = v
-                        end
-                    end
-                end
-                fixedCraftOpts.pricingEngine = "v2"
-                fixedCraftOpts.v2PricingMode = "fixed_crafts"
-                fixedCraftOpts.jcCraftMulti = 7.9
-                fixedCraftOpts.jcCraftRes = 28.8
-                fixedCraftOpts.jcMcNode = 65
-                fixedCraftOpts.jcRsNode = 50
+                local originalGetPatchDB = GAM.GetPatchDB
+                local originalCraftingStatsV2 = GAM.CraftingStatsV2
+                local fixedCraftOpts = {
+                    v2PricingMode = "fixed_crafts",
+                    rankPolicy = "lowest",
+                    pigmentCostSource = "ah",
+                    ingotCostSource = "ah",
+                    boltCostSource = "ah",
+                    jcCraftMulti = 7.9,
+                    jcCraftRes = 28.8,
+                    jcMcNode = 65,
+                    jcRsNode = 50,
+                }
                 GAM.GetOptions = function()
                     return fixedCraftOpts
                 end
-                local ok, metrics = pcall(Pricing.CalculateStratMetricsV2Shadow, lens, GAM.C.DEFAULT_PATCH, 0.1, nil)
+                GAM.GetPatchDB = function()
+                    return {
+                        rankGroups = {},
+                        priceOverrides = {},
+                        inputQtyOverrides = {},
+                        craftsOverrides = {},
+                    }
+                end
+                -- This is an options-baseline formula check. Live recipe
+                -- snapshots are tested separately and must not replace the
+                -- fixture's explicit Multicraft/Resourcefulness values.
+                GAM.CraftingStatsV2 = nil
+                local ok, metrics = pcall(Pricing.CalculateStratMetricsV2, lens, GAM.C.DEFAULT_PATCH, 0.1)
                 GAM.GetOptions = originalGetOptions
+                GAM.GetPatchDB = originalGetPatchDB
+                GAM.CraftingStatsV2 = originalCraftingStatsV2
                 assert(ok, metrics)
                 local qty = metrics and metrics.output and metrics.output.expectedQtyRaw
                 assert(qty and qty > 115 and qty < 119,
@@ -2401,6 +2421,8 @@ local function ResolveGraphNodeEntry(ctx, node, qtyForPricing)
     local itemIDs = GetResolvedReagentItemIDs(node, ctx.pdb)
     local itemID = nil
     local scanItemIDs = nil
+    local selectedAlternativeName = nil
+    local selectedAlternativeItemID = nil
 
     if node.cheapestOf then
         local resolved = ResolveCheapestAlternative(node, ctx, qtyForPricing)
@@ -2409,6 +2431,8 @@ local function ResolveGraphNodeEntry(ctx, node, qtyForPricing)
             itemIDs = resolved.itemIDs or itemIDs
             itemID = resolved.itemID
             displayName = resolved.name or displayName
+            selectedAlternativeName = resolved.name
+            selectedAlternativeItemID = resolved.itemID
         end
     end
 
@@ -2423,6 +2447,9 @@ local function ResolveGraphNodeEntry(ctx, node, qtyForPricing)
         scanItemIDs = scanItemIDs or (itemID and { itemID } or itemIDs),
         excludeFromCost = node.excludeFromCost and true or false,
         skipDerivation = node.skipDerivation and true or false,
+        selectedAlternativeName = selectedAlternativeName,
+        selectedAlternativeItemID = selectedAlternativeItemID,
+        selectionMode = node.cheapestOf and "cheapest_pool" or nil,
     }
 end
 
@@ -2479,7 +2506,12 @@ local function FindProducerMatch(ctx, itemID, state)
     local candidates = GAM.Importer.GetProducerCandidates(itemID, ctx.patchTag)
     for _, candidate in ipairs(candidates or {}) do
         local strat, active, candidateOutputID = GetProducerCandidateResolvedOutputID(candidate, ctx.patchTag)
-        if strat and active and candidateOutputID == itemID and type(active.outputs) == "table" and #active.outputs == 1 then
+        if strat
+                and Derivation.CanVerticallyIntegrate(ctx.strat, strat)
+                and active
+                and candidateOutputID == itemID
+                and type(active.outputs) == "table"
+                and #active.outputs == 1 then
             local key = tostring(candidate.stratID) .. "::" .. tostring(candidate.variantKey or "base")
             if not (state.activeProducerKeys and state.activeProducerKeys[key]) then
                 return {
@@ -2541,6 +2573,20 @@ local function BuildGraphLeafPlan(ctx, mode)
             return
         end
 
+        -- V2 records whether buying the intermediate or crafting it was the
+        -- selected economic path. Execution rows must follow that same choice;
+        -- otherwise the visible shopping plan can disagree with the totals.
+        local economicChoice = mode == "execution"
+            and ctx.v2EconomicChoices
+            and resolvedEntry.itemID
+            and ctx.v2EconomicChoices[tostring(resolvedEntry.itemID)]
+            or nil
+        if mode == "execution"
+                and not Derivation.ShouldExpandDisplayIntermediate(mode, economicChoice) then
+            AddResolvedLeaf(resolvedEntry, requiredQty)
+            return
+        end
+
         local producer = FindProducerMatch(ctx, resolvedEntry.itemID, state)
         if not producer then
             AddResolvedLeaf(resolvedEntry, requiredQty)
@@ -2579,6 +2625,45 @@ local function BuildGraphLeafPlan(ctx, mode)
         leafMap = leafMap,
         leafOrder = leafOrder,
     }
+end
+
+-- Return every leaf material needed to price the selected strategy's available
+-- same-profession craft chain.  The normal strategy scan already includes the
+-- direct reagent, but V2 cannot compare direct-versus-crafted cost unless the
+-- producer's underlying materials have prices as well.
+function Pricing.GetVerticalIntegrationScanItems(strat, patchTag)
+    if not strat then return {} end
+
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    local opts = GetOpts()
+    local active = GetActiveRecipeView(strat)
+    if not active then return {} end
+
+    local ctx = BuildCalcContext(
+        strat,
+        active,
+        patchTag,
+        1,
+        opts,
+        GetPatchDB(patchTag),
+        opts.ahCut or GAM.C.AH_CUT)
+    if not ctx.chainActive then return {} end
+
+    ctx.v2ExecutionPlan = true
+    ctx.v2StatResolutions = {}
+
+    local plan = BuildGraphLeafPlan(ctx, "economic")
+    local items = {}
+    for _, key in ipairs(plan.leafOrder or {}) do
+        local leaf = plan.leafMap[key]
+        if leaf and not leaf.excludeFromCost then
+            items[#items + 1] = {
+                itemIDs = leaf.scanItemIDs or leaf.itemIDs or (leaf.itemID and { leaf.itemID }) or {},
+                name = leaf.name,
+            }
+        end
+    end
+    return items
 end
 
 local function BuildGraphLeafMetrics(ctx, mode)
@@ -2936,6 +3021,9 @@ local function BuildVIBreakdownData(ctx, metrics)
             directTotalCostFull = pricingData.directTotalCostFull,
             directMissingPrice = pricingData.directMissingPrice,
             hasStale = pricingData.effectiveIsStale or pricingData.directIsStale,
+            selectedAlternativeName = resolvedEntry.selectedAlternativeName,
+            selectedAlternativeItemID = resolvedEntry.selectedAlternativeItemID,
+            selectionMode = resolvedEntry.selectionMode,
         })
 
         if producer then
@@ -2953,6 +3041,8 @@ local function BuildVIBreakdownData(ctx, metrics)
             local hasMissingPrice = false
             local hasStale = entry.hasStale
             local scaledStartingAmt = GetScaledStartingAmountForCrafts(producer.active, craftsEconomic)
+            entry.selectedInputNames = {}
+            local selectedInputSet = {}
 
             state.activeProducerKeys[producer.key] = true
             for _, reagent in ipairs(producer.active.reagents or {}) do
@@ -2960,6 +3050,12 @@ local function BuildVIBreakdownData(ctx, metrics)
                 local childSummary, childIndex = ExpandNode(reagent, childQty, depth + 1, entry.index, resolvedEntry.excludeFromCost)
                 if childIndex then
                     entry.childIndices[#entry.childIndices + 1] = childIndex
+                    local childEntry = state.entries[childIndex]
+                    local selectedName = childEntry and childEntry.selectedAlternativeName
+                    if selectedName and not selectedInputSet[selectedName] then
+                        selectedInputSet[selectedName] = true
+                        entry.selectedInputNames[#entry.selectedInputNames + 1] = selectedName
+                    end
                 end
                 if childSummary then
                     chainTotalCostFull = chainTotalCostFull + (childSummary.chainTotalCostFull or 0)
@@ -2969,6 +3065,10 @@ local function BuildVIBreakdownData(ctx, metrics)
                 end
             end
             state.activeProducerKeys[producer.key] = nil
+
+            if #entry.selectedInputNames == 0 then
+                entry.selectedInputNames = nil
+            end
 
             entry.chainTotalCostFull = chainTotalCostFull
             entry.chainTotalCostToBuy = chainTotalCostToBuy
@@ -3003,8 +3103,11 @@ local function BuildVIBreakdownData(ctx, metrics)
         end
     end
 
-    if #state.entries == 0 and metrics and type(metrics.reagents) == "table" then
-        for _, reagent in ipairs(metrics.reagents) do
+    local fallbackReagents = metrics
+        and (metrics.shoppingReagents or metrics.reagents)
+        or nil
+    if #state.entries == 0 and type(fallbackReagents) == "table" then
+        for _, reagent in ipairs(fallbackReagents) do
             local itemIDs = reagent.sourceItemIDs or (reagent.itemID and { reagent.itemID }) or {}
             local scanItemIDs = reagent.scanItemIDs or (reagent.itemID and { reagent.itemID }) or itemIDs
             local entry = AddEntry({
@@ -3048,12 +3151,22 @@ local function BuildVIBreakdownData(ctx, metrics)
         chainActive = ctx.chainActive and true or false,
         crafts = ctx.crafts,
         startingAmount = ctx.startingAmt,
-        totalCostFull = metrics and metrics.totalCostFull or nil,
-        totalCostToBuy = metrics and metrics.totalCostToBuy or nil,
+        totalCostFull = metrics and (metrics.requiredCostFull or metrics.totalCostFull) or nil,
+        totalCostToBuy = metrics and (metrics.buyNowCost or metrics.totalCostToBuy) or nil,
         netRevenue = metrics and metrics.netRevenue or nil,
         profit = metrics and metrics.profit or nil,
         roi = metrics and metrics.roi or nil,
         breakEvenSell = metrics and metrics.breakEvenSell or nil,
+        finalOutputName = metrics and metrics.outputs and metrics.outputs[1] and metrics.outputs[1].name
+            or metrics and metrics.output and metrics.output.name
+            or ctx.strat and ctx.strat.stratName,
+        finalOutputItemID = metrics and metrics.outputs and metrics.outputs[1] and metrics.outputs[1].itemID
+            or metrics and metrics.output and metrics.output.itemID,
+        finalExpectedOutput = metrics and metrics.outputs and metrics.outputs[1]
+            and (metrics.outputs[1].expectedQtyRaw or metrics.outputs[1].expectedQty)
+            or metrics and metrics.output and (metrics.output.expectedQtyRaw or metrics.output.expectedQty),
+        finalCraftsEconomic = metrics and metrics.effectiveCrafts or metrics and metrics.crafts or ctx.crafts,
+        finalCraftsExecution = metrics and metrics.recommendedCrafts,
         rootIndices = state.rootIndices,
         entries = state.entries,
         usedFallbackRows = usedFallbackRows,
@@ -3161,10 +3274,14 @@ BuildReagentMetrics = function(ctx)
 end
 
 BuildDisplayReagentMetrics = function(ctx, modelReagents)
-    -- Keep the detail panel anchored to the selected recipe's direct inputs.
-    -- VI economics may price an intermediate through a craft chain, but showing
-    -- the chain leaves here makes recipes look like they directly consume those
-    -- raw materials. The VI breakdown window remains the expanded view.
+    -- The visible input list must describe the active acquisition plan. With VI
+    -- disabled, show the selected recipe's direct reagents. With VI enabled,
+    -- replace craftable intermediates with the recursively expanded materials
+    -- the player needs to execute that plan.
+    local displayMode = Derivation.GetDisplayPlanMode(ctx.chainActive)
+    if displayMode == "execution" then
+        return BuildGraphLeafMetrics(ctx, displayMode)
+    end
     return BuildDirectDisplayReagentMetrics(ctx, modelReagents)
 end
 
@@ -3219,8 +3336,11 @@ local function BuildSingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice,
 end
 
 local function GetOutputPriceQty(ctx)
-    local fillQty = tonumber(ctx and ctx.fillQty) or GAM.C.DEFAULT_FILL_QTY
-    return math.max(1, math.floor(fillQty + 0.5))
+    -- Output revenue is a sell-side quote. Buying through multiple listings is
+    -- appropriate for reagent acquisition, but averaging upward through the
+    -- order book can wildly overvalue a thin commodity output. Price outputs
+    -- at the current lowest listing; keep quantity-aware depth on inputs.
+    return 1
 end
 
 local function BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrices)
@@ -3363,9 +3483,8 @@ BuildFinalMetrics = function(ctx, reagentData, outputData)
     }
 end
 
-local v2Installed = false
 if GAM.PricingV2Engine and type(GAM.PricingV2Engine.Install) == "function" then
-    v2Installed = GAM.PricingV2Engine.Install(Pricing, {
+    GAM.PricingV2Engine.Install(Pricing, {
         GetOpts = GetOpts,
         GetPatchDB = GetPatchDB,
         GetFormulaProfiles = GetFormulaProfiles,
@@ -3399,62 +3518,6 @@ if type(GetFormulaV2) ~= "function" then
     end
 end
 
-if not v2Installed then
-    function Pricing.GetActivePricingEngine()
-        return "legacy"
-    end
-
-    function Pricing.CalculateStratMetricsActive(strat, patchTag, craftQty)
-        return Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
-    end
-end
-
--- CalculateStratMetrics(strat, patchTag, craftQty) → metrics table or nil
--- strat = one entry from GAM_RECIPES_GENERATED / importer-normalized data
--- craftQty = scalar applied to the recipe's workbook baseline starting amount
--- Runtime uses defaultStartingAmount -> defaultCrafts scaling so workbook
--- "Start Amount" and "Crafts" stay distinct.
--- Returns:
---   {
---     startingAmount,   -- defaultStartingAmount * craftQty
---     reagents = {      -- per-reagent results
---       { name, itemID, unitPrice, required, have, needToBuy, totalCost, isStale, missingPrice }
---     },
---     output = { name, itemID, unitPrice, expectedQty, netRevenue, isStale, missingPrice },
---     totalCostToBuy,
---     netRevenue,
---     profit,
---     roi,              -- nil if no cost
---     breakEvenSell,    -- nil if no output qty
---     missingPrices,    -- list of item names without prices
---     hasStale,
---   }
-function Pricing.CalculateStratMetrics(strat, patchTag, craftQty)
-    if not strat then return nil end
-    patchTag  = patchTag  or GAM.C.DEFAULT_PATCH
-    craftQty  = craftQty  or 1
-
-    local opts   = GetOpts()
-    local ahCut  = opts.ahCut or GAM.C.AH_CUT
-    local pdb    = GetPatchDB(patchTag)
-    local active = GetActiveRecipeView(strat)
-    if not active or type(active.reagents) ~= "table" or #active.reagents == 0 then
-        if GAM.Log and GAM.Log.Warn then
-            GAM.Log.Warn("Pricing: strat '%s' missing active reagents", tostring(strat.stratName or strat.id or "?"))
-        end
-        return nil
-    end
-
-    local ctx = BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
-    local reagentData = BuildReagentMetrics(ctx)
-    local outputData = BuildOutputMetrics(ctx)
-    if not outputData then
-        return nil
-    end
-
-    return BuildFinalMetrics(ctx, reagentData, outputData)
-end
-
 function Pricing.GetVIBreakdownData(strat, patchTag, metrics)
     if not strat then
         return nil
@@ -3471,9 +3534,9 @@ function Pricing.GetVIBreakdownData(strat, patchTag, metrics)
 
     local ctx = BuildCalcContext(strat, active, patchTag, 1, opts, pdb, ahCut)
     if not metrics then
-        metrics = Pricing.CalculateStratMetricsActive(strat, patchTag, 1)
+        metrics = Pricing.CalculateStratMetricsV2(strat, patchTag, 1)
     end
-    if metrics and metrics.model == "v2" then
+    if metrics and (metrics.model == "v2" or metrics.engine == "commodity_expected_value") then
         ctx.v2StatResolutions = {}
         ctx.v2ExecutionPlan = true
     end
@@ -3508,7 +3571,7 @@ local function ShallowCloneArrayOfTables(source)
     return out
 end
 
-function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics)
+function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics, calculateMetrics)
     if not strat or strat.id ~= "jewelcrafting__crushing__midnight_1" then
         return nil
     end
@@ -3520,12 +3583,21 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics)
         return nil
     end
 
-    local calcMetrics = Pricing.CalculateStratMetricsActive or Pricing.CalculateStratMetrics
-    local currentMetrics = baseMetrics or calcMetrics(strat, patchTag)
+    local function CalculateAnalyzerMetrics(strategy)
+        if calculateMetrics then
+            return calculateMetrics(strategy, patchTag)
+        end
+        return Pricing.CalculateStratMetricsV2(strategy, patchTag)
+    end
+
+    local currentMetrics = baseMetrics or CalculateAnalyzerMetrics(strat)
+    local currentRecipeReagents = currentMetrics
+        and (currentMetrics.recipeReagents or currentMetrics.costReagents)
+        or nil
     local selectedItemID = currentMetrics
-        and currentMetrics.costReagents
-        and currentMetrics.costReagents[1]
-        and currentMetrics.costReagents[1].selectedAlternativeItemID
+        and currentRecipeReagents
+        and currentRecipeReagents[1]
+        and currentRecipeReagents[1].selectedAlternativeItemID
         or nil
     local selectedCrafts = currentMetrics and currentMetrics.crafts or nil
     local selectedStartingAmount = currentMetrics and currentMetrics.startingAmount or nil
@@ -3561,9 +3633,12 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics)
         altReagent.itemIDs = altIDs or {}
         tempStrat.reagents[1] = altReagent
 
-        local altMetrics = calcMetrics(tempStrat, patchTag)
+        local altMetrics = CalculateAnalyzerMetrics(tempStrat)
         local pickedAltID = PickItemID(altIDs, patchTag, inputPolicy)
-        local altCostReagent = altMetrics and altMetrics.costReagents and altMetrics.costReagents[1] or nil
+        local altRecipeReagents = altMetrics
+            and (altMetrics.recipeReagents or altMetrics.costReagents)
+            or nil
+        local altCostReagent = altRecipeReagents and altRecipeReagents[1] or nil
         entries[#entries + 1] = {
             name = alt.itemRef or altReagent.name or "?",
             itemID = pickedAltID,
@@ -3583,52 +3658,15 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics)
     }
 end
 
--- GetBestStrategy(patchTag, profFilter) — returns (strat, profit, roi) for the top
--- scoring strategy that clears both minimum thresholds. Returns nil,nil,nil if none qualify.
--- Score = profit × √ROI; capital tie-break on full craft cost.
--- Called only on: scan complete, filter change, window open — never per-frame.
-function Pricing.GetBestStrategy(patchTag, profFilter)
-    patchTag   = patchTag  or GAM.C.DEFAULT_PATCH
-    profFilter = profFilter or "All"
-    local minProfit = GAM.C.BEST_STRAT_MIN_PROFIT
-    local minROI    = GAM.C.BEST_STRAT_MIN_ROI
-    local all = GAM.Importer.GetAllStrats(patchTag)
-    if not all or #all == 0 then return nil, nil, nil end
-
-    local bestStrat, bestScore, bestProfit, bestROI, bestCost =
-        nil, -math.huge, nil, nil, nil
-    local calcMetrics = Pricing.CalculateStratMetricsActive or Pricing.CalculateStratMetrics
-
-    for _, strat in ipairs(all) do
-        if profFilter == "All" or strat.profession == profFilter then
-            local m = calcMetrics(strat, patchTag)
-            if m then
-                local p, r = m.profit, m.roi
-                if p and p >= minProfit and r and r >= minROI then
-                    local score, cost = GetStrategyScoreFromMetrics(m)
-                    local better = not bestStrat
-                        or score > bestScore
-                        or (score == bestScore
-                            and (cost or math.huge) < (bestCost or math.huge))
-                    if better then
-                        bestStrat, bestScore   = strat, score
-                        bestProfit, bestROI, bestCost = p, r, cost
-                    end
-                end
-            end
-        end
-    end
-    return bestStrat, bestProfit, bestROI
-end
-
--- StorePrice(itemID, price) — called by AHScan after scan
-function Pricing.StorePrice(itemID, price)
+-- StorePrice(itemID, price, minPrice) — called by AHScan after scan
+function Pricing.StorePrice(itemID, price, minPrice)
     if not itemID or not price then return end
     local cache = GAM:GetRealmCache()
     -- Store only price + timestamp; raw order-book arrays are no longer persisted
     -- to SavedVariables (they caused progressive lag after multiple scans).
     cache[itemID] = {
         price = price,
+        minPrice = tonumber(minPrice) or price,
         ts    = time(),
     }
     GAM.Log.Debug("Stored price: itemID=%s price=%s", tostring(itemID), tostring(price))

@@ -8,6 +8,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__champion_s_bento__midnight_1",
     name = "Champion's Bento",
     patchTag = "midnight-1",
+    recipeID = 1226170,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -48,6 +49,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__flora_frenzy__midnight_1",
     name = "Flora Frenzy",
     patchTag = "midnight-1",
+    recipeID = 1259660,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -78,6 +80,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__impossibly_royal_roast__midnight_1",
     name = "Impossibly Royal Roast",
     patchTag = "midnight-1",
+    recipeID = 1259654,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -113,6 +116,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__royal_roast__midnight_1",
     name = "Royal Roast",
     patchTag = "midnight-1",
+    recipeID = 1226171,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -148,6 +152,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__blooming_feast__midnight_1",
     name = "Blooming Feast",
     patchTag = "midnight-1",
+    recipeID = 1226169,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -193,6 +198,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__harandar_celebration__midnight_1",
     name = "Harandar Celebration",
     patchTag = "midnight-1",
+    recipeID = 1226175,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -238,6 +244,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__argentleaf_tea__midnight_1",
     name = "Argentleaf Tea",
     patchTag = "midnight-1",
+    recipeID = 1226194,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -263,6 +270,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__quel_dorei_medley__midnight_1",
     name = "Quel'dorei Medley",
     patchTag = "midnight-1",
+    recipeID = 1226168,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -308,6 +316,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__silvermoon_parade__midnight_1",
     name = "Silvermoon Parade",
     patchTag = "midnight-1",
+    recipeID = 1257796,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -353,6 +362,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__azeroot_tea__midnight_1",
     name = "Azeroot Tea",
     patchTag = "midnight-1",
+    recipeID = 1226197,
     formulaProfile = "cooking",
     inputs = {
       {
@@ -378,6 +388,7 @@ GAM_PROFESSION_CRAFTS["Cooking"] = {
     id = "cooking__sanguithorn_tea__midnight_1",
     name = "Sanguithorn Tea",
     patchTag = "midnight-1",
+    recipeID = 1226195,
     formulaProfile = "cooking",
     inputs = {
       {

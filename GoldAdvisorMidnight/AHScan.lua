@@ -40,6 +40,7 @@ local scanSuccessCount  = 0
 local scanFailCount     = 0
 local failedQueue       = {}
 local isRetryPass       = false
+local activeAttempt     = 0
 
 -- Progress tracking
 local totalEver   = 0   -- total items ever enqueued in this scan session
@@ -441,19 +442,51 @@ end
 -- ===== Ticker / queue processor =====
 local ticker
 
-local function OnItemFail(entry)
+local function IsCurrentAttempt(entry, attempt)
+    return scanning
+        and waitingForResults
+        and pendingEntry == entry
+        and activeAttempt == attempt
+end
+
+local function InvalidatePendingAttempt()
+    activeAttempt = activeAttempt + 1
+    waitingForResults = false
+    pendingEntry = nil
+end
+
+local function CompleteFailure(entry)
     scanFailCount = scanFailCount + 1
     doneCount     = doneCount + 1
     FireProgress(false)
 end
 
+local function RetryOrCompleteFailure(entry)
+    if not entry.isNameScan and not isRetryPass then
+        failedQueue[#failedQueue + 1] = entry
+        return
+    end
+    CompleteFailure(entry)
+end
+
+local function PauseScanForAHClose()
+    if pendingEntry then
+        -- The queue head advances before a query is sent. Move it back so a
+        -- paused in-flight entry is issued again when the Auction House opens.
+        queueHead = math.max(1, queueHead - 1)
+        scanQueue[queueHead] = pendingEntry
+    end
+    InvalidatePendingAttempt()
+    AHScan._pendingResume = true
+    scanning = false
+    if ticker then ticker:Cancel(); ticker = nil end
+    GAM.Log.Info(GAM.L["SCAN_AH_CLOSED"])
+end
+
 local function ProcessNextInQueue()
     if not scanning then return end
     if not GAM.ahOpen then
-        AHScan._pendingResume = true
-        scanning = false
-        if ticker then ticker:Cancel(); ticker = nil end
-        GAM.Log.Info(GAM.L["SCAN_AH_CLOSED"])
+        PauseScanForAHClose()
         return
     end
     if waitingForResults then return end
@@ -492,13 +525,15 @@ local function ProcessNextInQueue()
     queueHead         = queueHead + 1
     pendingEntry      = entry
     waitingForResults = true
+    activeAttempt     = activeAttempt + 1
+    local attempt     = activeAttempt
 
     if entry.isNameScan then
         local sent = SendBrowseQuery(entry)
         if not sent then
             waitingForResults = false
             pendingEntry      = nil
-            OnItemFail(entry)
+            CompleteFailure(entry)
             return
         end
     else
@@ -506,21 +541,17 @@ local function ProcessNextInQueue()
         if not sent then
             waitingForResults = false
             pendingEntry      = nil
-            failedQueue[#failedQueue + 1] = entry
-            OnItemFail(entry)
+            RetryOrCompleteFailure(entry)
             return
         end
     end
 
-    -- Safety timeout (generation-aware).
-    -- When OnCommodityResults escalates to a browse fallback it increments
-    -- entry._gen, which causes this closure to become a no-op.  The fallback
-    -- schedules its own fresh RESULT_WAIT timer with the new generation value.
-    local entryGen         = entry._gen or 0
+    -- Safety timeout (attempt-aware). Commodity browse escalation renews the
+    -- active attempt, making this price-query timeout a no-op before installing
+    -- its own fallback timeout.
     local capturedRetry    = isRetryPass  -- capture now; avoids double-counting
     C_Timer.After(RESULT_WAIT, function()
-        if waitingForResults and pendingEntry == entry
-                and (entry._gen or 0) == entryGen then
+        if IsCurrentAttempt(entry, attempt) then
             GAM.Log.Warn("AHScan: timeout for %s",
                 entry.isNameScan and ("'"..entry.name.."'") or
                 (entry.name
@@ -528,17 +559,10 @@ local function ProcessNextInQueue()
                     or  ("itemID="..entry.itemID)))
             waitingForResults = false
             pendingEntry      = nil
-            if not entry.isNameScan then
-                failedQueue[#failedQueue + 1] = entry
-            end
-            if capturedRetry then
-                -- Retry pass: permanent failure — count it.
-                OnItemFail(entry)
+            if entry.isNameScan or capturedRetry then
+                CompleteFailure(entry)
             else
-                -- First pass: item is queued for retry, not yet permanently failed.
-                -- Advance progress so the bar moves, but don't count as a failure.
-                doneCount = doneCount + 1
-                FireProgress(false)
+                failedQueue[#failedQueue + 1] = entry
             end
         end
     end)
@@ -553,12 +577,14 @@ function AHScan.OnCommodityResults(itemID)
     if pendingEntry.itemID ~= itemID then return end
 
     local entry = pendingEntry
+    local attempt = activeAttempt
 
     C_Timer.After(EVENT_PROCESS_DELAY, function()
         local function TryRead(attemptsLeft)
+            if not IsCurrentAttempt(entry, attempt) then return end
             local avg, minP, maxP, count = ReadCommodityResults(entry.itemID)
             if avg then
-                GAM.Pricing.StorePrice(entry.itemID, avg)
+                GAM.Pricing.StorePrice(entry.itemID, avg, minP)
                 if entry.callback then
                     pcall(entry.callback, entry.itemID, avg, minP, maxP, count)
                 end
@@ -594,21 +620,18 @@ function AHScan.OnCommodityResults(itemID)
                             "AHScan: zero commodity rows itemID=%d → browse fallback '%s'",
                             entry.itemID, name)
 
-                        -- Bump generation so the original ProcessNextInQueue safety
-                        -- timeout becomes a no-op (see entryGen capture there).
-                        -- A fresh RESULT_WAIT timer is scheduled below.
-                        entry._gen = (entry._gen or 0) + 1
-                        local gen  = entry._gen
+                        -- Renew the attempt so the original price-query timeout
+                        -- cannot complete this browse fallback.
+                        activeAttempt = activeAttempt + 1
+                        attempt = activeAttempt
                         C_Timer.After(RESULT_WAIT, function()
-                            if waitingForResults and pendingEntry == entry
-                                    and (entry._gen or 0) == gen then
+                            if IsCurrentAttempt(entry, attempt) then
                                 GAM.Log.Warn(
                                     "AHScan: browse fallback timeout itemID=%d '%s'",
                                     entry.itemID, entry.name)
                                 waitingForResults = false
                                 pendingEntry      = nil
-                                failedQueue[#failedQueue + 1] = entry
-                                OnItemFail(entry)
+                                RetryOrCompleteFailure(entry)
                             end
                         end)
 
@@ -618,11 +641,9 @@ function AHScan.OnCommodityResults(itemID)
                         local browseWait = math.max(0, SCAN_DELAY - (GetTime() - lastQueryTime))
                         C_Timer.After(browseWait, function()
                             -- Guards: entry could have been cancelled by StopScan/AHClosed.
-                            if not waitingForResults or pendingEntry ~= entry then return end
+                            if not IsCurrentAttempt(entry, attempt) then return end
                             if not GAM.ahOpen then
-                                waitingForResults = false
-                                pendingEntry      = nil
-                                OnItemFail(entry)
+                                PauseScanForAHClose()
                                 return
                             end
                             if not C_AuctionHouse.IsThrottledMessageSystemReady() then
@@ -632,16 +653,14 @@ function AHScan.OnCommodityResults(itemID)
                                     entry.itemID)
                                 waitingForResults = false
                                 pendingEntry      = nil
-                                failedQueue[#failedQueue + 1] = entry
-                                OnItemFail(entry)
+                                RetryOrCompleteFailure(entry)
                                 return
                             end
                             local ok = SendBrowseQuery(entry)
                             if not ok then
                                 waitingForResults = false
                                 pendingEntry      = nil
-                                failedQueue[#failedQueue + 1] = entry
-                                OnItemFail(entry)
+                                RetryOrCompleteFailure(entry)
                             end
                             -- On success: waitingForResults stays true.
                             -- OnBrowseResults() will handle the result.
@@ -659,8 +678,7 @@ function AHScan.OnCommodityResults(itemID)
                 GAM.Log.Warn("AHScan: no commodity results itemID=%d", entry.itemID)
                 waitingForResults = false
                 pendingEntry      = nil
-                failedQueue[#failedQueue + 1] = entry
-                OnItemFail(entry)
+                RetryOrCompleteFailure(entry)
             end
         end
         TryRead(MAX_RETRY - 1)
@@ -685,16 +703,17 @@ function AHScan.OnItemResults(itemKey)
     end
 
     local entry = pendingEntry
+    local attempt = activeAttempt
 
     C_Timer.After(EVENT_PROCESS_DELAY, function()
+        if not IsCurrentAttempt(entry, attempt) then return end
         -- GetNumItemSearchResults and GetItemSearchResultInfo both require the
         -- itemKey that was searched (confirmed: AuctionHouseDocumentation.lua).
         local numResults = C_AuctionHouse.GetNumItemSearchResults(itemKey)
         if not numResults or numResults == 0 then
             waitingForResults = false
             pendingEntry      = nil
-            failedQueue[#failedQueue + 1] = entry
-            OnItemFail(entry)
+            RetryOrCompleteFailure(entry)
             return
         end
         -- Collect per-unit prices and weight them by stack quantity so the
@@ -717,7 +736,7 @@ function AHScan.OnItemResults(itemKey)
         local avg, minP, maxP, count = ComputeStatsForCache(cached, targetQty)
         if avg then
             local price = math.floor(avg)
-            GAM.Pricing.StorePrice(entry.itemID, price)
+            GAM.Pricing.StorePrice(entry.itemID, price, minP)
             if entry.callback then
                 pcall(entry.callback, entry.itemID, price, minP, maxP, count)
             end
@@ -730,8 +749,7 @@ function AHScan.OnItemResults(itemKey)
         else
             waitingForResults = false
             pendingEntry      = nil
-            failedQueue[#failedQueue + 1] = entry
-            OnItemFail(entry)
+            RetryOrCompleteFailure(entry)
         end
     end)
 end
@@ -747,10 +765,12 @@ function AHScan.OnBrowseResults()
     if not pendingEntry.isNameScan and not pendingEntry.isBrowseFallback then return end
 
     local entry = pendingEntry
+    local attempt = activeAttempt
 
     C_Timer.After(EVENT_PROCESS_DELAY, function()
-        -- Stale-timer guard: handles StopScan / OnAHClosed during the delay.
-        if pendingEntry ~= entry then return end
+        -- Stale-timer guard: handles stop, pause, retry, and a newer request
+        -- reusing the same queue entry.
+        if not IsCurrentAttempt(entry, attempt) then return end
 
         -- Pagination guard: Blizzard fires AUCTION_HOUSE_BROWSE_RESULTS_UPDATED
         -- multiple times as result pages load.  HasFullBrowseResults() returns
@@ -881,10 +901,7 @@ end
 
 function AHScan.OnAHClosed()
     if scanning then
-        AHScan._pendingResume = true
-        scanning = false
-        if ticker then ticker:Cancel(); ticker = nil end
-        GAM.Log.Info(GAM.L["SCAN_AH_CLOSED"])
+        PauseScanForAHClose()
     end
 end
 
@@ -1035,14 +1052,20 @@ function AHScan.StartScan()
         GAM.Log.Debug("AHScan: already scanning.")
         return
     end
-    scanning         = true
-    scanSuccessCount = 0
-    scanFailCount    = 0
-    doneCount        = 0
-    -- totalEver was already set as items were queued; don't reset it here
-    failedQueue      = {}
-    isRetryPass      = false
-    GAM.Log.Info(GAM.L["SCAN_STARTED"], totalEver)
+    local isResume = AHScan._pendingResume
+    AHScan._pendingResume = false
+    scanning = true
+    if not isResume then
+        scanSuccessCount = 0
+        scanFailCount    = 0
+        doneCount        = 0
+        -- totalEver was already set as items were queued; don't reset it here
+        failedQueue      = {}
+        isRetryPass      = false
+        GAM.Log.Info(GAM.L["SCAN_STARTED"], totalEver)
+    else
+        GAM.Log.Info("AHScan: resumed with %d of %d items complete", doneCount, totalEver)
+    end
     FireProgress(false)
 
     ticker = C_Timer.NewTicker(0.5, function()
@@ -1053,8 +1076,8 @@ end
 function AHScan.StopScan()
     scanning = false
     if ticker then ticker:Cancel(); ticker = nil end
-    waitingForResults = false
-    pendingEntry      = nil
+    InvalidatePendingAttempt()
+    AHScan._pendingResume = false
     FireProgress(true)
     GAM.Log.Info("AHScan: stopped by user.")
 end
@@ -1090,6 +1113,10 @@ end
 
 -- Reset queuing dedup tables (call before building a new scan queue)
 function AHScan.ResetQueue()
+    scanning = false
+    if ticker then ticker:Cancel(); ticker = nil end
+    InvalidatePendingAttempt()
+    AHScan._pendingResume = false
     scanQueue       = {}
     queueHead       = 1
     failedQueue     = {}

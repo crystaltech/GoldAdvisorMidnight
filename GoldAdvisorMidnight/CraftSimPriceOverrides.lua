@@ -91,7 +91,7 @@ function Overrides.Install(Bridge, deps)
             end
         end
 
-        local reagentRows = metrics and metrics.costReagents
+        local reagentRows = metrics and (metrics.recipeReagents or metrics.costReagents)
         if reagentRows and #reagentRows > 0 then
             for _, reagent in ipairs(reagentRows) do
                 local itemIDs = reagent.sourceItemIDs
@@ -142,9 +142,10 @@ function Overrides.Install(Bridge, deps)
         if not strat then return 0, "no strat" end
 
         patchTag = patchTag or GAM.C.DEFAULT_PATCH
-        if not metrics and GAM.Pricing then
-            local calc = GAM.Pricing.CalculateStratMetricsActive or GAM.Pricing.CalculateStratMetrics
-            metrics = calc and calc(strat, patchTag) or nil
+        if not metrics and GAM.PricingFacade and GAM.PricingFacade.CalculateCurrent then
+            metrics = GAM.PricingFacade.CalculateCurrent(strat, patchTag)
+        elseif not metrics then
+            return 0, "canonical pricing unavailable"
         end
 
         CraftSimDB.priceOverrideDB = CraftSimDB.priceOverrideDB or {}
