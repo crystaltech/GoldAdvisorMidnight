@@ -135,10 +135,17 @@ local function BuildBreakdownModeText(entry)
         return L["VI_SOURCE_IGNORED"] or "Ignored"
     end
     if entry.kind == "craft" then
+        local gearLabels = {
+            multicraft = "MC gear",
+            resourcefulness = "Res gear",
+            current = "current gear",
+        }
+        local gearText = gearLabels[entry.gearModeResolved]
+            or gearLabels.current
         if entry.isFinalCraft then
-            return L["VI_SOURCE_FINAL_OUTPUT"] or "Final output"
+            return (L["VI_SOURCE_FINAL_OUTPUT"] or "Final output") .. " · " .. gearText
         end
-        return L["VI_SOURCE_INTERMEDIATE"] or "Intermediate"
+        return (L["VI_SOURCE_INTERMEDIATE"] or "Intermediate") .. " · " .. gearText
     end
     local mode = (entry.purchaseSource == "vendor")
         and (L["VI_SOURCE_VENDOR"] or "Vendor")
@@ -164,6 +171,15 @@ local function ShowBreakdownTooltip(self)
     if entry.kind == "craft" then
         GameTooltip:AddLine(string.format(L["VI_TT_PLAN_CRAFTS"] or "Plan crafts: %s", FormatTraceCount(entry.craftsEconomic)), 1, 0.82, 0)
         GameTooltip:AddLine(string.format(L["VI_TT_ACTUAL_CRAFTS"] or "Actual crafts: %s", FormatTraceCount(entry.craftsExecution)), 1, 0.82, 0)
+        local gearLabels = {
+            multicraft = "Multicraft",
+            resourcefulness = "Resourcefulness",
+            current = "Current gear",
+        }
+        GameTooltip:AddLine("Gear: " .. (gearLabels[entry.gearModeResolved] or "Current gear"), 1, 0.82, 0)
+        if entry.gearPresetMissing then
+            GameTooltip:AddLine("The selected gear setup is not saved; current gear stats are being used.", 1, 0.45, 0.2, true)
+        end
         if entry.expectedOutputPerCraft then
             GameTooltip:AddLine(string.format(L["VI_TT_AVG_OUTPUT"] or "Average output/craft: %.4f", entry.expectedOutputPerCraft), 1, 0.82, 0)
         end

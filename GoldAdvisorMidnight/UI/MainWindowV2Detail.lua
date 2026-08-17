@@ -260,12 +260,22 @@ function Detail.Render(args)
     end
     rpDetail.profFS:SetText(professionCaption)
     -- The output is already shown with quantity and value in Expected Output.
-    -- Catalog provenance notes are development evidence, not a crafting step.
+    -- Use the otherwise-empty note line for rank-mix verification status.
     if rpDetail.outputSummaryFrame then rpDetail.outputSummaryFrame:Hide() end
     if rpDetail.outputSummaryLabelFS then rpDetail.outputSummaryLabelFS:Hide() end
     if rpDetail.notesFS then
-        rpDetail.notesFS:Hide()
-        rpDetail.notesFS:SetText("")
+        if projection.rankMixStatus == "verified" then
+            rpDetail.notesFS:SetText("|cff55ff55Best rank mix verified by Blizzard (no Concentration).|r")
+            rpDetail.notesFS:Show()
+        elseif projection.rankMixStatus == "fallback" then
+            rpDetail.notesFS:SetText(string.format(
+                "|cffffaa33Best mix fallback: %s. Click Refresh Recipe to capture the breakpoint.|r",
+                tostring(projection.rankMixReason or "live recipe data unavailable")))
+            rpDetail.notesFS:Show()
+        else
+            rpDetail.notesFS:Hide()
+            rpDetail.notesFS:SetText("")
+        end
     end
     UpdateBodyAnchor(rpDetail)
 

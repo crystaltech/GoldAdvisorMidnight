@@ -1,5 +1,23 @@
 # Changelog — Gold Advisor Midnight
 
+## [2.0.2] — 2026-08-16
+
+### Craft Planning
+- Added `Best Mix -> Max Rank`, which uses Blizzard's live recipe operation data to choose the cheapest supported mix of ranked reagents that reaches the maximum output rank without Concentration.
+- Added conservative fallbacks and visible verification status when a recipe is unavailable, has no ranked reagents, or uses a reagent layout the optimizer cannot safely model.
+- Made exact-recipe refreshes retry cleanly and report unavailable or unlearned recipes without repeatedly reopening the profession UI.
+
+### Vertical Integration
+- VI now preserves the economically selected buy-or-craft path, so milling expands pigments into herbs only when milling is the chosen route.
+- VI execution plans consume owned intermediate reagents before expanding the remaining demand into producer inputs; existing final output does not reduce a newly requested craft batch.
+- Nested production stages honor their own saved stat-gear mode, allowing Resourcefulness milling to feed Multicraft ink and final-item stages.
+- Craft-step labels and grouped purchases retain reagent ranks and selected alternatives without duplicated rank suffixes.
+
+### Pricing / Verification
+- Kept strategy-list, detail, and VI breakdown values on the same canonical economic choices after recipe refreshes.
+- Expanded regression coverage for rank-mix optimization, owned-intermediate inventory, per-stage gear, recipe refresh behavior, and dependency-safe VI plans.
+- Corrected stale embedded parity checks so the release gate validates the CraftSim-derived V2 formula and either valid direct-or-expanded intermediate path.
+
 ## [2.0.1] — 2026-08-15
 
 ### Midnight 12.1 / Profession Nodes

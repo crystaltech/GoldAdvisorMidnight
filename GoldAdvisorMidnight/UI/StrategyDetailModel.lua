@@ -290,6 +290,8 @@ function Model.Project(result)
         missingPrices = result.missingPrices or {},
         hasStale = result.hasStale and true or false,
         selectionNotes = result.selectionNotes,
+        rankMixStatus = result.rankMixStatus,
+        rankMixReason = result.rankMixReason,
         crafterCaption = BuildCrafterCaption(result),
         statsCaption = BuildStatsCaption(result),
         statsTooltip = BuildStatsTooltip(result),

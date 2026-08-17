@@ -18,7 +18,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 
-BUILD = "12.0.7.68887"
+BUILD = "12.1.0.69299"
 WAGO_BASE = "https://wago.tools/db2"
 
 PROFESSION_SKILL_LINES = {

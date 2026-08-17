@@ -82,7 +82,7 @@ AssertEqual(upgraded.dataVersion, GAM.C.DATA_VERSION,
     "migration version matches release metadata")
 AssertEqual(upgraded.dataVersion, 18, "legacy fixture data version")
 AssertEqual(upgraded.strategySchemaVersion, 1, "legacy fixture strategy schema")
-AssertEqual(upgraded.addonVersion, "2.0.1", "legacy fixture addon version")
+AssertEqual(upgraded.addonVersion, "2.0.2", "legacy fixture addon version")
 AssertEqual(upgraded.options.rememberAHWindowState, false,
     "legacy disabled AH auto-open preference")
 AssertEqual(upgraded.options.lastAHWindowOpen, false,

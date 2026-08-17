@@ -65,14 +65,17 @@ local function AddPurchase(groups, order, entry, purchaseSource, fallbackUnitPri
     group.requiredRaw = group.requiredRaw + (tonumber(entry.requiredRaw or entry.required) or 0)
     group.have = math.max(group.have, tonumber(entry.have) or 0)
     group._pricedRequired = group._pricedRequired + (tonumber(entry.requiredRaw or entry.required) or 0)
-    local entryUnitPrice = entry.effectiveUnitPrice or fallbackUnitPrice
+    local entryUnitPrice = entry.effectiveUnitPrice or entry.unitPrice or fallbackUnitPrice
     group._fullCost = group._fullCost
-        + (tonumber(entry.effectiveTotalCostFull) or (entryUnitPrice and entryUnitPrice * (tonumber(entry.requiredRaw or entry.required) or 0)) or 0)
-    group.effectiveMissingPrice = group.effectiveMissingPrice or entry.effectiveMissingPrice
-    group.hasStale = group.hasStale or entry.hasStale
+        + (tonumber(entry.effectiveTotalCostFull or entry.totalCostFull)
+            or (entryUnitPrice and entryUnitPrice * (tonumber(entry.requiredRaw or entry.required) or 0)) or 0)
+    group.effectiveMissingPrice = group.effectiveMissingPrice
+        or entry.effectiveMissingPrice or entry.missingPrice
+    group.hasStale = group.hasStale or entry.hasStale or entry.isStale
     group.excludedFromEstimate = group.excludedFromEstimate or entry.excludeFromCost
     group.effectiveUnitPrice = group.effectiveUnitPrice or entryUnitPrice
-    MergeIDs(group.itemIDs, entry.itemIDs or (entry.itemID and { entry.itemID }) or {})
+    MergeIDs(group.itemIDs,
+        entry.itemIDs or entry.sourceItemIDs or (entry.itemID and { entry.itemID }) or {})
     MergeIDs(group.scanItemIDs, entry.scanItemIDs or {})
 end
 
@@ -113,6 +116,9 @@ local function AddCraft(groups, order, entry)
             itemID = entry.itemID,
             producerStratID = entry.producerStratID,
             producerStratName = entry.producerStratName,
+            gearModeRequested = entry.gearModeRequested,
+            gearModeResolved = entry.gearModeResolved,
+            gearPresetMissing = entry.gearPresetMissing and true or false,
             expectedOutputPerCraft = entry.expectedOutputPerCraft,
             requiredRaw = 0,
             craftsEconomic = 0,
@@ -213,6 +219,9 @@ local function BuildFinalCraft(breakdown)
         craftsExecution = math.max(0, math.floor(craftCount)),
         chainTotalCostFull = breakdown.totalCostFull,
         hasMissingPrice = breakdown.totalCostFull == nil,
+        gearModeRequested = breakdown.finalGearModeRequested,
+        gearModeResolved = breakdown.finalGearModeResolved,
+        gearPresetMissing = breakdown.finalGearPresetMissing and true or false,
     }
 end
 
@@ -238,7 +247,11 @@ function Plan.Build(breakdown, vendorPrices, labels)
 
     local vendorGroups, vendorOrder = {}, {}
     local auctionGroups, auctionOrder = {}, {}
-    for _, entry in ipairs(breakdown.entries or {}) do
+    local purchaseEntries = breakdown.shoppingReagents
+    if type(purchaseEntries) ~= "table" or #purchaseEntries == 0 then
+        purchaseEntries = breakdown.entries or {}
+    end
+    for _, entry in ipairs(purchaseEntries) do
         if entry.kind ~= "craft" then
             local isVendor = entry.itemID and vendorPrices[entry.itemID] ~= nil
             if isVendor then

@@ -10,6 +10,7 @@ local BuildCalcContext, BuildMergedReagentMap, BuildReagentMetrics, BuildDisplay
 local BuildEconomicReagentMetrics
 local GetOutputBaseYield, GetOutputQuantityBasis, ComputeOutputQuantity, BuildProfileContext
 local GetFormulaV2, GetV2ExpectedOutputPerCraft
+local PrepareOptimizedRecipeView
 
 -- ===== Internal helpers =====
 
@@ -222,9 +223,9 @@ local function GetRankPolicyDesiredQuality(itemIDs, patchTag)
         if q then
             if not bestQ then
                 bestQ = q
-            elseif policy == "highest" and q > bestQ then
+            elseif (policy == "highest" or policy == "optimal") and q > bestQ then
                 bestQ = q
-            elseif policy ~= "highest" and q < bestQ then
+            elseif policy ~= "highest" and policy ~= "optimal" and q < bestQ then
                 bestQ = q
             end
         end
@@ -276,11 +277,11 @@ PickItemID = function(itemIDs, patchTag, policyOverride)
 
     if anyKnown then
         table.sort(sorted, function(a, b) return a.q < b.q end)
-        return (policy == "highest") and sorted[#sorted].id or sorted[1].id
+        return (policy == "highest" or policy == "optimal") and sorted[#sorted].id or sorted[1].id
     end
 
     -- All uncached: fall back to array position
-    return (policy == "highest") and itemIDs[#itemIDs] or itemIDs[1]
+    return (policy == "highest" or policy == "optimal") and itemIDs[#itemIDs] or itemIDs[1]
 end
 
 function Pricing.PreloadStratItemData(strat, patchTag)
@@ -1099,6 +1100,8 @@ function Pricing.RunSmokeChecks()
                     [81001] = 250,
                     [81002] = 100,
                     [81003] = 900,
+                    [236761] = 100,
+                    [245807] = 250,
                 }
                 GAM.GetPatchDB = function()
                     return fakePDB
@@ -1213,6 +1216,151 @@ function Pricing.RunSmokeChecks()
                 assert(math.abs((rootMetrics.expectedConsumedCostFull or 0) - 1550) < 0.001,
                     string.format("V2 VI expected consumed cost failed: got %.6f",
                         rootMetrics.expectedConsumedCostFull or 0))
+
+                -- Powder Pigment is intentionally a real legacy derivation ID.
+                -- With VI active, GetEffectivePriceForItem derives it from
+                -- Tranquility Bloom.  V2 must nevertheless compare its actual
+                -- direct AH price against the canonical milling producer.
+                local mappedProducer = {
+                    id = "canonical_v2_mapped_producer",
+                    stratName = "Canonical V2 Mapped Producer",
+                    profession = "Inscription",
+                    calcMode = "formula",
+                    formulaProfile = "__canonical_v2_smoke",
+                    defaultCrafts = 10,
+                    defaultStartingAmount = 10,
+                    reagents = {
+                        { name = "V2 Raw", itemIDs = { 81002 }, qtyPerCraft = 2 },
+                    },
+                    outputs = {
+                        { name = "Powder Pigment", itemIDs = { 245807 }, baseYieldPerCraft = 1 },
+                    },
+                }
+                local mappedRoot = {
+                    id = "canonical_v2_mapped_root",
+                    stratName = "Canonical V2 Mapped Root",
+                    profession = "Inscription",
+                    calcMode = "fixed",
+                    defaultCrafts = 1,
+                    defaultStartingAmount = 1,
+                    reagents = {
+                        { name = "Powder Pigment", itemIDs = { 245807 }, qtyPerCraft = 10 },
+                    },
+                    outputs = {
+                        { name = "V2 Finished", itemIDs = { 81003 }, baseYieldPerCraft = 1 },
+                    },
+                }
+                GAM.Importer.GetProducerCandidates = function(itemID)
+                    if itemID == 245807 then
+                        return { { stratID = "canonical_v2_mapped_producer" } }
+                    end
+                    if itemID == 81001 then
+                        return { { stratID = "canonical_v2_producer" } }
+                    end
+                    return {}
+                end
+                GAM.Importer.GetStratByID = function(id)
+                    if id == "canonical_v2_mapped_producer" then
+                        return mappedProducer
+                    end
+                    if id == "canonical_v2_producer" then
+                        return producer
+                    end
+                    if originalGetStratByID then
+                        return originalGetStratByID(id)
+                    end
+                    return nil
+                end
+
+                local mappedCraftMetrics = Pricing.CalculateStratMetricsV2(
+                    mappedRoot, GAM.C.DEFAULT_PATCH, 1)
+                assert(mappedCraftMetrics
+                        and mappedCraftMetrics.economicChoices
+                        and mappedCraftMetrics.economicChoices["245807"]
+                        and mappedCraftMetrics.economicChoices["245807"].source == "producer",
+                    "V2 VI compared the producer against a derived pseudo-direct price")
+                assert(mappedCraftMetrics.reagents and mappedCraftMetrics.reagents[1]
+                        and mappedCraftMetrics.reagents[1].itemID == 81002
+                        and mappedCraftMetrics.reagents[1].unitPrice == 100,
+                    "V2 VI producer choice did not expand to truthfully priced raw materials")
+                local mappedCraftBreakdown = Pricing.GetVIBreakdownData(
+                    mappedRoot, GAM.C.DEFAULT_PATCH, mappedCraftMetrics)
+                assert(mappedCraftBreakdown and mappedCraftBreakdown.entries
+                        and mappedCraftBreakdown.entries[1]
+                        and mappedCraftBreakdown.entries[1].kind == "craft"
+                        and mappedCraftBreakdown.entries[2]
+                        and mappedCraftBreakdown.entries[2].itemID == 81002,
+                    "V2 VI breakdown did not follow the selected producer path")
+
+                -- A VI chain may intentionally use different saved tools at
+                -- each stage: Resourcefulness for milling and Multicraft for
+                -- the consuming/final craft. Producer gear choices must not be
+                -- replaced by the root strategy's choice.
+                local resolvedGearByStrat = {}
+                GAM.CraftingStatsV2 = {
+                    GetGearModeForStrat = function(strategy)
+                        if strategy and strategy.id == "canonical_v2_mapped_producer" then
+                            return "resourcefulness"
+                        end
+                        if strategy and strategy.id == "canonical_v2_mapped_root" then
+                            return "multicraft"
+                        end
+                        return "auto"
+                    end,
+                    GetAvailableGearPresetModes = function()
+                        return { multicraft = true, resourcefulness = true }
+                    end,
+                    ResolveForStrat = function(strategy, statOpts)
+                        resolvedGearByStrat[strategy.id] = statOpts and statOpts._gamGearModeOverride
+                        return {
+                            profileKey = strategy.formulaProfile,
+                            statSource = "gear-preset-" .. tostring(statOpts and statOpts._gamGearModeOverride),
+                            multiPercent = 30,
+                            multiExtra = 1,
+                            resPercent = 30,
+                            resExtra = 0.55,
+                            supportsMulticraft = true,
+                            supportsResourcefulness = true,
+                        }
+                    end,
+                }
+                local mixedGearMetrics = Pricing.CalculateStratMetricsV2(
+                    mappedRoot, GAM.C.DEFAULT_PATCH, 1)
+                assert(mixedGearMetrics
+                        and resolvedGearByStrat["canonical_v2_mapped_root"] == "multicraft"
+                        and resolvedGearByStrat["canonical_v2_mapped_producer"] == "resourcefulness",
+                    "V2 VI did not resolve root and producer gear plans independently")
+                local mixedGearBreakdown = Pricing.GetVIBreakdownData(
+                    mappedRoot, GAM.C.DEFAULT_PATCH, mixedGearMetrics)
+                assert(mixedGearBreakdown
+                        and mixedGearBreakdown.entries
+                        and mixedGearBreakdown.entries[1]
+                        and mixedGearBreakdown.entries[1].gearModeResolved == "resourcefulness"
+                        and mixedGearBreakdown.finalGearModeResolved == "multicraft",
+                    "V2 VI breakdown lost per-stage gear choices")
+                GAM.CraftingStatsV2 = originalCraftingStatsV2
+
+                prices[81002] = 1000
+                local mappedDirectMetrics = Pricing.CalculateStratMetricsV2(
+                    mappedRoot, GAM.C.DEFAULT_PATCH, 1)
+                assert(mappedDirectMetrics
+                        and mappedDirectMetrics.economicChoices
+                        and mappedDirectMetrics.economicChoices["245807"]
+                        and mappedDirectMetrics.economicChoices["245807"].source == "direct",
+                    "V2 VI did not retain the cheaper actual intermediate purchase")
+                assert(mappedDirectMetrics.reagents and mappedDirectMetrics.reagents[1]
+                        and mappedDirectMetrics.reagents[1].itemID == 245807
+                        and mappedDirectMetrics.reagents[1].unitPrice == 250,
+                    "V2 VI direct shopping row reused a derived producer price")
+                local mappedDirectBreakdown = Pricing.GetVIBreakdownData(
+                    mappedRoot, GAM.C.DEFAULT_PATCH, mappedDirectMetrics)
+                assert(mappedDirectBreakdown and mappedDirectBreakdown.entries
+                        and #mappedDirectBreakdown.entries == 1
+                        and mappedDirectBreakdown.entries[1].kind == "leaf"
+                        and mappedDirectBreakdown.entries[1].itemID == 245807
+                        and mappedDirectBreakdown.entries[1].effectiveUnitPrice == 250,
+                    "V2 VI breakdown disagreed with the selected direct purchase")
+                prices[81002] = 100
 
                 producer.profession = "Jewelcrafting"
                 local crossProfessionMetrics = Pricing.CalculateStratMetricsV2(
@@ -1611,34 +1759,65 @@ function Pricing.RunSmokeChecks()
                     assert(soulCipher, "soul cipher strat unavailable")
                     local soulMetrics = Pricing.CalculateStratMetricsV2(soulCipher, GAM.C.DEFAULT_PATCH, 1)
                     local soulSeen = collectSeenIDs(soulMetrics and soulMetrics.reagents)
-                    assert(codifiedSeen[236761] or codifiedSeen[236767],
+                    assert(soulSeen[236761] or soulSeen[236767],
                         "soul cipher VI detail rows must expand ink inputs to herb leaves")
                     assert(not soulSeen[245805] and not soulSeen[245806]
                             and not soulSeen[245801] and not soulSeen[245802],
                         "soul cipher VI detail rows retained crafted ink intermediates")
 
+                    -- Execution planning must consume owned intermediates before
+                    -- recursively turning their full demand into raw materials.
+                    -- Existing final output is deliberately irrelevant: the user
+                    -- asked to craft additional units, not fill an inventory target.
+                    local munsell = GAM.Importer.GetStratByID("inscription__munsell_ink__midnight_1")
+                    assert(munsell, "munsell ink strat unavailable")
+                    GetItemCount = function(itemID)
+                        return ({
+                            [245807] = 100000, -- Powder Pigment Q1
+                            [245865] = 100000, -- Sanguithorn Pigment Q1
+                            [245867] = 100000, -- Mana Lily Pigment Q1
+                            [245801] = 100000, -- Existing Munsell Ink must not satisfy new crafts
+                        })[itemID] or 0
+                    end
+                    local ownedMunsellMetrics = Pricing.CalculateStratMetricsV2(
+                        munsell, GAM.C.DEFAULT_PATCH, 1)
+                    local ownedMunsellSeen = collectSeenIDs(ownedMunsellMetrics and ownedMunsellMetrics.reagents)
+                    assert(not ownedMunsellSeen[236761]
+                            and not ownedMunsellSeen[236770]
+                            and not ownedMunsellSeen[236778],
+                        "owned pigments were expanded into unnecessary herb purchases")
+                    local ownedMunsellBreakdown = Pricing.GetVIBreakdownData(
+                        munsell, GAM.C.DEFAULT_PATCH, ownedMunsellMetrics)
+                    for _, entry in ipairs(ownedMunsellBreakdown and ownedMunsellBreakdown.entries or {}) do
+                        assert(not entry.producerStratID,
+                            "owned pigments still created an intermediate milling step")
+                    end
+                    GetItemCount = function()
+                        return 0
+                    end
+
                     local codified = GAM.Importer.GetStratByID("inscription__codified_azeroot__midnight_1")
                     assert(codified, "codified azeroot strat unavailable")
                     local codifiedMetrics = Pricing.CalculateStratMetricsV2(codified, GAM.C.DEFAULT_PATCH, 1)
                     local codifiedSeen = collectSeenIDs(codifiedMetrics and codifiedMetrics.reagents)
-                    assert(soulSeen[236761] or soulSeen[236767],
-                        "codified azeroot VI detail rows must expand soul cipher to herb leaves")
-                    assert(not codifiedSeen[245766] and not codifiedSeen[245767],
-                        "codified azeroot VI detail rows retained the soul cipher intermediate")
+                    local codifiedUsesExpandedSoul = codifiedSeen[236761] or codifiedSeen[236767]
+                    local codifiedUsesDirectSoul = codifiedSeen[245766] or codifiedSeen[245767]
+                    assert(not not codifiedUsesExpandedSoul ~= not not codifiedUsesDirectSoul,
+                        "codified azeroot VI detail rows must show exactly one selected soul cipher path")
 
                     local peerless = GAM.Importer.GetStratByID("inscription__peerless_missive__midnight_1")
                     assert(peerless, "peerless missive strat unavailable")
                     local peerlessMetrics = Pricing.CalculateStratMetricsV2(peerless, GAM.C.DEFAULT_PATCH, 10)
-                    local missiveProfileCtx = BuildProfileContext(peerless, parityOpts)
-                    local expectedMissiveQty = ComputeOutputQuantity(
-                        (peerless.outputs and peerless.outputs[1]) or peerless.output,
-                        peerless,
-                        missiveProfileCtx.profileDef,
-                        missiveProfileCtx.statDenom,
-                        missiveProfileCtx.statMCp,
-                        missiveProfileCtx.statMCm_tot,
-                        10,
-                        10)
+                    local expectedMissiveQty = GAM.PricingV2Formula.CalculateExhaustMaterials({
+                        crafts = 10,
+                        baseYield = 1,
+                        mcPercent = parityOpts.inscInkMulti / 100,
+                        resPercent = parityOpts.inscInkRes / 100,
+                        mcExtra = 1.00,
+                        resExtra = 0.55,
+                        supportsMulticraft = true,
+                        supportsResourcefulness = true,
+                    }).expectedOutput
                     assertNear((peerlessMetrics and peerlessMetrics.output and peerlessMetrics.output.expectedQtyRaw) or 0,
                         expectedMissiveQty,
                         "peerless missive estimated formula output")
@@ -2328,17 +2507,65 @@ ResolveCheapestAlternative = function(entry, ctx, required)
     return best
 end
 
+local function GetOwnedItemCount(itemID)
+    local modernAPI = C_Item and C_Item.GetItemCount
+    if type(modernAPI) == "function" then
+        local ok, count = pcall(modernAPI, itemID, true, false, true, true)
+        if ok and count ~= nil then
+            return tonumber(count) or 0
+        end
+    end
+    if type(GetItemCount) == "function" then
+        local ok, count = pcall(GetItemCount, itemID, true, false, true)
+        if ok and count ~= nil then
+            return tonumber(count) or 0
+        end
+    end
+    return 0
+end
+
 local function CountOwnedReagentItems(itemID, entryIDs)
     local userHave = 0
     if itemID then
-        return GetItemCount(itemID, true) or 0
+        return GetOwnedItemCount(itemID)
     end
     if entryIDs and #entryIDs > 0 then
         for _, reagentID in ipairs(entryIDs) do
-            userHave = userHave + (GetItemCount(reagentID, true) or 0)
+            userHave = userHave + GetOwnedItemCount(reagentID)
         end
     end
     return userHave
+end
+
+-- An execution plan can encounter the same intermediate through more than one
+-- branch. Track what has already been assigned so bag/bank stock is consumed
+-- once before the remaining demand is expanded into producer materials.
+local function NewInventoryLedger()
+    return { remainingByKey = {} }
+end
+
+local function ConsumeOwnedFromLedger(ledger, itemID, entryIDs, required)
+    required = tonumber(required) or 0
+    if not ledger or required <= 0 then return 0 end
+
+    local key
+    if itemID then
+        key = "item:" .. tostring(itemID)
+    elseif entryIDs and #entryIDs > 0 then
+        local ids = {}
+        for _, id in ipairs(entryIDs) do ids[#ids + 1] = tonumber(id) or id end
+        table.sort(ids, function(a, b) return tostring(a) < tostring(b) end)
+        key = "pool:" .. table.concat(ids, ",")
+    end
+    if not key then return 0 end
+
+    local remaining = ledger.remainingByKey[key]
+    if remaining == nil then
+        remaining = CountOwnedReagentItems(itemID, entryIDs)
+    end
+    local consumed = math.min(required, math.max(0, tonumber(remaining) or 0))
+    ledger.remainingByKey[key] = math.max(0, remaining - consumed)
+    return consumed
 end
 
 local function GetCheapestAlternativeScanIDs(entry, ctx)
@@ -2491,6 +2718,61 @@ local function GetExpectedOutputPerCraft(strat, active, opts)
     return qtyRaw
 end
 
+local function GetCraftedItemQuality(itemID)
+    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemCraftedQualityByItemInfo
+    if type(api) ~= "function" or not itemID then return nil end
+    local ok, quality = pcall(api, itemID)
+    quality = ok and tonumber(quality) or nil
+    return quality and quality > 0 and quality or nil
+end
+
+PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputItemID)
+    if not ctx or not strat or not active or GetInputRankPolicy(strat) ~= "optimal" then
+        return active
+    end
+
+    local optimizer = GAM.ReagentMixOptimizer
+    if not optimizer or type(optimizer.BuildLivePlan) ~= "function" then
+        return active, nil, "optimizer-unavailable"
+    end
+
+    local output = (active.outputs and active.outputs[1]) or active.output
+    local targetQuality = GetCraftedItemQuality(targetOutputItemID)
+        or (optimizer.GetHighestOutputQuality and optimizer.GetHighestOutputQuality(output))
+    if not targetQuality or targetQuality <= 1 then
+        return active
+    end
+
+    local plan, reason = optimizer.BuildLivePlan({
+        recipeID = strat.recipeID,
+        targetQuality = targetQuality,
+        crafts = crafts,
+        recipeView = active,
+        priceGetter = function(itemID, quantity)
+            return Pricing.GetEffectivePriceForItem({
+                itemIDs = { itemID },
+                rankPolicyOverride = "highest",
+            }, ctx.patchTag, quantity)
+        end,
+    })
+    if not plan then
+        -- Processing recipes such as Milling can produce ranked items while
+        -- consuming only an unranked salvage input. There is no reagent-rank
+        -- decision to optimize, so this is a normal no-op rather than a
+        -- degraded fallback that asks the user to refresh the recipe.
+        if reason == "recipe-has-no-ranked-reagents" then
+            return active, nil, nil, targetQuality
+        end
+        return active, nil, reason or "rank-mix-unavailable", targetQuality
+    end
+
+    local optimized, applyReason = optimizer.ApplyPlan(active, plan)
+    if not optimized then
+        return active, nil, applyReason or "rank-mix-apply-failed", targetQuality
+    end
+    return optimized, plan, nil, targetQuality
+end
+
 local function GetPlannerExpectedOutputPerCraft(ctx, producer)
     if ctx and ctx.v2ExecutionPlan and GetV2ExpectedOutputPerCraft then
         return GetV2ExpectedOutputPerCraft(producer.strat, producer.active, ctx)
@@ -2532,6 +2814,7 @@ local function BuildGraphLeafPlan(ctx, mode)
     local leafOrder = {}
     local state = {
         activeProducerKeys = {},
+        inventoryLedger = mode == "execution" and NewInventoryLedger() or nil,
     }
     local rootOrder, rootMap = BuildMergedReagentMap(ctx, "none")
 
@@ -2599,13 +2882,29 @@ local function BuildGraphLeafPlan(ctx, mode)
             return
         end
 
-        local craftsNeeded = requiredQty / expectedOutputPerCraft
+        local requiredToProduce = requiredQty
+        if mode == "execution" then
+            requiredToProduce = math.max(0, requiredQty - ConsumeOwnedFromLedger(
+                state.inventoryLedger,
+                resolvedEntry.itemID,
+                resolvedEntry.itemIDs,
+                requiredQty))
+        end
+        if requiredToProduce <= 0 then
+            return
+        end
+
+        local craftsNeeded = requiredToProduce / expectedOutputPerCraft
         if mode == "execution" then
             craftsNeeded = QuantizeRequiredAmount(craftsNeeded, "ceil")
         end
         if not craftsNeeded or craftsNeeded <= 0 then
             return
         end
+
+        local optimizedActive = PrepareOptimizedRecipeView(
+            ctx, producer.strat, producer.active, craftsNeeded, producer.outputItemID)
+        producer.active = optimizedActive or producer.active
 
         local scaledStartingAmt = GetScaledStartingAmountForCrafts(producer.active, craftsNeeded)
         state.activeProducerKeys[producer.key] = true
@@ -2682,10 +2981,13 @@ local function BuildGraphLeafMetrics(ctx, mode)
         local required = QuantizeRequiredAmount(requiredRaw, quantityMode)
         local itemID = entry and entry.itemID or nil
         local itemIDs = (entry and entry.itemIDs) or (itemID and { itemID }) or {}
-        local price, stale = Pricing.GetEffectivePriceForItem({
+        -- Producer expansion has already decided which nodes are crafted and
+        -- which are terminal purchases.  Price every terminal row directly;
+        -- applying legacy derivation here can label a row as an intermediate
+        -- AH purchase while attaching its raw-material craft cost.
+        local price, stale = GetDirectEffectivePriceForItem({
             itemIDs = itemID and { itemID } or itemIDs,
             name = entry and entry.name or nil,
-            skipDerivation = entry and entry.skipDerivation or false,
             rankPolicyOverride = inputPolicy,
         }, ctx.patchTag, (mode == "economic") and requiredRaw or required)
         local userHave = CountOwnedReagentItems(itemID, itemIDs)
@@ -2933,8 +3235,17 @@ end
 
 local function BuildVIBreakdownData(ctx, metrics)
     local rootOrder, rootMap = BuildMergedReagentMap(ctx, "none")
+    local statUsages = metrics and (metrics.statUsages
+        or (metrics.diagnostics and metrics.diagnostics.statUsages)) or {}
+    local statUsageByStratID = {}
+    for _, usage in ipairs(statUsages) do
+        if usage and usage.stratID then
+            statUsageByStratID[usage.stratID] = usage
+        end
+    end
     local state = {
         activeProducerKeys = {},
+        inventoryLedger = NewInventoryLedger(),
         entries = {},
         rootIndices = {},
     }
@@ -2976,6 +3287,10 @@ local function BuildVIBreakdownData(ctx, metrics)
         local producer = nil
         local expectedOutputPerCraft = nil
         local stopReason = nil
+        local economicChoice = ctx.v2EconomicChoices
+            and resolvedEntry.itemID
+            and ctx.v2EconomicChoices[tostring(resolvedEntry.itemID)]
+            or nil
 
         if resolvedEntry.excludeFromCost then
             stopReason = "exclude_from_cost"
@@ -2983,6 +3298,8 @@ local function BuildVIBreakdownData(ctx, metrics)
             stopReason = "skip_derivation"
         elseif not ctx.chainActive then
             stopReason = "vi_disabled"
+        elseif economicChoice and economicChoice.source == "direct" then
+            stopReason = "economic_direct"
         else
             producer = FindProducerMatch(ctx, resolvedEntry.itemID, state)
             if not producer then
@@ -2996,6 +3313,37 @@ local function BuildVIBreakdownData(ctx, metrics)
             end
         end
 
+        local requiredToProduce = requiredQtyRaw
+        local ownedIntermediateUsed = 0
+        if producer then
+            ownedIntermediateUsed = ConsumeOwnedFromLedger(
+                state.inventoryLedger,
+                resolvedEntry.itemID,
+                resolvedEntry.itemIDs,
+                requiredQtyRaw)
+            requiredToProduce = math.max(0, requiredQtyRaw - ownedIntermediateUsed)
+            if requiredToProduce <= 0 then
+                producer = nil
+                stopReason = "inventory"
+            end
+        end
+
+        -- A non-craft node is an actual purchase in the selected plan.  Keep
+        -- its displayed/purchase cost on the direct quote just like the main
+        -- shopping projection; the derived quote is only meaningful for a
+        -- producer node whose children are shown below it.
+        local leafUsesDirectPrice = not producer and not resolvedEntry.excludeFromCost
+        local selectedUnitPrice = pricingData.effectiveUnitPrice
+        local selectedTotalCostToBuy = pricingData.effectiveTotalCostToBuy
+        local selectedTotalCostFull = pricingData.effectiveTotalCostFull
+        local selectedMissingPrice = pricingData.effectiveMissingPrice
+        if leafUsesDirectPrice then
+            selectedUnitPrice = pricingData.directUnitPrice
+            selectedTotalCostToBuy = pricingData.directTotalCostToBuy
+            selectedTotalCostFull = pricingData.directTotalCostFull
+            selectedMissingPrice = pricingData.directMissingPrice
+        end
+
         local entry = AddEntry({
             parentIndex = parentIndex,
             childIndices = {},
@@ -3005,17 +3353,18 @@ local function BuildVIBreakdownData(ctx, metrics)
             itemID = resolvedEntry.itemID,
             itemIDs = resolvedEntry.itemIDs,
             scanItemIDs = resolvedEntry.scanItemIDs,
-            requiredRaw = requiredQtyRaw,
-            required = required,
+            requiredRaw = producer and requiredToProduce or requiredQtyRaw,
+            required = producer and QuantizeRequiredAmount(requiredToProduce, "ceil") or required,
             have = pricingData.have,
+            ownedUsed = ownedIntermediateUsed,
             needToBuy = pricingData.needToBuy,
             excludeFromCost = resolvedEntry.excludeFromCost and true or false,
             skipDerivation = resolvedEntry.skipDerivation and true or false,
             stopReason = stopReason,
-            effectiveUnitPrice = pricingData.effectiveUnitPrice,
-            effectiveTotalCostToBuy = pricingData.effectiveTotalCostToBuy,
-            effectiveTotalCostFull = pricingData.effectiveTotalCostFull,
-            effectiveMissingPrice = pricingData.effectiveMissingPrice,
+            effectiveUnitPrice = selectedUnitPrice,
+            effectiveTotalCostToBuy = selectedTotalCostToBuy,
+            effectiveTotalCostFull = selectedTotalCostFull,
+            effectiveMissingPrice = selectedMissingPrice,
             directUnitPrice = pricingData.directUnitPrice,
             directTotalCostToBuy = pricingData.directTotalCostToBuy,
             directTotalCostFull = pricingData.directTotalCostFull,
@@ -3027,11 +3376,18 @@ local function BuildVIBreakdownData(ctx, metrics)
         })
 
         if producer then
-            local craftsEconomic = requiredQtyRaw / expectedOutputPerCraft
+            local craftsEconomic = requiredToProduce / expectedOutputPerCraft
             local craftsExecution = QuantizeRequiredAmount(craftsEconomic, "ceil")
+            local optimizedActive = PrepareOptimizedRecipeView(
+                ctx, producer.strat, producer.active, craftsEconomic, producer.outputItemID)
+            producer.active = optimizedActive or producer.active
+            local statUsage = statUsageByStratID[producer.strat.id]
             entry.producerStratID = producer.strat.id
             entry.producerStratName = producer.strat.stratName
             entry.profileKey = producer.strat.formulaProfile
+            entry.gearModeRequested = statUsage and statUsage.gearModeRequested or "auto"
+            entry.gearModeResolved = statUsage and statUsage.gearModeResolved or "current"
+            entry.gearPresetMissing = statUsage and statUsage.gearPresetMissing and true or false
             entry.expectedOutputPerCraft = expectedOutputPerCraft
             entry.craftsEconomic = craftsEconomic
             entry.craftsExecution = craftsExecution
@@ -3083,14 +3439,14 @@ local function BuildVIBreakdownData(ctx, metrics)
             }, entry.index
         end
 
-        entry.chainTotalCostFull = pricingData.effectiveTotalCostFull or 0
-        entry.chainTotalCostToBuy = pricingData.effectiveTotalCostToBuy or 0
-        entry.hasMissingPrice = pricingData.effectiveMissingPrice
+        entry.chainTotalCostFull = selectedTotalCostFull or 0
+        entry.chainTotalCostToBuy = selectedTotalCostToBuy or 0
+        entry.hasMissingPrice = selectedMissingPrice
 
         return {
-            chainTotalCostFull = pricingData.effectiveTotalCostFull or 0,
-            chainTotalCostToBuy = pricingData.effectiveTotalCostToBuy or 0,
-            hasMissingPrice = pricingData.effectiveMissingPrice,
+            chainTotalCostFull = selectedTotalCostFull or 0,
+            chainTotalCostToBuy = selectedTotalCostToBuy or 0,
+            hasMissingPrice = selectedMissingPrice,
             hasStale = entry.hasStale,
         }, entry.index
     end
@@ -3148,6 +3504,11 @@ local function BuildVIBreakdownData(ctx, metrics)
         stratID = ctx.strat and ctx.strat.id or nil,
         stratName = ctx.strat and ctx.strat.stratName or nil,
         patchTag = ctx.patchTag,
+        -- The canonical shopping projection already contains execution-safe
+        -- quantities (including whole producer batches and inventory).  Keep
+        -- it beside the economic branch tree so the VI action plan never
+        -- reconstructs purchases from fractional expected-value leaves.
+        shoppingReagents = fallbackReagents,
         chainActive = ctx.chainActive and true or false,
         crafts = ctx.crafts,
         startingAmount = ctx.startingAmt,
@@ -3167,6 +3528,9 @@ local function BuildVIBreakdownData(ctx, metrics)
             or metrics and metrics.output and (metrics.output.expectedQtyRaw or metrics.output.expectedQty),
         finalCraftsEconomic = metrics and metrics.effectiveCrafts or metrics and metrics.crafts or ctx.crafts,
         finalCraftsExecution = metrics and metrics.recommendedCrafts,
+        finalGearModeRequested = metrics and metrics.gearModeRequested or "auto",
+        finalGearModeResolved = metrics and metrics.gearModeResolved or "current",
+        finalGearPresetMissing = metrics and metrics.gearPresetMissing and true or false,
         rootIndices = state.rootIndices,
         entries = state.entries,
         usedFallbackRows = usedFallbackRows,
@@ -3290,6 +3654,9 @@ local function GetPrimaryOutput(ctx)
 end
 
 local function GetPrimaryInputQuality(ctx)
+    if ctx and ctx.targetOutputQuality and GetInputRankPolicy(ctx.strat) == "optimal" then
+        return ctx.targetOutputQuality
+    end
     if ctx.strat.qualityPolicy == "force_q1_inputs" then
         return 1
     end
@@ -3506,6 +3873,8 @@ if GAM.PricingV2Engine and type(GAM.PricingV2Engine.Install) == "function" then
         FindProducerMatch = FindProducerMatch,
         GetScaledStartingAmountForCrafts = GetScaledStartingAmountForCrafts,
         GetRequiredReagentAmountRaw = GetRequiredReagentAmountRaw,
+        GetDirectEffectivePriceForItem = GetDirectEffectivePriceForItem,
+        PrepareOptimizedRecipeView = PrepareOptimizedRecipeView,
     })
 end
 
@@ -3539,6 +3908,9 @@ function Pricing.GetVIBreakdownData(strat, patchTag, metrics)
     if metrics and (metrics.model == "v2" or metrics.engine == "commodity_expected_value") then
         ctx.v2StatResolutions = {}
         ctx.v2ExecutionPlan = true
+        ctx.v2EconomicChoices = metrics.economicChoices
+            or (metrics.diagnostics and metrics.diagnostics.economicChoices)
+            or {}
     end
     return BuildVIBreakdownData(ctx, metrics)
 end

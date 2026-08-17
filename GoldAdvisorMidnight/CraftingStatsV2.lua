@@ -11,6 +11,7 @@ local NodeDisplay = GAM.ProfessionNodeDisplay
 local CACHE_VERSION = 2
 local SEASON_KEY = "midnight"
 local RECIPE_SNAPSHOT_STALE_SECONDS = 24 * 60 * 60
+local pendingRecipeRefreshes = {}
 local PROFESSION_DEFS = (GAM.C and GAM.C.PROFESSION_REGISTRY) or {}
 local PROFESSION_BY_PROFILE = {}
 local PROFESSION_BY_NAME = {}
@@ -1821,10 +1822,15 @@ function Stats.ResolveForStrat(strat, opts)
     return defaults
 end
 
-function Stats.CaptureOpenRecipe()
+function Stats.CaptureOpenRecipe(expectedRecipeID)
     local snapshot = GetOpenNativeRecipeSnapshot()
     if not snapshot then
         return nil, "no-open-native-recipe"
+    end
+    local expectedID = NormalizeRecipeID(expectedRecipeID)
+    local visibleID = NormalizeRecipeID(snapshot.recipeID)
+    if expectedID and visibleID ~= expectedID then
+        return nil, "open-recipe-mismatch:" .. tostring(visibleID or "unknown")
     end
     local ok, err = Stats.SaveSnapshot(snapshot)
     if not ok then
@@ -1948,13 +1954,16 @@ end
 -- Must be called directly from a hardware event (the Strategy Detail button).
 -- We open only the selected strategy's recipe. Existing profession events then
 -- capture the visible recipe stats and learned node ranks into GAM's own cache.
-function Stats.OpenRecipeForStrat(strat, onRefresh)
+function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
     local canOpen, reason = Stats.CanOpenRecipeForStrat(strat)
     if not canOpen then
         return false, reason
     end
 
     local recipeID = NormalizeRecipeID(strat.recipeID)
+    if pendingRecipeRefreshes[recipeID] then
+        return true, "open-pending"
+    end
     local profession = ResolveProfessionDef(strat.profession)
     if type(C_TradeSkillUI.OpenTradeSkill) == "function" then
         local opened, openError = pcall(C_TradeSkillUI.OpenTradeSkill, profession.skillLineID)
@@ -1963,25 +1972,83 @@ function Stats.OpenRecipeForStrat(strat, onRefresh)
         end
     end
 
-    local function OpenAndCapture()
-        local opened = pcall(C_TradeSkillUI.OpenRecipe, recipeID)
-        if not opened then return false end
-        Stats.CaptureOpenRecipe()
+    local completed = false
+    local lastReason = nil
+    local function IsRecipeInCurrentProfession()
+        local api = C_TradeSkillUI and C_TradeSkillUI.GetAllRecipeIDs
+        if type(api) ~= "function" then return nil end
+        local ok, recipeIDs = pcall(api)
+        if not ok or type(recipeIDs) ~= "table" or #recipeIDs == 0 then
+            return nil
+        end
+        for _, visibleRecipeID in ipairs(recipeIDs) do
+            if NormalizeRecipeID(visibleRecipeID) == recipeID then
+                return true
+            end
+        end
+        return false
+    end
+    local function OpenAndCapture(isFinalAttempt)
+        if completed then return true end
+        -- OpenTradeSkill is asynchronous. Only classify the catalog recipe as
+        -- unavailable after the final retry, once Blizzard has had time to
+        -- populate the profession's complete learned + unlearned recipe list.
+        if isFinalAttempt and IsRecipeInCurrentProfession() == false then
+            lastReason = "recipe-not-in-current-profession"
+            pendingRecipeRefreshes[recipeID] = nil
+            if type(onFailure) == "function" then
+                pcall(onFailure, lastReason, recipeID)
+            end
+            return false
+        end
+        local called, openError = pcall(C_TradeSkillUI.OpenRecipe, recipeID)
+        if not called then
+            lastReason = "open-recipe-failed:" .. tostring(openError)
+        else
+            local snapshot, captureReason = Stats.CaptureOpenRecipe(recipeID)
+            if snapshot then
+                completed = true
+                pendingRecipeRefreshes[recipeID] = nil
+            else
+                lastReason = captureReason or "open-recipe-not-visible"
+            end
+        end
+        if not completed then
+            if isFinalAttempt then
+                pendingRecipeRefreshes[recipeID] = nil
+                if type(onFailure) == "function" then
+                    pcall(onFailure, lastReason, recipeID)
+                end
+            end
+            return false
+        end
         if type(onRefresh) == "function" then
             pcall(onRefresh, recipeID)
         end
         return true
     end
 
-    OpenAndCapture()
+    local openedImmediately = OpenAndCapture(false)
     if C_Timer and type(C_Timer.After) == "function" then
         -- Profession data can still be changing immediately after OpenTradeSkill.
-        -- Small bounded retries avoid maintaining a second UI-state machine.
-        for _, delay in ipairs({ 0.2, 0.8 }) do
-            C_Timer.After(delay, OpenAndCapture)
+        -- Verify the visible recipe on each bounded retry; OpenRecipe has no
+        -- success return and the frame may otherwise remain on the old recipe.
+        if not openedImmediately then
+            pendingRecipeRefreshes[recipeID] = true
         end
+        local delays = { 0.2, 0.8, 1.6 }
+        for index, delay in ipairs(delays) do
+            local isFinalAttempt = index == #delays
+            C_Timer.After(delay, function()
+                OpenAndCapture(isFinalAttempt)
+            end)
+        end
+        return true, nil
     end
-    return true, nil
+    if openedImmediately then
+        return true, nil
+    end
+    return false, lastReason or "open-recipe-not-visible"
 end
 
 function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
@@ -2347,7 +2414,7 @@ function Stats.RunSmokeChecks()
             },
         }
         GoldAdvisorMidnightDB = GAM.db
-        testPlayerProfessionSet = { Alchemy = true }
+        testPlayerProfessionSet = { Alchemy = true, Inscription = true }
 
         local openedSkillLine
         local openedRecipe
@@ -2384,6 +2451,90 @@ function Stats.RunSmokeChecks()
                 and openedRecipe == 1289744
                 and refreshedRecipe == 1289744,
             "selected recipe open/refresh failed")
+
+        -- OpenRecipe has no success return. A non-throwing call must not capture
+        -- or refresh while Blizzard is still displaying a different recipe.
+        testOpenSnapshot = {
+            source = "native-open",
+            recipeID = 1230049,
+            recipeName = "Thalassian Missive of Ingenuity",
+            profession = "Inscription",
+            profileKey = "insc_ink",
+            resPercent = 10,
+            supportsResourcefulness = true,
+        }
+        refreshedRecipe = nil
+        local mismatchOpened, mismatchReason = Stats.OpenRecipeForStrat({
+            profession = "Inscription",
+            formulaProfile = "insc_ink",
+            recipeID = 1230048,
+        }, function(recipeID)
+            refreshedRecipe = recipeID
+        end)
+        assert(not mismatchOpened
+                and mismatchReason == "open-recipe-mismatch:1230049"
+                and refreshedRecipe == nil,
+            "mismatched visible recipe was treated as a successful refresh")
+
+        local retries = {}
+        local refreshCount = 0
+        C_Timer = {
+            After = function(delay, callback)
+                retries[#retries + 1] = { delay = delay, callback = callback }
+            end,
+        }
+        local retryOpened, retryReason = Stats.OpenRecipeForStrat({
+            profession = "Inscription",
+            formulaProfile = "insc_ink",
+            recipeID = 1230048,
+        }, function(recipeID)
+            refreshedRecipe = recipeID
+            refreshCount = refreshCount + 1
+        end)
+        assert(retryOpened and retryReason == nil and #retries == 3
+                and refreshedRecipe == nil,
+            "recipe mismatch retries were not scheduled")
+        testOpenSnapshot.recipeID = 1230048
+        testOpenSnapshot.recipeName = "Thalassian Missive of Resourcefulness"
+        retries[1].callback()
+        retries[2].callback()
+        retries[3].callback()
+        assert(refreshedRecipe == 1230048 and refreshCount == 1,
+            "verified recipe retry did not refresh exactly once")
+
+        -- Multiple hardware clicks while Blizzard is still switching recipes
+        -- must share one bounded refresh attempt. On the final retry, the
+        -- complete profession recipe list gives a precise unavailable reason.
+        testOpenSnapshot.recipeID = 1269575
+        testOpenSnapshot.recipeName = "Milling"
+        C_TradeSkillUI.GetAllRecipeIDs = function()
+            return { 1269575 }
+        end
+        retries = {}
+        local unavailableReason
+        local unavailableOpened = Stats.OpenRecipeForStrat({
+            profession = "Inscription",
+            formulaProfile = "insc_ink",
+            recipeID = 1303144,
+        }, nil, function(reason)
+            unavailableReason = reason
+        end)
+        local duplicateOpened, duplicateReason = Stats.OpenRecipeForStrat({
+            profession = "Inscription",
+            formulaProfile = "insc_ink",
+            recipeID = 1303144,
+        })
+        assert(unavailableOpened and duplicateOpened
+                and duplicateReason == "open-pending"
+                and #retries == 3,
+            "duplicate recipe refresh queued another retry set")
+        retries[1].callback()
+        retries[2].callback()
+        retries[3].callback()
+        assert(unavailableReason == "recipe-not-in-current-profession",
+            "missing profession recipe did not return its precise failure reason")
+        C_TradeSkillUI.GetAllRecipeIDs = nil
+        C_Timer = nil
         testOpenSnapshot = nil
 
         local cooking = Stats.GetProfile("cooking")

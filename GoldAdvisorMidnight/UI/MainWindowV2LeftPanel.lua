@@ -453,6 +453,7 @@ function LeftPanelUI.Build(args)
     local rankTextMap = {
         lowest = (L and L["RANK_DD_LOWEST"]) or "R1 Mats",
         highest = (L and L["RANK_DD_HIGHEST"]) or "R2 Mats",
+        optimal = (L and L["RANK_DD_OPTIMAL"]) or "Best Mix -> Max Rank",
     }
 
     local function RefreshRankDropdown()
@@ -462,7 +463,10 @@ function LeftPanelUI.Build(args)
 
     ddRank:SetScript("OnClick", function()
         local current = getOpts().rankPolicy or "lowest"
-        setOption("rankPolicy", current == "lowest" and "highest" or "lowest")
+        local nextPolicy = current == "lowest" and "optimal"
+            or current == "optimal" and "highest"
+            or "lowest"
+        setOption("rankPolicy", nextPolicy)
         RefreshRankDropdown()
         RefreshVisiblePanels()
     end)

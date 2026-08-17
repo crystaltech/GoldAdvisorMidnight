@@ -44,6 +44,20 @@ selectedMetrics, selectedMode = Engine.SelectGearMetrics(mcMetrics, {
 })
 assert(selectedMetrics == mcMetrics and selectedMode == "multicraft",
     "Auto stat gear tie-breaking is not deterministic")
+
+local rootStage = { id = "ink" }
+local millingStage = { id = "milling" }
+local stageStats = {
+    GetGearModeForStrat = function(strat)
+        return strat == millingStage and "resourcefulness" or "multicraft"
+    end,
+}
+assert(Engine.ResolveStageGearMode(
+        stageStats, rootStage, "midnight-1", rootStage, "multicraft") == "multicraft",
+    "root stage did not use its Multicraft override")
+assert(Engine.ResolveStageGearMode(
+        stageStats, millingStage, "midnight-1", rootStage, "multicraft") == "resourcefulness",
+    "VI producer did not retain its own Resourcefulness gear plan")
 local strategy = {
     id = "test__commodity__midnight_1",
     recipeID = 424242,
@@ -72,6 +86,13 @@ local invalidRequest, invalidRequestErr = Contract.BuildRequest({
 })
 assert(invalidRequest == nil and invalidRequestErr:find("materialRank", 1, true),
     "unsupported material rank was accepted")
+
+local optimalRequest, optimalRequestErr = Contract.BuildRequest({
+    strategy = strategy,
+    materialRank = "optimal",
+})
+assert(optimalRequest and not optimalRequestErr and optimalRequest.materialRank == "optimal",
+    "verified mixed-rank material policy was rejected")
 
 invalidRequest, invalidRequestErr = Contract.BuildRequest({
     strategy = strategy,

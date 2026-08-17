@@ -648,7 +648,7 @@ function Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf,
     if filterProfSingleSet and next(filterProfSingleSet) ~= nil and not filterProfSingleSet[strat.profession] then
         return false
     end
-    if rankPolicy == "highest"
+    if (rankPolicy == "highest" or rankPolicy == "optimal")
         and strat.qualityPolicy == "force_q1_inputs"
         and strat.outputQualityMode == "rank_policy" then
         return false

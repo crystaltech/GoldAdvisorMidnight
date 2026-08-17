@@ -14,6 +14,7 @@ Contract.VERSION = 1
 local VALID_RANK_POLICIES = {
     lowest = true,
     highest = true,
+    optimal = true,
 }
 
 local VALID_PRICING_MODES = {
@@ -223,6 +224,8 @@ function Contract.FromV2Metrics(request, metrics)
         missingPrices = metrics.missingPrices or {},
         hasStale = metrics.hasStale and true or false,
         selectionNotes = metrics.selectionNotes,
+        rankMixStatus = metrics.rankMixStatus,
+        rankMixReason = metrics.rankMixReason,
         gearModeRequested = metrics.gearModeRequested,
         gearModeResolved = metrics.gearModeResolved,
         gearPresetMissing = metrics.gearPresetMissing and true or false,
@@ -231,6 +234,7 @@ function Contract.FromV2Metrics(request, metrics)
             formula = metrics.formula,
             statUsages = metrics.statUsages,
             economicChoices = metrics.economicChoices,
+            rankMixPlan = metrics.rankMixPlan,
         },
     }
 

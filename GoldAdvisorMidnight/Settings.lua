@@ -364,20 +364,26 @@ local function BuildPanel()
     cbMinimap:SetChecked(not opts.minimapHidden)
     y = y - 32
 
-    -- Rank policy: cycle button (Lowest ↔ Highest) — avoids UIDropDownMenu pop-out bug
+    -- Rank policy: cycle button — avoids UIDropDownMenu pop-out bugs.
     local rankLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     rankLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
     rankLabel:SetText(L["OPT_RANK_POLICY"])
 
-    local rankTexts = { lowest = L["OPT_RANK_LOWEST"], highest = L["OPT_RANK_HIGHEST"] }
-    local rankCurrent = (opts.rankPolicy == "highest") and "highest" or "lowest"
+    local rankTexts = {
+        lowest = L["OPT_RANK_LOWEST"],
+        optimal = L["OPT_RANK_OPTIMAL"] or "Best Mix to Max",
+        highest = L["OPT_RANK_HIGHEST"],
+    }
+    local rankCurrent = rankTexts[opts.rankPolicy] and opts.rankPolicy or "lowest"
 
     local rankBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
     rankBtn:SetSize(110, 22)
     rankBtn:SetPoint("LEFT", rankLabel, "RIGHT", 12, 0)
     rankBtn:SetText(rankTexts[rankCurrent])
     rankBtn:SetScript("OnClick", function()
-        rankCurrent = (rankCurrent == "lowest") and "highest" or "lowest"
+        rankCurrent = rankCurrent == "lowest" and "optimal"
+            or rankCurrent == "optimal" and "highest"
+            or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
     end)
 
@@ -1239,7 +1245,7 @@ local function BuildPanel()
                 pdb and pdb.priceOverrides and pdb.priceOverrides[THALASSIAN_LUMBER_ITEM_ID]
             ))
         end
-        rankCurrent = (o.rankPolicy == "highest") and "highest" or "lowest"
+        rankCurrent = rankTexts[o.rankPolicy] and o.rankPolicy or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
         modeCurrent = "exhaust_materials"
         modeBtn:SetText(modeTexts[modeCurrent])

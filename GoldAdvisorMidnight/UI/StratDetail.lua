@@ -356,7 +356,16 @@ end
 local function RefreshSelectionNote()
     if not frame or not frame.selectionNoteFS or not currentStrat then return end
     local selectionNames = detailProjection and detailProjection.selectionNotes or nil
-    if selectionNames and #selectionNames > 0 then
+    local rankMixStatus = detailProjection and detailProjection.rankMixStatus or nil
+    if rankMixStatus == "verified" then
+        frame.selectionNoteFS:SetText("Best rank mix verified by Blizzard (no Concentration).")
+        frame.selectionNoteFS:Show()
+    elseif rankMixStatus == "fallback" then
+        frame.selectionNoteFS:SetText(string.format(
+            "Best mix not verified (%s); showing the conservative all-highest-rank estimate.",
+            tostring(detailProjection.rankMixReason or "live recipe data unavailable")))
+        frame.selectionNoteFS:Show()
+    elseif selectionNames and #selectionNames > 0 then
         local key = (#selectionNames > 1) and "DETAIL_SELECTION_NOTE_MULTI" or "DETAIL_SELECTION_NOTE"
         frame.selectionNoteFS:SetText(string.format(
             GAM.L[key] or "Using %s as cheapest input.",
@@ -885,7 +894,10 @@ local function Build()
     rankToggleBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 20)
     rankToggleBtn:SetScript("OnClick", function()
         local cur = GetOpts().rankPolicy or "lowest"
-        SetOption("rankPolicy", (cur == "highest") and "lowest" or "highest")
+        local nextPolicy = cur == "lowest" and "optimal"
+            or cur == "optimal" and "highest"
+            or "lowest"
+        SetOption("rankPolicy", nextPolicy)
         SD.Refresh()
     end)
     frame.rankToggleBtn = rankToggleBtn
@@ -1077,8 +1089,12 @@ function SD.Refresh()
     -- Rank toggle label
     if frame.rankToggleBtn then
         local policy = GetOpts().rankPolicy or "lowest"
-        -- Button shows what clicking will switch TO (action label, not current state)
-        frame.rankToggleBtn:SetText(policy == "highest" and L["RANK_BTN_R1"] or L["RANK_BTN_R2"])
+        local labels = {
+            lowest = L["RANK_BTN_R1"] or "R1 Mats",
+            optimal = L["RANK_BTN_OPTIMAL"] or "Best Mix",
+            highest = L["RANK_BTN_R2"] or "R2 Mats",
+        }
+        frame.rankToggleBtn:SetText(labels[policy] or labels.lowest)
         if frame.RelayoutBottomButtons then frame.RelayoutBottomButtons() end
     end
 

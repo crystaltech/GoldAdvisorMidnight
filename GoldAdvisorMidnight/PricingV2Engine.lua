@@ -26,6 +26,17 @@ function Engine.SelectGearMetrics(multicraft, resourcefulness)
     return multicraft, "multicraft"
 end
 
+function Engine.ResolveStageGearMode(stats, strat, patchTag, rootStrat, rootOverride)
+    local mode = strat == rootStrat and rootOverride or nil
+    if not mode and stats and type(stats.GetGearModeForStrat) == "function" then
+        mode = stats.GetGearModeForStrat(strat, patchTag)
+    end
+    if mode == "multicraft" or mode == "resourcefulness" then
+        return mode
+    end
+    return "auto"
+end
+
 function Engine.Install(Pricing, deps)
     if type(Pricing) ~= "table" or type(deps) ~= "table" then
         return false, "missing-dependencies"
@@ -54,6 +65,8 @@ function Engine.Install(Pricing, deps)
     local FindProducerMatch = deps.FindProducerMatch
     local GetScaledStartingAmountForCrafts = deps.GetScaledStartingAmountForCrafts
     local GetRequiredReagentAmountRaw = deps.GetRequiredReagentAmountRaw
+    local GetDirectEffectivePriceForItem = deps.GetDirectEffectivePriceForItem
+    local PrepareOptimizedRecipeView = deps.PrepareOptimizedRecipeView
 
     local function GetFormulaV2()
         FormulaV2 = GAM.PricingV2Formula or FormulaV2 or {}
@@ -146,16 +159,21 @@ function Engine.Install(Pricing, deps)
     end
 
     local function GetV2StatsForStrat(strat, opts, ctx)
-        local resolver = GAM.CraftingStatsV2 and GAM.CraftingStatsV2.ResolveForStrat
+        local stats = GAM.CraftingStatsV2
+        local resolver = stats and stats.ResolveForStrat
         if type(resolver) ~= "function" then
             return nil, "no-stat-resolver"
         end
 
-        local gearMode = type(ctx) == "table"
-            and ctx.gearModeOverride
-            and ctx.strat == strat
-            and ctx.gearModeOverride
-            or "auto"
+        -- The selected strategy can override its own gear while Auto compares
+        -- root results. Every nested VI producer must still honor the gear plan
+        -- saved on that producer (for example Res milling feeding MC ink).
+        local gearMode = Engine.ResolveStageGearMode(
+            stats,
+            strat,
+            ctx and ctx.patchTag,
+            ctx and ctx.strat,
+            ctx and ctx.gearModeOverride)
         local profileKey = strat and (strat.statProfileKey or strat.formulaProfile) or nil
         local cacheKey = table.concat({
             tostring(strat and (strat.id or strat.stratName) or "?"),
@@ -189,6 +207,20 @@ function Engine.Install(Pricing, deps)
             end
             return nil, ok and "stat-resolver-empty" or "stat-resolver-error"
         end
+
+        -- Keep per-stage gear metadata on the calculation result without
+        -- mutating a resolver-owned/cached snapshot.
+        local annotated = {}
+        for key, value in pairs(snapshot) do annotated[key] = value end
+        local available = stats.GetAvailableGearPresetModes
+            and stats.GetAvailableGearPresetModes(strat)
+            or {}
+        annotated.gearModeRequested = gearMode
+        annotated.gearModeResolved = gearMode ~= "auto" and available[gearMode]
+            and gearMode
+            or "current"
+        annotated.gearPresetMissing = gearMode ~= "auto" and not available[gearMode] or false
+        snapshot = annotated
 
         if type(ctx) == "table" and type(ctx.v2StatResolutions) == "table" then
             ctx.v2StatResolutions[cacheKey] = snapshot
@@ -301,6 +333,9 @@ function Engine.Install(Pricing, deps)
         result.crafterName = input.crafterName
         result.crafterRealm = input.crafterRealm
         result.crossCharacter = input.crossCharacter
+        result.gearModeRequested = statSnapshot and statSnapshot.gearModeRequested or "auto"
+        result.gearModeResolved = statSnapshot and statSnapshot.gearModeResolved or "current"
+        result.gearPresetMissing = statSnapshot and statSnapshot.gearPresetMissing and true or false
         result.pricingMode = input.pricingMode
         result.nodeStats = statSnapshot and statSnapshot.nodeStats or nil
         result.nodeBonusDetails = statSnapshot and statSnapshot.nodeBonusDetails or nil
@@ -507,6 +542,9 @@ function Engine.Install(Pricing, deps)
             expectedYieldPerActualCraft = formulaResult.expectedYieldPerActualCraft,
             effectiveCrafts = formulaResult.effectiveCrafts,
             consumptionFactor = formulaResult.consumptionFactor,
+            gearModeRequested = formulaResult.gearModeRequested,
+            gearModeResolved = formulaResult.gearModeResolved,
+            gearPresetMissing = formulaResult.gearPresetMissing,
         }
     end
 
@@ -523,10 +561,13 @@ function Engine.Install(Pricing, deps)
         local inputPolicy = GetInputRankPolicy(ctx.strat)
         local itemID = resolvedEntry and resolvedEntry.itemID or nil
         local itemIDs = (resolvedEntry and resolvedEntry.itemIDs) or (itemID and { itemID }) or {}
-        local price, stale = Pricing.GetEffectivePriceForItem({
+        -- This is the buy-the-intermediate side of the V2 comparison.  Do not
+        -- route it through GetEffectivePriceForItem: with VI enabled that
+        -- compatibility API derives pigments/ingots/bolts from their producer
+        -- materials, making the "direct" and producer branches the same path.
+        local price, stale = GetDirectEffectivePriceForItem({
             itemIDs = itemID and { itemID } or itemIDs,
             name = resolvedEntry and resolvedEntry.name or nil,
-            skipDerivation = resolvedEntry and resolvedEntry.skipDerivation or false,
             rankPolicyOverride = inputPolicy,
         }, ctx.patchTag, requiredQty)
 
@@ -589,6 +630,11 @@ function Engine.Install(Pricing, deps)
         end
 
         local craftsNeeded = requiredQty / expectedOutputPerCraft
+        if type(PrepareOptimizedRecipeView) == "function" then
+            local optimizedActive = PrepareOptimizedRecipeView(
+                ctx, producer.strat, producer.active, craftsNeeded, producer.outputItemID)
+            producer.active = optimizedActive or producer.active
+        end
         local key = producer.key
         state.activeProducerKeys[key] = true
         local producerCost = BuildV2RecipeEconomicCost(ctx, producer.strat, producer.active, craftsNeeded, state)
@@ -704,6 +750,13 @@ function Engine.Install(Pricing, deps)
             formula = economicData.formula,
             statUsages = ctx.v2StatUsages,
             economicChoices = ctx.v2EconomicChoices,
+            rankMixPlan = ctx.rankMixPlan,
+            -- A missing live operation snapshot must not turn a successful AH
+            -- scan into an all-dash strategy list. The active view is already
+            -- the all-highest-rank recipe, so retain that conservative price
+            -- and expose the lack of verification separately.
+            rankMixStatus = ctx.rankMixPlan and "verified" or ctx.rankMixReason and "fallback" or nil,
+            rankMixReason = ctx.rankMixReason,
             gearModeRequested = ctx.gearModeRequested,
             gearModeResolved = ctx.gearModeResolved,
             gearPresetMissing = ctx.gearPresetMissing and true or false,
@@ -720,6 +773,14 @@ function Engine.Install(Pricing, deps)
         end
 
         local ctx = BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
+        if type(PrepareOptimizedRecipeView) == "function" then
+            local optimizedActive, rankMixPlan, rankMixReason, targetOutputQuality =
+                PrepareOptimizedRecipeView(ctx, strat, ctx.active, ctx.crafts)
+            ctx.active = optimizedActive or ctx.active
+            ctx.rankMixPlan = rankMixPlan
+            ctx.rankMixReason = rankMixReason
+            ctx.targetOutputQuality = targetOutputQuality
+        end
         ctx.v2StatResolutions = {}
         ctx.v2StatUsages = {}
         ctx.v2EconomicChoices = {}

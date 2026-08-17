@@ -216,6 +216,11 @@ for _, strategy in ipairs(GAM.Importer.GetAllStrats()) do
         local active = GAM.StrategyModel.ResolveActiveRecipeView(strategy, "lowest")
         assert(active and active.outputs == strategy.rankVariants.lowest.outputs,
             strategy.id .. ": active rank variant was not resolved by StrategyModel")
+        if strategy.rankVariants.highest then
+            local optimal = GAM.StrategyModel.ResolveActiveRecipeView(strategy, "optimal")
+            assert(optimal and optimal.outputs == strategy.rankVariants.highest.outputs,
+                strategy.id .. ": optimal rank mix did not target the highest output variant")
+        end
         variantChecked = true
         break
     end

@@ -286,7 +286,7 @@ function Model.ResolveActiveRecipeView(strategy, rankPolicy)
     if type(strategy) ~= "table" then
         return nil
     end
-    local variantKey = (rankPolicy == "highest") and "highest" or "lowest"
+    local variantKey = (rankPolicy == "highest" or rankPolicy == "optimal") and "highest" or "lowest"
     if not (strategy.rankVariants and strategy.rankVariants[variantKey]) then
         variantKey = nil
     end

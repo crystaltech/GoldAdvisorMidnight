@@ -1438,6 +1438,26 @@ local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
             ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
             MW2.RefreshRows()
         end
+    end, function(asyncReason, requestedRecipeID)
+        if not reportFailure then return end
+        local visibleRecipeID = tostring(asyncReason or ""):match(
+            "^open%-recipe%-mismatch:(%d+)$")
+        if asyncReason == "recipe-not-in-current-profession" then
+            print(string.format(
+                "|cffff8800[GAM]|r %s (recipe %s) is not available in this client's current %s recipe list. No stats were captured.",
+                tostring(strat.name or strat.stratName or strat.id or "The selected recipe"),
+                tostring(requestedRecipeID or strat.recipeID or "unknown"),
+                tostring(strat.profession or "profession")))
+        elseif visibleRecipeID then
+            print(string.format(
+                "|cffff8800[GAM]|r Could not select %s (recipe %s); Blizzard kept recipe %s open. No mismatched stats were captured.",
+                tostring(strat.name or strat.id or "the selected recipe"),
+                tostring(requestedRecipeID or strat.recipeID or "unknown"),
+                visibleRecipeID))
+        else
+            print("|cffff8800[GAM]|r Could not verify the selected recipe: "
+                .. tostring(asyncReason or "unknown"))
+        end
     end)
     if not opened and reportFailure then
         local L = GetL()

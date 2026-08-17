@@ -22,7 +22,7 @@ local FAVORITE_POLICIES = {
 }
 
 local function NormalizeRankPolicy(rankPolicy)
-    return (rankPolicy == "highest") and "highest" or "lowest"
+    return (rankPolicy == "highest" or rankPolicy == "optimal") and "highest" or "lowest"
 end
 
 local function NormalizeFavoritesTable(favorites)
