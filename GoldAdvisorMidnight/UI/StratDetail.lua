@@ -150,6 +150,7 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
     button:SetScript("OnMouseDown", function()
         editBox._gamCommitFromButton = true
         RefreshCommitButton(editBox)
+        CommitCurrentValue(true)
     end)
     button:SetScript("OnClick", function()
         CommitCurrentValue(true)
