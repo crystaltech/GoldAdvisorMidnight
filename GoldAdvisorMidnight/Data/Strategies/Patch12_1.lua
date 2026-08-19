@@ -31,6 +31,7 @@ Add({
     },
     reagents = {
         { itemRef = "Cursebound Globe", itemIDs = { 274781 }, qtyPerCraft = 2 },
+        { itemRef = "Silvermoon Health Potion", itemIDs = { 241304, 241305 }, qtyPerCraft = 25 },
     },
 })
 
@@ -49,6 +50,9 @@ Add({
     reagents = {
         { itemRef = "Neutralized Venom Clot", itemIDs = { 274777 }, qtyPerCraft = 1 },
         { itemRef = "Cursebound Globe", itemIDs = { 274781 }, qtyPerCraft = 1 },
+        { itemRef = "Tranquility Bloom", itemIDs = { 236761, 236767 }, qtyPerCraft = 8 },
+        { itemRef = "Sanguithorn", itemIDs = { 236770, 236771 }, qtyPerCraft = 6 },
+        { itemRef = "Sunglass Vial", itemIDs = { 240990, 240991 }, qtyPerCraft = 5 },
     },
 })
 
@@ -67,6 +71,10 @@ Add({
     reagents = {
         { itemRef = "Neutralized Venom Clot", itemIDs = { 274777 }, qtyPerCraft = 1 },
         { itemRef = "Cursebound Globe", itemIDs = { 274781 }, qtyPerCraft = 1 },
+        { itemRef = "Tranquility Bloom", itemIDs = { 236761, 236767 }, qtyPerCraft = 8 },
+        { itemRef = "Sanguithorn", itemIDs = { 236770, 236771 }, qtyPerCraft = 3 },
+        { itemRef = "Mana Lily", itemIDs = { 236778, 236779 }, qtyPerCraft = 3 },
+        { itemRef = "Sunglass Vial", itemIDs = { 240990, 240991 }, qtyPerCraft = 5 },
     },
 })
 
@@ -85,6 +93,10 @@ Add({
     reagents = {
         { itemRef = "Cursebound Globe", itemIDs = { 274781 }, qtyPerCraft = 5 },
         { itemRef = "Petrified Root", itemIDs = { 251285 }, qtyPerCraft = 4 },
+        { itemRef = "Flawless Amani Lapis", itemIDs = { 242612, 242727 }, qtyPerCraft = 1 },
+        { itemRef = "Eversinging Dust", itemIDs = { 251285 }, qtyPerCraft = 20 },
+        { itemRef = "Radiant Shard", itemIDs = { 251285 }, qtyPerCraft = 10 },
+        { itemRef = "Dawn Crystal", itemIDs = { 251285 }, qtyPerCraft = 2 },
     },
 })
 
@@ -103,6 +115,7 @@ Add({
     reagents = {
         { itemRef = "Pile of Junk", itemIDs = { 253303 }, qtyPerCraft = 10 },
         { itemRef = "Neutralized Venom Clot", itemIDs = { 274777 }, qtyPerCraft = 10 },
+        { itemRef = "Evercore", itemIDs = { 243581, 243582 }, qtyPerCraft = 20 },
     },
 })
 
@@ -123,6 +136,8 @@ Add({
         { itemRef = "Lexicologist's Vellum", itemIDs = { 245881 }, qtyPerCraft = 1 },
         { itemRef = "Petrified Root", itemIDs = { 251285 }, qtyPerCraft = 2 },
         { itemRef = "Cursebound Globe", itemIDs = { 274781 }, qtyPerCraft = 2 },
+        { itemRef = "Soul Cipher", itemIDs = { 245766, 245767 }, qtyPerCraft = 1 },
+        { itemRef = "Vantus Rune: Radiant", itemIDs = { 245879 }, qtyPerCraft = 1 },
     },
 })
 
@@ -141,6 +156,8 @@ Add({
     reagents = {
         { itemRef = "Lexicologist's Vellum", itemIDs = { 245881 }, qtyPerCraft = 1 },
         { itemRef = "Neutralized Venom Clot", itemIDs = { 274777 }, qtyPerCraft = 3 },
+        { itemRef = "Munsell Ink", itemIDs = { 245801, 245802 }, qtyPerCraft = 1 },
+        { itemRef = "Sienna Ink", itemIDs = { 245805, 245806 }, qtyPerCraft = 1 },
     },
 })
 
