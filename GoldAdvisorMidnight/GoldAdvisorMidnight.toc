@@ -2,7 +2,7 @@
 ## Title: Gold Advisor Midnight
 ## Category: Professions
 ## Notes: Crafting profit advisor for WoW Midnight. Scans AH, computes ROI per strategy.
-## Version: 2.0.4
+## Version: 2.0.5
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled
@@ -11,15 +11,6 @@
 Data\WorkbookGenerated.lua
 Data\CommodityManifest.lua
 Data\ProfessionCrafts.lua
-Data\Professions\Alchemy.lua
-Data\Professions\Blacksmithing.lua
-Data\Professions\Cooking.lua
-Data\Professions\Enchanting.lua
-Data\Professions\Engineering.lua
-Data\Professions\Inscription.lua
-Data\Professions\Jewelcrafting.lua
-Data\Professions\Leatherworking.lua
-Data\Professions\Tailoring.lua
 Data\ProfessionCraftsPatch12_1.lua
 Data\SpecializationData\Midnight\Alchemy.lua
 Data\SpecializationData\Midnight\Blacksmithing.lua
@@ -48,6 +39,7 @@ Log.lua
 Core.lua
 QuickBuy.lua
 State.lua
+VendorPrices.lua
 Minimap.lua
 DataBroker.lua
 UI\WindowManager.lua
@@ -56,28 +48,39 @@ UI\StrategyDetailModel.lua
 Settings.lua
 PricingDerivation.lua
 PricingContract.lua
-PricingV2Formula.lua
+PricingFormula.lua
 ReagentMixOptimizer.lua
-PricingV2Engine.lua
-CraftingStatsV2.lua
+PricingEngine.lua
+PricingPriceSource.lua
+PricingRecipe.lua
+PricingVerticalIntegration.lua
+CraftingStatsCache.lua
+CraftingStatsSpecialization.lua
+CraftingStatsCapture.lua
+CraftingStatsGear.lua
+CraftingStatsResolution.lua
+CraftingStats.lua
 CraftingStatsDiagnostics.lua
 CooldownTracker.lua
 Pricing.lua
 PricingFacade.lua
-AHScan.lua
+AuctionHouseResults.lua
+AuctionHouseQuery.lua
+AuctionHouseScan.lua
 Importer.lua
-Data\StratsGenerated.lua
-Data\Strategies\Patch12_1.lua
+Data\RecipesGenerated.lua
+Data\Recipes\Patch12_1.lua
 CraftSimPriceOverrides.lua
 CraftSimBridge.lua
 UI\DebugLog.lua
-UI\MainWindowV2Common.lua
+UI\MainWindowCommon.lua
 UI\VIBreakdownPlan.lua
 UI\VIBreakdownWindow.lua
 UI\CrushingAnalyzerWindow.lua
 UI\CooldownTrackerWindow.lua
-UI\MainWindowV2Detail.lua
-UI\MainWindowV2LeftPanel.lua
-UI\MainWindowV2Center.lua
-UI\MainWindowV2.lua
-UI\StratDetail.lua
+UI\MainWindowDetail.lua
+UI\MainWindowLeftPanel.lua
+UI\MainWindowCenter.lua
+UI\MainWindowShopping.lua
+UI\MainWindow.lua
+UI\StrategyDetail.lua

@@ -1,11 +1,12 @@
--- GoldAdvisorMidnight/PricingV2Engine.lua
--- V2 pricing orchestration. Pricing.lua owns shared helpers; this module wires
--- those helpers into the expected-value V2 engine and attaches public APIs.
--- Module: GAM.PricingV2Engine
+-- GoldAdvisorMidnight/PricingEngine.lua
+-- Expected-value pricing orchestration. Pricing.lua owns shared helpers; this
+-- module wires them into the mass-crafting engine and attaches public APIs.
+-- Module: GAM.PricingEngine
 
 local ADDON_NAME, GAM = ...
 local Engine = {}
-GAM.PricingV2Engine = Engine
+GAM.PricingEngine = Engine
+GAM.PricingV2Engine = Engine -- Compatibility alias for pre-refocus callers.
 
 -- Pure chooser kept outside the WoW pricing context so Auto gear behavior is
 -- deterministic and independently regression-testable.
@@ -42,7 +43,7 @@ function Engine.Install(Pricing, deps)
         return false, "missing-dependencies"
     end
 
-    local FormulaV2 = GAM.PricingV2Formula or {}
+    local FormulaV2 = GAM.PricingFormula or {}
 
     local GetOpts = deps.GetOpts
     local GetPatchDB = deps.GetPatchDB
@@ -69,7 +70,7 @@ function Engine.Install(Pricing, deps)
     local PrepareOptimizedRecipeView = deps.PrepareOptimizedRecipeView
 
     local function GetFormulaV2()
-        FormulaV2 = GAM.PricingV2Formula or FormulaV2 or {}
+        FormulaV2 = GAM.PricingFormula or FormulaV2 or {}
         return FormulaV2
     end
 
@@ -159,7 +160,7 @@ function Engine.Install(Pricing, deps)
     end
 
     local function GetV2StatsForStrat(strat, opts, ctx)
-        local stats = GAM.CraftingStatsV2
+        local stats = GAM.CraftingStats
         local resolver = stats and stats.ResolveForStrat
         if type(resolver) ~= "function" then
             return nil, "no-stat-resolver"
@@ -401,7 +402,8 @@ function Engine.Install(Pricing, deps)
 
         for _, outputDef in ipairs(ctx.active.outputs) do
             local outputQtyRaw, outputQty, formulaResult = ComputeV2OutputQuantity(outputDef, ctx)
-            local price, stale = GetOutputPriceForItem(outputDef, ctx.patchTag, outputPreferredQuality, priceQty)
+            local price, stale = GetOutputPriceForItem(
+                outputDef, ctx.patchTag, outputPreferredQuality, priceQty, ctx.strat and ctx.strat.recipeID)
             if stale then
                 hasStale = true
             end
@@ -414,7 +416,8 @@ function Engine.Install(Pricing, deps)
             end
             outResults[#outResults + 1] = {
                 name = GetItemLabel(outputDef),
-                itemID = GetOutputItemIDForDisplay(outputDef, ctx.patchTag, outputPreferredQuality),
+                itemID = GetOutputItemIDForDisplay(
+                    outputDef, ctx.patchTag, outputPreferredQuality, ctx.strat and ctx.strat.recipeID),
                 unitPrice = price,
                 expectedQty = outputQty,
                 expectedQtyRaw = outputQtyRaw,
@@ -437,9 +440,11 @@ function Engine.Install(Pricing, deps)
         local missingPrices = {}
         local outputQtyRaw, outputQty, formulaResult = ComputeV2OutputQuantity(primaryOut, ctx)
         local primaryQuality = GetPrimaryInputQuality(ctx)
-        local outputPreferredQuality = (ctx.strat.outputQualityMode == "match_input") and primaryQuality or nil
+        local outputPreferredQuality = ctx.reachableOutputQuality
+            or ((ctx.strat.outputQualityMode == "match_input") and primaryQuality or nil)
         local priceQty = GetOutputPriceQty(ctx)
-        local outPrice, outStale = GetOutputPriceForItem(primaryOut, ctx.patchTag, outputPreferredQuality, priceQty)
+        local outPrice, outStale = GetOutputPriceForItem(
+            primaryOut, ctx.patchTag, outputPreferredQuality, priceQty, ctx.strat and ctx.strat.recipeID)
         local outMissingPrice = not outPrice
         local isMultiOutput = ctx.active.outputs and #ctx.active.outputs > 1
         local outputs, netRevenue, extraStale
@@ -456,7 +461,8 @@ function Engine.Install(Pricing, deps)
             outputQtyRaw = outputQtyRaw,
             output = {
                 name = GetItemLabel(primaryOut),
-                itemID = GetOutputItemIDForDisplay(primaryOut, ctx.patchTag, outputPreferredQuality),
+                itemID = GetOutputItemIDForDisplay(
+                    primaryOut, ctx.patchTag, outputPreferredQuality, ctx.strat and ctx.strat.recipeID),
                 unitPrice = outPrice,
                 expectedQty = outputQty,
                 expectedQtyRaw = outputQtyRaw,
@@ -499,7 +505,7 @@ function Engine.Install(Pricing, deps)
             < (directCost.expectedConsumedCostFull or math.huge)
     end
 
-    local function StoreV2EconomicChoice(ctx, itemID, source, producer, directCost, producerCost)
+    local function StoreV2EconomicChoice(ctx, itemID, source, producer, directCost, producerCost, capacityDetails)
         if type(ctx) ~= "table" or type(ctx.v2EconomicChoices) ~= "table" or not itemID then
             return
         end
@@ -512,6 +518,42 @@ function Engine.Install(Pricing, deps)
             producerRequiredCost = producerCost and producerCost.requiredCostFull or nil,
             directMissing = HasMissingEconomicCost(directCost),
             producerMissing = HasMissingEconomicCost(producerCost),
+            craftCapacity = producer and producer.craftCapacity or nil,
+            craftsPlanned = capacityDetails and capacityDetails.craftsPlanned or nil,
+            craftedOutputQty = capacityDetails and capacityDetails.craftedOutputQty or nil,
+            directOutputQty = capacityDetails and capacityDetails.directOutputQty or nil,
+        }
+    end
+
+    local function GetProducerCraftAllowance(state, producer, wantedCrafts)
+        wantedCrafts = math.max(0, tonumber(wantedCrafts) or 0)
+        local capacity = producer and tonumber(producer.craftCapacity) or nil
+        if capacity == nil then return wantedCrafts, nil end
+        state.producerCraftsRemaining = state.producerCraftsRemaining or {}
+        local key = tostring(producer.key or producer.strat and producer.strat.recipeID or "producer")
+        local remaining = state.producerCraftsRemaining[key]
+        if remaining == nil then remaining = math.max(0, capacity) end
+        return math.min(wantedCrafts, remaining), key
+    end
+
+    local function ConsumeProducerCraftAllowance(state, key, producer, crafts)
+        if not key then return end
+        local remaining = state.producerCraftsRemaining[key]
+        if remaining == nil then remaining = math.max(0, tonumber(producer.craftCapacity) or 0) end
+        state.producerCraftsRemaining[key] = math.max(0, remaining - (tonumber(crafts) or 0))
+    end
+
+    local function CombineEconomicCosts(first, second)
+        local missing = {}
+        MergeMissingPrices(missing, first and first.missingPrices)
+        MergeMissingPrices(missing, second and second.missingPrices)
+        return {
+            requiredCostFull = (first and first.requiredCostFull or 0)
+                + (second and second.requiredCostFull or 0),
+            expectedConsumedCostFull = (first and first.expectedConsumedCostFull or 0)
+                + (second and second.expectedConsumedCostFull or 0),
+            hasStale = (first and first.hasStale or false) or (second and second.hasStale or false),
+            missingPrices = missing,
         }
     end
 
@@ -630,18 +672,42 @@ function Engine.Install(Pricing, deps)
         end
 
         local craftsNeeded = requiredQty / expectedOutputPerCraft
+        local craftsAllowed, capacityKey = GetProducerCraftAllowance(state, producer, craftsNeeded)
+        if craftsAllowed <= 0 then
+            StoreV2EconomicChoice(ctx, resolvedEntry.itemID, "direct", producer, directCost, nil, {
+                craftsPlanned = 0,
+                craftedOutputQty = 0,
+                directOutputQty = requiredQty,
+            })
+            return directCost
+        end
         if type(PrepareOptimizedRecipeView) == "function" then
             local optimizedActive = PrepareOptimizedRecipeView(
-                ctx, producer.strat, producer.active, craftsNeeded, producer.outputItemID)
+                ctx, producer.strat, producer.active, craftsAllowed, producer.outputItemID)
             producer.active = optimizedActive or producer.active
         end
         local key = producer.key
         state.activeProducerKeys[key] = true
-        local producerCost = BuildV2RecipeEconomicCost(ctx, producer.strat, producer.active, craftsNeeded, state)
+        local producerCost = BuildV2RecipeEconomicCost(ctx, producer.strat, producer.active, craftsAllowed, state)
         state.activeProducerKeys[key] = nil
-        if PreferProducerEconomicCost(directCost, producerCost) then
-            StoreV2EconomicChoice(ctx, resolvedEntry.itemID, "producer", producer, directCost, producerCost)
-            return producerCost
+        local craftedOutputQty = math.min(requiredQty, craftsAllowed * expectedOutputPerCraft)
+        local comparableDirectCost = BuildV2LeafEconomicCost(ctx, resolvedEntry, craftedOutputQty)
+        if PreferProducerEconomicCost(comparableDirectCost, producerCost) then
+            ConsumeProducerCraftAllowance(state, capacityKey, producer, craftsAllowed)
+            local directOutputQty = math.max(0, requiredQty - craftedOutputQty)
+            local source = directOutputQty > 1e-9 and "hybrid" or "producer"
+            local selectedCost = producerCost
+            if directOutputQty > 1e-9 then
+                selectedCost = CombineEconomicCosts(
+                    producerCost,
+                    BuildV2LeafEconomicCost(ctx, resolvedEntry, directOutputQty))
+            end
+            StoreV2EconomicChoice(ctx, resolvedEntry.itemID, source, producer, directCost, selectedCost, {
+                craftsPlanned = craftsAllowed,
+                craftedOutputQty = craftedOutputQty,
+                directOutputQty = directOutputQty,
+            })
+            return selectedCost
         end
         StoreV2EconomicChoice(ctx, resolvedEntry.itemID, "direct", producer, directCost, producerCost)
         return directCost
@@ -690,6 +756,7 @@ function Engine.Install(Pricing, deps)
     local function BuildV2EconomicMetrics(ctx)
         local state = {
             activeProducerKeys = {},
+            producerCraftsRemaining = {},
         }
         return BuildV2RecipeEconomicCost(ctx, ctx.strat, ctx.active, ctx.crafts, state)
     end
@@ -752,18 +819,25 @@ function Engine.Install(Pricing, deps)
             economicChoices = ctx.v2EconomicChoices,
             rankMixPlan = ctx.rankMixPlan,
             -- A missing live operation snapshot must not turn a successful AH
-            -- scan into an all-dash strategy list. The active view is already
-            -- the all-highest-rank recipe, so retain that conservative price
-            -- and expose the lack of verification separately.
-            rankMixStatus = ctx.rankMixPlan and "verified" or ctx.rankMixReason and "fallback" or nil,
+            -- scan into an all-dash strategy list. When Blizzard does provide
+            -- an all-high reachable quality, output pricing is pinned to it.
+            rankMixStatus = ctx.rankMixPlan
+                and (ctx.rankMixReason == "target-quality-unreachable" and "reachable" or "verified")
+                or ctx.rankMixReason and "fallback" or nil,
             rankMixReason = ctx.rankMixReason,
+            rankMixTargetQuality = ctx.targetOutputQuality,
+            rankMixOutputQuality = ctx.reachableOutputQuality,
+            rankMixHighSkill = ctx.rankMixPlan and ctx.rankMixPlan.highSkill or nil,
+            rankMixRequiredSkill = ctx.rankMixPlan and ctx.rankMixPlan.requiredSkill or nil,
+            rankMixSkillDeficit = ctx.rankMixPlan and ctx.rankMixPlan.skillDeficit or nil,
+            rankMixConcentrationCost = ctx.rankMixPlan and ctx.rankMixPlan.concentrationCost or nil,
             gearModeRequested = ctx.gearModeRequested,
             gearModeResolved = ctx.gearModeResolved,
             gearPresetMissing = ctx.gearPresetMissing and true or false,
         }
     end
 
-    local function CalculateStratMetricsV2Once(strat, patchTag, craftQty, gearModeOverride)
+    local function CalculateStratMetricsV2Once(strat, patchTag, craftQty, gearModeOverride, runtimeOverrides)
         local opts = GetOpts()
         local ahCut = opts.ahCut or GAM.C.AH_CUT
         local pdb = GetPatchDB(patchTag)
@@ -772,14 +846,16 @@ function Engine.Install(Pricing, deps)
             return nil
         end
 
-        local ctx = BuildCalcContext(strat, active, patchTag, craftQty, opts, pdb, ahCut)
+        local ctx = BuildCalcContext(
+            strat, active, patchTag, craftQty, opts, pdb, ahCut, runtimeOverrides)
         if type(PrepareOptimizedRecipeView) == "function" then
-            local optimizedActive, rankMixPlan, rankMixReason, targetOutputQuality =
+            local optimizedActive, rankMixPlan, rankMixReason, targetOutputQuality, reachableOutputQuality =
                 PrepareOptimizedRecipeView(ctx, strat, ctx.active, ctx.crafts)
             ctx.active = optimizedActive or ctx.active
             ctx.rankMixPlan = rankMixPlan
             ctx.rankMixReason = rankMixReason
             ctx.targetOutputQuality = targetOutputQuality
+            ctx.reachableOutputQuality = reachableOutputQuality
         end
         ctx.v2StatResolutions = {}
         ctx.v2StatUsages = {}
@@ -796,12 +872,12 @@ function Engine.Install(Pricing, deps)
         return BuildV2FinalMetrics(ctx, outputData, displayReagentData, costReagentData, economicData)
     end
 
-    function Pricing.CalculateStratMetricsV2(strat, patchTag, craftQty)
+    function Pricing.CalculateStratMetricsV2(strat, patchTag, craftQty, runtimeOverrides)
         if not strat then return nil end
         patchTag = patchTag or GAM.C.DEFAULT_PATCH
         craftQty = craftQty or 1
 
-        local stats = GAM.CraftingStatsV2
+        local stats = GAM.CraftingStats
         local requested = stats and stats.GetGearModeForStrat
             and stats.GetGearModeForStrat(strat, patchTag)
             or "auto"
@@ -814,19 +890,21 @@ function Engine.Install(Pricing, deps)
         if requested == "multicraft" or requested == "resourcefulness" then
             resolved = available[requested] and requested or "current"
             metrics = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, available[requested] and requested or nil)
+                strat, patchTag, craftQty, available[requested] and requested or nil, runtimeOverrides)
         elseif available.multicraft and available.resourcefulness then
             local multicraft = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, "multicraft")
+                strat, patchTag, craftQty, "multicraft", runtimeOverrides)
             local resourcefulness = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, "resourcefulness")
+                strat, patchTag, craftQty, "resourcefulness", runtimeOverrides)
             metrics, resolved = Engine.SelectGearMetrics(multicraft, resourcefulness)
         elseif available.multicraft or available.resourcefulness then
             resolved = available.multicraft and "multicraft" or "resourcefulness"
-            metrics = CalculateStratMetricsV2Once(strat, patchTag, craftQty, resolved)
+            metrics = CalculateStratMetricsV2Once(
+                strat, patchTag, craftQty, resolved, runtimeOverrides)
         else
             resolved = "current"
-            metrics = CalculateStratMetricsV2Once(strat, patchTag, craftQty, nil)
+            metrics = CalculateStratMetricsV2Once(
+                strat, patchTag, craftQty, nil, runtimeOverrides)
         end
 
         if metrics then

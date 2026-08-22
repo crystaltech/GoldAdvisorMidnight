@@ -1,12 +1,13 @@
--- GoldAdvisorMidnight/UI/MainWindowV2Common.lua
--- Shared helper/data layer for MainWindowV2.
--- Module: GAM.UI.MainWindowV2Common
+-- GoldAdvisorMidnight/UI/MainWindowCommon.lua
+-- Shared helper/data layer for MainWindow.
+-- Module: GAM.UI.MainWindowCommon
 
 local ADDON_NAME, GAM = ...
 GAM.UI = GAM.UI or {}
 
 local Common = {}
-GAM.UI.MainWindowV2Common = Common
+GAM.UI.MainWindowCommon = Common
+GAM.UI.MainWindowV2Common = Common -- Compatibility alias for pre-refocus callers.
 
 local PROFESSION_SKILL_LINES = (GAM.C and GAM.C.PROFESSION_SKILL_LINES) or {
     Alchemy = 171,
@@ -82,7 +83,7 @@ local function LogUnresolvedProfessionSkillLine(professionName, skillLine, skill
 
     if GAM.Log and GAM.Log.Debug then
         GAM.Log.Debug(
-            "MainWindowV2: unresolved profession skill line name=%s skillLine=%s skillLineName=%s",
+            "MainWindow: unresolved profession skill line name=%s skillLine=%s skillLineName=%s",
             tostring(professionName),
             tostring(skillLine),
             tostring(skillLineName)

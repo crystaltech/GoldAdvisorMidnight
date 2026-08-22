@@ -306,7 +306,57 @@ local function GetRecipeLearned(recipeID)
     return nil, recipeInfo
 end
 
+local function ReadTradeSkillCooldown(recipeID)
+    if not C_TradeSkillUI or type(C_TradeSkillUI.GetRecipeCooldown) ~= "function" then
+        return nil, "unavailable"
+    end
+    local ok, cooldown, isDayCooldown, currentCharges, maxCharges =
+        pcall(C_TradeSkillUI.GetRecipeCooldown, recipeID)
+    if not ok then
+        return nil, "restricted"
+    end
+
+    -- Keep this tolerant of clients that expose the result as a structure
+    -- instead of the traditional four return values.
+    if type(cooldown) == "table" then
+        local info = cooldown
+        cooldown = info.cooldown or info.duration or info.cooldownDuration
+        isDayCooldown = info.isDayCooldown
+        currentCharges = info.charges or info.currentCharges
+        maxCharges = info.maxCharges
+    end
+    if IsRestricted(cooldown) or IsRestricted(isDayCooldown)
+            or IsRestricted(currentCharges) or IsRestricted(maxCharges) then
+        return nil, "restricted"
+    end
+    cooldown = SafeNumber(cooldown)
+    currentCharges = SafeNumber(currentCharges)
+    maxCharges = SafeNumber(maxCharges)
+    if cooldown == nil and currentCharges == nil and maxCharges == nil then
+        return nil, "missing"
+    end
+    return {
+        cooldown = cooldown,
+        isDayCooldown = isDayCooldown and true or false,
+        currentCharges = currentCharges,
+        maxCharges = maxCharges,
+    }
+end
+
 local function ReadCooldown(recipeID)
+    local profession, professionErr = ReadTradeSkillCooldown(recipeID)
+    if profession then
+        local duration = profession.cooldown
+        return {
+            startTime = duration and SessionNow() or 0,
+            duration = duration or 0,
+            isEnabled = true,
+            modRate = 1,
+        }
+    end
+    if professionErr == "restricted" then
+        return nil, professionErr
+    end
     if not C_Spell or type(C_Spell.GetSpellCooldown) ~= "function" then
         return nil, "unavailable"
     end
@@ -324,6 +374,21 @@ local function ReadCooldown(recipeID)
 end
 
 local function ReadCharges(recipeID)
+    local profession, professionErr = ReadTradeSkillCooldown(recipeID)
+    if profession and profession.currentCharges ~= nil
+            and profession.maxCharges ~= nil and profession.maxCharges > 0 then
+        local duration = profession.cooldown
+        return {
+            currentCharges = profession.currentCharges,
+            maxCharges = profession.maxCharges,
+            cooldownStartTime = duration and SessionNow() or 0,
+            cooldownDuration = duration or 0,
+            chargeModRate = 1,
+        }
+    end
+    if professionErr == "restricted" then
+        return nil, professionErr
+    end
     if not C_Spell or type(C_Spell.GetSpellCharges) ~= "function" then
         return nil
     end
@@ -336,6 +401,33 @@ local function ReadCharges(recipeID)
         return nil, "restricted"
     end
     return info
+end
+
+-- Returns the number of crafts that can be started immediately when Blizzard
+-- exposes a charge/cooldown limit. Nil means no finite live limit was detected,
+-- so callers should preserve their normal behavior instead of assuming zero.
+function Tracker.GetImmediateCraftCapacity(recipeID)
+    recipeID = SafeNumber(recipeID)
+    if not recipeID then return nil, "invalid_recipe" end
+
+    local charges, chargesErr = ReadCharges(recipeID)
+    if chargesErr == "restricted" then return nil, "restricted" end
+    local currentCharges = charges and SafeNumber(charges.currentCharges) or nil
+    local maxCharges = charges and SafeNumber(charges.maxCharges) or nil
+    if currentCharges ~= nil and maxCharges and maxCharges > 0 then
+        return math.max(0, math.floor(currentCharges)), "charges"
+    end
+
+    local cooldown, cooldownErr = ReadCooldown(recipeID)
+    if cooldownErr == "restricted" then return nil, "restricted" end
+    local duration = cooldown and SafeNumber(cooldown.duration) or nil
+    if duration and duration > GCD_MAX_SECONDS then
+        local readyAt = RemainingToEpoch(cooldown.startTime, duration, cooldown.modRate)
+        if readyAt and readyAt > EpochNow() then
+            return 0, "cooldown"
+        end
+    end
+    return nil, "unlimited_or_ready"
 end
 
 local function RefreshRecipe(row)

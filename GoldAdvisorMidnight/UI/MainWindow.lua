@@ -1,12 +1,13 @@
--- GoldAdvisorMidnight/UI/MainWindowV2.lua
--- Primary three-panel main window (replaced legacy MainWindow in v1.6+).
+-- GoldAdvisorMidnight/UI/MainWindow.lua
+-- Primary three-panel commodity planning window.
 -- Left (tools/scan), Center (strategy list), Right (inline detail).
 -- Best Strategy hero card, collapsible panels, onboarding overlay.
--- Module: GAM.UI.MainWindowV2
+-- Module: GAM.UI.MainWindow
 
 local ADDON_NAME, GAM = ...
-local MW2 = {}
-GAM.UI.MainWindowV2 = MW2
+local MainWindow = {}
+GAM.UI.MainWindow = MainWindow
+GAM.UI.MainWindowV2 = MainWindow -- Compatibility alias for pre-refocus callers.
 local lastScanRefreshAt = 0
 
 -- ===== Layout constants =====
@@ -24,10 +25,10 @@ local C_DR, C_DG, C_DB, C_DA = 0.7, 0.57, 0.0, 0.7  -- dimmed gold (rules)
 local WindowManager = GAM.UI.WindowManager
 local StrategyListModel = GAM.UI.StrategyListModel
 local StrategyDetailModel = GAM.UI.StrategyDetailModel
-local Common = GAM.UI.MainWindowV2Common
-local DetailUI = GAM.UI.MainWindowV2Detail
-local LeftPanelUI = GAM.UI.MainWindowV2LeftPanel
-local CenterUI = GAM.UI.MainWindowV2Center
+local Common = GAM.UI.MainWindowCommon
+local DetailUI = GAM.UI.MainWindowDetail
+local LeftPanelUI = GAM.UI.MainWindowLeftPanel
+local CenterUI = GAM.UI.MainWindowCenter
 local THIN_BACKDROP = Common.THIN_BACKDROP
 local DISCORD_INVITE_CODE = "discord.gg/v7vsCKCsFh"
 local DISCORD_INVITE_URL = "https://discord.gg/v7vsCKCsFh"
@@ -181,14 +182,6 @@ local rpDetail      = {}   -- inline right-panel detail widget refs
 local suppressScrollCallback = false
 local selectedCraftSimBtn, selectedVIBreakdownBtn, selectedShoppingBtn, selectedScanBtn
 local themeRefs = NewThemeRefs()
-local shoppingSync = {
-    active = false,
-    stratID = nil,
-    patchTag = nil,
-    lastSignature = nil,
-    pending = false,
-}
-local shoppingSyncFrame
 local discordPopup
 local leftPanelChecks = {}  -- refs for left-panel cost source checkboxes
 local compactBtn      = nil -- compact mode toggle button ref
@@ -250,8 +243,8 @@ local function AddMetricSignaturePart(parts, key, value)
 end
 
 local function GetCraftingStatsRevision()
-    if GAM.CraftingStatsV2 and type(GAM.CraftingStatsV2.GetRevision) == "function" then
-        return GAM.CraftingStatsV2.GetRevision()
+    if GAM.CraftingStats and type(GAM.CraftingStats.GetRevision) == "function" then
+        return GAM.CraftingStats.GetRevision()
     end
     return 0
 end
@@ -676,7 +669,7 @@ local function BuildFrameHeader(L, C, HDR_PX)
 
     local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
-    closeBtn:SetScript("OnClick", function() MW2.Hide() end)
+    closeBtn:SetScript("OnClick", function() MainWindow.Hide() end)
 
     compactBtn = CreateFrame("Button", nil, frame, "BackdropTemplate")
     compactBtn:SetSize(52, 20)
@@ -809,13 +802,10 @@ local function FinalizeBuildOnShow(sb, C)
         sb:SetPoint("TOPRIGHT",    centerPanel, "TOPRIGHT",    -6,  -scrollBarTopOffset)
         sb:SetPoint("BOTTOMRIGHT", centerPanel, "BOTTOMRIGHT", -6,  0)
         RebuildList()
-        MW2.RefreshRows()
+        MainWindow.RefreshRows()
         RefreshBestStratCard()
         if leftPanel and leftPanel.refreshRankDropdown then
             leftPanel.refreshRankDropdown()
-        end
-        if leftPanel and leftPanel.refreshStatEditors then
-            leftPanel.refreshStatEditors()
         end
         if RefreshScanButtonLabels then
             RefreshScanButtonLabels()
@@ -968,179 +958,19 @@ local function ItemRowLeave()
     GameTooltip:Hide()
 end
 
-local function BuildAuctionatorShoppingPayload(strat, patchTag)
-    if not (Auctionator and Auctionator.API and Auctionator.API.v1 and
-            type(Auctionator.API.v1.CreateShoppingList) == "function") then
-        print("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_NOT_FOUND"])
-        return nil
-    end
-    if not strat then return nil end
-    local canonicalResult = GAM.PricingFacade.CalculateCurrent(
-        strat,
-        patchTag or GAM.C.DEFAULT_PATCH)
-    if not canonicalResult then return nil end
-
-    local addonName  = "GoldAdvisorMidnight"
-    local hasConvert = type(Auctionator.API.v1.ConvertToSearchString) == "function"
-    local searchStrings = {}
-    local signatureParts = {}
-    local items = {}
-
-    for _, rm in ipairs(canonicalResult.shoppingReagents or {}) do
-        local qty = math.floor(rm.needToBuy or 0)
-        if qty > 0 then
-            local entry
-            local searchData = GAM.Pricing.GetShoppingSearchData(rm.itemID, rm.name)
-            if hasConvert then
-                local qualityID = (rm.itemID and C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo)
-                    and C_TradeSkillUI.GetItemReagentQualityByItemInfo(rm.itemID) or nil
-                local searchTerm = {
-                    searchString = searchData.searchName or rm.name,
-                    quantity = qty,
-                    isExact = true,
-                }
-                if qualityID and qualityID > 0 then searchTerm.tier = qualityID end
-                entry = Auctionator.API.v1.ConvertToSearchString(addonName, searchTerm)
-            else
-                entry = searchData.searchString
-            end
-            if entry then
-                searchStrings[#searchStrings + 1] = entry
-                signatureParts[#signatureParts + 1] = entry
-                items[#items + 1] = {
-                    searchString = entry,
-                    itemID = rm.itemID,
-                    name = searchData.displayName,
-                    quantity = qty,
-                    unitPrice = rm.unitPrice,
-                }
-            end
+local Shopping = assert(
+    GAM.UI.MainWindowShopping,
+    "MainWindowShopping must load before MainWindow")
+local shoppingIntegration = Shopping.Create({
+    OnRefresh = function()
+        if leftPanel and leftPanel.refreshVisiblePanels then
+            leftPanel.refreshVisiblePanels()
         end
-    end
-
-    table.sort(signatureParts)
-    local signature = table.concat(signatureParts, "\031")
-    return {
-        addonName = addonName,
-        listName = GAM.L["AUCTIONATOR_LIST_NAME"],
-        canonicalResult = canonicalResult,
-        searchStrings = searchStrings,
-        items = items,
-        signature = signature,
-    }
-end
-
-local function CreateAuctionatorShoppingList(strat, patchTag, quiet)
-    local payload = BuildAuctionatorShoppingPayload(strat, patchTag)
-    if not payload then return nil end
-
-    if #payload.searchStrings == 0 and not quiet then
-        print("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_NO_ITEMS"])
-    end
-
-    Auctionator.API.v1.CreateShoppingList(payload.addonName, payload.listName, payload.searchStrings)
-    local quickBuyList = {
-        listName = payload.listName,
-        entries = payload.items,
-        signature = payload.signature,
-    }
-    if GAM.QuickBuy and GAM.QuickBuy.SetList then
-        GAM.QuickBuy.SetList(quickBuyList)
-    else
-        GAM.quickBuyList = quickBuyList
-    end
-    if not quiet then
-        print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_CREATED"], payload.listName, #payload.searchStrings))
-    end
-    return payload
-end
-
-local function DisableShoppingSync(silent)
-    shoppingSync.active = false
-    shoppingSync.stratID = nil
-    shoppingSync.patchTag = nil
-    shoppingSync.lastSignature = nil
-    shoppingSync.pending = false
-    if shoppingSyncFrame then
-        shoppingSyncFrame:UnregisterEvent("BAG_UPDATE_DELAYED")
-        shoppingSyncFrame:UnregisterEvent("AUCTION_HOUSE_CLOSED")
-    end
-    if not silent then
-        print("|cffff8800[GAM]|r Auctionator shopping sync stopped.")
-    end
-end
-
-local function RefreshShoppingSync()
-    if not shoppingSync.active then return end
-    local strat = shoppingSync.stratID and GAM.Importer.GetStratByID(shoppingSync.stratID) or nil
-    if not strat then
-        DisableShoppingSync(true)
-        return
-    end
-
-    local payload = BuildAuctionatorShoppingPayload(strat, shoppingSync.patchTag)
-    if not payload then
-        DisableShoppingSync(true)
-        return
-    end
-    if payload.signature == shoppingSync.lastSignature then
-        return
-    end
-
-    Auctionator.API.v1.CreateShoppingList(payload.addonName, payload.listName, payload.searchStrings)
-    local quickBuyList = {
-        listName = payload.listName,
-        entries = payload.items,
-        signature = payload.signature,
-    }
-    if GAM.QuickBuy and GAM.QuickBuy.SetList then
-        GAM.QuickBuy.SetList(quickBuyList)
-    else
-        GAM.quickBuyList = quickBuyList
-    end
-    shoppingSync.lastSignature = payload.signature
-    if leftPanel and leftPanel.refreshVisiblePanels then
-        leftPanel.refreshVisiblePanels()
-    end
-end
-
-local function EnsureShoppingSyncFrame()
-    if shoppingSyncFrame then return end
-    shoppingSyncFrame = CreateFrame("Frame")
-    shoppingSyncFrame:SetScript("OnEvent", function(_, event)
-        if event == "BAG_UPDATE_DELAYED" then
-            if shoppingSync.pending then return end
-            shoppingSync.pending = true
-            C_Timer.After(0.15, function()
-                shoppingSync.pending = false
-                RefreshShoppingSync()
-            end)
-        elseif event == "AUCTION_HOUSE_CLOSED" then
-            DisableShoppingSync(true)
-        end
-    end)
-end
-
-local function ToggleShoppingSync(strat, patchTag)
-    if not strat then return end
-    if shoppingSync.active and shoppingSync.stratID == strat.id and shoppingSync.patchTag == (patchTag or GAM.C.DEFAULT_PATCH) then
-        DisableShoppingSync()
-        return
-    end
-
-    local payload = CreateAuctionatorShoppingList(strat, patchTag)
-    if not payload then return end
-
-    EnsureShoppingSyncFrame()
-    shoppingSync.active = true
-    shoppingSync.stratID = strat.id
-    shoppingSync.patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    shoppingSync.lastSignature = payload.signature
-    shoppingSync.pending = false
-    shoppingSyncFrame:RegisterEvent("BAG_UPDATE_DELAYED")
-    shoppingSyncFrame:RegisterEvent("AUCTION_HOUSE_CLOSED")
-    print(string.format("|cffff8800[GAM]|r Auctionator shopping sync armed for '%s'.", strat.stratName or "strategy"))
-end
+    end,
+})
+local CreateAuctionatorShoppingList = shoppingIntegration.CreateShoppingList
+local ToggleShoppingSync = shoppingIntegration.ToggleSync
+local DisableShoppingSync = shoppingIntegration.DisableSync
 
 local function ScanSingleStrategy(strat, patchTag, callback)
     if not strat or not GAM.AHScan then return end
@@ -1430,13 +1260,13 @@ end
 local missingCrafterNoticeByProfession = {}
 
 local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
-    local stats = GAM.CraftingStatsV2
+    local stats = GAM.CraftingStats
     if not strat or not stats or not stats.OpenRecipeForStrat then return false end
     local opened, reason = stats.OpenRecipeForStrat(strat, function()
         if rpDetail.currentStrat
                 and rpDetail.currentStrat.id == strat.id then
             ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
-            MW2.RefreshRows()
+            MainWindow.RefreshRows()
         end
     end, function(asyncReason, requestedRecipeID)
         if not reportFailure then return end
@@ -1499,16 +1329,12 @@ SelectStrategyByID = function(stratID, fromHardwareEvent)
     selectedStratID = stratID
     if EnsureInlineDetailReady() then
         ShowInlineDetail(strat, filterPatch)
-    elseif GAM.UI.StratDetail then
-        GAM.UI.StratDetail.Show(strat, filterPatch)
-    end
-
-    if leftPanel and leftPanel.refreshStatEditors then
-        leftPanel.refreshStatEditors()
+    elseif GAM.UI.StrategyDetail then
+        GAM.UI.StrategyDetail.Show(strat, filterPatch)
     end
 
     if fromHardwareEvent then
-        local stats = GAM.CraftingStatsV2
+        local stats = GAM.CraftingStats
         local status = stats and stats.GetRecipeCacheStatus
             and stats.GetRecipeCacheStatus(strat)
             or nil
@@ -1538,7 +1364,7 @@ local function MakeRowFrame(parent, idx)
         applyTextShadow = ApplyTextShadow,
         toggleFavorite = ToggleFavorite,
         rebuildList = RebuildList,
-        refreshRows = MW2.RefreshRows,
+        refreshRows = MainWindow.RefreshRows,
         isFavorite = IsFavorite,
         isClickInFavoriteGutter = IsClickInFavoriteGutter,
         selectStrategyByID = SelectStrategyByID,
@@ -1579,7 +1405,7 @@ local function PopulateRow(row, strat)
 end
 
 -- ===== RefreshRows =====
-function MW2.RefreshRows()
+function MainWindow.RefreshRows()
     scrollOffset = CenterUI.RefreshRows({
         frame = frame,
         rowFrames = rowFrames,
@@ -1788,7 +1614,7 @@ RelayoutPanels = function()
     UpdateCollapseTogglePositions(false)
     RefreshCompactButtonEnabledState()
     RefreshBestStratCard()
-    MW2.RefreshRows()
+    MainWindow.RefreshRows()
     if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
         ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
     end
@@ -1817,9 +1643,6 @@ local function HideInlineDetail()
         selectedVIBreakdownBtn = selectedVIBreakdownBtn,
         selectedShoppingBtn = selectedShoppingBtn,
         onAfterHide = function()
-            if leftPanel and leftPanel.refreshStatEditors then
-                leftPanel.refreshStatEditors()
-            end
             if RefreshScanButtonLabels then
                 RefreshScanButtonLabels()
             end
@@ -1870,15 +1693,12 @@ ShowInlineDetail = function(strat, patchTag)
         refreshCompactButtonEnabledState = RefreshCompactButtonEnabledState,
         rowHeight = ROW_H,
         canOpenRecipe = function(selectedStrat)
-            local stats = GAM.CraftingStatsV2
+            local stats = GAM.CraftingStats
             return stats and stats.CanOpenRecipeForStrat
                 and stats.CanOpenRecipeForStrat(selectedStrat)
                 or false
         end,
         onAfterRender = function()
-            if leftPanel and leftPanel.refreshStatEditors then
-                leftPanel.refreshStatEditors()
-            end
             if leftPanel and leftPanel.refreshGearPlan then
                 leftPanel.refreshGearPlan()
             end
@@ -1929,14 +1749,14 @@ local function BuildInlineDetail(panel)
             if rpDetail.currentStrat then
                 SetCraftsOverride(rpDetail.currentStrat.id, rpDetail.currentPatch, text)
                 ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
-                MW2.RefreshRows()
+                MainWindow.RefreshRows()
             end
         end,
         onCommitInputQty = function(text)
             if rpDetail.currentStrat then
                 SetInputQtyOverride(rpDetail.currentStrat.id, rpDetail.currentPatch, text)
                 ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
-                MW2.RefreshRows()
+                MainWindow.RefreshRows()
             end
         end,
         onScanSelected = function()
@@ -2015,7 +1835,7 @@ local function BuildLeftPanelContent(L, C, LP)
         hasAnyEntries = HasAnyEntries,
         getSelectedFormulaProfile = GetSelectedFormulaProfile,
         rebuildList = RebuildList,
-        refreshRows = MW2.RefreshRows,
+        refreshRows = MainWindow.RefreshRows,
         relayoutPanels = RelayoutPanels,
         refreshBestStratCard = RefreshBestStratCard,
         refreshVisibleDetail = function()
@@ -2074,14 +1894,14 @@ local function BuildLeftPanelContent(L, C, LP)
         end,
         getGearStatus = function()
             local strat = GetSelectedFormulaProfile()
-            local stats = GAM.CraftingStatsV2
+            local stats = GAM.CraftingStats
             return strat and stats and stats.GetGearPresetStatus
                 and stats.GetGearPresetStatus(strat, filterPatch)
                 or nil
         end,
         setGearMode = function(mode)
             local strat = GetSelectedFormulaProfile()
-            local stats = GAM.CraftingStatsV2
+            local stats = GAM.CraftingStats
             if strat and stats and stats.SetGearModeForStrat then
                 local ok, err = stats.SetGearModeForStrat(strat, mode, filterPatch)
                 if not ok then
@@ -2090,7 +1910,7 @@ local function BuildLeftPanelContent(L, C, LP)
             end
         end,
         captureGearPreset = function(mode)
-            local stats = GAM.CraftingStatsV2
+            local stats = GAM.CraftingStats
             local snapshot, err
             if stats and stats.CaptureOpenRecipeAsGearPreset then
                 snapshot, err = stats.CaptureOpenRecipeAsGearPreset(mode)
@@ -2148,7 +1968,8 @@ local function InitializeMainFrame(L, C, layout)
     local SB_H = C.STATUS_BAR_H + 6
     local tickerHeight = GetTickerHeight(C)
 
-    frame = CreateFrame("Frame", "GoldAdvisorMidnightMainWindowV2", UIParent, "BackdropTemplate")
+    frame = CreateFrame("Frame", "GoldAdvisorMidnightMainWindow", UIParent, "BackdropTemplate")
+    _G["GoldAdvisorMidnightMainWindowV2"] = frame -- Legacy named-frame alias.
     frame:SetSize(layout.windowWidth, layout.windowHeight)
     frame:SetPoint("CENTER", UIParent, "CENTER")
     frame:SetScale(GetOpts().uiScale or 1.0)
@@ -2355,7 +2176,7 @@ local function BuildCenterContent(L, C, layout)
         getSuppressScrollCallback = function()
             return suppressScrollCallback
         end,
-        refreshRows = MW2.RefreshRows,
+        refreshRows = MainWindow.RefreshRows,
         rebuildList = RebuildList,
         getSortKey = function()
             return sortKey
@@ -2376,7 +2197,7 @@ local function BuildCenterContent(L, C, layout)
             applyTextShadow = ApplyTextShadow,
             toggleFavorite = ToggleFavorite,
             rebuildList = RebuildList,
-            refreshRows = MW2.RefreshRows,
+            refreshRows = MainWindow.RefreshRows,
             isFavorite = IsFavorite,
             isClickInFavoriteGutter = IsClickInFavoriteGutter,
             selectStrategyByID = SelectStrategyByID,
@@ -2387,12 +2208,12 @@ local function BuildCenterContent(L, C, layout)
         },
         onBestCardOpen = function(stratID)
             if SelectStrategyByID(stratID, true) then
-                MW2.RefreshRows()
+                MainWindow.RefreshRows()
             end
         end,
         onBestCardClick = function(stratID)
             SelectStrategyByID(stratID, true)
-            MW2.RefreshRows()
+            MainWindow.RefreshRows()
         end,
         dismissOnboarding = DismissOnboarding,
         doScan = DoScan,
@@ -2426,11 +2247,11 @@ end
 
 -- ===== Public API =====
 
-function MW2.RefreshProfessionDropdown()
+function MainWindow.RefreshProfessionDropdown()
     -- V2 uses segmented buttons; no dropdown to refresh
 end
 
-function MW2.OnScanProgress(done, total, isComplete)
+function MainWindow.OnScanProgress(done, total, isComplete)
     if not frame then return end
     if isComplete then
         frame.progBar:Hide()
@@ -2455,7 +2276,7 @@ function MW2.OnScanProgress(done, total, isComplete)
                 -- Performance: keep progress live, but batch the expensive
                 -- visible-row/detail repricing work while AH results are streaming.
                 -- Full re-sort happens at OnScanComplete.
-                MW2.RefreshRows()
+                MainWindow.RefreshRows()
                 if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
                     ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
                 end
@@ -2464,16 +2285,13 @@ function MW2.OnScanProgress(done, total, isComplete)
     end
 end
 
-function MW2.OnScanComplete()
+function MainWindow.OnScanComplete()
     if frame and frame:IsShown() then
         sortKey = "roi"
         sortAsc = true
         RebuildList()
-        MW2.RefreshRows()
+        MainWindow.RefreshRows()
         RefreshBestStratCard()
-        if leftPanel and leftPanel.refreshStatEditors then
-            leftPanel.refreshStatEditors()
-        end
         if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
             local refreshed = rpDetail.currentStrat.id and GAM.Importer.GetStratByID(rpDetail.currentStrat.id)
             if refreshed then
@@ -2485,7 +2303,7 @@ function MW2.OnScanComplete()
     end
 end
 
-function MW2.ApplyTheme()
+function MainWindow.ApplyTheme()
     if not frame then
         return
     end
@@ -2499,16 +2317,13 @@ function MW2.ApplyTheme()
     end
 end
 
-function MW2.Refresh()
+function MainWindow.Refresh()
     if not frame then return end
     RebuildList()
-    MW2.RefreshRows()
+    MainWindow.RefreshRows()
     RefreshBestStratCard()
     if leftPanel and leftPanel.refreshRankDropdown then
         leftPanel.refreshRankDropdown()
-    end
-    if leftPanel and leftPanel.refreshStatEditors then
-        leftPanel.refreshStatEditors()
     end
     -- Re-populate inline detail if one was showing (e.g. after strat edit/delete)
     if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
@@ -2524,7 +2339,7 @@ function MW2.Refresh()
     end
 end
 
-function MW2.Show()
+function MainWindow.Show()
     if not frame then Build() end
     if frame and builtThemeKey and builtThemeKey ~= GetThemeKey() then
         print("|cffff8800[GAM]|r Reload the UI to rebuild the selected theme layout.")
@@ -2534,7 +2349,7 @@ function MW2.Show()
     WindowManager.Present(frame)
 end
 
-function MW2.Hide(preserveRememberedState)
+function MainWindow.Hide(preserveRememberedState)
     DisableShoppingSync(true)
     if not preserveRememberedState then
         RememberWindowState(false)
@@ -2542,19 +2357,19 @@ function MW2.Hide(preserveRememberedState)
     if frame then frame:Hide() end
 end
 
-function MW2.Toggle()
+function MainWindow.Toggle()
     if not frame then Build() end
     if frame:IsShown() then
-        MW2.Hide()
+        MainWindow.Hide()
     else
-        MW2.Show()
+        MainWindow.Show()
     end
 end
 
-function MW2.IsShown()
+function MainWindow.IsShown()
     return frame and frame:IsShown()
 end
 
-function MW2.GetCurrentDetailContext()
+function MainWindow.GetCurrentDetailContext()
     return rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.canonicalResult
 end

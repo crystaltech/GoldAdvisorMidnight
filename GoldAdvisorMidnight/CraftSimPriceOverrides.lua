@@ -42,8 +42,11 @@ function Overrides.Install(Bridge, deps)
             return pdb.priceOverrides[itemID]
         end
 
-        if GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID] then
-            return GAM.C.VENDOR_PRICES[itemID]
+        local vendorPrice = GAM.VendorPrices and GAM.VendorPrices.GetPrice
+            and GAM.VendorPrices.GetPrice(itemID)
+            or (GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID])
+        if vendorPrice then
+            return vendorPrice
         end
 
         local targetQty = NormalizeQuantity(qty)

@@ -263,6 +263,39 @@ local function BuildNodeBonusTooltip(result)
     return table.concat(lines, "\n")
 end
 
+function Model.GetRankMixNotice(projection)
+    if not projection then return nil end
+    local reason = tostring(projection.rankMixReason or "live recipe data unavailable")
+    if reason == "target-quality-unreachable" then
+        local reachable = tonumber(projection.rankMixOutputQuality)
+        if projection.rankMixStatus == "reachable" and reachable and reachable > 0 then
+            local deficit = tonumber(projection.rankMixSkillDeficit)
+            if deficit and deficit > 0 then
+                return string.format(
+                    "Max rank needs %.0f more skill without Concentration. Cheapest mix for reachable rank %d verified by Blizzard.",
+                    deficit, reachable)
+            end
+            return string.format(
+                "Max rank is not reachable without Concentration at the current skill. Cheapest mix for reachable rank %d verified by Blizzard.",
+                reachable)
+        end
+        if reachable and reachable > 0 then
+            return string.format(
+                "Max rank is not reachable without Concentration at the current skill. Pricing uses reachable rank %d with all highest-rank reagents.",
+                reachable)
+        end
+        return "Max rank is not reachable without Concentration at the current skill; pricing uses the highest reachable output."
+    end
+    if projection.rankMixStatus == "verified" then
+        return "Best rank mix verified by Blizzard (no Concentration)."
+    end
+    if projection.rankMixStatus ~= "fallback" then return nil end
+
+    return string.format(
+        "Best mix not verified (%s). Open the exact recipe and click Refresh Recipe.",
+        reason)
+end
+
 function Model.Project(result)
     if type(result) ~= "table" then
         return nil, "canonical detail result must be a table"
@@ -292,6 +325,12 @@ function Model.Project(result)
         selectionNotes = result.selectionNotes,
         rankMixStatus = result.rankMixStatus,
         rankMixReason = result.rankMixReason,
+        rankMixTargetQuality = result.rankMixTargetQuality,
+        rankMixOutputQuality = result.rankMixOutputQuality,
+        rankMixHighSkill = result.rankMixHighSkill,
+        rankMixRequiredSkill = result.rankMixRequiredSkill,
+        rankMixSkillDeficit = result.rankMixSkillDeficit,
+        rankMixConcentrationCost = result.rankMixConcentrationCost,
         crafterCaption = BuildCrafterCaption(result),
         statsCaption = BuildStatsCaption(result),
         statsTooltip = BuildStatsTooltip(result),

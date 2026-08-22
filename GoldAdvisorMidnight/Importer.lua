@@ -278,14 +278,6 @@ function Importer.GetAllPatchTags()
     return tags
 end
 
-function Importer.GetProfessionCraftFacts(profession)
-    local facts = GAM_PROFESSION_CRAFTS or {}
-    if profession then
-        return facts[profession] or {}
-    end
-    return facts
-end
-
 function Importer.GetAllProfessions(patchTag)
     local profs = {}
     local seen = {}

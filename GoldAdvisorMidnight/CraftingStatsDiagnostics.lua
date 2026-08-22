@@ -1,9 +1,9 @@
 -- GoldAdvisorMidnight/CraftingStatsDiagnostics.lua
 -- Developer-facing profile reports kept separate from capture and pricing state.
--- Module: augments GAM.CraftingStatsV2
+-- Module: augments GAM.CraftingStats
 
 local ADDON_NAME, GAM = ...
-local Stats = GAM.CraftingStatsV2
+local Stats = GAM.CraftingStats
 if not Stats then return end
 
 local READY_SOURCES = {

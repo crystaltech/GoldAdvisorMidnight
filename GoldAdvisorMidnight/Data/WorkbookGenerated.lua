@@ -208,6 +208,18 @@ GAM_WORKBOOK_GENERATED = {
       sheetMCm = 0,      -- no multicraft
       sheetRs  = 0.450,  -- 0.30 * (1 + 50/100)
     },
+    jc_refine = {
+      multiKey = nil,
+      resKey = "jcCraftRes",
+      mcNodeKey = nil,
+      rsNodeKey = "jcRsNode",
+      defaultMulti = nil,
+      defaultRes = 33.000,
+      defaultMcNode = 0,
+      defaultRsNode = 50,
+      sheetMCm = 0,      -- refinement recipes do not support multicraft
+      sheetRs  = 0.450,  -- 0.30 * (1 + 50/100)
+    },
     jc_craft = {
       multiKey = "jcCraftMulti",
       resKey = "jcCraftRes",

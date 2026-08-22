@@ -593,7 +593,10 @@ local function RenderVIBreakdownWindow(win, breakdown)
     end
 
     local L = GetL()
-    local plan = VIBreakdownPlan.Build(breakdown, (GAM.C and GAM.C.VENDOR_PRICES) or {}, {
+    local vendorPrices = GAM.VendorPrices and GAM.VendorPrices.GetResolvedCatalog
+        and GAM.VendorPrices.GetResolvedCatalog()
+        or ((GAM.C and GAM.C.VENDOR_PRICES) or {})
+    local plan = VIBreakdownPlan.Build(breakdown, vendorPrices, {
         vendor = L["VI_SECTION_VENDOR"] or "Vendor Purchases",
         auction = L["VI_SECTION_AUCTION"] or "Auction House Purchases",
         craft = L["VI_SECTION_CRAFTING"] or "Crafting Order",
@@ -622,7 +625,14 @@ local function RenderVIBreakdownWindow(win, breakdown)
         metricParts[#metricParts + 1] = string.format("ROI %.1f%%", breakdown.roi)
     end
     win.summaryFS:SetText(table.concat(metricParts, "   "))
-    if breakdown.usedFallbackRows then
+    if breakdown.capacityLimited then
+        local capacityMessage = L["VI_SUMMARY_CAPACITY_LIMITED"]
+            or "Live charges limit this craft-now plan to %d of %d requested crafts."
+        win.summaryNoteFS:SetText(string.format(
+            capacityMessage,
+            tonumber(breakdown.finalCraftCapacity) or 0,
+            tonumber(breakdown.requestedFinalCraftsExecution) or 0))
+    elseif breakdown.usedFallbackRows then
         win.summaryNoteFS:SetText(L["VI_SUMMARY_FALLBACK"] or "Showing the combined shopping view because branch-by-branch VI steps are not available for this strategy.")
     else
         win.summaryNoteFS:SetText(L["VI_SUMMARY_GROUPED"] or "Buy grouped materials first, then complete the crafting order from top to bottom.")

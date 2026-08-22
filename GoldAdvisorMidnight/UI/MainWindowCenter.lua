@@ -1,12 +1,13 @@
--- GoldAdvisorMidnight/UI/MainWindowV2Center.lua
--- Shared center-panel builder and row rendering for MainWindowV2.
--- Module: GAM.UI.MainWindowV2Center
+-- GoldAdvisorMidnight/UI/MainWindowCenter.lua
+-- Shared center-panel builder and row rendering for MainWindow.
+-- Module: GAM.UI.MainWindowCenter
 
 local ADDON_NAME, GAM = ...
 GAM.UI = GAM.UI or {}
 
 local CenterUI = {}
-GAM.UI.MainWindowV2Center = CenterUI
+GAM.UI.MainWindowCenter = CenterUI
+GAM.UI.MainWindowV2Center = CenterUI -- Compatibility alias for pre-refocus callers.
 
 local function Noop()
 end

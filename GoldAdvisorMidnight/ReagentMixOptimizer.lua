@@ -27,6 +27,14 @@ local function OperationQuality(info)
     return tonumber(info.quality) or tonumber(info.craftingQuality)
 end
 
+local function OperationDifficulty(info)
+    if type(info) ~= "table" then return nil end
+    local base = tonumber(info.baseDifficulty)
+    local bonus = tonumber(info.bonusDifficulty)
+    if base == nil and bonus == nil then return nil end
+    return (base or 0) + (bonus or 0)
+end
+
 local function CallOperationInfo(recipeID, allocation)
     local api = C_TradeSkillUI and C_TradeSkillUI.GetCraftingOperationInfo
     if type(api) ~= "function" then
@@ -38,17 +46,25 @@ local function CallOperationInfo(recipeID, allocation)
     return info
 end
 
+local function CallItemInfoAPI(api, itemID)
+    if type(api) ~= "function" or not itemID then return nil end
+    local ok, value = pcall(api, { itemID = itemID })
+    if ok and value ~= nil then return value end
+    ok, value = pcall(api, itemID)
+    return ok and value or nil
+end
+
 local function GetReagentQuality(itemID, fallback)
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
     if type(api) == "function" then
-        local ok, quality = pcall(api, itemID)
-        quality = ok and tonumber(quality) or nil
+        local quality = tonumber(CallItemInfoAPI(api, itemID))
         if quality and quality > 0 then
             return quality
         end
         if quality == 0 then
-            -- Zero is Blizzard's explicit "not quality-ranked" result. Treat
-            -- every item in that selectable pool as the same unranked tier.
+            -- Zero is Blizzard's explicit unranked result. Ranked reagent calls
+            -- use the structured ItemInfo payload above, so genuine unranked
+            -- selectable pools remain one tier instead of becoming false ranks.
             return 1
         end
     end
@@ -195,9 +211,6 @@ local function ReadQualitySlots(recipeID)
             end
         end
     end
-    if #slots == 0 then
-        return nil, "recipe-has-no-ranked-reagents"
-    end
     return slots
 end
 
@@ -240,6 +253,8 @@ local function BuildLiveModel(recipeID)
         highQuality = OperationQuality(highInfo),
         lowSkill = lowSkill,
         highSkill = highSkill,
+        requiredSkill = OperationDifficulty(highInfo),
+        concentrationCost = tonumber(highInfo and highInfo.concentrationCost),
     }
 end
 
@@ -322,6 +337,54 @@ local function BuildSlotFamilies(slot, recipeView)
     return nil
 end
 
+local function BuildFamilySkillProfile(recipeID, model, slotIndex, family)
+    local slot = model.slots[slotIndex]
+    if not slot or not family then
+        return nil, nil, "invalid-rank-family"
+    end
+    if family.lowItemID == slot.lowItemID and family.highItemID == slot.highItemID then
+        return 0, slot.skillPerHighScaled
+    end
+    model.familySkillProfiles = model.familySkillProfiles or {}
+    local cacheKey = table.concat({
+        tostring(slotIndex), tostring(family.lowItemID), tostring(family.highItemID),
+    }, ":")
+    local cached = model.familySkillProfiles[cacheKey]
+    if cached then
+        return cached.baseSkill, cached.skillPerHigh
+    end
+
+    local selectedSlots = {}
+    local lowCounts = {}
+    local highCounts = {}
+    for index, current in ipairs(model.slots) do
+        selectedSlots[index] = {
+            quantity = current.quantity,
+            dataSlotIndex = current.dataSlotIndex,
+            lowItemID = index == slotIndex and family.lowItemID or current.lowItemID,
+            highItemID = index == slotIndex and family.highItemID or current.highItemID,
+        }
+        lowCounts[index] = 0
+        highCounts[index] = 0
+    end
+    highCounts[slotIndex] = slot.quantity
+
+    local lowInfo, lowReason = CallOperationInfo(recipeID, BuildAllocation(selectedSlots, lowCounts))
+    local highInfo, highReason = CallOperationInfo(recipeID, BuildAllocation(selectedSlots, highCounts))
+    local lowSkill = OperationSkill(lowInfo)
+    local highSkill = OperationSkill(highInfo)
+    if not lowSkill or not highSkill then
+        return nil, nil, lowReason or highReason or "family-operation-info-missing-skill"
+    end
+    local baseSkill = RoundSkill(lowSkill - model.lowSkill)
+    local skillPerHigh = RoundSkill((highSkill - lowSkill) / slot.quantity)
+    model.familySkillProfiles[cacheKey] = {
+        baseSkill = baseSkill,
+        skillPerHigh = skillPerHigh,
+    }
+    return baseSkill, skillPerHigh
+end
+
 -- Uses the live Blizzard operation API as the final acceptance test. The API is
 -- always called with applyConcentration=false (see CallOperationInfo).
 function Optimizer.BuildLivePlan(args)
@@ -336,9 +399,7 @@ function Optimizer.BuildLivePlan(args)
 
     local model, modelReason = GetLiveModel(recipeID)
     if not model then return nil, modelReason end
-    if (tonumber(model.highQuality) or 0) < targetQuality then
-        return nil, "target-quality-unreachable"
-    end
+    local requestedQuality = targetQuality
 
     local slotOptions = {}
     for slotIndex, slot in ipairs(model.slots) do
@@ -347,10 +408,14 @@ function Optimizer.BuildLivePlan(args)
             return nil, "rank-families-do-not-match-recipe"
         end
         local options = {}
-        for highCount = 0, slot.quantity do
-            local lowCount = slot.quantity - highCount
-            local best = nil
-            for _, family in ipairs(families) do
+        for _, family in ipairs(families) do
+            local baseSkill, skillPerHigh, profileReason =
+                BuildFamilySkillProfile(recipeID, model, slotIndex, family)
+            if baseSkill == nil or skillPerHigh == nil then
+                return nil, profileReason or "rank-family-skill-unavailable"
+            end
+            for highCount = 0, slot.quantity do
+                local lowCount = slot.quantity - highCount
                 local lowPrice, lowStale = 0, false
                 local highPrice, highStale = 0, false
                 if lowCount > 0 then
@@ -361,32 +426,27 @@ function Optimizer.BuildLivePlan(args)
                 end
                 if lowPrice ~= nil and highPrice ~= nil then
                     local cost = lowCount * lowPrice + highCount * highPrice
-                    if not best or cost < best.cost then
-                        best = {
-                            cost = cost,
-                            stale = lowStale or highStale,
-                            selection = family,
-                        }
-                    end
+                    options[#options + 1] = {
+                        highCount = highCount,
+                        skill = baseSkill + highCount * skillPerHigh,
+                        cost = cost,
+                        stale = lowStale or highStale,
+                        selection = family,
+                    }
                 end
             end
-            if not best then
-                return nil, "rank-price-unavailable"
-            end
-            options[#options + 1] = {
-                highCount = highCount,
-                skill = highCount * slot.skillPerHighScaled,
-                cost = best.cost,
-                stale = best.stale,
-                selection = best.selection,
-            }
+        end
+        if #options == 0 then
+            return nil, "rank-price-unavailable"
         end
         slotOptions[slotIndex] = options
     end
 
     local candidates = Optimizer.OptimizeTwoTier(slotOptions)
-    local validationReason = nil
-    for _, candidate in ipairs(candidates) do
+    local function GetCandidateOperation(candidate)
+        if candidate.operationChecked then
+            return candidate.operationInfo, candidate.operationReason
+        end
         local selectedSlots = {}
         for index, slot in ipairs(model.slots) do
             local selection = candidate.selections[index]
@@ -398,7 +458,46 @@ function Optimizer.BuildLivePlan(args)
             }
         end
         local allocation = BuildAllocation(selectedSlots, candidate.highCounts)
-        local info, infoReason = CallOperationInfo(recipeID, allocation)
+        candidate.operationInfo, candidate.operationReason = CallOperationInfo(recipeID, allocation)
+        candidate.operationChecked = true
+        return candidate.operationInfo, candidate.operationReason
+    end
+
+    local highestSkillCandidate = candidates[1]
+    for _, candidate in ipairs(candidates) do
+        if not highestSkillCandidate or candidate.skill > highestSkillCandidate.skill then
+            highestSkillCandidate = candidate
+        end
+    end
+    local highestInfo, highestReason = highestSkillCandidate and GetCandidateOperation(highestSkillCandidate)
+    local highestReachableQuality = OperationQuality(highestInfo) or 0
+    local highSkill = OperationSkill(highestInfo) or tonumber(model.highSkill)
+    local requiredSkill = OperationDifficulty(highestInfo) or tonumber(model.requiredSkill)
+    local concentrationCost = tonumber(highestInfo and highestInfo.concentrationCost)
+        or tonumber(model.concentrationCost)
+    local targetUnreachable = highestReachableQuality < requestedQuality
+    if targetUnreachable then
+        -- Optimize the cheapest mix that Blizzard verifies at the strongest
+        -- reachable quality, including item-family-specific reagent weights.
+        targetQuality = highestReachableQuality
+        if targetQuality <= 0 then
+            return nil, highestReason or "target-quality-unreachable", {
+                targetQuality = requestedQuality,
+                reachableQuality = highestReachableQuality,
+                lowQuality = tonumber(model.lowQuality),
+                lowSkill = tonumber(model.lowSkill),
+                highSkill = highSkill,
+                requiredSkill = requiredSkill,
+                skillDeficit = requiredSkill
+                    and math.max(0, requiredSkill - (highSkill or 0)) or nil,
+                concentrationCost = concentrationCost,
+            }
+        end
+    end
+
+    local validationReason = nil
+    for _, candidate in ipairs(candidates) do
+        local info, infoReason = GetCandidateOperation(candidate)
         validationReason = validationReason or infoReason
         if (OperationQuality(info) or 0) >= targetQuality then
             local rows = {}
@@ -416,13 +515,33 @@ function Optimizer.BuildLivePlan(args)
             end
             return {
                 recipeID = recipeID,
+                requestedQuality = requestedQuality,
                 targetQuality = targetQuality,
                 verifiedQuality = OperationQuality(info),
+                targetQualityUnreachable = targetUnreachable and true or false,
+                highestReachableQuality = highestReachableQuality,
+                lowQuality = tonumber(model.lowQuality),
+                lowSkill = tonumber(model.lowSkill),
+                highSkill = highSkill,
+                requiredSkill = requiredSkill,
+                skillDeficit = requiredSkill
+                    and math.max(0, requiredSkill - (highSkill or 0)) or nil,
+                concentrationCost = concentrationCost,
                 applyConcentration = false,
                 costPerCraft = candidate.cost,
                 stale = candidate.stale and true or false,
                 rows = rows,
-            }
+            }, targetUnreachable and "target-quality-unreachable" or nil, targetUnreachable and {
+                targetQuality = requestedQuality,
+                reachableQuality = highestReachableQuality,
+                lowQuality = tonumber(model.lowQuality),
+                lowSkill = tonumber(model.lowSkill),
+                highSkill = highSkill,
+                requiredSkill = requiredSkill,
+                skillDeficit = requiredSkill
+                    and math.max(0, requiredSkill - (highSkill or 0)) or nil,
+                concentrationCost = concentrationCost,
+            } or nil
         end
     end
     return nil, validationReason or "no-verified-allocation"
@@ -504,14 +623,20 @@ function Optimizer.ApplyPlan(recipeView, plan)
     return view
 end
 
-function Optimizer.GetHighestOutputQuality(output)
+function Optimizer.GetHighestOutputQuality(output, recipeID)
+    local recipeAPI = C_TradeSkillUI and C_TradeSkillUI.GetRecipeQualityItemIDs
+    if tonumber(recipeID) and type(recipeAPI) == "function" then
+        local ok, qualityItemIDs = pcall(recipeAPI, tonumber(recipeID))
+        if ok and type(qualityItemIDs) == "table" and #qualityItemIDs > 0 then
+            return #qualityItemIDs
+        end
+    end
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemCraftedQualityByItemInfo
     local best = nil
     for index, itemID in ipairs(output and output.itemIDs or {}) do
         local quality = nil
         if type(api) == "function" then
-            local ok, value = pcall(api, itemID)
-            if ok then quality = tonumber(value) end
+            quality = tonumber(CallItemInfoAPI(api, itemID))
         end
         if not quality or quality <= 0 then
             quality = (output and output.itemIDs and #output.itemIDs > 1) and index or nil

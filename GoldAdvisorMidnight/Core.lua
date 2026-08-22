@@ -95,6 +95,10 @@ local DB_DEFAULTS = {
     priceCache = {},
     scanState  = {},
     itemKeyDB  = {},   -- persisted full AH itemKeys discovered via browse fallback
+    vendorPriceCache = {
+        version = 1,
+        characters = {},
+    },
     v2StatCache = {
         version = 2,
         characters = {},
@@ -492,7 +496,7 @@ handlers["ADDON_LOADED"] = function(self, _, name)
     if self.AHScan then
         self.AHScan.SetScanDelay(opts.scanDelay)
         -- Centralized scan progress callback: routed through GetActiveMainWindow so all
-        -- progress events reach MainWindowV2 without individual files registering separately.
+        -- progress events reach MainWindow without individual files registering separately.
         self.AHScan.SetProgressCallback(function(done, total, isComplete)
             local win = self:GetActiveMainWindow()
             if win and win.OnScanProgress then
@@ -576,7 +580,7 @@ local function GetOrCreateAHButton()
     hl:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
     hl:SetAlpha(0.4)
     ahBtn:SetScript("OnClick", function()
-        if GAM.UI and GAM.UI.MainWindowV2 then GAM.UI.MainWindowV2.Toggle() end
+        if GAM.UI and GAM.UI.MainWindow then GAM.UI.MainWindow.Toggle() end
     end)
     ahBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -594,10 +598,10 @@ handlers["AUCTION_HOUSE_SHOW"] = function(self)
     self.ahOpen = true
     self.Log.Debug("AH opened.")
     local opts = self.db and self.db.options
-    if self.UI and self.UI.MainWindowV2
+    if self.UI and self.UI.MainWindow
             and (opts == nil or opts.rememberAHWindowState ~= false)
             and (opts == nil or opts.lastAHWindowOpen ~= false) then
-        self.UI.MainWindowV2.Show()
+        self.UI.MainWindow.Show()
     end
     GetOrCreateAHButton():Show()
     -- Pre-warm itemKey cache from persisted DB (skips slow browse on subsequent scans)
@@ -631,10 +635,44 @@ handlers["COMMODITY_SEARCH_RESULTS_UPDATED"] = function(self, _, itemID)
     end
 end
 
+handlers["COMMODITY_SEARCH_RESULTS_ADDED"] = handlers["COMMODITY_SEARCH_RESULTS_UPDATED"]
+
+handlers["COMMODITY_SEARCH_RESULTS_RECEIVED"] = function(self)
+    if self.AHScan and self.AHScan.OnCommodityResultsReceived then
+        self.AHScan.OnCommodityResultsReceived()
+    end
+end
+
 -- ===== ITEM_SEARCH_RESULTS_UPDATED =====
 handlers["ITEM_SEARCH_RESULTS_UPDATED"] = function(self, _, itemKey)
     if self.AHScan then
         self.AHScan.OnItemResults(itemKey)
+    end
+end
+
+handlers["ITEM_SEARCH_RESULTS_ADDED"] = handlers["ITEM_SEARCH_RESULTS_UPDATED"]
+
+handlers["AUCTION_HOUSE_NEW_RESULTS_RECEIVED"] = function(self, _, itemKey)
+    if self.AHScan and self.AHScan.OnNewResults then
+        self.AHScan.OnNewResults(itemKey)
+    end
+end
+
+handlers["AUCTION_HOUSE_THROTTLED_SYSTEM_READY"] = function(self)
+    if self.AHScan and self.AHScan.OnThrottleReady then
+        self.AHScan.OnThrottleReady()
+    end
+end
+
+handlers["AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED"] = function(self)
+    if self.AHScan and self.AHScan.OnThrottleMessageDropped then
+        self.AHScan.OnThrottleMessageDropped()
+    end
+end
+
+handlers["AUCTION_HOUSE_THROTTLED_MESSAGE_RESPONSE_RECEIVED"] = function(self)
+    if self.AHScan and self.AHScan.OnThrottleResponseReceived then
+        self.AHScan.OnThrottleResponseReceived()
     end
 end
 
@@ -676,8 +714,15 @@ GAM:RegisterEvent("PLAYER_LOGIN")
 GAM:RegisterEvent("AUCTION_HOUSE_SHOW")
 GAM:RegisterEvent("AUCTION_HOUSE_CLOSED")
 GAM:RegisterEvent("COMMODITY_SEARCH_RESULTS_UPDATED")
+GAM:RegisterEvent("COMMODITY_SEARCH_RESULTS_ADDED")
+GAM:RegisterEvent("COMMODITY_SEARCH_RESULTS_RECEIVED")
 GAM:RegisterEvent("ITEM_SEARCH_RESULTS_UPDATED")
+GAM:RegisterEvent("ITEM_SEARCH_RESULTS_ADDED")
 GAM:RegisterEvent("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
+GAM:RegisterEvent("AUCTION_HOUSE_NEW_RESULTS_RECEIVED")
+GAM:RegisterEvent("AUCTION_HOUSE_THROTTLED_SYSTEM_READY")
+GAM:RegisterEvent("AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED")
+GAM:RegisterEvent("AUCTION_HOUSE_THROTTLED_MESSAGE_RESPONSE_RECEIVED")
 GAM:RegisterEvent("COMMODITY_PRICE_UPDATED")
 GAM:RegisterEvent("COMMODITY_PRICE_UNAVAILABLE")
 GAM:RegisterEvent("COMMODITY_PURCHASE_SUCCEEDED")
@@ -696,8 +741,8 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
     elseif cmd == "help" then
         print("|cffff8800[GAM]|r /gam — toggle window; /gam log — support log; /gam help — commands")
     elseif cmd == "" then
-        if GAM.UI and GAM.UI.MainWindowV2 then
-            GAM.UI.MainWindowV2.Toggle()
+        if GAM.UI and GAM.UI.MainWindow then
+            GAM.UI.MainWindow.Toggle()
         end
     else
         print("|cffff8800[GAM]|r Unknown command. Use /gam help.")
@@ -708,5 +753,5 @@ end
 GAM.UI = GAM.UI or {}
 
 function GAM:GetActiveMainWindow()
-    return self.UI.MainWindowV2
+    return self.UI.MainWindow
 end

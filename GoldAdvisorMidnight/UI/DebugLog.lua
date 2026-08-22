@@ -540,7 +540,7 @@ local function FormatPercentSafe(value)
 end
 
 local function GetCurrentDetailContext()
-    local mw = GAM.UI and GAM.UI.MainWindowV2
+    local mw = GAM.UI and GAM.UI.MainWindow
     if not (mw and mw.GetCurrentDetailContext) then
         return nil, nil, nil
     end
@@ -635,9 +635,15 @@ local function DumpSelectedStrategyScans()
                     row.quantity or 0)
             end
         else
-            local vendorPrice = GAM.C and GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID] or nil
+            local vendorPrice, vendorSource
+            if GAM.VendorPrices and GAM.VendorPrices.GetPrice then
+                vendorPrice, vendorSource = GAM.VendorPrices.GetPrice(itemID)
+            else
+                vendorPrice = GAM.C and GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID] or nil
+                vendorSource = vendorPrice and "static" or nil
+            end
             if vendorPrice then
-                GAM.Log.Info("  source=vendor unit=%s", FormatPriceSafe(vendorPrice))
+                GAM.Log.Info("  source=vendor-%s unit=%s", tostring(vendorSource or "static"), FormatPriceSafe(vendorPrice))
             else
                 GAM.Log.Info("  source=no live scan rows cached")
             end

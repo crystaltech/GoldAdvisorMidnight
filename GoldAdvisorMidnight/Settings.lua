@@ -54,8 +54,8 @@ end
 -- Apply a scale factor to all main addon frames
 local function ApplyScaleToFrames(scale)
     local targets = {
-        _G["GoldAdvisorMidnightMainWindowV2"],
-        _G["GoldAdvisorMidnightStratDetail"],
+        _G["GoldAdvisorMidnightMainWindow"],
+        _G["GoldAdvisorMidnightStrategyDetail"],
         _G["GoldAdvisorMidnightDebugLog"],
         _G["GoldAdvisorMidnightShoppingList"],
     }
@@ -734,9 +734,9 @@ local function BuildPanel()
     -- ── Profession node ranks ──────────────────────────────────────────────
     local professionNodeRows = {}
     local professionNodeSections = {}
-    local professionNodeOrder = (GAM.CraftingStatsV2
-        and GAM.CraftingStatsV2.GetSupportedNodeProfessions
-        and GAM.CraftingStatsV2.GetSupportedNodeProfessions()) or { "Engineering" }
+    local professionNodeOrder = (GAM.CraftingStats
+        and GAM.CraftingStats.GetSupportedNodeProfessions
+        and GAM.CraftingStats.GetSupportedNodeProfessions()) or { "Engineering" }
     if #professionNodeOrder == 0 then
         professionNodeOrder = { "Engineering" }
     end
@@ -890,9 +890,9 @@ local function BuildPanel()
         section.frame = frame
 
         local nodeY = 0
-        local nodeData = GAM.CraftingStatsV2
-            and GAM.CraftingStatsV2.GetProfessionNodeRows
-            and GAM.CraftingStatsV2.GetProfessionNodeRows(profession)
+        local nodeData = GAM.CraftingStats
+            and GAM.CraftingStats.GetProfessionNodeRows
+            and GAM.CraftingStats.GetProfessionNodeRows(profession)
         for _, group in ipairs((nodeData and nodeData.groups) or {}) do
             local header
             nodeY, header = AddNodeGroupHeader(frame, group.label or "Nodes", nodeY)
@@ -907,16 +907,16 @@ local function BuildPanel()
 
         local btnResetCaptured = MakeButton(frame, "Use Captured", 120, 12, nodeY - 4)
         btnResetCaptured:SetScript("OnClick", function()
-            if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.ResetProfessionNodesToCaptured then
-                GAM.CraftingStatsV2.ResetProfessionNodesToCaptured(profession)
+            if GAM.CraftingStats and GAM.CraftingStats.ResetProfessionNodesToCaptured then
+                GAM.CraftingStats.ResetProfessionNodesToCaptured(profession)
             end
             if panel and panel.refresh then panel.refresh() end
         end)
 
         local btnResetDefaults = MakeButton(frame, "Use Defaults", 115, 140, nodeY - 4)
         btnResetDefaults:SetScript("OnClick", function()
-            if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.ResetProfessionNodesToDefaults then
-                GAM.CraftingStatsV2.ResetProfessionNodesToDefaults(profession)
+            if GAM.CraftingStats and GAM.CraftingStats.ResetProfessionNodesToDefaults then
+                GAM.CraftingStats.ResetProfessionNodesToDefaults(profession)
             end
             if panel and panel.refresh then panel.refresh() end
         end)
@@ -959,8 +959,8 @@ local function BuildPanel()
     local function RefreshProfessionNodeRows()
         local selectedProfession = SelectNodeProfession(currentNodeProfessionIndex)
         local selectedData = nil
-        local data = GAM.CraftingStatsV2
-            and GAM.CraftingStatsV2.GetProfessionNodeRows
+        local data = GAM.CraftingStats
+            and GAM.CraftingStats.GetProfessionNodeRows
         for _, section in ipairs(professionNodeSections) do
             local sectionData = data and data(section.profession) or nil
             if section.profession == selectedProfession then
@@ -1158,13 +1158,13 @@ local function BuildPanel()
             end
         end
 
-        if GAM.CraftingStatsV2 and GAM.CraftingStatsV2.SetManualNodeRank then
+        if GAM.CraftingStats and GAM.CraftingStats.SetManualNodeRank then
             for _, row in ipairs(professionNodeRows) do
                 if row.dirty or row.manualRank ~= nil then
                     local maxRank = tonumber(row.maxRank) or 0
                     local rank = math.max(0, math.min(maxRank,
                         math.floor(tonumber(row.box and row.box:GetText()) or 0)))
-                    GAM.CraftingStatsV2.SetManualNodeRank(row.profession, row.nodeID, rank)
+                    GAM.CraftingStats.SetManualNodeRank(row.profession, row.nodeID, rank)
                 end
             end
         end
@@ -1215,17 +1215,17 @@ local function BuildPanel()
         GAM.Log.Info("Thalassian Lumber manual price: %s", lumberPriceText)
         GAM.Log.Info("V2 pricing mode: %s", tostring(currentOpts.v2PricingMode or NormalizeV2PricingMode(nil)))
 
-        if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Refresh then
-            GAM.UI.MainWindowV2.Refresh()
+        if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.Refresh then
+            GAM.UI.MainWindow.Refresh()
         end
-        if GAM.UI and GAM.UI.StratDetail and
-            GAM.UI.StratDetail.IsShown and GAM.UI.StratDetail.Refresh and
-            GAM.UI.StratDetail.IsShown() then
-            GAM.UI.StratDetail.Refresh()
+        if GAM.UI and GAM.UI.StrategyDetail and
+            GAM.UI.StrategyDetail.IsShown and GAM.UI.StrategyDetail.Refresh and
+            GAM.UI.StrategyDetail.IsShown() then
+            GAM.UI.StrategyDetail.Refresh()
         end
 
-        if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.ApplyTheme then
-            GAM.UI.MainWindowV2.ApplyTheme()
+        if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.ApplyTheme then
+            GAM.UI.MainWindow.ApplyTheme()
         end
 
         GAM.Log.Info("Settings saved.")

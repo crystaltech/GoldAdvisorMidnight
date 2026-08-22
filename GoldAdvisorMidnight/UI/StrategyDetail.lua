@@ -1,12 +1,13 @@
--- GoldAdvisorMidnight/UI/StratDetail.lua
+-- GoldAdvisorMidnight/UI/StrategyDetail.lua
 -- Strategy detail panel: reagent table, output table, rank selector,
 -- scan buttons, 2-column metrics display (Cost/Revenue + ROI/Break-Even, centered Profit),
 -- Auctionator export, Push-to-CraftSim. Gold accent theme throughout.
--- Module: GAM.UI.StratDetail
+-- Module: GAM.UI.StrategyDetail
 
 local ADDON_NAME, GAM = ...
 local SD = {}
-GAM.UI.StratDetail = SD
+GAM.UI.StrategyDetail = SD
+GAM.UI.StratDetail = SD -- Compatibility alias for pre-refocus callers.
 local WindowManager = GAM.UI.WindowManager
 local StrategyDetailModel = GAM.UI.StrategyDetailModel
 
@@ -357,14 +358,10 @@ end
 local function RefreshSelectionNote()
     if not frame or not frame.selectionNoteFS or not currentStrat then return end
     local selectionNames = detailProjection and detailProjection.selectionNotes or nil
-    local rankMixStatus = detailProjection and detailProjection.rankMixStatus or nil
-    if rankMixStatus == "verified" then
-        frame.selectionNoteFS:SetText("Best rank mix verified by Blizzard (no Concentration).")
-        frame.selectionNoteFS:Show()
-    elseif rankMixStatus == "fallback" then
-        frame.selectionNoteFS:SetText(string.format(
-            "Best mix not verified (%s); showing the conservative all-highest-rank estimate.",
-            tostring(detailProjection.rankMixReason or "live recipe data unavailable")))
+    local model = GAM.UI and GAM.UI.StrategyDetailModel
+    local rankMixNotice = model and model.GetRankMixNotice and model.GetRankMixNotice(detailProjection)
+    if rankMixNotice then
+        frame.selectionNoteFS:SetText(rankMixNotice)
         frame.selectionNoteFS:Show()
     elseif selectionNames and #selectionNames > 0 then
         local key = (#selectionNames > 1) and "DETAIL_SELECTION_NOTE_MULTI" or "DETAIL_SELECTION_NOTE"
@@ -638,8 +635,9 @@ local function Build()
     local GR,  GG,  GB  = 1.0, 0.82, 0.0   -- gold accent
     local GDR, GDG, GDB = 0.7, 0.57, 0.0   -- dimmed gold for rules/borders
 
-    frame = CreateFrame("Frame", "GoldAdvisorMidnightStratDetail", UIParent,
-                        "BackdropTemplate")
+    frame = CreateFrame("Frame", "GoldAdvisorMidnightStrategyDetail", UIParent,
+        "BackdropTemplate")
+    _G["GoldAdvisorMidnightStratDetail"] = frame -- Legacy named-frame alias.
     frame:SetSize(WIN_W, WIN_H)
     frame:SetPoint("CENTER", UIParent, "CENTER")  -- placeholder so child scroll frames get valid width at build time
     frame:SetScale(GetUIScale())
@@ -1030,7 +1028,7 @@ local function Build()
             frame.expNoticeAnchor:ClearAllPoints()
             frame.expNoticeAnchor:SetPoint("BOTTOM", frame, "BOTTOM", 0, noticeY - 2)
         end
-        GAM.Log.Verbose("StratDetail: warning layout bounds lower=%d upper=%d chosen=%d",
+        GAM.Log.Verbose("StrategyDetail: warning layout bounds lower=%d upper=%d chosen=%d",
             lowerBound, upperBound, noticeY)
     end
     frame.RelayoutBottomButtons = RelayoutBottomButtons
@@ -1044,7 +1042,7 @@ function SD.Show(strat, patchTag)
     if not frame then Build() end
     if not positioned then
         frame:ClearAllPoints()
-        local mwF = _G["GoldAdvisorMidnightMainWindowV2"]
+        local mwF = _G["GoldAdvisorMidnightMainWindow"]
         if mwF then
             local screenW = UIParent:GetWidth()
             local mwRight = mwF:GetRight() or (screenW / 2 + 360)
@@ -1170,7 +1168,7 @@ function SD.IsShown()
 end
 
 -- ===== Inline panel mode (Phase 5 — stub) =====
--- Called by MainWindowV2 when the right panel is visible.
+-- Called by MainWindow when the right panel is visible.
 -- Currently delegates to the floating SD.Show(); full inline rendering
 -- (reparented contentHost, 340px layout) will replace this in Phase 5.
 function SD.ShowInPanel(strat, patchTag, panelFrame)

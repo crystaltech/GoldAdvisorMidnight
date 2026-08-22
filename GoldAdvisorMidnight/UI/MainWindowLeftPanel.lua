@@ -1,12 +1,13 @@
--- GoldAdvisorMidnight/UI/MainWindowV2LeftPanel.lua
--- Shared left-panel builder for MainWindowV2.
--- Module: GAM.UI.MainWindowV2LeftPanel
+-- GoldAdvisorMidnight/UI/MainWindowLeftPanel.lua
+-- Shared left-panel builder for MainWindow.
+-- Module: GAM.UI.MainWindowLeftPanel
 
 local ADDON_NAME, GAM = ...
 GAM.UI = GAM.UI or {}
 
 local LeftPanelUI = {}
-GAM.UI.MainWindowV2LeftPanel = LeftPanelUI
+GAM.UI.MainWindowLeftPanel = LeftPanelUI
+GAM.UI.MainWindowV2LeftPanel = LeftPanelUI -- Compatibility alias for pre-refocus callers.
 
 local function Noop()
 end
@@ -590,10 +591,6 @@ function LeftPanelUI.Build(args)
     local cooldownsBtn
     local selectedCraftSimBtn
     local selectedShoppingBtn
-
-    -- Compatibility no-op for callers built before manual profile-wide stat
-    -- fallbacks moved out of the primary workflow and into Settings.
-    panel.refreshStatEditors = Noop
 
     RefreshVisiblePanels = function()
         rebuildList()

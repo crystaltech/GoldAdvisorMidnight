@@ -1,5 +1,20 @@
 # Changelog — Gold Advisor Midnight
 
+## [2.0.5] — 2026-08-22
+
+- Vendor pricing now captures Blizzard's live merchant quote per character, including reputation or racial discounts, normalizes bundle prices to a unit cost, persists the last observation, and falls back to the audited catalog until that character visits a matching vendor.
+- Audited the retained Midnight vendor reagents against their lowest vendor listings: corrected Luminant Flux, Silverleaf Thread, and Embroidery Floss; added both Sunglass Vial ranks, Malleable Wireframe, and Pile of Junk; and kept them out of Auction House purchase plans.
+- Mirrored the completed 12.1 recipe reagent lists into the compact profession-craft generator facts so regenerated strategies retain the live fixes.
+- Corrected both Jewelcrafting refinement strategies to use Resourcefulness only; Multicraft is no longer included for Crystalline Glass or Dusk-Shrouded Stone refinement.
+- Moved repository-only docs, tests, tools, live-audit code, build output, and temporary data out of the installable addon directory; updated local and CI paths to preserve the verification and packaging workflows.
+- Reworked Auction House scanning into focused scan, query, and result modules; added dropped/generic/new-result event handling, cache recovery before timeout, confirmed-empty retries, bounded result pagination, stricter item-key matching, and per-target diagnostics without changing GAM's quantity-aware pricing model.
+- Corrected Best Mix fallback pricing and crafted-output rank resolution when the selected maximum rank cannot be reached without Concentration: GAM now uses Blizzard's recipe-scoped quality-to-item mapping, verifies the cheapest mixture for the highest reachable rank, values that output item, and reports the remaining skill deficit instead of repeatedly asking for a recipe refresh.
+- Kept the VI breakdown root synchronized with the canonical Best Mix allocation so its material tree, shopping plan, and economic totals use the same verified reagent ranks.
+- Made VI respect live charged-recipe and active-cooldown capacity: depleted producers are replaced by Auction House purchases of their intermediate, while partially available producers craft only their remaining charges and buy the unmet balance.
+- Fixed Midnight profession charge detection to read Blizzard's profession cooldown API, so values such as Arcanoweave Bolt's `1 / 10` available crafts now cap VI instead of being missed by the spell-charge fallback.
+- Applied that live capacity to the selected final recipe as well as intermediates: the main estimate retains the requested batch, while VI recalculates its craft-now shopping list and final step to the crafts currently available.
+- Fixed partial-capacity VI shopping so producer inputs are expanded only for the crafts actually granted by live charges; the purchased intermediate remainder is no longer accompanied by raw materials for those same blocked crafts.
+
 ## [2.0.2] — 2026-08-16
 
 ### Craft Planning

@@ -21,8 +21,8 @@ local function GetTooltipBody()
 end
 
 local function ToggleMainWindow()
-    if GAM.UI and GAM.UI.MainWindowV2 and GAM.UI.MainWindowV2.Toggle then
-        GAM.UI.MainWindowV2.Toggle()
+    if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.Toggle then
+        GAM.UI.MainWindow.Toggle()
     end
 end
 

@@ -1,4 +1,4 @@
--- GoldAdvisorMidnight/AHScan.lua
+-- GoldAdvisorMidnight/AuctionHouseScan.lua
 -- C_AuctionHouse scanning: queue, throttle, commodity + item scans,
 -- name→rank discovery via browse query, price caching, progress tracking.
 -- Module: GAM.AHScan
@@ -13,16 +13,14 @@ local RESULT_WAIT         = GAM.C.RESULT_WAIT
 local RESULT_RETRY_DELAY  = GAM.C.RESULT_RETRY_DELAY
 local MAX_RETRY           = GAM.C.MAX_RETRY
 local EVENT_PROCESS_DELAY = GAM.C.EVENT_PROCESS_DELAY
+local POLL_INTERVAL       = GAM.C.AH_POLL_INTERVAL or 0.35
+local MAX_MORE_REQUESTS   = GAM.C.AH_MAX_MORE_REQUESTS or 5
+
+local Results = assert(GAM.AuctionHouseResults, "AuctionHouseResults must load before AuctionHouseScan")
+local Query = assert(GAM.AuctionHouseQuery, "AuctionHouseQuery must load before AuctionHouseScan")
 
 local function GetOpts()
     return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
-end
-
-local function GetItemKeyDB()
-    if GAM.State and GAM.State.GetItemKeyDB then
-        return GAM.State.GetItemKeyDB()
-    end
-    return (GoldAdvisorMidnightDB and GoldAdvisorMidnightDB.itemKeyDB) or {}
 end
 
 function AHScan.SetScanDelay(d)
@@ -41,6 +39,8 @@ local scanFailCount     = 0
 local failedQueue       = {}
 local isRetryPass       = false
 local activeAttempt     = 0
+local pollToken         = 0
+local completedDiagnostics = {}
 
 -- Progress tracking
 local totalEver   = 0   -- total items ever enqueued in this scan session
@@ -65,266 +65,29 @@ local function FireProgress(isComplete)
     end
 end
 
--- ===== ItemKey cache =====
-local itemKeyCache = {}
-
-local function GetCachedItemKey(itemID)
-    if not itemID or itemID == 0 then return nil end
-    if itemKeyCache[itemID] then return itemKeyCache[itemID] end
-    -- Lazy-load from persisted DB (safety net; normally pre-warmed by PreWarmCache on AH open)
-    local saved = GetItemKeyDB()[itemID]
-    if saved then
-        local key = C_AuctionHouse.MakeItemKey(
-            itemID, saved.itemLevel or 0, saved.itemSuffix or 0, saved.battlePetSpeciesID or 0)
-        itemKeyCache[itemID] = key
-        return key
-    end
-    local key = C_AuctionHouse.MakeItemKey(itemID, 0, 0, 0)
-    itemKeyCache[itemID] = key
-    return key
-end
-
 -- Pre-warm session itemKey cache from persisted DB.
 -- Called from Core.lua on AUCTION_HOUSE_SHOW. Ensures all known full itemKeys
 -- are in the fast session cache before scanning begins.
 function AHScan.PreWarmCache()
-    local ikdb = GetItemKeyDB()
-    if not ikdb then return end
-    local n = 0
-    for id, saved in pairs(ikdb) do
-        if not itemKeyCache[id] then
-            itemKeyCache[id] = C_AuctionHouse.MakeItemKey(
-                id, saved.itemLevel or 0, saved.itemSuffix or 0, saved.battlePetSpeciesID or 0)
-            n = n + 1
-        end
-    end
+    local n = Results.PreWarmItemKeys()
     if n > 0 then
         GAM.Log.Debug("AHScan: pre-warmed %d itemKeys from DB", n)
     end
 end
 
--- ===== Runtime caches (session only) =====
-local commodityCache = {}   -- R1 commodity results
-local itemCache      = {}   -- R2/quality item results
-
 function AHScan.GetCachedResults(itemID)
-    return commodityCache[itemID]
+    return Results.GetCachedResults(itemID)
 end
 
 function AHScan.GetRawScanSnapshot(itemID)
-    if not itemID then return nil end
-
-    local source, cached
-    if commodityCache[itemID] and commodityCache[itemID].prices and #commodityCache[itemID].prices > 0 then
-        source = "commodity"
-        cached = commodityCache[itemID]
-    elseif itemCache[itemID] and itemCache[itemID].prices and #itemCache[itemID].prices > 0 then
-        source = "item"
-        cached = itemCache[itemID]
-    end
-
-    if not cached then
-        return nil
-    end
-
-    local prices = {}
-    for i, row in ipairs(cached.prices or {}) do
-        prices[i] = {
-            unitPrice = row.unitPrice,
-            quantity = row.quantity or 0,
-        }
-    end
-    table.sort(prices, function(a, b)
-        if a.unitPrice == b.unitPrice then
-            return (a.quantity or 0) > (b.quantity or 0)
-        end
-        return a.unitPrice < b.unitPrice
-    end)
-
-    return {
-        itemID = itemID,
-        source = source,
-        ts = cached.ts,
-        prices = prices,
-    }
-end
-
--- ===== Price computation =====
-
-local function NormalizeTargetQty(targetQty)
-    local qty = tonumber(targetQty) or GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
-    return math.max(1, math.floor(qty + 0.5))
-end
-
-local function EnsureResultsSorted(results)
-    if not results or results._gamSortedByUnitPrice then
-        return
-    end
-    table.sort(results, function(a, b)
-        return (a.unitPrice or math.huge) < (b.unitPrice or math.huge)
-    end)
-    results._gamSortedByUnitPrice = true
-end
-
--- ARP-style percentage trim: fill to targetQty from cheapest listings first,
--- then drop the top TRIM_PCT% most expensive of the filled units.
--- Matches ARP Tracker default (Trim: 2) and is more predictable than a
--- median-multiple approach across both deep and thin markets.
-local function ComputeStatsFromResults(results, targetQty)
-    if not results or #results == 0 then return nil end
-    targetQty = NormalizeTargetQty(targetQty)
-    EnsureResultsSorted(results)
-
-    -- Performance: this is a hot path during scan repricing.  Work directly
-    -- against listing buckets instead of allocating one temporary entry per AH
-    -- unit and sorting it on every visible-row/detail refresh.
-    local totalUnits = 0
-    local totalSum = 0
-    local minP = nil
-    local maxP = nil
-    local lastIndex = nil
-    local lastTake = 0
-
-    for i, r in ipairs(results) do
-        local price = r and r.unitPrice
-        local available = r and (r.quantity or 0) or 0
-        if price and price > 0 and available > 0 then
-            local remaining = targetQty - totalUnits
-            if remaining <= 0 then
-                break
-            end
-            local take = math.min(available, remaining)
-            if take > 0 then
-                minP = minP or price
-                maxP = price
-                totalUnits = totalUnits + take
-                totalSum = totalSum + (price * take)
-                lastIndex = i
-                lastTake = take
-            end
-        end
-    end
-
-    if totalUnits == 0 then return nil end
-
-    local trimPct   = GAM.C.TRIM_PCT or 2
-    local trimCount = math.floor(totalUnits * (trimPct / 100))
-    if trimCount >= totalUnits then trimCount = totalUnits - 1 end  -- always keep at least 1
-
-    local removedSum = 0
-    local remainingTrim = trimCount
-    local keptMaxP = maxP
-    if remainingTrim > 0 and lastIndex then
-        keptMaxP = nil
-        for i = lastIndex, 1, -1 do
-            local r = results[i]
-            local price = r and r.unitPrice
-            local rowTake = (i == lastIndex) and lastTake or (r and (r.quantity or 0) or 0)
-            if price and price > 0 and rowTake > 0 then
-                if remainingTrim <= 0 then
-                    keptMaxP = price
-                    break
-                end
-                local remove = math.min(rowTake, remainingTrim)
-                removedSum = removedSum + (remove * price)
-                remainingTrim = remainingTrim - remove
-                if remove < rowTake then
-                    keptMaxP = price
-                    break
-                end
-            end
-        end
-    end
-
-    local kept = totalUnits - trimCount
-    return (totalSum - removedSum) / kept, minP, keptMaxP or minP, kept
-end
-
-local function ComputeStatsForCache(cached, targetQty)
-    if not (cached and cached.prices and #cached.prices > 0) then
-        return nil
-    end
-
-    local normalizedQty = NormalizeTargetQty(targetQty)
-    cached.statsByQty = cached.statsByQty or {}
-    local stats = cached.statsByQty[normalizedQty]
-    if not stats then
-        local avg, minP, maxP, count = ComputeStatsFromResults(cached.prices, normalizedQty)
-        if not avg then
-            return nil
-        end
-        stats = { avg = avg, minP = minP, maxP = maxP, count = count }
-        cached.statsByQty[normalizedQty] = stats
-    end
-    return stats.avg, stats.minP, stats.maxP, stats.count
-end
-
-function AHScan.RunSmokeChecks()
-    local ok, err = pcall(function()
-        local avg, minP, maxP, kept = ComputeStatsFromResults({
-            { unitPrice = 100, quantity = 3 },
-            { unitPrice = 125, quantity = 2 },
-            { unitPrice = 150, quantity = 1 },
-        }, 4)
-        assert(type(avg) == "number" and avg > 0, "avg unavailable")
-        assert(type(minP) == "number" and minP > 0, "min unavailable")
-        assert(type(maxP) == "number" and maxP > 0, "max unavailable")
-        assert(type(kept) == "number" and kept > 0, "kept unavailable")
-
-        local weightedAvg = ComputeStatsFromResults({
-            { unitPrice = 100, quantity = 1 },
-            { unitPrice = 1000, quantity = 10 },
-        }, 11)
-        assert(weightedAvg and weightedAvg > 800,
-            string.format("stack weighting regressed: got %s expected > 800", tostring(weightedAvg)))
-    end)
-    return ok, err
+    return Results.GetRawScanSnapshot(itemID)
 end
 
 -- ComputePriceForQty: average unit price for `requiredQty` units using live
 -- session caches (commodity → item) then persisted raw as fallback.
 -- Returns avg in copper, or nil if no raw data is available.
 function AHScan.ComputePriceForQty(itemID, requiredQty)
-    if not itemID or not requiredQty or requiredQty <= 0 then return nil end
-    -- 1. Live commodity session cache (R1 items)
-    local cached = commodityCache[itemID]
-    if cached and cached.prices and #cached.prices > 0 then
-        return ComputeStatsForCache(cached, requiredQty)
-    end
-    -- 2. Live item session cache (R2 quality items)
-    local icached = itemCache[itemID]
-    if icached and icached.prices and #icached.prices > 0 then
-        return ComputeStatsForCache(icached, requiredQty)
-    end
-    -- 3. Persisted raw from last session (via Pricing module)
-    if GAM.Pricing and GAM.Pricing.GetRawCache then
-        local raw = GAM.Pricing.GetRawCache(itemID)
-        if raw and #raw > 0 then
-            return ComputeStatsFromResults(raw, requiredQty)
-        end
-    end
-    return nil
-end
-
--- ===== Commodity result reader =====
-
-local function ReadCommodityResults(itemID, targetQty)
-    if targetQty == nil then
-        -- Use configured fill qty.
-        -- An explicit caller-supplied targetQty (non-nil) is always honoured unchanged.
-        targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
-    end
-    local numResults = C_AuctionHouse.GetNumCommoditySearchResults(itemID)
-    if not numResults or numResults == 0 then return nil end
-    local raw = {}
-    for i = 1, numResults do
-        local r = C_AuctionHouse.GetCommoditySearchResultInfo(itemID, i)
-        if not r then break end
-        raw[#raw + 1] = { unitPrice = r.unitPrice, quantity = r.quantity or 0 }
-    end
-    local cached = { prices = raw, ts = time() }
-    commodityCache[itemID] = cached
-    return ComputeStatsForCache(cached, targetQty)
+    return Results.ComputePriceForQty(itemID, requiredQty)
 end
 
 -- ===== Queue helpers =====
@@ -402,12 +165,13 @@ end
 -- ITEM_SEARCH_RESULTS_UPDATED for non-commodities — both handlers wired in Core.
 
 local function SendPriceQuery(entry)
-    local itemKey = GetCachedItemKey(entry.itemID)
+    local itemKey = Results.GetCachedItemKey(entry.itemID)
     if not itemKey then
         GAM.Log.Warn("AHScan: no itemKey for itemID=%d", entry.itemID)
         return false
     end
-    local ok = pcall(C_AuctionHouse.SendSearchQuery, itemKey, {}, false)
+    entry.queryItemKey = itemKey
+    local ok = Query.SendSearch(itemKey)
     if ok then
         lastQueryTime = GetTime()
         GAM.Log.Debug("AHScan: query itemID=%d", entry.itemID)
@@ -420,16 +184,7 @@ end
 -- ===== Query sender: name/browse scan =====
 
 local function SendBrowseQuery(entry)
-    local ok = pcall(function()
-        C_AuctionHouse.SendBrowseQuery({
-            searchString     = entry.name,
-            minLevel         = 0,
-            maxLevel         = 0,
-            filters          = {},
-            itemClassFilters = {},
-            sorts            = {},
-        })
-    end)
+    local ok = Query.SendBrowse(entry.name)
     if ok then
         lastQueryTime = GetTime()
         GAM.Log.Debug("AHScan: browse query '%s'", entry.name)
@@ -451,22 +206,30 @@ end
 
 local function InvalidatePendingAttempt()
     activeAttempt = activeAttempt + 1
+    pollToken = pollToken + 1
     waitingForResults = false
     pendingEntry = nil
 end
 
-local function CompleteFailure(entry)
+local function SaveDiagnostic(entry, outcome)
+    completedDiagnostics[#completedDiagnostics + 1] = Query.Snapshot(entry, outcome)
+end
+
+local function CompleteFailure(entry, outcome)
+    Query.Record(entry, "COMPLETE", outcome or "failed")
+    SaveDiagnostic(entry, outcome or "failed")
     scanFailCount = scanFailCount + 1
     doneCount     = doneCount + 1
     FireProgress(false)
 end
 
-local function RetryOrCompleteFailure(entry)
+local function RetryOrCompleteFailure(entry, outcome)
     if not entry.isNameScan and not isRetryPass then
+        Query.Record(entry, "RETRY_QUEUED", outcome or "failed")
         failedQueue[#failedQueue + 1] = entry
         return
     end
-    CompleteFailure(entry)
+    CompleteFailure(entry, outcome)
 end
 
 local function PauseScanForAHClose()
@@ -481,6 +244,188 @@ local function PauseScanForAHClose()
     scanning = false
     if ticker then ticker:Cancel(); ticker = nil end
     GAM.Log.Info(GAM.L["SCAN_AH_CLOSED"])
+end
+
+local ScheduleAttemptTimeout
+local SchedulePendingPoll
+local BeginBrowseFallback
+
+local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
+    local targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+    local avg, minPrice, maxPrice, count
+    if resultType == "commodity" then
+        avg, minPrice, maxPrice, count = Results.StoreCommodityRows(entry.itemID, rows, targetQty)
+    else
+        avg, minPrice, maxPrice, count = Results.StoreItemRows(entry.itemID, rows, targetQty)
+        if avg then avg = math.floor(avg) end
+    end
+    if not avg then return false end
+
+    GAM.Pricing.StorePrice(entry.itemID, avg, minPrice)
+    if entry.callback then
+        pcall(entry.callback, entry.itemID, avg, minPrice, maxPrice, count)
+    end
+    entry.lastResultType = resultType
+    entry.depthComplete = depthComplete and true or false
+    Query.Record(entry, "COMPLETE", depthComplete and resultType or (resultType .. "_partial"))
+    SaveDiagnostic(entry, depthComplete and resultType or (resultType .. "_partial"))
+    scanSuccessCount = scanSuccessCount + 1
+    doneCount = doneCount + 1
+    pollToken = pollToken + 1
+    waitingForResults = false
+    pendingEntry = nil
+    GAM.Log.Debug("AHScan: price itemID=%d avg=%d source=%s depth=%s",
+        entry.itemID, math.floor(avg), resultType, tostring(depthComplete))
+    FireProgress(false)
+    return true
+end
+
+local function RequestMoreIfNeeded(entry, attempt, resultType, rows)
+    local targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+    local listed = Results.GetListedQuantity(rows)
+    local full = Query.HasFullResults(resultType, entry.itemID, entry.resultItemKey or entry.queryItemKey)
+    if listed >= targetQty or full == true or (entry.moreRequests or 0) >= MAX_MORE_REQUESTS then
+        return false, full == true or listed >= targetQty
+    end
+
+    local ok, nowFull = Query.RequestMoreResults(
+        resultType, entry.itemID, entry.resultItemKey or entry.queryItemKey)
+    if not ok or nowFull ~= false then
+        return false, nowFull == true
+    end
+
+    entry.moreRequests = (entry.moreRequests or 0) + 1
+    Query.Record(entry, "MORE", resultType .. ":" .. tostring(listed))
+    -- A new page is a new pending phase. Renewing the attempt invalidates the
+    -- previous timeout and delayed result callbacks.
+    activeAttempt = activeAttempt + 1
+    local nextAttempt = activeAttempt
+    ScheduleAttemptTimeout(entry, nextAttempt)
+    SchedulePendingPoll(entry, nextAttempt, POLL_INTERVAL)
+    return true, false
+end
+
+local function TryProcessAvailableResults(entry, attempt, preferredType)
+    if not IsCurrentAttempt(entry, attempt) then return false end
+    local types = preferredType and { preferredType } or { "commodity", "item" }
+    for _, resultType in ipairs(types) do
+        local rows
+        if resultType == "commodity" then
+            rows = Results.ReadCommodityRows(entry.itemID)
+        else
+            rows = Results.ReadItemRows(entry.resultItemKey or entry.queryItemKey)
+        end
+        if #rows > 0 then
+            Query.Record(entry, "CACHE_ROWS", resultType .. ":" .. tostring(#rows))
+            local waitingForMore, depthComplete = RequestMoreIfNeeded(entry, attempt, resultType, rows)
+            if waitingForMore then return true end
+            return CompletePriceSuccess(entry, resultType, rows, depthComplete)
+        end
+    end
+    return false
+end
+
+local function RetryEmptySearch(entry)
+    if entry.emptyResultRetrySent or not Query.IsThrottleReady() then return false end
+    entry.emptyResultRetrySent = true
+    entry.moreRequests = 0
+    entry.queryAttempts = (entry.queryAttempts or 0) + 1
+    Query.Record(entry, "EMPTY_RETRY")
+    local ok = Query.SendSearch(entry.queryItemKey)
+    if not ok then
+        Query.Record(entry, "EMPTY_RETRY_SEND_FAILED")
+        return false
+    end
+    lastQueryTime = GetTime()
+    activeAttempt = activeAttempt + 1
+    local nextAttempt = activeAttempt
+    ScheduleAttemptTimeout(entry, nextAttempt)
+    SchedulePendingPoll(entry, nextAttempt, POLL_INTERVAL)
+    return true
+end
+
+local function HandleConfirmedEmpty(entry, attempt, resultType)
+    if not IsCurrentAttempt(entry, attempt) then return end
+    Query.Record(entry, "EMPTY", resultType)
+    if RetryEmptySearch(entry) then return end
+    if resultType == "commodity" and not entry.browseFallbackUsed then
+        BeginBrowseFallback(entry)
+        return
+    end
+    waitingForResults = false
+    pendingEntry = nil
+    CompleteFailure(entry, "confirmed_empty")
+end
+
+SchedulePendingPoll = function(entry, attempt, delay)
+    pollToken = pollToken + 1
+    local token = pollToken
+    C_Timer.After(delay or POLL_INTERVAL, function()
+        if token ~= pollToken or not IsCurrentAttempt(entry, attempt) then return end
+        if TryProcessAvailableResults(entry, attempt) then return end
+        SchedulePendingPoll(entry, attempt, POLL_INTERVAL)
+    end)
+end
+
+ScheduleAttemptTimeout = function(entry, attempt)
+    C_Timer.After(RESULT_WAIT, function()
+        if not IsCurrentAttempt(entry, attempt) then return end
+        Query.Record(entry, "TIMEOUT")
+        if not Query.IsThrottleReady() then
+            Query.Record(entry, "THROTTLE_WAIT")
+            ScheduleAttemptTimeout(entry, attempt)
+            return
+        end
+        -- Blizzard can populate the result cache without delivering the
+        -- item-specific event. Always inspect it before retrying or failing.
+        if not entry.isNameScan and TryProcessAvailableResults(entry, attempt) then return end
+        if entry.isNameScan or entry.isBrowseFallback then
+            waitingForResults = false
+            pendingEntry = nil
+            RetryOrCompleteFailure(entry, "timeout")
+            return
+        end
+        HandleConfirmedEmpty(entry, attempt, entry.lastResultType or "commodity")
+    end)
+end
+
+BeginBrowseFallback = function(entry)
+    entry.browseFallbackUsed = true
+    entry.isBrowseFallback = true
+    entry.name = entry.name or GetItemInfo(entry.itemID)
+    if not entry.name then
+        waitingForResults = false
+        pendingEntry = nil
+        CompleteFailure(entry, "confirmed_empty")
+        return false
+    end
+
+    Query.Record(entry, "BROWSE_FALLBACK", entry.name)
+    activeAttempt = activeAttempt + 1
+    local attempt = activeAttempt
+    local browseWait = math.max(0, SCAN_DELAY - (GetTime() - lastQueryTime))
+    C_Timer.After(browseWait, function()
+        if not IsCurrentAttempt(entry, attempt) then return end
+        if not GAM.ahOpen then
+            PauseScanForAHClose()
+            return
+        end
+        if not Query.IsThrottleReady() then
+            Query.Record(entry, "BROWSE_THROTTLED")
+            waitingForResults = false
+            pendingEntry = nil
+            RetryOrCompleteFailure(entry, "browse_throttled")
+            return
+        end
+        if not SendBrowseQuery(entry) then
+            waitingForResults = false
+            pendingEntry = nil
+            RetryOrCompleteFailure(entry, "browse_send_failed")
+            return
+        end
+        ScheduleAttemptTimeout(entry, attempt)
+    end)
+    return true
 end
 
 local function ProcessNextInQueue()
@@ -516,7 +461,7 @@ local function ProcessNextInQueue()
 
     local now = GetTime()
     if (now - lastQueryTime) < SCAN_DELAY then return end
-    if not C_AuctionHouse.IsThrottledMessageSystemReady() then
+    if not Query.IsThrottleReady() then
         GAM.Log.Debug(GAM.L["SCAN_THROTTLED"])
         return
     end
@@ -527,13 +472,14 @@ local function ProcessNextInQueue()
     waitingForResults = true
     activeAttempt     = activeAttempt + 1
     local attempt     = activeAttempt
+    Query.NewDiagnostic(entry, attempt)
 
     if entry.isNameScan then
         local sent = SendBrowseQuery(entry)
         if not sent then
             waitingForResults = false
             pendingEntry      = nil
-            CompleteFailure(entry)
+            CompleteFailure(entry, "send_failed")
             return
         end
     else
@@ -541,31 +487,15 @@ local function ProcessNextInQueue()
         if not sent then
             waitingForResults = false
             pendingEntry      = nil
-            RetryOrCompleteFailure(entry)
+            RetryOrCompleteFailure(entry, "send_failed")
             return
         end
     end
 
-    -- Safety timeout (attempt-aware). Commodity browse escalation renews the
-    -- active attempt, making this price-query timeout a no-op before installing
-    -- its own fallback timeout.
-    local capturedRetry    = isRetryPass  -- capture now; avoids double-counting
-    C_Timer.After(RESULT_WAIT, function()
-        if IsCurrentAttempt(entry, attempt) then
-            GAM.Log.Warn("AHScan: timeout for %s",
-                entry.isNameScan and ("'"..entry.name.."'") or
-                (entry.name
-                    and string.format("'%s' (itemID=%d)", entry.name, entry.itemID)
-                    or  ("itemID="..entry.itemID)))
-            waitingForResults = false
-            pendingEntry      = nil
-            if entry.isNameScan or capturedRetry then
-                CompleteFailure(entry)
-            else
-                failedQueue[#failedQueue + 1] = entry
-            end
-        end
-    end)
+    ScheduleAttemptTimeout(entry, attempt)
+    if not entry.isNameScan then
+        SchedulePendingPoll(entry, attempt, POLL_INTERVAL)
+    end
 end
 
 -- ===== Event callbacks (called from Core.lua) =====
@@ -574,184 +504,91 @@ end
 function AHScan.OnCommodityResults(itemID)
     if not waitingForResults then return end
     if not pendingEntry or pendingEntry.isNameScan then return end
-    if pendingEntry.itemID ~= itemID then return end
+    if tonumber(pendingEntry.itemID) ~= tonumber(itemID) then return end
 
     local entry = pendingEntry
     local attempt = activeAttempt
+    entry.lastResultType = "commodity"
+    Query.Record(entry, "COMMODITY_UPDATED", tostring(itemID))
 
-    C_Timer.After(EVENT_PROCESS_DELAY, function()
-        local function TryRead(attemptsLeft)
-            if not IsCurrentAttempt(entry, attempt) then return end
-            local avg, minP, maxP, count = ReadCommodityResults(entry.itemID)
-            if avg then
-                GAM.Pricing.StorePrice(entry.itemID, avg, minP)
-                if entry.callback then
-                    pcall(entry.callback, entry.itemID, avg, minP, maxP, count)
-                end
-                scanSuccessCount  = scanSuccessCount + 1
-                doneCount         = doneCount + 1
-                waitingForResults = false
-                pendingEntry      = nil
-                GAM.Log.Debug("AHScan: price itemID=%d avg=%d", entry.itemID, math.floor(avg))
-                FireProgress(false)
-            elseif attemptsLeft > 0 then
-                C_Timer.After(RESULT_RETRY_DELAY, function() TryRead(attemptsLeft - 1) end)
-            else
-                -- ── All retries exhausted with zero commodity rows. ──
-                -- Attempt a ONE-TIME browse fallback (if not already used).
-                -- The browse returns the actual itemKey as indexed in the AH,
-                -- which may have non-zero quality/suffix fields that
-                -- MakeItemKey(id,0,0,0) strips — that is the root cause of
-                -- zero-row responses for quality-tier commodities.
-                if not entry.browseFallbackUsed then
-                    entry.browseFallbackUsed = true
-                    entry.isBrowseFallback   = true
-
-                    -- Resolve item name for the browse query.
-                    local name = entry.name
-                    if not name then
-                        -- GetItemInfo returns name as its first value (sync, uses client cache).
-                        name = (GetItemInfo(entry.itemID))
-                    end
-
-                    if name then
-                        entry.name = name
-                        GAM.Log.Info(
-                            "AHScan: zero commodity rows itemID=%d → browse fallback '%s'",
-                            entry.itemID, name)
-
-                        -- Renew the attempt so the original price-query timeout
-                        -- cannot complete this browse fallback.
-                        activeAttempt = activeAttempt + 1
-                        attempt = activeAttempt
-                        C_Timer.After(RESULT_WAIT, function()
-                            if IsCurrentAttempt(entry, attempt) then
-                                GAM.Log.Warn(
-                                    "AHScan: browse fallback timeout itemID=%d '%s'",
-                                    entry.itemID, entry.name)
-                                waitingForResults = false
-                                pendingEntry      = nil
-                                RetryOrCompleteFailure(entry)
-                            end
-                        end)
-
-                        -- Honour SCAN_DELAY pacing before sending the browse query.
-                        -- Use elapsed-aware wait: by the time TryRead retries exhaust
-                        -- (~2.8s), most of SCAN_DELAY has already passed.
-                        local browseWait = math.max(0, SCAN_DELAY - (GetTime() - lastQueryTime))
-                        C_Timer.After(browseWait, function()
-                            -- Guards: entry could have been cancelled by StopScan/AHClosed.
-                            if not IsCurrentAttempt(entry, attempt) then return end
-                            if not GAM.ahOpen then
-                                PauseScanForAHClose()
-                                return
-                            end
-                            if not C_AuctionHouse.IsThrottledMessageSystemReady() then
-                                -- Throttled — put in failedQueue for the retry pass.
-                                GAM.Log.Debug(
-                                    "AHScan: throttled during browse fallback itemID=%d",
-                                    entry.itemID)
-                                waitingForResults = false
-                                pendingEntry      = nil
-                                RetryOrCompleteFailure(entry)
-                                return
-                            end
-                            local ok = SendBrowseQuery(entry)
-                            if not ok then
-                                waitingForResults = false
-                                pendingEntry      = nil
-                                RetryOrCompleteFailure(entry)
-                            end
-                            -- On success: waitingForResults stays true.
-                            -- OnBrowseResults() will handle the result.
-                        end)
-                        return  -- defer failure; waiting for OnBrowseResults
-                    else
-                        GAM.Log.Warn(
-                            "AHScan: zero commodity rows itemID=%d, no name for browse fallback",
-                            entry.itemID)
-                    end
-                end
-
-                -- No fallback attempted (name unavailable) or fallback already used
-                -- on a previous attempt → normal failure path.
-                GAM.Log.Warn("AHScan: no commodity results itemID=%d", entry.itemID)
-                waitingForResults = false
-                pendingEntry      = nil
-                RetryOrCompleteFailure(entry)
-            end
+    local function TryRead(attemptsLeft)
+        if not IsCurrentAttempt(entry, attempt) then return end
+        if TryProcessAvailableResults(entry, attempt, "commodity") then return end
+        if attemptsLeft > 0 then
+            C_Timer.After(RESULT_RETRY_DELAY, function() TryRead(attemptsLeft - 1) end)
+        else
+            HandleConfirmedEmpty(entry, attempt, "commodity")
         end
-        TryRead(MAX_RETRY - 1)
-    end)
+    end
+    C_Timer.After(EVENT_PROCESS_DELAY, function() TryRead(MAX_RETRY - 1) end)
+end
+
+function AHScan.OnCommodityResultsReceived()
+    if not (waitingForResults and pendingEntry and not pendingEntry.isNameScan) then return end
+    pendingEntry.lastResultType = "commodity"
+    Query.Record(pendingEntry, "COMMODITY_RECEIVED")
+    SchedulePendingPoll(pendingEntry, activeAttempt, 0.05)
 end
 
 -- ITEM_SEARCH_RESULTS_UPDATED → price data for a non-commodity item
 function AHScan.OnItemResults(itemKey)
     if not waitingForResults then return end
     if not pendingEntry or pendingEntry.isNameScan then return end
-
-    -- Stray-result guard: other addons (or a previous timed-out query) can
-    -- trigger ITEM_SEARCH_RESULTS_UPDATED.  Verify the returned itemKey matches
-    -- what we actually queried before processing the results.
-    if itemKey and itemKey.itemID and pendingEntry.itemID ~= 0 then
-        if itemKey.itemID ~= pendingEntry.itemID then
-            GAM.Log.Debug(
-                "AHScan: OnItemResults stray itemID=%d (expected %d), ignoring",
-                itemKey.itemID, pendingEntry.itemID)
-            return
-        end
-    end
+    if not Query.ItemKeysMatch(pendingEntry.queryItemKey, itemKey) then return end
 
     local entry = pendingEntry
     local attempt = activeAttempt
+    entry.lastResultType = "item"
+    entry.resultItemKey = itemKey
+    Query.Record(entry, "ITEM_UPDATED",
+        tostring(itemKey.itemID) .. ":" .. tostring(itemKey.itemLevel or 0))
 
-    C_Timer.After(EVENT_PROCESS_DELAY, function()
+    local function TryRead(attemptsLeft)
         if not IsCurrentAttempt(entry, attempt) then return end
-        -- GetNumItemSearchResults and GetItemSearchResultInfo both require the
-        -- itemKey that was searched (confirmed: AuctionHouseDocumentation.lua).
-        local numResults = C_AuctionHouse.GetNumItemSearchResults(itemKey)
-        if not numResults or numResults == 0 then
-            waitingForResults = false
-            pendingEntry      = nil
-            RetryOrCompleteFailure(entry)
-            return
-        end
-        -- Collect per-unit prices and weight them by stack quantity so the
-        -- simulated fill reflects units available on the AH, not just listing count.
-        local raw = {}
-        for i = 1, numResults do
-            local r = C_AuctionHouse.GetItemSearchResultInfo(itemKey, i)
-            if r and r.buyoutAmount and r.buyoutAmount > 0 then
-                -- buyoutAmount is the total stack price; divide by quantity for per-unit.
-                local qty = r.quantity or 1
-                raw[#raw + 1] = { unitPrice = math.floor(r.buyoutAmount / qty), quantity = qty }
-            end
-        end
-        -- Use configured fill qty.
-        local targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
-
-        local cached = { prices = raw, ts = time() }
-        itemCache[entry.itemID] = cached
-
-        local avg, minP, maxP, count = ComputeStatsForCache(cached, targetQty)
-        if avg then
-            local price = math.floor(avg)
-            GAM.Pricing.StorePrice(entry.itemID, price, minP)
-            if entry.callback then
-                pcall(entry.callback, entry.itemID, price, minP, maxP, count)
-            end
-            scanSuccessCount  = scanSuccessCount + 1
-            doneCount         = doneCount + 1
-            waitingForResults = false
-            pendingEntry      = nil
-            GAM.Log.Debug("AHScan: price itemID=%d avg=%d", entry.itemID, price)
-            FireProgress(false)
+        if TryProcessAvailableResults(entry, attempt, "item") then return end
+        if attemptsLeft > 0 then
+            C_Timer.After(RESULT_RETRY_DELAY, function() TryRead(attemptsLeft - 1) end)
         else
-            waitingForResults = false
-            pendingEntry      = nil
-            RetryOrCompleteFailure(entry)
+            HandleConfirmedEmpty(entry, attempt, "item")
         end
-    end)
+    end
+    C_Timer.After(EVENT_PROCESS_DELAY, function() TryRead(MAX_RETRY - 1) end)
+end
+
+function AHScan.OnThrottleReady()
+    if waitingForResults and pendingEntry and not pendingEntry.isNameScan then
+        SchedulePendingPoll(pendingEntry, activeAttempt, 0)
+    else
+        ProcessNextInQueue()
+    end
+end
+
+function AHScan.OnThrottleMessageDropped()
+    if not (waitingForResults and pendingEntry) then return end
+    local entry = pendingEntry
+    Query.Record(entry, "DROPPED")
+    waitingForResults = false
+    pendingEntry = nil
+    pollToken = pollToken + 1
+    RetryOrCompleteFailure(entry, "message_dropped")
+end
+
+function AHScan.OnThrottleResponseReceived()
+    if not (waitingForResults and pendingEntry and not pendingEntry.isNameScan) then
+        ProcessNextInQueue()
+        return
+    end
+    Query.Record(pendingEntry, "GENERIC_RESPONSE")
+    SchedulePendingPoll(pendingEntry, activeAttempt, 0.05)
+end
+
+function AHScan.OnNewResults(itemKey)
+    if not (waitingForResults and pendingEntry and not pendingEntry.isNameScan) then return end
+    if itemKey and not Query.ItemKeysMatch(pendingEntry.queryItemKey, itemKey) then return end
+    if itemKey then pendingEntry.resultItemKey = itemKey end
+    Query.Record(pendingEntry, "NEW_RESULTS",
+        tostring(itemKey and itemKey.itemID or "-") .. ":" .. tostring(itemKey and itemKey.itemLevel or "-"))
+    SchedulePendingPoll(pendingEntry, activeAttempt, 0.05)
 end
 
 -- AUCTION_HOUSE_BROWSE_RESULTS_UPDATED
@@ -804,19 +641,7 @@ function AHScan.OnBrowseResults()
                         -- Overwrite cached itemKey with the full struct from the AH —
                         -- may include itemSuffix/quality fields that MakeItemKey(id,0,0,0)
                         -- zeroes out. Re-queued scan picks up the corrected key.
-                        itemKeyCache[id] = result.itemKey
-                        -- Persist full key to SavedVariables so future sessions skip browse
-                        local ik = result.itemKey
-                        if ik and (ik.itemLevel ~= 0 or ik.itemSuffix ~= 0 or ik.battlePetSpeciesID ~= 0) then
-                            local ikdb = GetItemKeyDB()
-                            if ikdb then
-                                ikdb[id] = {
-                                    itemLevel          = ik.itemLevel or 0,
-                                    itemSuffix         = ik.itemSuffix or 0,
-                                    battlePetSpeciesID = ik.battlePetSpeciesID or 0,
-                                }
-                            end
-                        end
+                        Results.StoreDiscoveredItemKey(result.itemKey)
 
                         -- For the original itemID: clear de-dup so it can be re-queued
                         -- with the corrected key.  Use noFallback=true so it doesn't
@@ -841,11 +666,15 @@ function AHScan.OnBrowseResults()
                     "AHScan: browse fallback queued price scans for itemID=%d '%s'",
                     entry.itemID, tostring(entry.name))
                 scanSuccessCount = scanSuccessCount + 1
+                Query.Record(entry, "COMPLETE", "browse_discovery")
+                SaveDiagnostic(entry, "browse_discovery")
             else
                 GAM.Log.Warn(
                     "AHScan: browse fallback empty for itemID=%d '%s'",
                     entry.itemID, tostring(entry.name))
                 scanFailCount = scanFailCount + 1
+                Query.Record(entry, "COMPLETE", "browse_empty")
+                SaveDiagnostic(entry, "browse_empty")
                 -- Do NOT re-add to failedQueue — the browse was the last resort.
             end
             doneCount         = doneCount + 1
@@ -893,6 +722,8 @@ function AHScan.OnBrowseResults()
 
         scanSuccessCount  = scanSuccessCount + 1
         doneCount         = doneCount + 1
+        Query.Record(entry, "COMPLETE", "name_discovery")
+        SaveDiagnostic(entry, "name_discovery")
         waitingForResults = false
         pendingEntry      = nil
         FireProgress(false)
@@ -1111,6 +942,30 @@ function AHScan.GetQueueSnapshot()
     return out
 end
 
+function AHScan.GetDiagnostics()
+    local out = {}
+    for index, diagnostic in ipairs(completedDiagnostics) do
+        local copy = {
+            itemID = diagnostic.itemID,
+            name = diagnostic.name,
+            outcome = diagnostic.outcome,
+            duration = diagnostic.duration,
+            queryAttempts = diagnostic.queryAttempts,
+            moreRequests = diagnostic.moreRequests,
+            events = {},
+        }
+        for eventIndex, event in ipairs(diagnostic.events or {}) do
+            copy.events[eventIndex] = {
+                at = event.at,
+                event = event.event,
+                detail = event.detail,
+            }
+        end
+        out[index] = copy
+    end
+    return out
+end
+
 -- Reset queuing dedup tables (call before building a new scan queue)
 function AHScan.ResetQueue()
     scanning = false
@@ -1124,7 +979,7 @@ function AHScan.ResetQueue()
     nameScanQueued  = {}
     totalEver       = 0
     doneCount       = 0
-    -- Clear session caches so old raw arrays are GC'd before the next scan
-    wipe(commodityCache)
-    wipe(itemCache)
+    completedDiagnostics = {}
+    -- Clear session caches so old raw arrays are GC'd before the next scan.
+    Results.ClearSessionCaches()
 end

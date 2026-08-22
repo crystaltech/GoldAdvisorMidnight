@@ -23,7 +23,7 @@ local PROFESSION_REGISTRY = {
     { name = "Enchanting",     enumName = "Enchanting",     skillLineID = 333, profKey = "ench", profiles = { "ench_shatter", "ench_craft" }, aliases = { "enchant", "ench" } },
     { name = "Engineering",    enumName = "Engineering",    skillLineID = 202, profKey = "eng",  profiles = { "engineering_recycling", "engineering_craft" }, aliases = { "engineer", "eng" } },
     { name = "Inscription",    enumName = "Inscription",    skillLineID = 773, profKey = "insc", profiles = { "insc_milling", "insc_ink", "insc_missive_estimated", "insc_codified" }, aliases = { "inscription", "insc" } },
-    { name = "Jewelcrafting",  enumName = "Jewelcrafting",  skillLineID = 755, profKey = "jc",   profiles = { "jc_prospect", "jc_crush", "jc_craft" }, aliases = { "jewelcraft", "jc" } },
+    { name = "Jewelcrafting",  enumName = "Jewelcrafting",  skillLineID = 755, profKey = "jc",   profiles = { "jc_prospect", "jc_crush", "jc_refine", "jc_craft" }, aliases = { "jewelcraft", "jc" } },
     { name = "Leatherworking", enumName = "Leatherworking", skillLineID = 165, profKey = "lw",   profiles = { "leatherworking" }, aliases = { "leather", "lw" } },
     { name = "Tailoring",      enumName = "Tailoring",      skillLineID = 197, profKey = "tail", profiles = { "tailoring" }, aliases = { "tailor", "tail" } },
 }
@@ -36,7 +36,7 @@ for _, profession in ipairs(PROFESSION_REGISTRY) do
 end
 
 GAM.C = {
-    ADDON_VERSION        = "2.0.4",
+    ADDON_VERSION        = "2.0.5",
     DATA_VERSION         = 18,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",
@@ -46,7 +46,7 @@ GAM.C = {
     PROFESSION_SKILL_LINES = PROFESSION_SKILL_LINES,
 
     -- Legacy spreadsheet compatibility only. Exhaust Materials reads the
-    -- CraftSim-derived constants owned by PricingV2Formula/CraftingStatsV2.
+    -- CraftSim-derived constants owned by PricingFormula/CraftingStats.
     BASE_MCM             = 1.25,
     BASE_RS              = 0.30,
 
@@ -59,6 +59,8 @@ GAM.C = {
     RESULT_RETRY_DELAY   = 0.5,    -- between retry attempts
     MAX_RETRY            = 5,
     EVENT_PROCESS_DELAY  = 0.8,    -- wait after event before reading results
+    AH_POLL_INTERVAL     = 0.35,   -- cache polling when Blizzard omits a result event
+    AH_MAX_MORE_REQUESTS = 5,      -- bounded result-depth pagination per query
     SCAN_UI_REFRESH_INTERVAL = 2.0, -- debounce expensive row/detail repricing while scans are active
 
     -- Pricing
@@ -127,7 +129,7 @@ GAM.C = {
     -- Matches ARP Tracker default (Trim: 2). Range 0–100; 0 = no trim.
     TRIM_PCT                 = 2,
 
-    -- ── New UI (MainWindowV2) layout constants ────────────────────────────
+    -- ── New UI (MainWindow) layout constants ────────────────────────────
     MAIN_WIN_W              = 1080,  -- total frame width
     MAIN_WIN_H              = 680,   -- total frame height (increased to fit profession dropdown + ticker)
     LEFT_PANEL_W            = 190,   -- left panel (tools/scan)
@@ -138,13 +140,19 @@ GAM.C = {
 
     -- Best Strategy scoring thresholds
 
-    -- Vendor-purchasable items: static buy prices in copper.
-    -- Checked in GetEffectivePrice after manual overrides — no AH scan needed.
+    -- Vendor-purchasable items: static lowest-listing buy prices in copper.
+    -- A faction-linked merchant can quote a higher price when the character
+    -- lacks its reputation discount. Checked after manual overrides, before AH.
     VENDOR_PRICES = {
+        [240990] = 27500,  -- Sunglass Vial         (2g 75s)
+        [240991] = 27500,  -- Sunglass Vial         (2g 75s)
         [245881] = 2105,   -- Lexicologist's Vellum (21s 5c)
         [245882] = 3595,   -- Thalassian Songwater  (35s 95c)
-        [243060] = 5000,   -- Luminant Flux         (50s)
-        [251665] = 5000,   -- Silverleaf Thread     (50s)
+        [243060] = 3000,   -- Luminant Flux         (30s)
+        [251665] = 700,    -- Silverleaf Thread     (7s)
+        [251691] = 700,    -- Embroidery Floss      (7s)
+        [253302] = 2105,   -- Malleable Wireframe   (21s 5c)
+        [253303] = 2105,   -- Pile of Junk          (21s 5c)
         [242643] = 860,    -- A Big Ol' Stick of Butter (8s 60c)
         [242641] = 1010,   -- Cooking Spirits          (10s 10c)
         [242644] = 770,    -- Mana-Wyrm Essence        (7s 70c)

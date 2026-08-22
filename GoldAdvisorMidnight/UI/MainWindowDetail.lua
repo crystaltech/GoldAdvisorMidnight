@@ -1,12 +1,13 @@
--- GoldAdvisorMidnight/UI/MainWindowV2Detail.lua
--- Shared inline-detail builder/renderer for MainWindowV2.
--- Module: GAM.UI.MainWindowV2Detail
+-- GoldAdvisorMidnight/UI/MainWindowDetail.lua
+-- Shared inline-detail builder/renderer for MainWindow.
+-- Module: GAM.UI.MainWindowDetail
 
 local ADDON_NAME, GAM = ...
 GAM.UI = GAM.UI or {}
 
 local Detail = {}
-GAM.UI.MainWindowV2Detail = Detail
+GAM.UI.MainWindowDetail = Detail
+GAM.UI.MainWindowV2Detail = Detail -- Compatibility alias for pre-refocus callers.
 local VIBreakdownWindow = GAM.UI.VIBreakdownWindow
 local CrushingAnalyzerWindow = GAM.UI.CrushingAnalyzerWindow
 
@@ -265,13 +266,11 @@ function Detail.Render(args)
     if rpDetail.outputSummaryFrame then rpDetail.outputSummaryFrame:Hide() end
     if rpDetail.outputSummaryLabelFS then rpDetail.outputSummaryLabelFS:Hide() end
     if rpDetail.notesFS then
-        if projection.rankMixStatus == "verified" then
-            rpDetail.notesFS:SetText("|cff55ff55Best rank mix verified by Blizzard (no Concentration).|r")
-            rpDetail.notesFS:Show()
-        elseif projection.rankMixStatus == "fallback" then
-            rpDetail.notesFS:SetText(string.format(
-                "|cffffaa33Best mix fallback: %s. Click Refresh Recipe to capture the breakpoint.|r",
-                tostring(projection.rankMixReason or "live recipe data unavailable")))
+        local model = GAM.UI and GAM.UI.StrategyDetailModel
+        local notice = model and model.GetRankMixNotice and model.GetRankMixNotice(projection)
+        if notice then
+            local color = projection.rankMixStatus == "verified" and "|cff55ff55" or "|cffffaa33"
+            rpDetail.notesFS:SetText(color .. notice .. "|r")
             rpDetail.notesFS:Show()
         else
             rpDetail.notesFS:Hide()
