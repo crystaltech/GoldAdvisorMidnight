@@ -1,7 +1,15 @@
-GoldAdvisorMidnight/docs/
-GoldAdvisorMidnight/tests/
-GoldAdvisorMidnight/tools/
+.vscode/
+.github/
+.gitattributes
+data/
+docs/
+tests/
+tools/
 __pycache__/
+**/__pycache__/
 *.py[cod]
 tmp/
+output/
+backups/
 .DS_Store
+GoldAdvisorMidnight/Install GoldAdvisorMidnight.command
