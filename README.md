@@ -74,31 +74,8 @@ To save a gear setup, equip it, open the exact Blizzard recipe, and use `Save MC
 - `/gam log` opens the copyable support log.
 - `/gam help` lists the available commands.
 
-## Development
-
-The installable addon is in `GoldAdvisorMidnight/`. Generated source data, tests, tools, and documentation remain outside the shipped addon folder.
-
-Run the complete verification gate from the repository root:
-
-```text
-python tools/verify.py
-```
-
-Build a release package from the addon directory:
-
-```text
-python ../tools/package_release.py
-```
-
-Additional documentation:
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Translation guide](docs/TRANSLATING.md)
-- [Auction House scan test](docs/INGAME_AUCTION_SCAN_TEST.md)
-- [Third-party notices](docs/THIRD_PARTY_NOTICES.md)
-- [Release history](CHANGELOG.md)
-
 ## Support
 
+- [Release history](CHANGELOG.md)
 - Discord: https://discord.gg/v7vsCKCsFh
 - For unexpected results, include the output from `/gam log`.
