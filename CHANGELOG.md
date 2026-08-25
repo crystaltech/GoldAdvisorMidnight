@@ -1,9 +1,14 @@
 # Changelog — Gold Advisor Midnight
 
+## [2.0.6] — 2026-08-24
+
+- Fixed crafted R2 Sunglass Vials incorrectly inheriting the R1 vendor price; R2 now uses its own Auction House or crafting value and is no longer classified as a vendor purchase.
+- Fixed `Refresh Recipe` stats reverting after switching strategies when an older CraftSim snapshot existed; refreshed Blizzard Multicraft and Resourcefulness values now persist per recipe without discarding CraftSim's richer formula metadata.
+
 ## [2.0.5] — 2026-08-22
 
 - Vendor pricing now captures Blizzard's live merchant quote per character, including reputation or racial discounts, normalizes bundle prices to a unit cost, persists the last observation, and falls back to the audited catalog until that character visits a matching vendor.
-- Audited the retained Midnight vendor reagents against their lowest vendor listings: corrected Luminant Flux, Silverleaf Thread, and Embroidery Floss; added both Sunglass Vial ranks, Malleable Wireframe, and Pile of Junk; and kept them out of Auction House purchase plans.
+- Audited the retained Midnight vendor reagents against their lowest vendor listings: corrected Luminant Flux, Silverleaf Thread, and Embroidery Floss; added the vendor-sold R1 Sunglass Vial, Malleable Wireframe, and Pile of Junk; and kept them out of Auction House purchase plans.
 - Mirrored the completed 12.1 recipe reagent lists into the compact profession-craft generator facts so regenerated strategies retain the live fixes.
 - Corrected both Jewelcrafting refinement strategies to use Resourcefulness only; Multicraft is no longer included for Crystalline Glass or Dusk-Shrouded Stone refinement.
 - Moved repository-only docs, tests, tools, live-audit code, build output, and temporary data out of the installable addon directory; updated local and CI paths to preserve the verification and packaging workflows.

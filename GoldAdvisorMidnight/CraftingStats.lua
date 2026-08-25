@@ -205,6 +205,35 @@ local function ShouldPreserveExistingSnapshot(existing, incoming)
     return existingSource == "manual" and IsCraftSimSnapshot(incoming)
 end
 
+local function MergeRefreshedVisibleStats(existing, incoming)
+    local merged = CopySnapshot(existing)
+    if not merged then return nil end
+
+    -- CraftSim may own richer recipe metadata and formula constants, but the
+    -- Blizzard recipe form is authoritative for the stats produced by the
+    -- gear currently equipped by this crafter. Keep the CraftSim identity and
+    -- hidden data while remembering the explicitly refreshed visible values.
+    for _, field in ipairs({
+        "recipeName",
+        "profession",
+        "profileKey",
+        "multiPercent",
+        "resPercent",
+        "supportsMulticraft",
+        "supportsResourcefulness",
+        "toolFingerprint",
+        "equipmentNote",
+        "skillLineID",
+        "parentSkillLineID",
+    }) do
+        if incoming[field] ~= nil then
+            merged[field] = incoming[field]
+        end
+    end
+    merged.capturedAt = incoming.capturedAt or GetCurrentTimestamp()
+    return merged
+end
+
 local function ApplySnapshotToDefaults(defaults, snapshot, statSource, fallbackReason, includeHiddenNodeState)
     if includeHiddenNodeState == nil then
         includeHiddenNodeState = true
@@ -442,7 +471,7 @@ local GetOpenProfessionDef = NativeCapture.GetOpenProfessionDef
 local OpenProfessionMatches = NativeCapture.OpenProfessionMatches
 local GetOpenNativeProfessionNodeRanks = NativeCapture.GetOpenProfessionNodeRanks
 
-function Stats.SaveSnapshot(snapshot)
+function Stats.SaveSnapshot(snapshot, saveOptions)
     local normalized = CopySnapshot(snapshot)
     if not normalized or not normalized.profileKey then
         return false, "missing-profile"
@@ -461,10 +490,17 @@ function Stats.SaveSnapshot(snapshot)
     if normalized.recipeID then
         local recipeKey = tostring(normalized.recipeID)
         character.recipeValidatedAt[recipeKey] = GetCurrentTimestamp()
-        if ShouldPreserveExistingSnapshot(character.recipes[recipeKey], normalized) then
+        local recipeSnapshot = normalized
+        local existingRecipe = character.recipes[recipeKey]
+        if saveOptions and saveOptions.preferVisibleStats
+                and IsCraftSimSnapshot(existingRecipe)
+                and not IsCraftSimSnapshot(normalized) then
+            recipeSnapshot = MergeRefreshedVisibleStats(existingRecipe, normalized)
+        end
+        if ShouldPreserveExistingSnapshot(existingRecipe, recipeSnapshot) then
             preservedExisting = true
-        elseif not SnapshotMateriallyEqual(character.recipes[recipeKey], normalized) then
-            character.recipes[recipeKey] = CopySnapshot(normalized)
+        elseif not SnapshotMateriallyEqual(existingRecipe, recipeSnapshot) then
+            character.recipes[recipeKey] = CopySnapshot(recipeSnapshot)
             changed = true
         end
     end
@@ -672,7 +708,7 @@ function Stats.CaptureOpenRecipe(expectedRecipeID)
     if expectedID and visibleID ~= expectedID then
         return nil, "open-recipe-mismatch:" .. tostring(visibleID or "unknown")
     end
-    local ok, err = Stats.SaveSnapshot(snapshot)
+    local ok, err = Stats.SaveSnapshot(snapshot, { preferVisibleStats = true })
     if not ok then
         return nil, err
     end

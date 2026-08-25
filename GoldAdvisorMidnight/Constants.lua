@@ -36,7 +36,7 @@ for _, profession in ipairs(PROFESSION_REGISTRY) do
 end
 
 GAM.C = {
-    ADDON_VERSION        = "2.0.5",
+    ADDON_VERSION        = "2.0.6",
     DATA_VERSION         = 18,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",
@@ -144,8 +144,7 @@ GAM.C = {
     -- A faction-linked merchant can quote a higher price when the character
     -- lacks its reputation discount. Checked after manual overrides, before AH.
     VENDOR_PRICES = {
-        [240990] = 27500,  -- Sunglass Vial         (2g 75s)
-        [240991] = 27500,  -- Sunglass Vial         (2g 75s)
+        [240991] = 27500,  -- Sunglass Vial R1      (2g 75s); R2 (240990) is crafted-only
         [245881] = 2105,   -- Lexicologist's Vellum (21s 5c)
         [245882] = 3595,   -- Thalassian Songwater  (35s 95c)
         [243060] = 3000,   -- Luminant Flux         (30s)
