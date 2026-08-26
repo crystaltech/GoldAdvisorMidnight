@@ -1,5 +1,9 @@
 # Changelog — Gold Advisor Midnight
 
+## [2.0.7] — 2026-08-26
+
+- Fixed ranked processing outputs falling back to item-ID array order when Blizzard's crafted-output quality APIs do not describe multi-output recipes. R1 prospecting now selects R1 Crystalline Glass across Copper, Tin, Silver, and Thorium, and the same live reagent-quality fallback protects reverse-ordered Sanguithorn and Mana Lily pigments.
+
 ## [2.0.6] — 2026-08-24
 
 - Fixed crafted R2 Sunglass Vials incorrectly inheriting the R1 vendor price; R2 now uses its own Auction House or crafting value and is no longer classified as a vendor purchase.

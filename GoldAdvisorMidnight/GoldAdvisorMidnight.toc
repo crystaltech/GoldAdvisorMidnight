@@ -2,7 +2,7 @@
 ## Title: Gold Advisor Midnight
 ## Category: Professions
 ## Notes: Crafting profit advisor for WoW Midnight. Scans AH, computes ROI per strategy.
-## Version: 2.0.6
+## Version: 2.0.7
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled

@@ -49,10 +49,19 @@ local function GetExplicitItemQualityRank(itemID)
     return nil
 end
 
+local function GetPositiveReagentQualityRank(itemID)
+    if not itemID or itemID == 0 then return nil end
+    RequestItemData(itemID)
+    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+    local quality = tonumber(CallItemInfoAPI(api, itemID))
+    return quality and quality > 0 and quality or nil
+end
+
 -- Crafted outputs and recipe reagents use different Blizzard quality APIs.
--- Calling GetItemReagentQualityByItemInfo for a crafted output can return 0,
--- which means "not a ranked reagent", not output rank 1.  Keep this lookup
--- output-specific so distinct crafted ranks do not collapse onto the first ID.
+-- Prefer the crafted-output APIs, then use the reagent-quality API for ranked
+-- processing outputs such as pigments, gems, and prospecting byproducts.  A
+-- reagent-quality result of 0 means "not a ranked reagent", not output rank 1,
+-- so only a positive result is safe as the fallback.
 local function GetExplicitOutputQualityRank(itemID)
     if not itemID or itemID == 0 then return nil end
     RequestItemData(itemID)
@@ -63,10 +72,11 @@ local function GetExplicitOutputQualityRank(itemID)
         if quality and quality > 0 then return quality end
     end
     local legacyAPI = C_TradeSkillUI and C_TradeSkillUI.GetItemCraftedQualityByItemInfo
-    if type(legacyAPI) ~= "function" then return nil end
-    local quality = tonumber(CallItemInfoAPI(legacyAPI, itemID))
-    if quality and quality > 0 then return quality end
-    return nil
+    if type(legacyAPI) == "function" then
+        local quality = tonumber(CallItemInfoAPI(legacyAPI, itemID))
+        if quality and quality > 0 then return quality end
+    end
+    return GetPositiveReagentQualityRank(itemID)
 end
 
 local function GetRecipeQualityItemIDs(recipeID)
@@ -193,6 +203,14 @@ end
 
 local function FindItemIDByQuality(itemIDs, desiredQuality, recipeID)
     if not desiredQuality or not itemIDs then return nil end
+    -- Processing recipes can expose several ranked reagent outputs under one
+    -- recipe ID. Their per-item reagent rank is more specific than a recipe's
+    -- single crafted-output mapping, so honor it first when it is available.
+    for _, id in ipairs(itemIDs) do
+        if GetPositiveReagentQualityRank(id) == desiredQuality then
+            return id
+        end
+    end
     local recipeQualityIDs = GetRecipeQualityItemIDs(recipeID)
     local recipeItemID = recipeQualityIDs and recipeQualityIDs[desiredQuality]
     if recipeItemID and ContainsItemID(itemIDs, recipeItemID) then
