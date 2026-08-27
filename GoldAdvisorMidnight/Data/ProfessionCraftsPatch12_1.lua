@@ -72,6 +72,24 @@ Add("Alchemy", {
     },
 })
 
+Add("Cooking", {
+    id = "cooking__feast_of_knowledge__midnight_1",
+    name = "Feast of Knowledge",
+    patchTag = "midnight-1",
+    recipeID = 1295777,
+    formulaProfile = "cooking",
+    inputs = {
+        { itemRef = "Coiled Stargorger", itemIDs = { 274591 }, amount = 10 },
+        { itemRef = "Sulfurous Sludgefish", itemIDs = { 274590 }, amount = 20 },
+        { itemRef = "Thalassian Fillet", itemIDs = { 253403 }, amount = 50 },
+        { itemRef = "Cursebound Globe", itemIDs = { 274781 }, amount = 3 },
+        { itemRef = "Petrified Root", itemIDs = { 251285 }, amount = 1 },
+    },
+    outputs = {
+        { itemRef = "Feast of Knowledge", itemIDs = { 275266 }, baseAmount = 2 },
+    },
+})
+
 Add("Enchanting", {
     id = "enchanting__rite_of_the_hashey__midnight_1",
     name = "Enchant Weapon - Rite of the Hash'ey",

@@ -1,5 +1,9 @@
 # Changelog — Gold Advisor Midnight
 
+## [2.0.8] — 2026-08-27
+
+- Added the missing Feast of Knowledge Cooking strategy with its live 12.1 recipe ID, output, base yield, and complete reagent list.
+
 ## [2.0.7] — 2026-08-26
 
 - Fixed ranked processing outputs falling back to item-ID array order when Blizzard's crafted-output quality APIs do not describe multi-output recipes. R1 prospecting now selects R1 Crystalline Glass across Copper, Tin, Silver, and Thorium, and the same live reagent-quality fallback protects reverse-ordered Sanguithorn and Mana Lily pigments.

@@ -4,15 +4,15 @@
 -- Structural validation: Wago ItemSparse.
 GAM_COMMODITY_MANIFEST = {
   schemaVersion = 1,
-  rawStrategyCount = 606,
+  rawStrategyCount = 607,
   disabledStrategyCount = 25,
-  strategyCount = 282,
+  strategyCount = 283,
   excludedStrategyCount = 324,
-  itemCount = 477,
+  itemCount = 478,
   professionCounts = {
     ["Alchemy"] = 30,
     ["Blacksmithing"] = 8,
-    ["Cooking"] = 41,
+    ["Cooking"] = 42,
     ["Enchanting"] = 77,
     ["Engineering"] = 26,
     ["Inscription"] = 31,
@@ -53,6 +53,7 @@ GAM_COMMODITY_MANIFEST = {
     "alchemy__vicious_thalassian_flask_of_honor__midnight_1 group base:1: rejected item IDs 241335",
     "reviewed commodity exception 271889: 12.1 Alluring Nostrum Q1; live unbound stackable output",
     "reviewed commodity exception 271890: 12.1 Alluring Nostrum Q2; live unbound stackable output",
+    "reviewed commodity exception 275266: 12.1 Feast of Knowledge; live unbound stackable output",
   },
   itemIDs = {
     [236949] = true,
@@ -529,6 +530,7 @@ GAM_COMMODITY_MANIFEST = {
     [272195] = true,
     [273071] = true,
     [273072] = true,
+    [275266] = true,
     [275676] = true,
     [277968] = true,
     [277969] = true,
