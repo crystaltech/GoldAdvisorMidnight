@@ -249,6 +249,18 @@ local HIDDEN_NODE_BONUS_STATS = {
     reagentssavedfromresourcefulness = "resourcefulness",
 }
 
+local function IsPricingModifierNode(node)
+    if type(node) ~= "table" or type(node.stats) ~= "table" then
+        return false
+    end
+    for statKey in pairs(node.stats) do
+        if HIDDEN_NODE_BONUS_STATS[statKey] then
+            return true
+        end
+    end
+    return false
+end
+
 local function AddNodeBonusContribution(details, node, rank, statKey, statValue)
     local bucketKey = HIDDEN_NODE_BONUS_STATS[statKey]
     local bucket = bucketKey and details[bucketKey] or nil
@@ -455,6 +467,7 @@ Specialization.IsProfile = IsSpecializationProfile
 Specialization.GetProfessionForProfile = GetProfessionForProfile
 Specialization.ClampRank = ClampRank
 Specialization.GetCatalogNode = GetCatalogNode
+Specialization.IsPricingModifierNode = IsPricingModifierNode
 Specialization.EnsureNodeState = EnsureProfessionNodeState
 Specialization.BuildNodeHash = BuildNodeHash
 Specialization.ApplyNodeState = ApplySpecializationNodeState

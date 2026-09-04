@@ -325,10 +325,7 @@ local function FindProducerMatch(ctx, itemID, state)
                 if tracker and type(tracker.GetImmediateCraftCapacity) == "function" then
                     craftCapacity, capacityReason = tracker.GetImmediateCraftCapacity(strat.recipeID)
                 end
-                if craftCapacity ~= nil and craftCapacity <= 0 then
-                    -- Try another producer, if one exists. A depleted charged or
-                    -- actively cooling recipe cannot satisfy this dependency now.
-                else
+                if craftCapacity == nil or craftCapacity > 0 then
                     return {
                         key = key,
                         strat = strat,
@@ -338,6 +335,8 @@ local function FindProducerMatch(ctx, itemID, state)
                         craftCapacityReason = capacityReason,
                     }
                 end
+                -- Try another producer, if one exists. A depleted charged or
+                -- actively cooling recipe cannot satisfy this dependency now.
             end
         end
     end
@@ -643,7 +642,6 @@ end
 
 local function BuildDirectDisplayReagentMetrics(ctx, modelReagents)
     local rows = {}
-    local inputPolicy = GetInputRankPolicy(ctx.strat)
 
     for index, reagent in ipairs(ctx.active.reagents or {}) do
         local requiredRaw = GetRequiredReagentAmountRaw(reagent, ctx.startingAmt, ctx.crafts)
@@ -661,7 +659,6 @@ local function BuildDirectDisplayReagentMetrics(ctx, modelReagents)
         local totalCost = model and model.totalCost or nil
         local totalCostFull = model and model.totalCostFull or nil
         local isStale = model and model.isStale or false
-        local missingPrice = model and model.missingPrice or false
         local sourceNote = nil
 
         if ctx.chainActive and resolvedEntry and not resolvedEntry.excludeFromCost and not resolvedEntry.skipDerivation then
@@ -681,14 +678,12 @@ local function BuildDirectDisplayReagentMetrics(ctx, modelReagents)
                         totalCostFull = nil
                         totalCost = nil
                         unitPrice = nil
-                        missingPrice = true
                     elseif chainMetrics.totalCostRequired and chainMetrics.totalCostRequired > 0 then
                         totalCostFull = chainMetrics.totalCostRequired
                         totalCost = chainMetrics.totalCostToBuy
                         unitPrice = (requiredRaw and requiredRaw > 0)
                             and math.floor((chainMetrics.totalCostRequired / requiredRaw) + 0.5)
                             or unitPrice
-                        missingPrice = false
                     end
                     isStale = chainMetrics.hasStale
                     sourceNote = "via " .. tostring(producer.strat and producer.strat.stratName or "craft chain")
@@ -705,7 +700,7 @@ local function BuildDirectDisplayReagentMetrics(ctx, modelReagents)
         if not totalCost and unitPrice then
             totalCost = excludeFromCost and 0 or ((needToBuy == 0) and 0 or (needToBuy * unitPrice))
         end
-        missingPrice = (not excludeFromCost) and (needToBuy > 0) and not unitPrice
+        local missingPrice = (not excludeFromCost) and (needToBuy > 0) and not unitPrice
 
         rows[#rows + 1] = {
             name = displayName,

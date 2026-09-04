@@ -25,27 +25,6 @@ function CrushingAnalyzerWindow.GetCompactHeight(rowCount)
         math.min(CRUSHING_MAX_AUTO_H, CRUSHING_CHROME_H + (rowCount * CRUSHING_ROW_H)))
 end
 
-local function AddThousandsSeparators(text)
-    local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.%d+)?$")
-    if not digits then
-        return tostring(text or "")
-    end
-    return sign .. digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "") .. (frac or "")
-end
-
-local function FormatQuantityValue(value)
-    if value == nil then
-        return "0"
-    end
-    local number = tonumber(value) or 0
-    local rounded = math.floor(number + 0.5)
-    if math.abs(number - rounded) < 0.05 then
-        return AddThousandsSeparators(tostring(rounded))
-    end
-    local valueText = string.format("%.1f", number):gsub("0+$", ""):gsub("%.$", "")
-    return AddThousandsSeparators(valueText)
-end
-
 local crushingWindow
 local crushingRows = {}
 
@@ -263,7 +242,7 @@ local function RenderCrushingAnalyzer(win, analyzer)
     if shownCount > 0 then
         win.emptyFS:Hide()
     else
-        win.emptyFS:SetText("No eligible gems were available for crushing comparison.")
+        win.emptyFS:SetText(GAM.L["CRUSHING_NO_GEMS"])
         win.emptyFS:Show()
     end
     win.listHost:SetHeight(math.max(1, shownCount * CRUSHING_ROW_H))
@@ -336,7 +315,7 @@ local function EnsureCrushingWindow()
 
     local title = crushingWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", crushingWindow, "TOP", 0, -14)
-    title:SetText("Crushing Analyzer")
+    title:SetText(GAM.L["CRUSHING_TITLE"])
     title:SetTextColor(DEFAULT_GOLD[1], DEFAULT_GOLD[2], DEFAULT_GOLD[3])
     crushingWindow.titleFS = title
 

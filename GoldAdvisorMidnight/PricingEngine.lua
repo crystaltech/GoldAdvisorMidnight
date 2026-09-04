@@ -59,7 +59,6 @@ function Engine.Install(Pricing, deps)
     local GetPrimaryInputQuality = deps.GetPrimaryInputQuality
     local GetOutputPriceQty = deps.GetOutputPriceQty
     local GetOutputPriceForItem = deps.GetOutputPriceForItem
-    local GetOutputItemIDForDisplay = deps.GetOutputItemIDForDisplay
     local GetInputRankPolicy = deps.GetInputRankPolicy
     local QuantizeRequiredAmount = deps.QuantizeRequiredAmount
     local ResolveGraphNodeEntry = deps.ResolveGraphNodeEntry
@@ -402,7 +401,7 @@ function Engine.Install(Pricing, deps)
 
         for _, outputDef in ipairs(ctx.active.outputs) do
             local outputQtyRaw, outputQty, formulaResult = ComputeV2OutputQuantity(outputDef, ctx)
-            local price, stale = GetOutputPriceForItem(
+            local price, stale, outputItemID = GetOutputPriceForItem(
                 outputDef, ctx.patchTag, outputPreferredQuality, priceQty, ctx.strat and ctx.strat.recipeID)
             if stale then
                 hasStale = true
@@ -416,8 +415,7 @@ function Engine.Install(Pricing, deps)
             end
             outResults[#outResults + 1] = {
                 name = GetItemLabel(outputDef),
-                itemID = GetOutputItemIDForDisplay(
-                    outputDef, ctx.patchTag, outputPreferredQuality, ctx.strat and ctx.strat.recipeID),
+                itemID = outputItemID,
                 unitPrice = price,
                 expectedQty = outputQty,
                 expectedQtyRaw = outputQtyRaw,
@@ -443,7 +441,7 @@ function Engine.Install(Pricing, deps)
         local outputPreferredQuality = ctx.reachableOutputQuality
             or ((ctx.strat.outputQualityMode == "match_input") and primaryQuality or nil)
         local priceQty = GetOutputPriceQty(ctx)
-        local outPrice, outStale = GetOutputPriceForItem(
+        local outPrice, outStale, outputItemID = GetOutputPriceForItem(
             primaryOut, ctx.patchTag, outputPreferredQuality, priceQty, ctx.strat and ctx.strat.recipeID)
         local outMissingPrice = not outPrice
         local isMultiOutput = ctx.active.outputs and #ctx.active.outputs > 1
@@ -461,8 +459,7 @@ function Engine.Install(Pricing, deps)
             outputQtyRaw = outputQtyRaw,
             output = {
                 name = GetItemLabel(primaryOut),
-                itemID = GetOutputItemIDForDisplay(
-                    primaryOut, ctx.patchTag, outputPreferredQuality, ctx.strat and ctx.strat.recipeID),
+                itemID = outputItemID,
                 unitPrice = outPrice,
                 expectedQty = outputQty,
                 expectedQtyRaw = outputQtyRaw,
@@ -884,8 +881,8 @@ function Engine.Install(Pricing, deps)
         local available = stats and stats.GetAvailableGearPresetModes
             and stats.GetAvailableGearPresetModes(strat)
             or { multicraft = false, resourcefulness = false }
-        local resolved = nil
-        local metrics = nil
+        local resolved
+        local metrics
 
         if requested == "multicraft" or requested == "resourcefulness" then
             resolved = available[requested] and requested or "current"

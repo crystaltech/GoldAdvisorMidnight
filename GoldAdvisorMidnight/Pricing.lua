@@ -6,17 +6,12 @@ local ADDON_NAME, GAM = ...
 local Pricing = {}
 GAM.Pricing = Pricing
 local Derivation = GAM.PricingDerivation or {}
-local BuildCalcContext, BuildMergedReagentMap, BuildReagentMetrics, BuildDisplayReagentMetrics, BuildOutputMetrics, BuildFinalMetrics
-local BuildEconomicReagentMetrics
+local BuildCalcContext, BuildMergedReagentMap, BuildReagentMetrics, BuildDisplayReagentMetrics
 local GetOutputBaseYield, GetOutputQuantityBasis, ComputeOutputQuantity, BuildProfileContext
-local GetFormulaV2, GetV2ExpectedOutputPerCraft
+local GetV2ExpectedOutputPerCraft
 local PrepareOptimizedRecipeView
 
 -- ===== Internal helpers =====
-
-local function GetDB()
-    return (GAM.GetDB and GAM:GetDB()) or GAM.db
-end
 
 local function GetOpts()
     return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
@@ -176,7 +171,6 @@ local GetLowestOutputQuality = priceSource.GetLowestOutputQuality
 local GetHighestOutputQuality = priceSource.GetHighestOutputQuality
 local GetDirectEffectivePriceForItem = priceSource.GetDirectEffectivePriceForItem
 local GetOutputPriceForItem = priceSource.GetOutputPriceForItem
-local GetOutputItemIDForDisplay = priceSource.GetOutputItemIDForDisplay
 
 -- FormatPrice(copper) → "1,234g 56s 78c" string (handles negatives)
 function Pricing.FormatPrice(copper)
@@ -253,7 +247,6 @@ local GetScaledStartingAmountForCrafts = verticalIntegration.GetScaledStartingAm
 local ResolveGraphNodeEntry = verticalIntegration.ResolveGraphNodeEntry
 local FindProducerMatch = verticalIntegration.FindProducerMatch
 local BuildVIBreakdownData = verticalIntegration.BuildVIBreakdownData
-BuildEconomicReagentMetrics = verticalIntegration.BuildEconomicReagentMetrics
 BuildReagentMetrics = verticalIntegration.BuildReagentMetrics
 BuildDisplayReagentMetrics = verticalIntegration.BuildDisplayReagentMetrics
 
@@ -279,7 +272,7 @@ local function GetPrimaryInputQuality(ctx)
     end
 
     local firstReagent = ctx.active.reagents[1]
-    local pickedID = nil
+    local pickedID
     if firstReagent.cheapestOf then
         local required = QuantizeRequiredAmount(
             GetRequiredReagentAmountRaw(firstReagent, ctx.startingAmt, ctx.crafts),
@@ -303,170 +296,12 @@ local function GetPrimaryInputQuality(ctx)
     return nil
 end
 
-local function BuildSingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice, outMissingPrice, missingPrices)
-    local netRevenue = nil
-    if outMissingPrice then
-        missingPrices[#missingPrices + 1] = GetItemLabel(primaryOut) or "Output"
-    elseif outPrice and outputQtyRaw > 0 then
-        netRevenue = math.floor(outputQtyRaw * outPrice * (1 - ctx.ahCut))
-    end
-    return nil, netRevenue
-end
-
-local function GetOutputPriceQty(ctx)
+local function GetOutputPriceQty(_ctx)
     -- Output revenue is a sell-side quote. Buying through multiple listings is
     -- appropriate for reagent acquisition, but averaging upward through the
     -- order book can wildly overvalue a thin commodity output. Price outputs
     -- at the current lowest listing; keep quantity-aware depth on inputs.
     return 1
-end
-
-local function BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrices)
-    local totalRevenue = 0
-    local allHavePrices = true
-    local outResults = {}
-    local hasStale = false
-    local priceQty = GetOutputPriceQty(ctx)
-
-    for _, outputDef in ipairs(ctx.active.outputs) do
-        local outputQtyRaw, outputQty = ComputeOutputQuantity(
-            outputDef, ctx.strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, ctx.startingAmt, ctx.crafts)
-        local price, stale = GetOutputPriceForItem(
-            outputDef, ctx.patchTag, outputPreferredQuality, priceQty, ctx.strat and ctx.strat.recipeID)
-        if stale then
-            hasStale = true
-        end
-        local netRevenue = price and math.floor(outputQtyRaw * price * (1 - ctx.ahCut)) or nil
-        if not price then
-            allHavePrices = false
-            missingPrices[#missingPrices + 1] = GetItemLabel(outputDef) or "Output"
-        else
-            totalRevenue = totalRevenue + netRevenue
-        end
-        outResults[#outResults + 1] = {
-            name = GetItemLabel(outputDef),
-            itemID = GetOutputItemIDForDisplay(
-                outputDef, ctx.patchTag, outputPreferredQuality, ctx.strat and ctx.strat.recipeID),
-            unitPrice = price,
-            expectedQty = outputQty,
-            expectedQtyRaw = outputQtyRaw,
-            netRevenue = netRevenue,
-            isStale = stale,
-            missingPrice = not price,
-        }
-    end
-
-    return outResults, allHavePrices and totalRevenue or nil, hasStale
-end
-
-BuildOutputMetrics = function(ctx)
-    local primaryOut = GetPrimaryOutput(ctx)
-    if not primaryOut.name and not primaryOut.itemRef and not primaryOut.itemIDs then
-        if GAM.Log and GAM.Log.Warn then
-            GAM.Log.Warn("Pricing: strat '%s' missing active output", tostring(ctx.strat.stratName or ctx.strat.id or "?"))
-        end
-        return nil
-    end
-
-    local missingPrices = {}
-    local outputQtyRaw, outputQty = ComputeOutputQuantity(
-        primaryOut, ctx.strat, ctx.profileDef, ctx.statDenom, ctx.statMCp, ctx.statMCm_tot, ctx.startingAmt, ctx.crafts)
-    local primaryQuality = GetPrimaryInputQuality(ctx)
-    -- A verified/reachable output quality must override the broad rank policy.
-    -- Otherwise an unreachable max-rank target can be valued at the max-rank
-    -- sale price even though Blizzard says all-high reagents craft a lower rank.
-    local outputPreferredQuality = ctx.reachableOutputQuality
-        or ((ctx.strat.outputQualityMode == "match_input") and primaryQuality or nil)
-    local priceQty = GetOutputPriceQty(ctx)
-    local outPrice, outStale = GetOutputPriceForItem(
-        primaryOut, ctx.patchTag, outputPreferredQuality, priceQty, ctx.strat and ctx.strat.recipeID)
-    local outMissingPrice = not outPrice
-    local isMultiOutput = ctx.active.outputs and #ctx.active.outputs > 1
-    local outputs, netRevenue, extraStale
-
-    if isMultiOutput then
-        outputs, netRevenue, extraStale = BuildMultiOutputMetrics(ctx, outputPreferredQuality, missingPrices)
-    else
-        outputs, netRevenue = BuildSingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice, outMissingPrice, missingPrices)
-        extraStale = false
-    end
-
-    local outItemID = GetOutputItemIDForDisplay(
-        primaryOut, ctx.patchTag, outputPreferredQuality, ctx.strat and ctx.strat.recipeID)
-
-    return {
-        primaryOut = primaryOut,
-        outputQtyRaw = outputQtyRaw,
-        output = {
-            name = GetItemLabel(primaryOut),
-            itemID = outItemID,
-            unitPrice = outPrice,
-            expectedQty = outputQty,
-            expectedQtyRaw = outputQtyRaw,
-            netRevenue = (not isMultiOutput) and netRevenue or nil,
-            isStale = outStale,
-            missingPrice = outMissingPrice,
-        },
-        outputs = outputs,
-        netRevenue = netRevenue,
-        hasStale = outStale or extraStale,
-        isMultiOutput = isMultiOutput,
-        missingPrices = missingPrices,
-    }
-end
-
-BuildFinalMetrics = function(ctx, reagentData, outputData)
-    local displayReagentData = BuildDisplayReagentMetrics(ctx, reagentData.reagentResults)
-    -- Keep top-level costReagents for analyzers/debugging, but drive economics from
-    -- the VI graph so recursive craft costs and AH-intermediate fallback stay in sync.
-    local economicReagentData = BuildEconomicReagentMetrics(ctx)
-    local profit = nil
-    local roi = nil
-    local breakEven = nil
-    local missingPrices = {}
-    local seenMissing = {}
-
-    local function AddMissingNames(names)
-        for _, name in ipairs(names or {}) do
-            if name and not seenMissing[name] then
-                seenMissing[name] = true
-                missingPrices[#missingPrices + 1] = name
-            end
-        end
-    end
-
-    AddMissingNames(economicReagentData.missingPrices)
-    AddMissingNames(displayReagentData.missingPrices)
-    AddMissingNames(outputData.missingPrices)
-
-    if outputData.netRevenue and #missingPrices == 0 then
-        profit = outputData.netRevenue - economicReagentData.totalCostRequired
-        if economicReagentData.totalCostRequired > 0 then
-            roi = (profit / economicReagentData.totalCostRequired) * 100
-        end
-    end
-
-    if economicReagentData.totalCostRequired > 0 and outputData.outputQtyRaw > 0 and not outputData.isMultiOutput then
-        breakEven = economicReagentData.totalCostRequired / (outputData.outputQtyRaw * (1 - ctx.ahCut))
-    end
-
-    return {
-        startingAmount = ctx.startingAmt,
-        crafts = ctx.crafts,
-        reagents = displayReagentData.reagentResults,
-        costReagents = reagentData.reagentResults,
-        output = outputData.output,
-        outputs = outputData.outputs,
-        totalCostToBuy = economicReagentData.totalCostToBuy,
-        totalCostFull = economicReagentData.totalCostRequired,
-        netRevenue = outputData.netRevenue,
-        profit = profit,
-        roi = roi,
-        breakEvenSell = breakEven,
-        missingPrices = missingPrices,
-        hasStale = reagentData.hasStale or economicReagentData.hasStale or displayReagentData.hasStale or outputData.hasStale,
-        selectionNotes = reagentData.selectionNotes,
-    }
 end
 
 if GAM.PricingEngine and type(GAM.PricingEngine.Install) == "function" then
@@ -485,7 +320,6 @@ if GAM.PricingEngine and type(GAM.PricingEngine.Install) == "function" then
         GetPrimaryInputQuality = GetPrimaryInputQuality,
         GetOutputPriceQty = GetOutputPriceQty,
         GetOutputPriceForItem = GetOutputPriceForItem,
-        GetOutputItemIDForDisplay = GetOutputItemIDForDisplay,
         GetInputRankPolicy = GetInputRankPolicy,
         QuantizeRequiredAmount = QuantizeRequiredAmount,
         ResolveGraphNodeEntry = ResolveGraphNodeEntry,
@@ -497,14 +331,7 @@ if GAM.PricingEngine and type(GAM.PricingEngine.Install) == "function" then
     })
 end
 
-GetFormulaV2 = Pricing.GetFormulaV2
 GetV2ExpectedOutputPerCraft = Pricing.GetV2ExpectedOutputPerCraft
-
-if type(GetFormulaV2) ~= "function" then
-    GetFormulaV2 = function()
-        return GAM.PricingFormula or {}
-    end
-end
 
 function Pricing.GetVIBreakdownData(strat, patchTag, metrics)
     if not strat then

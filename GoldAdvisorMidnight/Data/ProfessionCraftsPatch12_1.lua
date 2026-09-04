@@ -137,7 +137,7 @@ Add("Inscription", {
         { itemRef = "Petrified Root", itemIDs = { 251285 }, amount = 2 },
         { itemRef = "Cursebound Globe", itemIDs = { 274781 }, amount = 2 },
         { itemRef = "Soul Cipher", itemIDs = { 245766, 245767 }, amount = 1 },
-        { itemRef = "Vantus Rune: Radiant", itemIDs = { 245879 }, amount = 1 },
+        { itemRef = "Vantus Rune: Radiant", itemIDs = { 245879, 245880 }, amount = 1 },
     },
     outputs = {
         { itemRef = "Vantus Rune: Tides", itemIDs = { 272194, 272195 }, baseAmount = 1 },

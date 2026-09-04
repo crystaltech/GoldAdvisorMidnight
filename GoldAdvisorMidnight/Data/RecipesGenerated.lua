@@ -812,7 +812,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   recipeName = "Potion of Recklessness",
   sourceTab = "Alchemy",
   sourceBlock = "G49",
-  defaultStartingAmount = 2000.000000,
+  defaultStartingAmount = 1000.000000,
   defaultCrafts = 1000.000000,
   formulaProfile = "alchemy",
   calcMode = "formula",
@@ -824,7 +824,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemRef = "Potion of Recklessness",
       itemIDs = { 241288, 241289 },
       baseYieldPerCraft = 5.000000,
-      baseYield = 2.500000,
+      baseYield = 5.000000,
       workbookExpectedQty = 7591.623037,
     },
   },
@@ -832,29 +832,29 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Mote of Primal Energy",
       itemIDs = { 236950 },
-      qtyPerCraft = 2.000000,
+      qtyPerCraft = 1.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 2000.000000,
+      workbookTotalQty = 1000.000000,
     },
     {
       itemRef = "Sunglass Vial",
       itemIDs = { 240990, 240991 },
       qtyPerCraft = 5.000000,
-      qtyPerStart = 2.500000,
+      qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
     },
     {
       itemRef = "Tranquility Bloom",
       itemIDs = { 236761, 236767 },
       qtyPerCraft = 8.000000,
-      qtyPerStart = 4.000000,
+      qtyPerStart = 8.000000,
       workbookTotalQty = 8000.000000,
     },
     {
       itemRef = "Azeroot",
       itemIDs = { 236774, 236775 },
       qtyPerCraft = 4.000000,
-      qtyPerStart = 2.000000,
+      qtyPerStart = 4.000000,
       workbookTotalQty = 4000.000000,
     },
   },
@@ -1076,7 +1076,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   recipeName = "Draught of Rampant Abandon",
   sourceTab = "Alchemy",
   sourceBlock = "C77",
-  defaultStartingAmount = 3000.000000,
+  defaultStartingAmount = 1000.000000,
   defaultCrafts = 1000.000000,
   formulaProfile = "alchemy",
   calcMode = "formula",
@@ -1088,7 +1088,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       itemRef = "Draught of Rampant Abandon",
       itemIDs = { 241292, 241293 },
       baseYieldPerCraft = 5.000000,
-      baseYield = 1.666667,
+      baseYield = 5.000000,
       workbookExpectedQty = 7591.623037,
     },
   },
@@ -1096,36 +1096,36 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Mote of Primal Energy",
       itemIDs = { 236950 },
-      qtyPerCraft = 3.000000,
+      qtyPerCraft = 1.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 3000.000000,
+      workbookTotalQty = 1000.000000,
     },
     {
       itemRef = "Sunglass Vial",
       itemIDs = { 240990, 240991 },
       qtyPerCraft = 5.000000,
-      qtyPerStart = 1.666667,
+      qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
     },
     {
       itemRef = "Tranquility Bloom",
       itemIDs = { 236761, 236767 },
       qtyPerCraft = 8.000000,
-      qtyPerStart = 2.666667,
+      qtyPerStart = 8.000000,
       workbookTotalQty = 8000.000000,
     },
     {
       itemRef = "Mana Lily",
       itemIDs = { 236778, 236779 },
       qtyPerCraft = 3.000000,
-      qtyPerStart = 1.000000,
+      qtyPerStart = 3.000000,
       workbookTotalQty = 3000.000000,
     },
     {
       itemRef = "Sanguithorn",
       itemIDs = { 236770, 236771 },
       qtyPerCraft = 3.000000,
-      qtyPerStart = 1.000000,
+      qtyPerStart = 3.000000,
       workbookTotalQty = 3000.000000,
     },
   },
@@ -3216,7 +3216,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 5000.000000,
     },
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
@@ -3636,7 +3636,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 1000.000000,
     },
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 10.000000,
       qtyPerStart = 1.666667,
@@ -4541,7 +4541,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 1000.000000,
     },
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 1.000000,
       qtyPerStart = 1.000000,
@@ -4622,7 +4622,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
   reagents = {
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 3.000000,
       qtyPerStart = 1.000000,
@@ -4666,7 +4666,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
   reagents = {
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 10.000000,
       qtyPerStart = 1.000000,
@@ -4956,7 +4956,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 5000.000000,
     },
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 10.000000,
       qtyPerStart = 2.000000,
@@ -5086,7 +5086,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 4000.000000,
     },
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 12.000000,
       qtyPerStart = 3.000000,
@@ -5441,7 +5441,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
   reagents = {
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
@@ -5499,7 +5499,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 2000.000000,
     },
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 2.500000,
@@ -5622,7 +5622,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       workbookTotalQty = 2000.000000,
     },
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 2.500000,
@@ -5666,7 +5666,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   },
   reagents = {
     {
-      itemRef = "Thalassian Filet",
+      itemRef = "Thalassian Fillet",
       itemIDs = { 253403 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 1.000000,
@@ -8052,7 +8052,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   stratName = "Light's Preservation",
   sourceTab = "Wowhead",
   sourceBlock = "spell:1230858",
-  defaultStartingAmount = 2000.000000,
+  defaultStartingAmount = 1000.000000,
   defaultCrafts = 1000.000000,
   formulaProfile = "alchemy",
   recipeID = 1230858,
@@ -8074,29 +8074,29 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     {
       itemRef = "Mote of Light",
       itemIDs = { 236949 },
-      qtyPerCraft = 2.000000,
+      qtyPerCraft = 1.000000,
       qtyPerStart = 1.000000,
-      workbookTotalQty = 2000.000000,
+      workbookTotalQty = 1000.000000,
     },
     {
       itemRef = "Tranquility Bloom",
       itemIDs = { 236761, 236767 },
       qtyPerCraft = 4.000000,
-      qtyPerStart = 2.000000,
+      qtyPerStart = 4.000000,
       workbookTotalQty = 4000.000000,
     },
     {
       itemRef = "Azeroot",
       itemIDs = { 236774, 236775 },
       qtyPerCraft = 3.000000,
-      qtyPerStart = 1.500000,
+      qtyPerStart = 3.000000,
       workbookTotalQty = 3000.000000,
     },
     {
       itemRef = "Sunglass Vial",
       itemIDs = { 240990, 240991 },
       qtyPerCraft = 5.000000,
-      qtyPerStart = 2.500000,
+      qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
     },
   },
@@ -12501,7 +12501,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Blood Elf",
-      itemIDs = { 243773 },
+      itemIDs = { 243773, 243797 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12545,7 +12545,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Dark Iron Dwarf",
-      itemIDs = { 243774 },
+      itemIDs = { 243774, 243798 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12589,7 +12589,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Haranir",
-      itemIDs = { 244056 },
+      itemIDs = { 244056, 244057 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12633,7 +12633,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Draenei",
-      itemIDs = { 243775 },
+      itemIDs = { 243775, 243799 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12677,7 +12677,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Dwarf",
-      itemIDs = { 243776 },
+      itemIDs = { 243776, 243800 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12721,7 +12721,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Gnome",
-      itemIDs = { 243778 },
+      itemIDs = { 243778, 243802 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12765,7 +12765,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Goblin",
-      itemIDs = { 243779 },
+      itemIDs = { 243779, 243803 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12809,7 +12809,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Highmountain Tauren",
-      itemIDs = { 243780 },
+      itemIDs = { 243780, 243804 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12853,7 +12853,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Human",
-      itemIDs = { 243781 },
+      itemIDs = { 243781, 243805 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12897,7 +12897,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Kul Tiran",
-      itemIDs = { 243782 },
+      itemIDs = { 243782, 243806 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12941,7 +12941,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Lightforged Draenei",
-      itemIDs = { 243783 },
+      itemIDs = { 243783, 243807 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -12985,7 +12985,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Mag'har Orc",
-      itemIDs = { 243784 },
+      itemIDs = { 243784, 243808 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13029,7 +13029,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Mechagnome",
-      itemIDs = { 243785 },
+      itemIDs = { 243785, 243809 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13073,7 +13073,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Night Elf",
-      itemIDs = { 243786 },
+      itemIDs = { 243786, 243810 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13117,7 +13117,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Nightborne",
-      itemIDs = { 243787 },
+      itemIDs = { 243787, 243811 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13161,7 +13161,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Orc",
-      itemIDs = { 243788 },
+      itemIDs = { 243788, 243812 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13205,7 +13205,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Pandaren",
-      itemIDs = { 243789 },
+      itemIDs = { 243789, 243813 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13249,7 +13249,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Tauren",
-      itemIDs = { 243790 },
+      itemIDs = { 243790, 243814 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13293,7 +13293,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Troll",
-      itemIDs = { 243791 },
+      itemIDs = { 243791, 243815 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13337,7 +13337,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Undead",
-      itemIDs = { 243792 },
+      itemIDs = { 243792, 243816 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13381,7 +13381,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Void Elf",
-      itemIDs = { 243793 },
+      itemIDs = { 243793, 243817 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13425,7 +13425,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Vulpera",
-      itemIDs = { 243794 },
+      itemIDs = { 243794, 243818 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13469,7 +13469,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Worgen",
-      itemIDs = { 243795 },
+      itemIDs = { 243795, 243819 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -13513,7 +13513,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Zandalari Troll",
-      itemIDs = { 243796 },
+      itemIDs = { 243796, 243820 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -14567,7 +14567,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Gleeful Glamour - Earthen",
-      itemIDs = { 243777 },
+      itemIDs = { 243777, 243801 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -21020,7 +21020,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Vantus Rune: Radiant",
-      itemIDs = { 245879 },
+      itemIDs = { 245879, 245880 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -21077,7 +21077,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Contract: The Silvermoon Court",
-      itemIDs = { 245799 },
+      itemIDs = { 245799, 245800 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -21134,7 +21134,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Contract: The Amani Tribe",
-      itemIDs = { 245797 },
+      itemIDs = { 245797, 245798 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -21191,7 +21191,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Contract: The Hara'ti",
-      itemIDs = { 245795 },
+      itemIDs = { 245795, 245796 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -26634,7 +26634,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Forest Hunter's Armor Kit",
-      itemIDs = { 244640 },
+      itemIDs = { 244640, 244641 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -26698,7 +26698,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Blood Knight's Armor Kit",
-      itemIDs = { 244642 },
+      itemIDs = { 244642, 244643 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -26762,7 +26762,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Thalassian Scout Armor Kit",
-      itemIDs = { 244644 },
+      itemIDs = { 244644, 244645 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -29027,7 +29027,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Bright Linen Bandage",
-      itemIDs = { 239711 },
+      itemIDs = { 239711, 239713 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -30852,7 +30852,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Sunfire Silk Spellthread",
-      itemIDs = { 240094 },
+      itemIDs = { 240094, 240133 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -30923,7 +30923,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Arcanoweave Spellthread",
-      itemIDs = { 240154 },
+      itemIDs = { 240154, 240155 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,
@@ -30994,7 +30994,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Bright Linen Spellthread",
-      itemIDs = { 240156 },
+      itemIDs = { 240156, 240157 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1000.000000,

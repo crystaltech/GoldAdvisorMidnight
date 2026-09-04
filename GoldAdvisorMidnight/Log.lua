@@ -32,10 +32,8 @@ local function emit(entry)
     count     = count + 1
     -- Notify listeners (DebugLog frame)
     for i = 1, #listeners do
-        local ok, err = pcall(listeners[i], entry)
-        if not ok then
-            -- Don't recurse; listeners must be safe
-        end
+        -- Intentionally isolate listener failures without recursing into Log.
+        pcall(listeners[i], entry)
     end
 end
 

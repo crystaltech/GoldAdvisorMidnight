@@ -39,16 +39,6 @@ local function GetResolvedItemIDs(item, patchTag)
     return ids or {}
 end
 
-local function GetExplicitItemQualityRank(itemID)
-    if not itemID or itemID == 0 then return nil end
-    RequestItemData(itemID)
-    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
-    local q = tonumber(CallItemInfoAPI(api, itemID))
-    if q and q > 0 then return q end
-    if q == 0 then return 1 end
-    return nil
-end
-
 local function GetPositiveReagentQualityRank(itemID)
     if not itemID or itemID == 0 then return nil end
     RequestItemData(itemID)
@@ -197,10 +187,6 @@ local function GetHighestOutputQuality(item, patchTag, recipeID)
     return GetBoundaryOutputQuality(item, patchTag, recipeID, true)
 end
 
-local function GetItemName(itemID)
-    return select(1, GetItemInfo(itemID))
-end
-
 local function FindItemIDByQuality(itemIDs, desiredQuality, recipeID)
     if not desiredQuality or not itemIDs then return nil end
     -- Processing recipes can expose several ranked reagent outputs under one
@@ -285,7 +271,6 @@ end
 -- Dependency container for derivation functions (GetEffectivePrice, PickItemID).
 -- Populated lazily by GetDerivationDeps() on first use.
 local DERIVATION_DEPS = {}
-local ResolveCheapestAlternative
 
 GetInputRankPolicy = function(strat)
     if strat and strat.qualityPolicy == "force_q1_inputs" then
@@ -475,15 +460,6 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     return cachedPrice, stale
 end
 
--- GetPreferredIngredientPrice(itemIDs, patchTag, qty) → price, isStale
--- Checks mill/craft derivation chains before falling back to AH price.
--- This ensures the full chain works: e.g. inks inside a recipe pick up
--- herb-derived pigment cost, and ingots inside alloy recipes pick up ore cost.
--- The derivation chain itself lives in PricingDerivation.lua.
-local function GetPreferredIngredientPrice(itemIDs, patchTag, qty)
-    return Derivation.GetPreferredIngredientPrice(itemIDs, patchTag, qty, GetDerivationDeps())
-end
-
 local function GetDirectEffectivePriceForItem(item, patchTag, qty)
     if not item then return nil, false end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
@@ -577,15 +553,13 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
     }, patchTag, qty)
 end
 
--- GetOutputPriceForItem(item, patchTag, preferredQuality) → price, isStale
+-- GetOutputPriceForItem(item, patchTag, preferredQuality) → price, isStale, itemID
 -- Used for OUTPUT pricing. When preferredQuality is provided (1/2/3 crafting
 -- quality tier), finds the output itemID with that quality and prices it — used
 -- so milling/processing output rank matches the input reagent rank (R1 input →
--- R1 output, R2 input → R2 output). Falls back to cheapest-rank logic when the
--- preferred quality has no matching ID or no price data.
--- A cross-rank trim (RANK_TRIM) excludes extreme outlier ranks before the
--- fallback minimum is chosen.
-local RANK_TRIM = 3.0
+-- R1 output, R2 input → R2 output). The resolved item ID is returned with the
+-- quote so callers cannot display one rank while valuing another. Missing price
+-- data for the selected rank remains missing; output revenue never crosses ranks.
 
 local function GetDesiredOutputQuality(item, patchTag, preferredQuality, recipeID)
     if preferredQuality then
@@ -596,32 +570,25 @@ local function GetDesiredOutputQuality(item, patchTag, preferredQuality, recipeI
 end
 
 local function GetOutputPriceForItem(item, patchTag, preferredQuality, qty, recipeID)
-    if not item then return nil, false end
+    if not item then return nil, false, nil end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local ids = GetResolvedItemIDs(item, patchTag)
-    if not ids or #ids == 0 then return nil, false end
+    if not ids or #ids == 0 then return nil, false, nil end
 
     local desiredQuality = GetDesiredOutputQuality(item, patchTag, preferredQuality, recipeID)
     local exactID = FindItemIDByQuality(ids, desiredQuality, recipeID)
     if exactID then
         local p, s = Pricing.GetEffectivePrice(exactID, patchTag, qty)
-        if p then return p, s end
+        return p, s or false, exactID
     end
 
     local policyID = PickItemID(ids, patchTag)
     if policyID then
         local p, s = Pricing.GetEffectivePrice(policyID, patchTag, qty)
-        if p then return p, s end
+        return p, s or false, policyID
     end
 
-    for _, id in ipairs(ids) do
-        if id ~= exactID and id ~= policyID then
-            local p, s = Pricing.GetEffectivePrice(id, patchTag, qty)
-            if p then return p, s end
-        end
-    end
-
-    return nil, false
+    return nil, false, nil
 end
 
 local function GetOutputItemIDForDisplay(item, patchTag, preferredQuality, recipeID)

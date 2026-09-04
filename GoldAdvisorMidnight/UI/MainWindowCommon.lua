@@ -64,7 +64,7 @@ local function ResolveProfessionFromSkillLine(skillLine)
     end
 
     if tradeSkillAPI and type(tradeSkillAPI.GetTradeSkillLineInfoByID) == "function" then
-        local ok, displayName, rank, maxRank, modifier, parentSkillLineID = pcall(tradeSkillAPI.GetTradeSkillLineInfoByID, skillLine)
+        local ok, _, _, _, _, parentSkillLineID = pcall(tradeSkillAPI.GetTradeSkillLineInfoByID, skillLine)
         local professionName = ok and GetProfessionBySkillLineID(parentSkillLineID) or nil
         if professionName then
             return CacheProfessionSkillLine(skillLine, professionName)
@@ -105,8 +105,7 @@ local function ResolvePlayerProfession(professionName, skillLine, skillLineName,
     return nil
 end
 
-local C_GR, C_GG, C_GB = 1.0, 0.82, 0.0
-local C_DR, C_DG, C_DB, C_DA = 0.7, 0.57, 0.0, 0.7
+local C_DR, C_DG, C_DB = 0.7, 0.57, 0.0
 
 Common.THIN_BACKDROP = {
     bgFile   = "Interface\\Buttons\\WHITE8X8",

@@ -306,7 +306,7 @@ local function EnsureWindow()
     crafterLabel:SetTextColor(1, 0.82, 0, 1)
 
     local helpBtn = CreateFrame("Button", nil, window)
-    helpBtn:SetSize(18, 18)
+    helpBtn:SetSize(22, 22)
     helpBtn:SetPoint("LEFT", crafterLabel, "RIGHT", 5, 0)
     helpBtn:SetNormalTexture("Interface\\Common\\help-i")
     helpBtn:SetPushedTexture("Interface\\Common\\help-i")

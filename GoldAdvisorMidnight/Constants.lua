@@ -36,7 +36,7 @@ for _, profession in ipairs(PROFESSION_REGISTRY) do
 end
 
 GAM.C = {
-    ADDON_VERSION        = "2.0.8",
+    ADDON_VERSION        = "2.0.9",
     DATA_VERSION         = 18,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",

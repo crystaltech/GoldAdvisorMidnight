@@ -2,7 +2,7 @@
 
 Gold Advisor Midnight (GAM) is a World of Warcraft Retail addon for comparing Midnight crafting profits with live Auction House prices.
 
-It includes 282 commodity strategies across nine professions. Equipment, profession tools, bags, toys, mounts, bind-on-pickup items, and other one-off crafts are intentionally excluded.
+It includes 283 commodity strategies across nine professions. Equipment, profession tools, bags, toys, mounts, bind-on-pickup items, and other one-off crafts are intentionally excluded.
 
 ## Features
 
@@ -74,8 +74,18 @@ To save a gear setup, equip it, open the exact Blizzard recipe, and use `Save MC
 - `/gam log` opens the copyable support log.
 - `/gam help` lists the available commands.
 
+## Versioning
+
+Gold Advisor Midnight uses `MAJOR.MINOR.PATCH` version numbers:
+
+- `MAJOR` for incompatible redesigns or a new product generation.
+- `MINOR` for backward-compatible feature releases.
+- `PATCH` for bug fixes, data corrections, and small improvements.
+
+World of Warcraft and source-data build numbers are tracked separately from the addon version.
+
 ## Support
 
-- [Release history](CHANGELOG.md)
+- [Release history](https://github.com/crystaltech/GoldAdvisorMidnight/releases)
 - Discord: https://discord.gg/v7vsCKCsFh
 - For unexpected results, include the output from `/gam log`.

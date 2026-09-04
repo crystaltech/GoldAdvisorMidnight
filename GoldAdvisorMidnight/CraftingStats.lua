@@ -13,10 +13,11 @@ local Specialization = assert(
     GAM.CraftingStatsSpecialization,
     "CraftingStatsSpecialization must load before CraftingStats")
 
-local CACHE_VERSION = Cache.VERSION
 local SEASON_KEY = "midnight"
 local RECIPE_SNAPSHOT_STALE_SECONDS = 24 * 60 * 60
 local pendingRecipeRefreshes = {}
+local recipeOpenGeneration = 0
+local activeRecipeOpenID = nil
 local PROFESSION_DEFS = Specialization.GetProfessionDefs()
 
 local function GetFormulaProfiles()
@@ -49,15 +50,30 @@ function Stats.GetRevision()
 end
 
 local ResolveProfessionDef = Specialization.ResolveProfessionDef
-local ResolveProfessionDefBySkillLine = Specialization.ResolveProfessionDefBySkillLine
 local GetSpecializationCatalog = Specialization.GetCatalog
-local IsSpecializationProfile = Specialization.IsProfile
-local GetProfessionForProfile = Specialization.GetProfessionForProfile
 local ClampRank = Specialization.ClampRank
 local GetCatalogNode = Specialization.GetCatalogNode
 local EnsureProfessionNodeState = Specialization.EnsureNodeState
 local BuildNodeHash = Specialization.BuildNodeHash
 local ApplySpecializationNodeState = Specialization.ApplyNodeState
+local IsPricingModifierNode = Specialization.IsPricingModifierNode
+local professionNodeCaptureListeners = {}
+
+local function NotifyProfessionNodeCapture(profession, state)
+    for listener in pairs(professionNodeCaptureListeners) do
+        pcall(listener, profession, CopySerializableTable(state))
+    end
+end
+
+function Stats.AddProfessionNodeCaptureListener(listener)
+    if type(listener) ~= "function" then
+        return function() end
+    end
+    professionNodeCaptureListeners[listener] = true
+    return function()
+        professionNodeCaptureListeners[listener] = nil
+    end
+end
 
 local function NormalizeRecipeID(recipeID)
     local n = tonumber(recipeID)
@@ -466,9 +482,7 @@ local NativeCapture = assert(
         GetTestOpenProfessionNodes = function() return testOpenProfessionNodes end,
     })
 local GetOpenNativeRecipeSnapshot = NativeCapture.GetOpenRecipeSnapshot
-local GetOpenProfessionContext = NativeCapture.GetOpenProfessionContext
 local GetOpenProfessionDef = NativeCapture.GetOpenProfessionDef
-local OpenProfessionMatches = NativeCapture.OpenProfessionMatches
 local GetOpenNativeProfessionNodeRanks = NativeCapture.GetOpenProfessionNodeRanks
 
 function Stats.SaveSnapshot(snapshot, saveOptions)
@@ -828,8 +842,8 @@ function Stats.CanOpenRecipeForStrat(strat)
 end
 
 -- Must be called directly from a hardware event (the Strategy Detail button).
--- We open only the selected strategy's recipe. Existing profession events then
--- capture the visible recipe stats and learned node ranks into GAM's own cache.
+-- We open only the selected strategy's recipe, then capture both its visible
+-- stats and the profession's learned node ranks before reporting success.
 function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
     local canOpen, reason = Stats.CanOpenRecipeForStrat(strat)
     if not canOpen then
@@ -840,10 +854,31 @@ function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
     if pendingRecipeRefreshes[recipeID] then
         return true, "open-pending"
     end
+
+    -- Recipe-frame transitions are asynchronous and retries from a previous
+    -- selection may still be queued. Make the newest hardware request the sole
+    -- owner of future OpenRecipe, capture, and callback work.
+    recipeOpenGeneration = recipeOpenGeneration + 1
+    local requestGeneration = recipeOpenGeneration
+    if activeRecipeOpenID and activeRecipeOpenID ~= recipeID then
+        pendingRecipeRefreshes[activeRecipeOpenID] = nil
+    end
+    activeRecipeOpenID = recipeID
+
+    local function FinishRequest()
+        if pendingRecipeRefreshes[recipeID] == requestGeneration then
+            pendingRecipeRefreshes[recipeID] = nil
+        end
+        if recipeOpenGeneration == requestGeneration then
+            activeRecipeOpenID = nil
+        end
+    end
+
     local profession = ResolveProfessionDef(strat.profession)
     if type(C_TradeSkillUI.OpenTradeSkill) == "function" then
         local opened, openError = pcall(C_TradeSkillUI.OpenTradeSkill, profession.skillLineID)
         if not opened then
+            FinishRequest()
             return false, "open-profession-failed:" .. tostring(openError)
         end
     end
@@ -866,12 +901,16 @@ function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
     end
     local function OpenAndCapture(isFinalAttempt)
         if completed then return true end
+        if recipeOpenGeneration ~= requestGeneration then
+            FinishRequest()
+            return false
+        end
         -- OpenTradeSkill is asynchronous. Only classify the catalog recipe as
         -- unavailable after the final retry, once Blizzard has had time to
         -- populate the profession's complete learned + unlearned recipe list.
         if isFinalAttempt and IsRecipeInCurrentProfession() == false then
             lastReason = "recipe-not-in-current-profession"
-            pendingRecipeRefreshes[recipeID] = nil
+            FinishRequest()
             if type(onFailure) == "function" then
                 pcall(onFailure, lastReason, recipeID)
             end
@@ -883,15 +922,20 @@ function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
         else
             local snapshot, captureReason = Stats.CaptureOpenRecipe(recipeID)
             if snapshot then
-                completed = true
-                pendingRecipeRefreshes[recipeID] = nil
+                local nodeState, nodeReason = Stats.CaptureOpenProfessionNodes(profession.name)
+                if nodeState then
+                    completed = true
+                    FinishRequest()
+                else
+                    lastReason = nodeReason or "profession-nodes-not-visible"
+                end
             else
                 lastReason = captureReason or "open-recipe-not-visible"
             end
         end
         if not completed then
             if isFinalAttempt then
-                pendingRecipeRefreshes[recipeID] = nil
+                FinishRequest()
                 if type(onFailure) == "function" then
                     pcall(onFailure, lastReason, recipeID)
                 end
@@ -910,7 +954,7 @@ function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
         -- Verify the visible recipe on each bounded retry; OpenRecipe has no
         -- success return and the frame may otherwise remain on the old recipe.
         if not openedImmediately then
-            pendingRecipeRefreshes[recipeID] = true
+            pendingRecipeRefreshes[recipeID] = requestGeneration
         end
         local delays = { 0.2, 0.8, 1.6 }
         for index, delay in ipairs(delays) do
@@ -943,12 +987,12 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
 
     local normalized = {}
     for key, value in pairs(nodes) do
-        local nodeID = nil
-        local rank = nil
-        local maxRank = nil
-        local name = nil
-        local description = nil
-        local nameSource = nil
+        local nodeID
+        local rank
+        local maxRank
+        local name
+        local description
+        local nameSource
         if type(value) == "table" then
             nodeID = value.nodeID or key
             rank = value.rank or value.currentRank or value.activeRank or value.ranksPurchased
@@ -981,18 +1025,36 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
         return nil, "empty-nodes"
     end
 
+    local function NodePresentationEqual(left, right)
+        if type(left) ~= "table" or type(right) ~= "table" then
+            return left == right
+        end
+        return tonumber(left.maxRank) == tonumber(right.maxRank)
+            and left.name == right.name
+            and left.description == right.description
+            and left.nameSource == right.nameSource
+    end
+
     local changed = false
+    local pricingChanged = false
     for nodeID, node in pairs(normalized) do
         local existing = state.nodes and state.nodes[nodeID]
-        local existingRank = type(existing) == "table" and existing.rank or existing
-        if tonumber(existingRank) ~= tonumber(node.rank) then
+        if type(existing) ~= "table" then
+            existing = { rank = existing }
+        end
+        if tonumber(existing.rank) ~= tonumber(node.rank) then
+            pricingChanged = true
             changed = true
             break
         end
+        if not NodePresentationEqual(existing, node) then
+            changed = true
+        end
     end
-    if not changed then
+    if not pricingChanged then
         for nodeID in pairs(state.nodes or {}) do
             if normalized[nodeID] == nil then
+                pricingChanged = true
                 changed = true
                 break
             end
@@ -1014,8 +1076,11 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
     if type(meta) == "table" then
         state.meta = CopySerializableTable(meta)
     end
-    if changed then
+    if pricingChanged then
         TouchRevision(character, cache)
+    end
+    if changed then
+        NotifyProfessionNodeCapture(state.profession, state)
     end
 
     return CopySerializableTable(state), nil
@@ -1099,7 +1164,7 @@ function Stats.ResetProfessionNodesToDefaults(profession, season)
     state.manualOverrides = {}
     local function applyDefault(nodeID)
         local node = GetCatalogNode(catalog, nodeID)
-        if node and node.defaultRank ~= nil then
+        if node and IsPricingModifierNode(node) and node.defaultRank ~= nil then
             state.manualOverrides[tonumber(nodeID)] = ClampRank(node.defaultRank, node.maxRank)
         end
     end
@@ -1134,23 +1199,30 @@ function Stats.GetProfessionNodeRows(profession, season)
         end
     end
 
+    local function ResolveNodePresentation(nodeID, node)
+        local capturedNode = captured[nodeID]
+        local fallbackName = NodeDisplay and NodeDisplay.GetFallbackName
+            and NodeDisplay.GetFallbackName(nodeID)
+        local capturedName = capturedNode and capturedNode.name
+        local capturedNameSource = capturedNode and capturedNode.nameSource
+        local preferredName = capturedNameSource == "blizzard" and capturedName
+            or fallbackName or capturedName or (node and node.name)
+        local preferredNameSource = capturedNameSource == "blizzard" and "blizzard"
+            or (fallbackName and "hardcoded") or capturedNameSource or "catalog"
+        return preferredName, preferredNameSource, capturedNode
+    end
+
     local groups = {}
+    local pricingNodeCount = 0
     for _, group in ipairs(catalog.uiGroups or {}) do
         local rows = {}
         for _, nodeID in ipairs(group.nodeIDs or {}) do
             local node = GetCatalogNode(catalog, nodeID)
-            if node then
+            if node and IsPricingModifierNode(node) then
                 local manualRank = state.manualOverrides and state.manualOverrides[nodeID]
-                local capturedNode = captured[nodeID]
+                local preferredName, preferredNameSource, capturedNode =
+                    ResolveNodePresentation(nodeID, node)
                 local capturedRank = capturedNode and capturedNode.rank
-                local fallbackName = NodeDisplay and NodeDisplay.GetFallbackName
-                    and NodeDisplay.GetFallbackName(nodeID)
-                local capturedName = capturedNode and capturedNode.name
-                local capturedNameSource = capturedNode and capturedNode.nameSource
-                local preferredName = capturedNameSource == "blizzard" and capturedName
-                    or fallbackName or capturedName or node.name
-                local preferredNameSource = capturedNameSource == "blizzard" and "blizzard"
-                    or (fallbackName and "hardcoded") or capturedNameSource or "catalog"
                 local effectiveRank = manualRank
                 if effectiveRank == nil then
                     effectiveRank = capturedRank
@@ -1171,15 +1243,25 @@ function Stats.GetProfessionNodeRows(profession, season)
                     stats = CopyShallowTable(node.stats),
                     pricingNote = node.pricingNote,
                 }
+                pricingNodeCount = pricingNodeCount + 1
             end
         end
-        local rootRow = rows[1]
-        groups[#groups + 1] = {
-            label = (rootRow and rootRow.nameSource ~= "catalog" and rootRow.name) or group.label,
-            catalogLabel = group.label,
-            rootNodeID = group.nodeIDs and group.nodeIDs[1],
-            rows = rows,
-        }
+        if #rows > 0 then
+            local rootNodeID = group.nodeIDs and group.nodeIDs[1]
+            local rootNode = rootNodeID and GetCatalogNode(catalog, rootNodeID)
+            local rootName, rootNameSource = ResolveNodePresentation(rootNodeID, rootNode)
+            groups[#groups + 1] = {
+                label = (rootNameSource ~= "catalog" and rootName) or group.label,
+                catalogLabel = group.label,
+                rootNodeID = rootNodeID,
+                rows = rows,
+            }
+        end
+    end
+
+    local capturedNodeCount = 0
+    for _ in pairs(captured) do
+        capturedNodeCount = capturedNodeCount + 1
     end
 
     return {
@@ -1188,6 +1270,8 @@ function Stats.GetProfessionNodeRows(profession, season)
         source = state.source or "workbook-default",
         capturedAt = state.capturedAt,
         nodeHash = state.nodeHash,
+        capturedNodeCount = capturedNodeCount,
+        pricingNodeCount = pricingNodeCount,
         groups = groups,
     }, nil
 end
@@ -1256,12 +1340,12 @@ function Stats.GetAllProfiles()
     end
     local character = EnsureCache()
     if type(character) == "table" then
-        for profileKey, snapshot in pairs(character.profiles or {}) do
+        for profileKey in pairs(character.profiles or {}) do
             if not profiles[profileKey] then
                 profiles[profileKey] = Stats.GetProfile(profileKey)
             end
         end
-        for profileKey, snapshot in pairs(character.manualProfiles or {}) do
+        for profileKey in pairs(character.manualProfiles or {}) do
             if not profiles[profileKey] then
                 profiles[profileKey] = Stats.GetProfile(profileKey)
             end

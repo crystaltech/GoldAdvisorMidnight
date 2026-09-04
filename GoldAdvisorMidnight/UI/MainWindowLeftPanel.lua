@@ -12,7 +12,7 @@ GAM.UI.MainWindowV2LeftPanel = LeftPanelUI -- Compatibility alias for pre-refocu
 local function Noop()
 end
 
-local function GetCommitButtonText(localizer)
+local function GetCommitButtonText()
     return "OK"
 end
 
@@ -35,15 +35,30 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
 
     editBox._gamCommitButton = button
     editBox._gamCommittedText = tostring(editBox:GetText() or "")
+    editBox._gamPendingText = editBox._gamCommittedText
+
+    local function SetTextWithoutChangingDraft(text)
+        editBox._gamRestoringText = true
+        editBox:SetText(tostring(text or ""))
+        editBox._gamRestoringText = nil
+    end
 
     local function CommitCurrentValue(fromButton)
-        local text = tostring(editBox:GetText() or "")
+        if editBox._gamCommitInProgress then
+            return
+        end
+        local text = tostring(editBox._gamPendingText or editBox:GetText() or "")
         editBox._gamCommitInProgress = true
         if fromButton then
             editBox._gamCommitFromButton = true
         end
-        commitFn(text)
-        editBox._gamCommittedText = tostring(editBox:GetText() or text)
+        local normalizedText = commitFn(text)
+        local committedText = normalizedText ~= nil and tostring(normalizedText) or text
+        editBox._gamCommittedText = committedText
+        editBox._gamPendingText = committedText
+        if tostring(editBox:GetText() or "") ~= committedText then
+            SetTextWithoutChangingDraft(committedText)
+        end
         if editBox:HasFocus() then
             editBox:ClearFocus()
         end
@@ -53,11 +68,8 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
     end
 
     button:SetScript("OnMouseDown", function()
-        editBox._gamCommitFromButton = true
-        RefreshCommitButton(editBox)
-        CommitCurrentValue(true)
-    end)
-    button:SetScript("OnClick", function()
+        -- Commit before the edit box loses focus. The pending draft survives
+        -- any focus-loss redraw that happens during the mouse event.
         CommitCurrentValue(true)
     end)
     button:SetScript("OnHide", function()
@@ -68,7 +80,8 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
         CommitCurrentValue(false)
     end)
     editBox:SetScript("OnEscapePressed", function(self)
-        self:SetText(self._gamCommittedText or "")
+        SetTextWithoutChangingDraft(self._gamCommittedText or "")
+        self._gamPendingText = tostring(self._gamCommittedText or "")
         self._gamCommitFromButton = nil
         self:ClearFocus()
         RefreshCommitButton(self)
@@ -77,6 +90,9 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
         RefreshCommitButton(self)
     end)
     editBox:SetScript("OnTextChanged", function(self)
+        if not self._gamRestoringText and not self._gamCommitInProgress then
+            self._gamPendingText = tostring(self:GetText() or "")
+        end
         RefreshCommitButton(self)
     end)
     editBox:SetScript("OnEditFocusLost", function(self)
@@ -85,11 +101,24 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
             self._gamCommitFromButton = self._gamCommitFromButton or true
             return
         end
-        local committed = tostring(self._gamCommittedText or "")
-        if tostring(self:GetText() or "") ~= committed then
-            self:SetText(committed)
+        local function RestoreCommittedText()
+            if self:HasFocus() or self._gamCommitFromButton or self._gamCommitInProgress then
+                return
+            end
+            local committed = tostring(self._gamCommittedText or "")
+            if tostring(self:GetText() or "") ~= committed then
+                SetTextWithoutChangingDraft(committed)
+            end
+            self._gamPendingText = committed
+            RefreshCommitButton(self)
         end
-        RefreshCommitButton(self)
+        if C_Timer and type(C_Timer.After) == "function" then
+            -- Let a button mouse-down commit the draft before a normal focus
+            -- loss is treated as cancellation.
+            C_Timer.After(0, RestoreCommittedText)
+        else
+            RestoreCommittedText()
+        end
     end)
 
     button:Hide()
@@ -113,11 +142,8 @@ function LeftPanelUI.Build(args)
     local getOpts = args.getOpts or function() return {} end
     local setOption = args.setOption or Noop
     local clampFillQtyValue = args.clampFillQtyValue or tonumber
-    local clampStatPercentValue = args.clampStatPercentValue or tonumber
-    local formatStatPercentValue = args.formatStatPercentValue or tostring
     local buildPlayerProfessionSet = args.buildPlayerProfessionSet or function() return {} end
     local hasAnyEntries = args.hasAnyEntries or function(set) return set and next(set) ~= nil end
-    local getSelectedFormulaProfile = args.getSelectedFormulaProfile or function() return nil, nil, nil end
     local rebuildList = args.rebuildList or Noop
     local refreshRows = args.refreshRows or Noop
     local relayoutPanels = args.relayoutPanels or Noop
@@ -137,7 +163,6 @@ function LeftPanelUI.Build(args)
     local getFilterPatch = args.getFilterPatch or function() return GAM.C.DEFAULT_PATCH end
     local getFilterMode = args.getFilterMode or function() return "all" end
     local setFilterMode = args.setFilterMode or Noop
-    local getFilterProf = args.getFilterProf or function() return "All" end
     local setFilterProf = args.setFilterProf or Noop
     local getFilterProfSet = args.getFilterProfSet or function() return nil end
     local setFilterProfSet = args.setFilterProfSet or Noop
@@ -353,9 +378,9 @@ function LeftPanelUI.Build(args)
     end)
 
     local fillQtyOKBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    fillQtyOKBtn:SetSize(28, 18)
+    fillQtyOKBtn:SetSize(28, 22)
     fillQtyOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -154)
-    fillQtyOKBtn:SetText(GetCommitButtonText(L))
+    fillQtyOKBtn:SetText(GetCommitButtonText())
     fillQtyOKBtn:Hide()
     fillQtyBox:SetPoint("LEFT", fillLbl, "RIGHT", 8, 0)
     fillQtyBox:SetPoint("RIGHT", fillQtyOKBtn, "LEFT", -4, 0)
@@ -532,7 +557,7 @@ function LeftPanelUI.Build(args)
     local captureMCBtn = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
     captureMCBtn:SetSize(halfBtnW - 2, 22)
     captureMCBtn:SetPoint("BOTTOMLEFT", gearMenu, "BOTTOMLEFT", 2, 2)
-    captureMCBtn:SetText("Save MC")
+    captureMCBtn:SetText((L and L["BTN_SAVE_MC"]) or "Save MC")
     captureMCBtn:SetScript("OnClick", function()
         captureGearPreset("multicraft")
         gearMenu:Hide()
@@ -544,7 +569,7 @@ function LeftPanelUI.Build(args)
     local captureResBtn = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
     captureResBtn:SetSize(halfBtnW - 2, 22)
     captureResBtn:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
-    captureResBtn:SetText("Save Res")
+    captureResBtn:SetText((L and L["BTN_SAVE_RES"]) or "Save Res")
     captureResBtn:SetScript("OnClick", function()
         captureGearPreset("resourcefulness")
         gearMenu:Hide()
@@ -603,12 +628,13 @@ function LeftPanelUI.Build(args)
     end
     panel.refreshVisiblePanels = RefreshVisiblePanels
 
-    local function CommitFillQty()
+    local function CommitFillQty(text)
         local opts = getOpts()
-        opts.shallowFillQty = clampFillQtyValue(fillQtyBox:GetText())
+        opts.shallowFillQty = clampFillQtyValue(text)
         fillQtyBox:SetText(tostring(opts.shallowFillQty))
         fillQtyBox._gamCommittedText = tostring(fillQtyBox:GetText() or "")
         RefreshVisiblePanels()
+        return tostring(opts.shallowFillQty)
     end
     AttachTransientCommitButton(fillQtyBox, fillQtyOKBtn, CommitFillQty)
 

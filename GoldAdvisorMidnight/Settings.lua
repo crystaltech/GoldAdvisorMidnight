@@ -18,6 +18,7 @@ local wrapper        -- standalone popup wrapper (only built on Blizzard API fai
 local category       -- Blizzard Settings category reference
 local categoryID     -- resolved category ID for OpenToCategory/OpenSettingsPanel
 local nativeMode     -- true if Blizzard registration succeeded
+local nodeCaptureUnsubscribe
 
 local function LogWarn(fmt, ...)
     if GAM.Log and GAM.Log.Warn then
@@ -441,7 +442,7 @@ local function BuildPanel()
     local ebLumberPrice
     local modeLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     modeLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
-    modeLabel:SetText("Mass Crafting Model")
+    modeLabel:SetText(L["OPT_MASS_CRAFT_MODEL"])
 
     local modeTexts = {
         exhaust_materials = "Reinvest Resourcefulness",
@@ -455,7 +456,7 @@ local function BuildPanel()
 
     local modeHelp = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     modeHelp:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 28)
-    modeHelp:SetText("The starting reagent pool is charged once; expected Resourcefulness procs fund additional crafts.")
+    modeHelp:SetText(L["OPT_MASS_CRAFT_MODEL_TIP"])
     modeHelp:SetTextColor(0.72, 0.72, 0.72, 1)
 
     y = y - 48
@@ -498,7 +499,7 @@ local function BuildPanel()
 
     local lblLumberPrice = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lblLumberPrice:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
-    lblLumberPrice:SetText("Thalassian Lumber")
+    lblLumberPrice:SetText(L["OPT_LUMBER_PRICE"])
 
     ebLumberPrice = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
     ebLumberPrice:SetSize(70, 22)
@@ -512,7 +513,7 @@ local function BuildPanel()
 
     local lblLumberUnit = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     lblLumberUnit:SetPoint("LEFT", ebLumberPrice, "RIGHT", 6, 0)
-    lblLumberUnit:SetText("gold each")
+    lblLumberUnit:SetText(L["OPT_GOLD_EACH"])
     lblLumberUnit:SetTextColor(0.55, 0.55, 0.55)
 
     local function NormalizeLumberPrice()
@@ -524,8 +525,8 @@ local function BuildPanel()
     ebLumberPrice:SetScript("OnEditFocusLost", NormalizeLumberPrice)
     ebLumberPrice:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Thalassian Lumber price", 1, 1, 1)
-        GameTooltip:AddLine("Manual per-unit value for account-bound lumber. Leave blank or 0 to mark lumber as missing price data.", 1, 0.82, 0, true)
+        GameTooltip:SetText(L["OPT_LUMBER_PRICE_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(L["OPT_LUMBER_PRICE_TIP"], 1, 0.82, 0, true)
         GameTooltip:Show()
     end)
     ebLumberPrice:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -537,15 +538,15 @@ local function BuildPanel()
 
     local subHdr = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     subHdr:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
-    subHdr:SetText("Profile-wide fallback only. Exact recipe/crafter captures take precedence; these values are not scoped to the selected strategy.")
+    subHdr:SetText(L["OPT_PROFILE_FALLBACK_TIP"])
     y = y - 20
 
     local chMulti = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     chMulti:SetPoint("TOPLEFT", content, "TOPLEFT", 250, y)
-    chMulti:SetText("Multi%")
+    chMulti:SetText(L["V2_STAT_MULTI_LABEL"])
     local chRes = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     chRes:SetPoint("TOPLEFT", content, "TOPLEFT", 345, y)
-    chRes:SetText("Res%")
+    chRes:SetText(L["V2_STAT_RES_LABEL"])
     y = y - 20
 
     local craftStatRows = {}
@@ -745,14 +746,14 @@ local function BuildPanel()
 
     local nodeTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     nodeTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
-    nodeTitle:SetText("Profession Nodes")
+    nodeTitle:SetText(L["OPT_PROFESSION_NODES"])
 
     local nodeStatus = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     nodeStatus:SetPoint("TOPLEFT", nodeTitle, "BOTTOMLEFT", 0, -4)
     nodeStatus:SetWidth(520)
     nodeStatus:SetJustifyH("LEFT")
     nodeStatus:SetTextColor(0.65, 0.65, 0.65)
-    nodeStatus:SetText("Choose a profession. These ranks feed extra-output and resourcefulness pricing bonuses.")
+    nodeStatus:SetText(L["OPT_PROFESSION_NODES_TIP"])
 
     local nodeButtonTopY = y - 42
     for _, profession in ipairs(professionNodeOrder) do
@@ -956,7 +957,7 @@ local function BuildPanel()
         return currentProfession
     end
 
-    local function RefreshProfessionNodeRows()
+    local function RefreshProfessionNodeRows(preserveDirty)
         local selectedProfession = SelectNodeProfession(currentNodeProfessionIndex)
         local selectedData = nil
         local data = GAM.CraftingStats
@@ -995,7 +996,8 @@ local function BuildPanel()
                 rowState.capturedRank = row.capturedRank
                 rowState.stats = row.stats or rowState.stats
                 rowState.impactText = GetNodeImpactText(row)
-                if rowState.box then
+                local keepDraft = preserveDirty and rowState.dirty
+                if rowState.box and not keepDraft then
                     rowState.box:SetText(tostring(row.rank or 0))
                 end
                 if rowState.label then
@@ -1004,7 +1006,7 @@ local function BuildPanel()
                 if rowState.maxText then
                     rowState.maxText:SetText("/ " .. tostring(rowState.maxRank))
                 end
-                if rowState.note then
+                if rowState.note and not keepDraft then
                     local noteText = "Default"
                     if row.manualRank ~= nil then
                         noteText = "Override"
@@ -1013,15 +1015,17 @@ local function BuildPanel()
                     end
                     rowState.note:SetText(noteText)
                 end
-                rowState.dirty = false
+                if not keepDraft then
+                    rowState.dirty = false
+                end
                 rowState.refreshing = false
             end
         end
 
         if selectedData and selectedData.capturedAt then
-            nodeStatus:SetText("Showing captured ranks and in-game names for " .. tostring(selectedProfession) .. ". Edit a rank only when an override is needed.")
+            nodeStatus:SetText(string.format(L["OPT_NODES_CAPTURED"], tostring(selectedProfession)))
         else
-            nodeStatus:SetText("Open " .. tostring(selectedProfession) .. " once on its crafter to capture in-game names and learned ranks. Defaults are shown for now.")
+            nodeStatus:SetText(string.format(L["OPT_NODES_DEFAULT"], tostring(selectedProfession)))
         end
     end
 
@@ -1043,14 +1047,14 @@ local function BuildPanel()
     btnReload:SetScript("OnClick", function()
         GAM.Importer.Init()
         GAM.Log.Info("Data reloaded.")
-        print("|cffff8800[GAM]|r Data reloaded.")
+        print("|cffff8800[GAM]|r " .. L["MSG_DATA_RELOADED"])
     end)
 
     local btnClear = MakeButton(content, L["BTN_CLEAR_CACHE"], 120)
     btnClear:SetScript("OnClick", function()
         ClearPriceCache()
         GAM.Log.Info("Price cache cleared.")
-        print("|cffff8800[GAM]|r Cache cleared.")
+        print("|cffff8800[GAM]|r " .. L["MSG_CACHE_CLEARED"])
     end)
 
     local btnLog = MakeButton(content, L["BTN_OPEN_LOG"], 100)
@@ -1282,6 +1286,9 @@ local function BuildPanel()
     panel.refresh = function()
         RefreshControlsFromOptions(GetOpts())
     end
+    panel._refreshProfessionNodes = function()
+        RefreshProfessionNodeRows(true)
+    end
     panel.OnCommit = panel.okay
     panel.OnRefresh = panel.refresh
     panel.OnDefault = function() end
@@ -1311,6 +1318,16 @@ function SettingsMod.Init()
     nativeMode = false
     category = nil
     categoryID = nil
+
+    if not nodeCaptureUnsubscribe
+            and GAM.CraftingStats
+            and GAM.CraftingStats.AddProfessionNodeCaptureListener then
+        nodeCaptureUnsubscribe = GAM.CraftingStats.AddProfessionNodeCaptureListener(function()
+            if panel and panel:IsShown() and panel._refreshProfessionNodes then
+                panel._refreshProfessionNodes()
+            end
+        end)
+    end
 
     -- Attempt native Blizzard Settings registration
     if BlizzardSettingsAPI and BlizzardSettingsAPI.RegisterCanvasLayoutCategory then

@@ -161,7 +161,7 @@ end
 local frame
 local dividerContainer, leftPanel, centerPanel, rightPanel, statusBarFrame
 local guidePanel, listPanel, softBoard
-local leftPanelShell, centerPanelShell, rightPanelShell, statusBarShell, bestStratCardShell
+local leftPanelShell, centerPanelShell, rightPanelShell, statusBarShell
 local guidePanelShell, listPanelShell
 local bestStratCard, onboardingOverlay, listHost
 local colHeaderBtns = {}
@@ -544,7 +544,7 @@ local function BuildDiscordPopup(L)
 
     local title = discordPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", discordPopup, "TOP", 0, -14)
-    title:SetText("Discord")
+    title:SetText((L and L["DISCORD_TITLE"]) or "Discord")
 
     local closeX = CreateFrame("Button", nil, discordPopup, "UIPanelCloseButton")
     closeX:SetPoint("TOPRIGHT", discordPopup, "TOPRIGHT", -4, -4)
@@ -556,7 +556,7 @@ local function BuildDiscordPopup(L)
     prompt:SetPoint("TOPLEFT", discordPopup, "TOPLEFT", 18, -44)
     prompt:SetPoint("TOPRIGHT", discordPopup, "TOPRIGHT", -18, -44)
     prompt:SetJustifyH("LEFT")
-    prompt:SetText("Copy or share this Discord invite link:")
+    prompt:SetText((L and L["DISCORD_COPY_PROMPT"]) or "Copy or share this Discord invite link:")
 
     local editBox = CreateFrame("EditBox", nil, discordPopup, "InputBoxTemplate")
     editBox:SetSize(392, 32)
@@ -636,7 +636,7 @@ local function HasAnyEntries(set)
     return Common.HasAnyEntries(set)
 end
 
-local function BuildFrameHeader(L, C, HDR_PX)
+local function BuildFrameHeader(L, HDR_PX)
     local softInk = IsSoftThemeLayout()
     local headerBg = frame:CreateTexture(nil, "BACKGROUND")
     headerBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -4)
@@ -681,7 +681,7 @@ local function BuildFrameHeader(L, C, HDR_PX)
     local cBtnLbl = compactBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     cBtnLbl:SetAllPoints()
     cBtnLbl:SetJustifyH("CENTER")
-    cBtnLbl:SetText("DETAIL")
+    cBtnLbl:SetText((L and L["BTN_COMPACT_DETAIL"]) or "DETAIL")
     cBtnLbl:SetTextColor(C_GR * 0.4, C_GG * 0.4, C_GB * 0.4)
     ApplyFontSize(cBtnLbl, 11)
     ApplyTextShadow(cBtnLbl)
@@ -730,7 +730,7 @@ local function BuildStatusAndTicker(L, C, SB_H)
     themeRefs.progressBarBg = progBg
 
     scanBtnStatus = CreateFrame("Button", nil, statusBarFrame, "UIPanelButtonTemplate")
-    scanBtnStatus:SetSize(82, 18)
+    scanBtnStatus:SetSize(82, 22)
     scanBtnStatus:SetText(L["BTN_SCAN_ALL"])
     scanBtnStatus:SetPoint("RIGHT", statusBarFrame, "RIGHT", -2, 0)
     scanBtnStatus:SetScript("OnClick", DoScan)
@@ -779,8 +779,8 @@ local function BuildStatusAndTicker(L, C, SB_H)
     end)
     tickerButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Discord", 1, 1, 1)
-        GameTooltip:AddLine("Click to copy the invite link.", 1, 0.82, 0, true)
+        GameTooltip:SetText((L and L["DISCORD_TITLE"]) or "Discord", 1, 1, 1)
+        GameTooltip:AddLine((L and L["DISCORD_COPY_TIP"]) or "Click to copy the invite link.", 1, 0.82, 0, true)
         GameTooltip:AddLine(DISCORD_INVITE_URL, 0.75, 0.75, 0.75, true)
         GameTooltip:Show()
     end)
@@ -792,7 +792,7 @@ local function BuildStatusAndTicker(L, C, SB_H)
     frame.tickerClip = tickerClip
 end
 
-local function FinalizeBuildOnShow(sb, C)
+local function FinalizeBuildOnShow(sb)
     frame:SetScript("OnShow", function()
         local opts = GetOpts()
         ApplyTheme()
@@ -824,7 +824,9 @@ local function SafeBuildSection(label, fn)
         return tostring(message) .. (stack ~= "" and ("\n" .. stack) or "")
     end)
     if not ok then
-        print("|cffff8800[GAM]|r " .. tostring(label) .. " failed while building V2 UI.")
+        local L = GetL()
+        print("|cffff8800[GAM]|r " .. string.format(
+            L["MSG_UI_BUILD_FAILED"] or "%s failed while building the UI.", tostring(label)))
         if err and err ~= "" then
             print(err)
         end
@@ -942,7 +944,9 @@ local function ItemRowEnter(self)
                 GameTooltip:AddLine(string.format((L and L["TT_ROW_BUY_NOW_COST"]) or "Buy Now Cost: %s", GAM.Pricing.FormatPrice(tt.totalCost)), 1, 0.82, 0)
             end
             if tt.sourceNote and tt.sourceNote ~= "" then
-                GameTooltip:AddLine("Cost source: " .. tt.sourceNote, 0.75, 0.75, 0.75, true)
+                GameTooltip:AddLine(string.format(
+                    (L and L["TT_COST_SOURCE"]) or "Cost source: %s", tt.sourceNote),
+                    0.75, 0.75, 0.75, true)
             end
         elseif tt.kind == "output" then
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
@@ -968,7 +972,6 @@ local shoppingIntegration = Shopping.Create({
         end
     end,
 })
-local CreateAuctionatorShoppingList = shoppingIntegration.CreateShoppingList
 local ToggleShoppingSync = shoppingIntegration.ToggleSync
 local DisableShoppingSync = shoppingIntegration.DisableSync
 
@@ -1285,8 +1288,9 @@ local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
                 tostring(requestedRecipeID or strat.recipeID or "unknown"),
                 visibleRecipeID))
         else
-            print("|cffff8800[GAM]|r Could not verify the selected recipe: "
-                .. tostring(asyncReason or "unknown"))
+            print("|cffff8800[GAM]|r " .. string.format(
+                GetL()["MSG_VERIFY_RECIPE_FAILED"] or "Could not verify the selected recipe: %s",
+                tostring(asyncReason or "unknown")))
         end
     end)
     if not opened and reportFailure then
@@ -1356,25 +1360,6 @@ SelectStrategyByID = function(stratID, fromHardwareEvent)
 end
 
 -- ===== Row frames (30-slot virtual scroll pool) =====
-local function MakeRowFrame(parent, idx)
-    return CenterUI.MakeRowFrame({
-        rowHeight = ROW_H,
-        stratIconWidth = STRAT_ICON_W,
-        applyFontSize = ApplyFontSize,
-        applyTextShadow = ApplyTextShadow,
-        toggleFavorite = ToggleFavorite,
-        rebuildList = RebuildList,
-        refreshRows = MainWindow.RefreshRows,
-        isFavorite = IsFavorite,
-        isClickInFavoriteGutter = IsClickInFavoriteGutter,
-        selectStrategyByID = SelectStrategyByID,
-        getStratByID = function(stratID)
-            return GAM.Importer.GetStratByID(stratID)
-        end,
-        getLocalizer = GetL,
-    }, parent, idx)
-end
-
 -- ===== ApplyColumnLayout — re-anchors headers + row cells =====
 local function ApplyColumnLayout(rowW)
     return Common.ApplyColumnLayout({
@@ -1445,7 +1430,7 @@ RefreshCompactButtonEnabledState = function()
     if compactActive then
         compactBtn:Enable()
         if compactBtn.labelFS then
-            compactBtn.labelFS:SetText("FULL")
+            compactBtn.labelFS:SetText((GetL()["BTN_COMPACT_FULL"]) or "FULL")
             compactBtn.labelFS:SetTextColor(C_GR, C_GG, C_GB)
         end
     else
@@ -1453,13 +1438,13 @@ RefreshCompactButtonEnabledState = function()
         if hasTarget then
             compactBtn:Enable()
             if compactBtn.labelFS then
-                compactBtn.labelFS:SetText("DETAIL")
+                compactBtn.labelFS:SetText((GetL()["BTN_COMPACT_DETAIL"]) or "DETAIL")
                 compactBtn.labelFS:SetTextColor(C_GR, C_GG, C_GB)
             end
         else
             compactBtn:Disable()
             if compactBtn.labelFS then
-                compactBtn.labelFS:SetText("DETAIL")
+                compactBtn.labelFS:SetText((GetL()["BTN_COMPACT_DETAIL"]) or "DETAIL")
                 compactBtn.labelFS:SetTextColor(C_GR * 0.4, C_GG * 0.4, C_GB * 0.4)
             end
         end
@@ -1775,7 +1760,8 @@ local function BuildInlineDetail(panel)
                 rpDetail.currentPatch,
                 rpDetail.canonicalResult)
             if err then
-                print("|cffff8800[GAM]|r CraftSim: " .. tostring(err))
+                print("|cffff8800[GAM]|r " .. string.format(
+                    GetL()["MSG_CRAFTSIM_ERROR"] or "CraftSim: %s", tostring(err)))
             else
                 print(string.format("|cffff8800[GAM]|r Pushed %d price(s) to CraftSim.", pushed or 0))
             end
@@ -1872,7 +1858,8 @@ local function BuildLeftPanelContent(L, C, LP)
                 rpDetail.currentPatch,
                 rpDetail.canonicalResult)
             if err then
-                print("|cffff8800[GAM]|r CraftSim: " .. tostring(err))
+                print("|cffff8800[GAM]|r " .. string.format(
+                    GetL()["MSG_CRAFTSIM_ERROR"] or "CraftSim: %s", tostring(err)))
             else
                 print(string.format("|cffff8800[GAM]|r Pushed %d price(s) to CraftSim.", pushed or 0))
             end
@@ -1905,7 +1892,8 @@ local function BuildLeftPanelContent(L, C, LP)
             if strat and stats and stats.SetGearModeForStrat then
                 local ok, err = stats.SetGearModeForStrat(strat, mode, filterPatch)
                 if not ok then
-                    print("|cffff8800[GAM]|r Could not change stat gear plan: " .. tostring(err))
+                    print("|cffff8800[GAM]|r " .. string.format(
+                        GetL()["MSG_GEAR_PLAN_FAILED"] or "Could not change stat gear plan: %s", tostring(err)))
                 end
             end
         end,
@@ -1923,8 +1911,10 @@ local function BuildLeftPanelContent(L, C, LP)
                     mode == "multicraft" and "Multicraft" or "Resourcefulness",
                     tostring(snapshot.recipeName or "the open recipe")))
             else
-                print("|cffff8800[GAM]|r Equip that gear set and open the exact selected profession recipe first ("
-                    .. tostring(err) .. ").")
+                print("|cffff8800[GAM]|r " .. string.format(
+                    GetL()["MSG_GEAR_CAPTURE_FIRST"]
+                        or "Equip that gear set and open the exact selected profession recipe first (%s).",
+                    tostring(err)))
             end
         end,
         getFilterPatch = function()
@@ -1992,7 +1982,7 @@ local function InitializeMainFrame(L, C, layout)
     WindowManager.Register(frame, "main")
 
     SafeBuildSection("Frame header", function()
-        BuildFrameHeader(L, C, HDR_PX)
+        BuildFrameHeader(L, HDR_PX)
     end)
     SafeBuildSection("Status and ticker", function()
         BuildStatusAndTicker(L, C, SB_H)
@@ -2219,7 +2209,6 @@ local function BuildCenterContent(L, C, layout)
         doScan = DoScan,
     })
 
-    bestStratCardShell = centerRefs.bestStratCardShell
     bestStratCard = centerRefs.bestStratCard
     colHeaderBtns = centerRefs.colHeaderBtns
     listHost = centerRefs.listHost
@@ -2241,7 +2230,7 @@ local function Build()
     BuildPanelSurfaces(L, layout)
     BuildCollapseToggles(layout)
     local sb = BuildCenterContent(L, C, layout)
-    FinalizeBuildOnShow(sb, C)
+    FinalizeBuildOnShow(sb)
     ApplyTheme()
 end
 
@@ -2308,7 +2297,8 @@ function MainWindow.ApplyTheme()
         return
     end
     if frame and builtThemeKey and builtThemeKey ~= GetThemeKey() then
-        print("|cffff8800[GAM]|r Reload the UI to rebuild the selected theme layout.")
+        print("|cffff8800[GAM]|r " .. (GetL()["MSG_THEME_RELOAD"]
+            or "Reload the UI to rebuild the selected theme layout."))
         return
     end
     ApplyTheme()
@@ -2342,7 +2332,8 @@ end
 function MainWindow.Show()
     if not frame then Build() end
     if frame and builtThemeKey and builtThemeKey ~= GetThemeKey() then
-        print("|cffff8800[GAM]|r Reload the UI to rebuild the selected theme layout.")
+        print("|cffff8800[GAM]|r " .. (GetL()["MSG_THEME_RELOAD"]
+            or "Reload the UI to rebuild the selected theme layout."))
     end
     RememberWindowState(true)
     frame:Show()
@@ -2372,4 +2363,12 @@ end
 
 function MainWindow.GetCurrentDetailContext()
     return rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.canonicalResult
+end
+
+if GAM.CraftingStats and GAM.CraftingStats.AddProfessionNodeCaptureListener then
+    GAM.CraftingStats.AddProfessionNodeCaptureListener(function()
+        if MainWindow.IsShown() then
+            MainWindow.Refresh()
+        end
+    end)
 end

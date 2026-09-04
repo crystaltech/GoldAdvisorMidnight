@@ -9,6 +9,14 @@ GAM.QuickBuy = QuickBuy
 
 local MAX_PRICE_INCREASE = 0.05
 
+local function L(key, fallback, ...)
+    local value = (GAM.L and GAM.L[key]) or fallback or key
+    if select("#", ...) > 0 then
+        return string.format(value, ...)
+    end
+    return value
+end
+
 local function FirstEntry(list)
     return list and list.entries and list.entries[1] or nil
 end
@@ -72,14 +80,14 @@ function QuickBuy.CreateController(deps)
     local function ConfirmPending()
         local state = controller.state
         if not state.pendingItemID or not state.pendingQty then
-            return Fail("No commodity quote is ready.")
+            return Fail(L("QB_ERR_NO_QUOTE", "No commodity quote is ready."))
         end
         if deps.getQuoteRemaining and (tonumber(deps.getQuoteRemaining()) or 0) <= 0 then
-            return Fail("The quote expired. Click Buy Next to request a new one.")
+            return Fail(L("QB_ERR_EXPIRED", "The quote expired. Click Buy Next to request a new one."))
         end
         local ok, err = pcall(deps.confirm, state.pendingItemID, state.pendingQty)
         if not ok then
-            return Fail("The Auction House could not confirm this purchase: " .. tostring(err))
+            return Fail(L("QB_ERR_CONFIRM", "The Auction House could not confirm this purchase: %s", tostring(err)))
         end
         state.phase = "purchasing"
         state.lastError = nil
@@ -124,7 +132,7 @@ function QuickBuy.CreateController(deps)
             return ConfirmPending()
         end
         if state.phase == "quoting" or state.phase == "purchasing" then
-            return false, "The current purchase is still being processed."
+            return false, L("QB_ERR_BUSY", "The current purchase is still being processed.")
         end
 
         local entry = FirstEntry(self.list)
@@ -133,13 +141,13 @@ function QuickBuy.CreateController(deps)
             state.phase = "complete"
             state.lastError = nil
             Changed()
-            return false, "No items remain in the shopping list."
+            return false, L("QB_ERR_EMPTY", "No items remain in the shopping list.")
         end
 
         local itemID = tonumber(entry.itemID)
         local quantity = math.floor(tonumber(entry.quantity) or 0)
         if not itemID or itemID <= 0 or quantity <= 0 then
-            return Fail("The next shopping-list entry has no valid commodity or quantity.")
+            return Fail(L("QB_ERR_INVALID_ENTRY", "The next shopping-list entry has no valid commodity or quantity."))
         end
 
         state.active = true
@@ -156,12 +164,12 @@ function QuickBuy.CreateController(deps)
 
         local ok, err = pcall(deps.start, itemID, quantity)
         if not ok then
-            return Fail("The Auction House could not start this purchase: " .. tostring(err))
+            return Fail(L("QB_ERR_START", "The Auction House could not start this purchase: %s", tostring(err)))
         end
         if deps.after then
             deps.after(8, function()
                 if state.phase == "quoting" and state.attemptID == attemptID then
-                    Fail("The Auction House did not return a quote. Retry when it is ready.")
+                    Fail(L("QB_ERR_TIMEOUT", "The Auction House did not return a quote. Retry when it is ready."))
                 end
             end)
         end
@@ -174,7 +182,7 @@ function QuickBuy.CreateController(deps)
         unitPrice = tonumber(unitPrice)
         totalPrice = tonumber(totalPrice)
         if not unitPrice or unitPrice <= 0 or not totalPrice or totalPrice <= 0 then
-            return Fail("The Auction House returned an invalid commodity quote.")
+            return Fail(L("QB_ERR_INVALID_QUOTE", "The Auction House returned an invalid commodity quote."))
         end
 
         state.quoteUnitPrice = unitPrice
@@ -182,7 +190,7 @@ function QuickBuy.CreateController(deps)
 
         local money = deps.getMoney and tonumber(deps.getMoney()) or nil
         if money and totalPrice > money then
-            return Fail("You do not have enough gold for this purchase.")
+            return Fail(L("QB_ERR_NO_GOLD", "You do not have enough gold for this purchase."))
         end
 
         local expected = tonumber(state.pendingEntry.unitPrice)
@@ -198,12 +206,12 @@ function QuickBuy.CreateController(deps)
 
     function controller:OnPriceUnavailable()
         if self.state.phase ~= "quoting" and self.state.phase ~= "approval" then return false end
-        return Fail("The requested quantity is not currently available. Retry or skip this item.")
+        return Fail(L("QB_ERR_UNAVAILABLE", "The requested quantity is not currently available. Retry or skip this item."))
     end
 
     function controller:OnPurchaseFailed()
         if self.state.phase ~= "purchasing" then return false end
-        return Fail("The purchase failed. The item was kept in the list so you can retry or skip it.")
+        return Fail(L("QB_ERR_PURCHASE_FAILED", "The purchase failed. The item was kept in the list so you can retry or skip it."))
     end
 
     function controller:OnPurchaseSucceeded()
@@ -292,38 +300,44 @@ local function RefreshWindow()
     local list = controller:GetList()
     local entries = (list and list.entries) or {}
     local entry = CurrentEntry()
-    refs.progress:SetText(string.format("%d item%s remaining", #entries, #entries == 1 and "" or "s"))
-    refs.item:SetText(entry and (entry.name or ("Item " .. tostring(entry.itemID))) or "Shopping list complete")
-    refs.quantity:SetText(entry and ("Quantity: " .. tostring(math.floor(tonumber(entry.quantity) or 0))) or "")
-    refs.expected:SetText(entry and ("Expected unit price: " .. FormatMoney(entry.unitPrice)) or "")
+    refs.progress:SetText(#entries == 1
+        and L("QB_PROGRESS_ONE", "%d item remaining", #entries)
+        or L("QB_PROGRESS_MANY", "%d items remaining", #entries))
+    refs.item:SetText(entry
+        and (entry.name or L("QB_ITEM_FALLBACK", "Item %s", tostring(entry.itemID)))
+        or L("QB_LIST_COMPLETE", "Shopping list complete"))
+    refs.quantity:SetText(entry
+        and L("QB_QUANTITY", "Quantity: %d", math.floor(tonumber(entry.quantity) or 0)) or "")
+    refs.expected:SetText(entry
+        and L("QB_EXPECTED_PRICE", "Expected unit price: %s", FormatMoney(entry.unitPrice)) or "")
     refs.quote:SetText(state.quoteTotalPrice
-        and ("Live quote: " .. FormatMoney(state.quoteTotalPrice)
-            .. " total (" .. FormatMoney(state.quoteUnitPrice) .. " each)")
+        and L("QB_LIVE_QUOTE", "Live quote: %s total (%s each)",
+            FormatMoney(state.quoteTotalPrice), FormatMoney(state.quoteUnitPrice))
         or "")
 
     local status
-    local buttonText = "Buy Next"
+    local buttonText = L("QB_BUY_NEXT", "Buy Next")
     local enabled = true
     if state.phase == "quoting" then
-        status = "Waiting for the live Auction House quote…"
-        buttonText = "Checking Price…"
+        status = L("QB_STATUS_QUOTING", "Waiting for the live Auction House quote…")
+        buttonText = L("QB_CHECKING_PRICE", "Checking Price…")
         enabled = false
     elseif state.phase == "approval" then
-        status = "The live unit price is more than 5% above the estimate. Review it before buying."
-        buttonText = "Accept Higher Price"
+        status = L("QB_STATUS_APPROVAL", "The live unit price is more than 5% above the estimate. Review it before buying.")
+        buttonText = L("QB_ACCEPT_HIGHER", "Accept Higher Price")
     elseif state.phase == "purchasing" then
-        status = "Purchase submitted. Waiting for the Auction House…"
-        buttonText = "Purchasing…"
+        status = L("QB_STATUS_PURCHASING", "Purchase submitted. Waiting for the Auction House…")
+        buttonText = L("QB_PURCHASING", "Purchasing…")
         enabled = false
     elseif state.phase == "complete" then
-        status = "All shopping-list items have been purchased."
-        buttonText = "Complete"
+        status = L("QB_STATUS_COMPLETE", "All shopping-list items have been purchased.")
+        buttonText = L("QB_COMPLETE", "Complete")
         enabled = false
     elseif state.lastError then
         status = state.lastError
-        buttonText = "Retry"
+        buttonText = L("QB_RETRY", "Retry")
     else
-        status = "Buy one commodity at a time using a current price quote."
+        status = L("QB_STATUS_IDLE", "Buy one commodity at a time using a current price quote.")
     end
     refs.status:SetText(status)
     refs.buy:SetText(buttonText)
@@ -356,7 +370,7 @@ local function BuildWindow()
 
     local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", window, "TOP", 0, -14)
-    title:SetText("Quick Buy")
+    title:SetText(L("BTN_QUICK_BUY_SHORT", "Quick Buy"))
     title:SetTextColor(1, 0.82, 0)
 
     local close = CreateFrame("Button", nil, window, "UIPanelCloseButton")
@@ -398,13 +412,13 @@ local function BuildWindow()
     refs.skip = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
     refs.skip:SetSize(94, 26)
     refs.skip:SetPoint("LEFT", refs.buy, "RIGHT", 8, 0)
-    refs.skip:SetText("Skip")
+    refs.skip:SetText(L("QB_SKIP", "Skip"))
     refs.skip:SetScript("OnClick", function() controller:Skip() end)
 
     local stop = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
     stop:SetSize(94, 26)
     stop:SetPoint("LEFT", refs.skip, "RIGHT", 8, 0)
-    stop:SetText("Stop")
+    stop:SetText(L("QB_STOP", "Stop"))
     stop:SetScript("OnClick", function() controller:Reset() end)
 
     RefreshWindow()
@@ -414,7 +428,7 @@ function QuickBuy.Init()
     if controller then return end
     controller = QuickBuy.CreateController({
         start = function(itemID, quantity)
-            if not GAM.ahOpen then error("Open the Auction House first.") end
+            if not GAM.ahOpen then error(L("ERR_NO_AH", "Open the Auction House first.")) end
             C_AuctionHouse.StartCommoditiesPurchase(itemID, quantity)
         end,
         confirm = function(itemID, quantity)

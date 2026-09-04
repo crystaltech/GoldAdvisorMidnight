@@ -116,7 +116,7 @@ local function DisableShoppingSync(silent)
         shoppingSyncFrame:UnregisterEvent("AUCTION_HOUSE_CLOSED")
     end
     if not silent then
-        print("|cffff8800[GAM]|r Auctionator shopping sync stopped.")
+        print("|cffff8800[GAM]|r " .. GAM.L["MSG_SHOPPING_SYNC_STOPPED"])
     end
 end
 

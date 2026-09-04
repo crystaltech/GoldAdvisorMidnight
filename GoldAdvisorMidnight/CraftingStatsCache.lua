@@ -120,8 +120,7 @@ local runtimeRevision = 0
 function Cache.TouchRevision(character, cache)
     runtimeRevision = runtimeRevision + 1
     if type(cache) ~= "table" then
-        local ignoredCharacter, ignoredUID
-        ignoredCharacter, ignoredUID, cache = Cache.Ensure()
+        cache = select(3, Cache.Ensure())
     end
     if type(cache) == "table" then
         cache.revision = (tonumber(cache.revision) or 0) + 1

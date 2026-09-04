@@ -21,10 +21,6 @@ local DEFAULT_ITEM_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local function Noop()
 end
 
-local function GetL()
-    return GAM.L or {}
-end
-
 local function AddThousandsSeparators(text)
     local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.%d+)?$")
     if not digits then
@@ -46,24 +42,8 @@ local function FormatQuantityValue(value)
     return AddThousandsSeparators(text)
 end
 
-local function GetCommitButtonText(localizer)
+local function GetCommitButtonText()
     return "OK"
-end
-
-local function GetItemIconTexture(itemID)
-    if itemID and itemID > 0 then
-        if C_Item and C_Item.GetItemIconByID then
-            local icon = C_Item.GetItemIconByID(itemID)
-            if icon then
-                return icon
-            end
-        end
-        local icon = select(5, GetItemInfoInstant(itemID))
-        if icon then
-            return icon
-        end
-    end
-    return DEFAULT_ITEM_ICON
 end
 
 local function RefreshCommitButton(editBox)
@@ -85,15 +65,30 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
 
     editBox._gamCommitButton = button
     editBox._gamCommittedText = tostring(editBox:GetText() or "")
+    editBox._gamPendingText = editBox._gamCommittedText
+
+    local function SetTextWithoutChangingDraft(text)
+        editBox._gamRestoringText = true
+        editBox:SetText(tostring(text or ""))
+        editBox._gamRestoringText = nil
+    end
 
     local function CommitCurrentValue(fromButton)
-        local text = tostring(editBox:GetText() or "")
+        if editBox._gamCommitInProgress then
+            return
+        end
+        local text = tostring(editBox._gamPendingText or editBox:GetText() or "")
         editBox._gamCommitInProgress = true
         if fromButton then
             editBox._gamCommitFromButton = true
         end
-        commitFn(text)
-        editBox._gamCommittedText = tostring(editBox:GetText() or text)
+        local normalizedText = commitFn(text)
+        local committedText = normalizedText ~= nil and tostring(normalizedText) or text
+        editBox._gamCommittedText = committedText
+        editBox._gamPendingText = committedText
+        if tostring(editBox:GetText() or "") ~= committedText then
+            SetTextWithoutChangingDraft(committedText)
+        end
         if editBox:HasFocus() then
             editBox:ClearFocus()
         end
@@ -103,22 +98,20 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
     end
 
     button:SetScript("OnMouseDown", function()
-        editBox._gamCommitFromButton = true
-        RefreshCommitButton(editBox)
-        CommitCurrentValue(true)
-    end)
-    button:SetScript("OnClick", function()
+        -- Commit before the edit box loses focus. The pending draft survives
+        -- any focus-loss redraw that happens during the mouse event.
         CommitCurrentValue(true)
     end)
     button:SetScript("OnHide", function()
         editBox._gamCommitFromButton = nil
     end)
 
-    editBox:SetScript("OnEnterPressed", function(self)
+    editBox:SetScript("OnEnterPressed", function()
         CommitCurrentValue(false)
     end)
     editBox:SetScript("OnEscapePressed", function(self)
-        self:SetText(self._gamCommittedText or "")
+        SetTextWithoutChangingDraft(self._gamCommittedText or "")
+        self._gamPendingText = tostring(self._gamCommittedText or "")
         self._gamCommitFromButton = nil
         self:ClearFocus()
         RefreshCommitButton(self)
@@ -127,6 +120,9 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
         RefreshCommitButton(self)
     end)
     editBox:SetScript("OnTextChanged", function(self)
+        if not self._gamRestoringText and not self._gamCommitInProgress then
+            self._gamPendingText = tostring(self:GetText() or "")
+        end
         RefreshCommitButton(self)
     end)
     editBox:SetScript("OnEditFocusLost", function(self)
@@ -135,11 +131,24 @@ local function AttachTransientCommitButton(editBox, button, commitFn)
             self._gamCommitFromButton = self._gamCommitFromButton or true
             return
         end
-        local committed = tostring(self._gamCommittedText or "")
-        if tostring(self:GetText() or "") ~= committed then
-            self:SetText(committed)
+        local function RestoreCommittedText()
+            if self:HasFocus() or self._gamCommitFromButton or self._gamCommitInProgress then
+                return
+            end
+            local committed = tostring(self._gamCommittedText or "")
+            if tostring(self:GetText() or "") ~= committed then
+                SetTextWithoutChangingDraft(committed)
+            end
+            self._gamPendingText = committed
+            RefreshCommitButton(self)
         end
-        RefreshCommitButton(self)
+        if C_Timer and type(C_Timer.After) == "function" then
+            -- Let a button mouse-down commit the draft before a normal focus
+            -- loss is treated as cancellation.
+            C_Timer.After(0, RestoreCommittedText)
+        else
+            RestoreCommittedText()
+        end
     end)
 
     button:Hide()
@@ -238,7 +247,9 @@ function Detail.Render(args)
     rpDetail.canonicalResult = args.canonicalResult
     rpDetail.detailProjection = projection
 
-    if rpDetail.craftsEB and not rpDetail.craftsEB:HasFocus() then
+    if rpDetail.craftsEB
+            and not rpDetail.craftsEB:HasFocus()
+            and not rpDetail.craftsEB._gamCommitInProgress then
         local craftsVal = projection.crafts and math.floor(projection.crafts + 0.5) or 1
         local craftsText = tostring(craftsVal)
         rpDetail.craftsEB:SetText(craftsText)
@@ -665,11 +676,9 @@ function Detail.Build(args)
     end
 
     -- Decision first: expected return, then material commitment, then setup.
-    local yProfit = y
     rpDetail.metProfitFS, y = MakeMetricRow(L and L["LBL_PROFIT"] or "Profit:", y)
     applyFontSize(rpDetail.metProfitFS, 12)
 
-    local yROI = y
     rpDetail.metROIFS, y = MakeMetricRow(L and L["LBL_ROI"] or "ROI:", y)
 
     local yBreakeven = y
@@ -755,9 +764,9 @@ function Detail.Build(args)
     rpDetail.craftsEB = craftsEB
 
     local craftsOKBtn = CreateFrame("Button", nil, bodyRoot, "UIPanelButtonTemplate")
-    craftsOKBtn:SetSize(28, 18)
+    craftsOKBtn:SetSize(28, 22)
     craftsOKBtn:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, y + 1)
-    craftsOKBtn:SetText(GetCommitButtonText(L))
+    craftsOKBtn:SetText(GetCommitButtonText())
     craftsOKBtn:Hide()
     rpDetail.craftsOKBtn = craftsOKBtn
 
@@ -795,7 +804,7 @@ function Detail.Build(args)
         return fs
     end
 
-    local reagentShell, reagentSection = nil, bodyRoot
+    local reagentSection
     local reagentScrollTop = -22
     local reagentScrollBottom = 8
     local reagentColumnY = -8
@@ -808,6 +817,7 @@ function Detail.Build(args)
         MakeRule(y - 2, 0.22)
         rpDetail.reagentHeaderBg = nil
     else
+        local reagentShell
         reagentShell, reagentSection = createShell(bodyRoot, "section", { left = 4, right = 4, top = 4, bottom = 4 })
         reagentShell:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, y)
         reagentShell:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, y)
@@ -932,7 +942,7 @@ function Detail.Build(args)
     local outputNameW, outputQtyW = 148, 48
     local outputPriceW = detailInnerWidth - outputNameW - outputQtyW
 
-    local outputShell, outputSection = nil, bodyRoot
+    local outputSection
     local outputScrollTop = -22
     local outputScrollBottom = 8
     local outputColumnY = -8
@@ -945,6 +955,7 @@ function Detail.Build(args)
         MakeRule(y - 2, 0.22)
         rpDetail.outputHeaderBg = nil
     else
+        local outputShell
         outputShell, outputSection = createShell(bodyRoot, "section", { left = 4, right = 4, top = 4, bottom = 4 })
         outputShell:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, y)
         outputShell:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, y)
@@ -1030,8 +1041,6 @@ function Detail.Build(args)
         row:Hide()
         rpDetail.outputRows[i] = row
     end
-    y = y - outputSectionHeight - 4
-
     local buttonY1 = padding + 22
     -- Keep the only visible detail action above the clipped panel edge and
     -- inside the height already reserved below `content`.

@@ -420,7 +420,6 @@ end
 -- ===== Realm key =====
 function GAM:GetRealmKey()
     if self.realmKey then return self.realmKey end
-    local name   = UnitName("player") or "Unknown"
     local realm  = GetRealmName() or "Unknown"
     local faction = UnitFactionGroup("player") or "Neutral"
     self.realmKey = realm .. "-" .. faction
@@ -739,13 +738,13 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
             GAM.UI.DebugLog.Toggle()
         end
     elseif cmd == "help" then
-        print("|cffff8800[GAM]|r /gam — toggle window; /gam log — support log; /gam help — commands")
+        print("|cffff8800[GAM]|r " .. GAM.L["MSG_COMMAND_HELP"])
     elseif cmd == "" then
         if GAM.UI and GAM.UI.MainWindow then
             GAM.UI.MainWindow.Toggle()
         end
     else
-        print("|cffff8800[GAM]|r Unknown command. Use /gam help.")
+        print("|cffff8800[GAM]|r " .. GAM.L["MSG_UNKNOWN_COMMAND"])
     end
 end
 

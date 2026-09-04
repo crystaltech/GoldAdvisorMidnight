@@ -207,12 +207,6 @@ local function SetInputQtyOverride(value)
     end
 end
 
--- Formats an integer with thousands-separator commas: 50000 → "50,000"
-local function FmtQty(n)
-    local s = tostring(math.floor(n))
-    return s:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-end
-
 -- ===== Item row helper =====
 -- Detail rows only become clickable once WoW has produced a safe cached item link.
 -- Before that, the row stays readable but inert so shift-click / SetItemRef never
@@ -422,7 +416,7 @@ local function MakeReagentRow(parent, idx)
     row.qtyEB   = qtyEB
 
     local qtyOKBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-    qtyOKBtn:SetSize(26, 18)
+    qtyOKBtn:SetSize(26, 22)
     qtyOKBtn:SetPoint("TOPLEFT", row, "TOPLEFT", colX[4] - 28, 1)
     qtyOKBtn:SetText(GetCommitButtonText())
     qtyOKBtn:SetWidth(MeasureButtonWidth(row, qtyOKBtn:GetText(), 24, 40, 12))
@@ -437,7 +431,7 @@ local function MakeReagentRow(parent, idx)
 
     -- Scan button
     local scanBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-    scanBtn:SetSize(40, 18)
+    scanBtn:SetSize(40, 22)
     scanBtn:SetText(GAM.L["BTN_SCAN_ITEM"])
     scanBtn:SetWidth(MeasureButtonWidth(row, scanBtn:GetText(), 40, ROW_SCAN_BTN_MAX_W, 14))
     scanBtn:SetPoint("RIGHT", row, "RIGHT", -2, 0)
@@ -568,7 +562,7 @@ local function MakeOutputRow(parent, idx)
 
     -- Scan button
     local scanBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-    scanBtn:SetSize(40, 18)
+    scanBtn:SetSize(40, 22)
     scanBtn:SetText(GAM.L["BTN_SCAN_ITEM"])
     scanBtn:SetWidth(MeasureButtonWidth(row, scanBtn:GetText(), 40, ROW_SCAN_BTN_MAX_W, 14))
     scanBtn:SetPoint("RIGHT", row, "RIGHT", -2, 0)
@@ -917,11 +911,14 @@ local function Build()
         if not currentStrat then return end
         local pushed, err = GAM.CraftSimBridge.PushStratPrices(currentStrat, currentPatch, canonicalResult)
         if err then
-            print("|cffff8800[GAM]|r CraftSim push failed: " .. err)
+            print("|cffff8800[GAM]|r " .. string.format(
+                L["MSG_CRAFTSIM_PUSH_FAILED"] or "CraftSim push failed: %s", err))
         elseif pushed == 0 then
-            print("|cffff8800[GAM]|r No prices to push — scan items first.")
+            print("|cffff8800[GAM]|r " .. (L["MSG_NO_PRICES_TO_PUSH"]
+                or "No prices to push — scan items first."))
         else
-            print(string.format("|cffff8800[GAM]|r Pushed %d price(s) to CraftSim.", pushed))
+            print("|cffff8800[GAM]|r " .. string.format(
+                L["MSG_PRICES_PUSHED"] or "Pushed %d price(s) to CraftSim.", pushed))
         end
     end)
     btnCraftSim:SetScript("OnEnter", function(self)

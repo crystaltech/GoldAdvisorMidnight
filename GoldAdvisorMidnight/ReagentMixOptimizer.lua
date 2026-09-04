@@ -469,7 +469,10 @@ function Optimizer.BuildLivePlan(args)
             highestSkillCandidate = candidate
         end
     end
-    local highestInfo, highestReason = highestSkillCandidate and GetCandidateOperation(highestSkillCandidate)
+    local highestInfo, highestReason
+    if highestSkillCandidate then
+        highestInfo, highestReason = GetCandidateOperation(highestSkillCandidate)
+    end
     local highestReachableQuality = OperationQuality(highestInfo) or 0
     local highSkill = OperationSkill(highestInfo) or tonumber(model.highSkill)
     local requiredSkill = OperationDifficulty(highestInfo) or tonumber(model.requiredSkill)

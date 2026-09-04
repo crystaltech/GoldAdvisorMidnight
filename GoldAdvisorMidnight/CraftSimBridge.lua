@@ -266,57 +266,6 @@ local function GetCachedRecipeIDsForProfessionDef(profDef)
     return out
 end
 
-local PROF_KEY_TO_FIELDS = {
-    insc = {
-        multiFields = { "inscInkMulti" },
-        resFields = { "inscMillingRes", "inscInkRes" },
-        mcNodeField = "inscMcNode",
-        rsNodeField = "inscRsNode",
-    },
-    jc = {
-        multiFields = { "jcCraftMulti" },
-        resFields = { "jcProspectRes", "jcCrushRes", "jcCraftRes" },
-        mcNodeField = "jcMcNode",
-        rsNodeField = "jcRsNode",
-    },
-    ench = {
-        multiFields = { "enchCraftMulti" },
-        resFields = { "enchShatterRes", "enchCraftRes" },
-        mcNodeField = "enchMcNode",
-        rsNodeField = "enchRsNode",
-    },
-    alch = {
-        multiFields = { "alchMulti" },
-        resFields = { "alchRes" },
-        mcNodeField = "alchMcNode",
-        rsNodeField = "alchRsNode",
-    },
-    tail = {
-        multiFields = { "tailMulti" },
-        resFields = { "tailRes" },
-        mcNodeField = "tailMcNode",
-        rsNodeField = "tailRsNode",
-    },
-    bs = {
-        multiFields = { "bsMulti" },
-        resFields = { "bsRes" },
-        mcNodeField = "bsMcNode",
-        rsNodeField = "bsRsNode",
-    },
-    lw = {
-        multiFields = { "lwMulti" },
-        resFields = { "lwRes" },
-        mcNodeField = "lwMcNode",
-        rsNodeField = "lwRsNode",
-    },
-    eng = {
-        multiFields = { "engCraftMulti" },
-        resFields = { "engRecycleRes", "engCraftRes" },
-        mcNodeField = "engMcNode",
-        rsNodeField = "engRsNode",
-    },
-}
-
 local function GetStatPercent(professionStat)
     if not professionStat then return nil end
 
@@ -1020,6 +969,3 @@ if GAM.CraftSimPriceOverrides and type(GAM.CraftSimPriceOverrides.Install) == "f
         GetCraftSimAddon = GetCraftSimAddon,
     })
 end
-
-local BuildPushOverrideEntries = Bridge._BuildPushOverrideEntries
-local FindPushOverrideEntry = Bridge._FindPushOverrideEntry
