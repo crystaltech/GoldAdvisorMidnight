@@ -278,6 +278,8 @@ local function BuildListMetricSignature()
 
     AddMetricSignaturePart(parts, "patch", filterPatch)
     AddMetricSignaturePart(parts, "fill", opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY)
+    AddMetricSignaturePart(parts, "startingCrafts",
+        opts.globalStartingCrafts or GAM.C.DEFAULT_STARTING_CRAFTS)
     AddMetricSignaturePart(parts, "rank", opts.rankPolicy or GAM.C.DEFAULT_RANK_POLICY)
     AddMetricSignaturePart(parts, "v2mode", opts.v2PricingMode or GAM.C.DEFAULT_V2_PRICING_MODE)
     AddMetricSignaturePart(parts, "priceSource", opts.priceSource or "ah")

@@ -834,7 +834,7 @@ function Engine.Install(Pricing, deps)
         }
     end
 
-    local function CalculateStratMetricsV2Once(strat, patchTag, craftQty, gearModeOverride, runtimeOverrides)
+    local function CalculateStratMetricsV2Once(strat, patchTag, craftQty, gearModeOverride, runtimeOverrides, globalStartingCrafts)
         local opts = GetOpts()
         local ahCut = opts.ahCut or GAM.C.AH_CUT
         local pdb = GetPatchDB(patchTag)
@@ -844,7 +844,8 @@ function Engine.Install(Pricing, deps)
         end
 
         local ctx = BuildCalcContext(
-            strat, active, patchTag, craftQty, opts, pdb, ahCut, runtimeOverrides)
+            strat, active, patchTag, craftQty, opts, pdb, ahCut, runtimeOverrides,
+            globalStartingCrafts)
         if type(PrepareOptimizedRecipeView) == "function" then
             local optimizedActive, rankMixPlan, rankMixReason, targetOutputQuality, reachableOutputQuality =
                 PrepareOptimizedRecipeView(ctx, strat, ctx.active, ctx.crafts)
@@ -869,7 +870,7 @@ function Engine.Install(Pricing, deps)
         return BuildV2FinalMetrics(ctx, outputData, displayReagentData, costReagentData, economicData)
     end
 
-    function Pricing.CalculateStratMetricsV2(strat, patchTag, craftQty, runtimeOverrides)
+    function Pricing.CalculateStratMetricsV2(strat, patchTag, craftQty, runtimeOverrides, globalStartingCrafts)
         if not strat then return nil end
         patchTag = patchTag or GAM.C.DEFAULT_PATCH
         craftQty = craftQty or 1
@@ -887,21 +888,22 @@ function Engine.Install(Pricing, deps)
         if requested == "multicraft" or requested == "resourcefulness" then
             resolved = available[requested] and requested or "current"
             metrics = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, available[requested] and requested or nil, runtimeOverrides)
+                strat, patchTag, craftQty, available[requested] and requested or nil,
+                runtimeOverrides, globalStartingCrafts)
         elseif available.multicraft and available.resourcefulness then
             local multicraft = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, "multicraft", runtimeOverrides)
+                strat, patchTag, craftQty, "multicraft", runtimeOverrides, globalStartingCrafts)
             local resourcefulness = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, "resourcefulness", runtimeOverrides)
+                strat, patchTag, craftQty, "resourcefulness", runtimeOverrides, globalStartingCrafts)
             metrics, resolved = Engine.SelectGearMetrics(multicraft, resourcefulness)
         elseif available.multicraft or available.resourcefulness then
             resolved = available.multicraft and "multicraft" or "resourcefulness"
             metrics = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, resolved, runtimeOverrides)
+                strat, patchTag, craftQty, resolved, runtimeOverrides, globalStartingCrafts)
         else
             resolved = "current"
             metrics = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, nil, runtimeOverrides)
+                strat, patchTag, craftQty, nil, runtimeOverrides, globalStartingCrafts)
         end
 
         if metrics then

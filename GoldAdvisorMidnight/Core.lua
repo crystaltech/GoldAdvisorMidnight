@@ -78,9 +78,9 @@ local DB_DEFAULTS = {
         bsRsNode         = ProfileDefault("blacksmithing", "defaultRsNode", 0),
         engMcNode        = ProfileDefault("engineering_craft", "defaultMcNode", 100),
         engRsNode        = ProfileDefault("engineering_craft", "defaultRsNode", 45),
+        globalStartingCrafts = GAM.C.DEFAULT_STARTING_CRAFTS,
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
-        v2Theme             = "classic",
         v2PricingMode        = GAM.C.DEFAULT_V2_PRICING_MODE,
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
@@ -357,6 +357,20 @@ local MIGRATIONS = {
         migrate = function(db)
             if type(db.options) == "table" then
                 db.options.pricingEngine = nil
+            end
+        end,
+    },
+    {
+        -- dataVersion 19: Add a global starting-crafts preference and retire
+        -- the unused theme selector. Existing per-strategy overrides remain intact.
+        dataVersion = 19,
+        migrate = function(db)
+            if type(db.options) ~= "table" then
+                db.options = {}
+            end
+            db.options.v2Theme = nil
+            if db.options.globalStartingCrafts == nil then
+                db.options.globalStartingCrafts = GAM.C.DEFAULT_STARTING_CRAFTS
             end
         end,
     },
@@ -732,13 +746,44 @@ SLASH_GOLDADVISORMIDNIGHT1 = "/gam"
 SLASH_GOLDADVISORMIDNIGHT2 = "/goldadvisor"
 SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
     local rawInput = input or ""
-    local cmd = rawInput:lower():match("^%s*(%S*)")
+    local command, argument = rawInput:match("^%s*(%S*)%s*(.-)%s*$")
+    local cmd = tostring(command or ""):lower()
     if cmd == "log" then
         if GAM.UI and GAM.UI.DebugLog then
             GAM.UI.DebugLog.Toggle()
         end
     elseif cmd == "help" then
         print("|cffff8800[GAM]|r " .. GAM.L["MSG_COMMAND_HELP"])
+    elseif cmd == "globalstartqty" then
+        if argument == "" then
+            local qty = GAM.State and GAM.State.GetGlobalStartingCrafts
+                and GAM.State.GetGlobalStartingCrafts()
+                or GAM.C.DEFAULT_STARTING_CRAFTS
+            print(string.format(
+                "|cffff8800[GAM]|r Global starting crafts: %d. Usage: /gam globalstartqty <quantity>",
+                qty))
+            return
+        end
+
+        local qty, err = GAM.State.SetGlobalStartingCrafts(argument)
+        if not qty then
+            print("|cffff8800[GAM]|r " .. tostring(err))
+            return
+        end
+        if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.Refresh then
+            GAM.UI.MainWindow.Refresh()
+        end
+        if GAM.UI and GAM.UI.StrategyDetail
+                and GAM.UI.StrategyDetail.IsShown and GAM.UI.StrategyDetail.Refresh
+                and GAM.UI.StrategyDetail.IsShown() then
+            GAM.UI.StrategyDetail.Refresh()
+        end
+        if GAM.Settings and GAM.Settings.Refresh then
+            GAM.Settings.Refresh()
+        end
+        print(string.format(
+            "|cffff8800[GAM]|r Global starting crafts set to %d. Per-strategy values are unchanged.",
+            qty))
     elseif cmd == "" then
         if GAM.UI and GAM.UI.MainWindow then
             GAM.UI.MainWindow.Toggle()

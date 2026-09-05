@@ -1164,7 +1164,7 @@ function Stats.ResetProfessionNodesToDefaults(profession, season)
     state.manualOverrides = {}
     local function applyDefault(nodeID)
         local node = GetCatalogNode(catalog, nodeID)
-        if node and IsPricingModifierNode(node) and node.defaultRank ~= nil then
+        if node and node.defaultRank ~= nil then
             state.manualOverrides[tonumber(nodeID)] = ClampRank(node.defaultRank, node.maxRank)
         end
     end
@@ -1218,7 +1218,10 @@ function Stats.GetProfessionNodeRows(profession, season)
         local rows = {}
         for _, nodeID in ipairs(group.nodeIDs or {}) do
             local node = GetCatalogNode(catalog, nodeID)
-            if node and IsPricingModifierNode(node) then
+            -- uiGroups defines the settings catalog. Rating-only nodes (including
+            -- every Blacksmithing node) are editable too, even when they do not
+            -- contribute an extra-output or reagent-saving pricing modifier.
+            if node then
                 local manualRank = state.manualOverrides and state.manualOverrides[nodeID]
                 local preferredName, preferredNameSource, capturedNode =
                     ResolveNodePresentation(nodeID, node)
@@ -1243,7 +1246,9 @@ function Stats.GetProfessionNodeRows(profession, season)
                     stats = CopyShallowTable(node.stats),
                     pricingNote = node.pricingNote,
                 }
-                pricingNodeCount = pricingNodeCount + 1
+                if IsPricingModifierNode(node) then
+                    pricingNodeCount = pricingNodeCount + 1
+                end
             end
         end
         if #rows > 0 then

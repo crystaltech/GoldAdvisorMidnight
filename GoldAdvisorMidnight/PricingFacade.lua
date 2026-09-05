@@ -72,6 +72,10 @@ function Facade.BuildCurrentRequest(strategy, patchTag, craftScale)
         craftScale = craftScale or 1,
         inputQuantityOverride = inputOverride,
         craftsOverride = craftsOverride,
+        globalStartingCrafts = (GAM.State and GAM.State.GetGlobalStartingCrafts
+            and GAM.State.GetGlobalStartingCrafts())
+            or opts.globalStartingCrafts
+            or ((GAM.C and GAM.C.DEFAULT_STARTING_CRAFTS) or 1000),
         materialRank = opts.rankPolicy
             or ((GAM.C and GAM.C.DEFAULT_RANK_POLICY) or "lowest"),
         pricingMode = NormalizePricingMode(opts.v2PricingMode),
@@ -89,6 +93,7 @@ local REQUEST_SNAPSHOT_FIELDS = {
     "craftScale",
     "inputQuantityOverride",
     "craftsOverride",
+    "globalStartingCrafts",
     "materialRank",
     "pricingMode",
     "inventoryPolicy",
@@ -136,7 +141,9 @@ function Facade.Calculate(request)
     local metrics = Pricing.CalculateStratMetricsV2(
         request.strategy,
         request.patchTag,
-        request.craftScale)
+        request.craftScale,
+        nil,
+        request.globalStartingCrafts)
     if not metrics then
         return nil, "v2-pricing-returned-no-result"
     end

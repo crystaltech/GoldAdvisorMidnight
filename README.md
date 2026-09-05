@@ -39,6 +39,11 @@ It includes 283 commodity strategies across nine professions. Equipment, profess
 6. Enable `VI Crafting` to compare buying intermediates with crafting them yourself.
 7. Enable `Show craft steps` to open the grouped shopping list and dependency-safe crafting order.
 
+Set the default batch for strategies without a saved override with
+`/gam globalstartqty 100`, or change **Default starting crafts** in the addon
+settings. Editing **Starting crafts** on an individual strategy continues to
+override the global value for that strategy.
+
 `Scan Current List` refreshes the currently relevant strategy list. Additional tools—including cooldowns, shopping, CraftSim, Quick Buy, and exports—are under `More Tools`.
 
 ## Important Controls

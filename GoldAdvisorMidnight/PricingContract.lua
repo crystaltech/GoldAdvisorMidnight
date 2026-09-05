@@ -99,6 +99,11 @@ function Contract.ValidateRequest(request)
             return false, "request." .. fieldName .. " must be nil or greater than zero"
         end
     end
+    if not IsFiniteNumber(request.globalStartingCrafts)
+            or request.globalStartingCrafts <= 0
+            or request.globalStartingCrafts ~= math.floor(request.globalStartingCrafts) then
+        return false, "request.globalStartingCrafts must be a positive whole number"
+    end
 
     local ok, err = ValidateEnum(request.materialRank, VALID_RANK_POLICIES, "request.materialRank")
     if not ok then return false, err end
@@ -134,11 +139,13 @@ function Contract.BuildRequest(args)
         strategy = args.strategy,
         patchTag = args.patchTag or DefaultConstant("DEFAULT_PATCH", "midnight-1"),
         -- Compatibility meaning: multiplier applied to the strategy's stored
-        -- baseline amount/crafts when no persisted override takes precedence.
+        -- baseline when no absolute global or persisted override is supplied.
         -- The result exposes the resolved craft count.
         craftScale = args.craftScale or 1,
         inputQuantityOverride = args.inputQuantityOverride,
         craftsOverride = args.craftsOverride,
+        globalStartingCrafts = args.globalStartingCrafts
+            or DefaultConstant("DEFAULT_STARTING_CRAFTS", 1000),
         materialRank = args.materialRank or DefaultConstant("DEFAULT_RANK_POLICY", "lowest"),
         pricingMode = args.pricingMode
             or DefaultConstant("DEFAULT_V2_PRICING_MODE", "exhaust_materials"),

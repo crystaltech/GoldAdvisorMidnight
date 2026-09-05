@@ -171,7 +171,7 @@ L["PRICE_UPDATED"]         = "Price updated: %s = %s"
 
 -- Errors / Warnings
 L["ERR_NO_AH"]             = "Open the Auction House first."
-L["MSG_COMMAND_HELP"]      = "/gam — toggle window; /gam log — support log; /gam help — commands"
+L["MSG_COMMAND_HELP"]      = "/gam — toggle window; /gam globalstartqty <quantity> — default crafts; /gam log — support log; /gam help — commands"
 L["MSG_UNKNOWN_COMMAND"]   = "Unknown command. Use /gam help."
 L["MSG_SHOPPING_SYNC_STOPPED"] = "Auctionator shopping sync stopped."
 L["CRUSHING_TITLE"]        = "Crushing Analyzer"

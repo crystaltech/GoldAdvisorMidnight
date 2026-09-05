@@ -1,7 +1,8 @@
 -- GoldAdvisorMidnight/Settings.lua
 -- Registers a native Blizzard Interface > AddOns canvas panel (no custom backdrop on canvas).
 -- Falls back to a draggable standalone popup when Blizzard API is unavailable.
--- Gold section headers, Credits & Thanks scrollbox. Module: GAM.Settings
+-- Vertical navigation, measured setting rows, and one scroll viewport per page.
+-- Module: GAM.Settings
 
 local ADDON_NAME, GAM = ...
 
@@ -77,88 +78,202 @@ local function NextWidgetName(prefix)
     return "GAMSettings_" .. prefix .. _widgetCount
 end
 
--- ===== Helper: gold section header =====
--- Creates a gold label + a thin gold underline rule spanning the content width.
-local function MakeSectionHeader(parent, text, y)
-    local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lbl:SetPoint("TOPLEFT", parent, "TOPLEFT", 14, y)
-    lbl:SetText(text)
-    lbl:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
-
-    local rule = parent:CreateTexture(nil, "ARTWORK")
-    rule:SetHeight(1)
-    rule:SetPoint("TOPLEFT",  parent, "TOPLEFT",  14, y - 16)
-    rule:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -14, y - 16)
-    rule:SetColorTexture(GOLD_DIM_R, GOLD_DIM_G, GOLD_DIM_B, 0.8)
-
-    return y - 24  -- return next y offset below the rule
+-- Layout is measured from the current canvas width. The same row and section
+-- helpers serve native Settings and the standalone fallback; no saved keys move.
+-- Reference principles: Common Region / Proximity / Fitts / Hick (lawsofux.com),
+-- YAGNI / Hyrum (lawsofsoftwareengineering.com).
+local function NewText(parent, text, style)
+    local fs = parent:CreateFontString(nil, "OVERLAY", style or "GameFontHighlight")
+    fs:SetJustifyH("LEFT")
+    fs:SetWordWrap(true)
+    fs:SetText(text or "")
+    return fs
 end
 
--- ===== Helper: labeled slider =====
-local function MakeSlider(parent, label, tip, minV, maxV, step, yOff)
-    local f = CreateFrame("Frame", nil, parent)
-    f:SetSize(300, 40)
-    f:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOff)
+local function AddLayoutItem(parent, item)
+    parent._gamLayout = parent._gamLayout or {}
+    parent._gamLayout[#parent._gamLayout + 1] = item
+    return item
+end
 
-    local lbl = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lbl:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
-    lbl:SetText(label)
+local function MakeSectionHeader(parent, text)
+    local title = NewText(parent, text, "GameFontNormal")
+    title:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
+    local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    card:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
+    })
+    card:SetBackdropColor(0.08, 0.08, 0.095, 0.72)
+    card:SetBackdropBorderColor(0.4, 0.4, 0.43, 0.45)
+    card:SetFrameLevel(parent:GetFrameLevel())
+    card:EnableMouse(false)
+    AddLayoutItem(parent, { kind = "section", title = title, card = card })
+end
 
-    local slName = NextWidgetName("Slider")
-    local sl = CreateFrame("Slider", slName, f, "OptionsSliderTemplate")
-    sl:SetPoint("TOPLEFT", lbl, "BOTTOMLEFT", 0, -4)
-    sl:SetWidth(260)
+local function AddText(parent, fs)
+    if type(fs) == "string" then fs = NewText(parent, fs, "GameFontHighlightSmall") end
+    fs:SetTextColor(0.72, 0.72, 0.76)
+    return AddLayoutItem(parent, { kind = "text", text = fs })
+end
+
+local function AddRow(parent, label, control, help, controlWidth, minHeight)
+    local row = CreateFrame("Button", nil, parent)
+    row:SetFrameLevel(parent:GetFrameLevel() + 2)
+    if type(label) == "string" then label = NewText(row, label) end
+    label:SetParent(row)
+    label:SetTextColor(0.92, 0.92, 0.94)
+    control:SetParent(row)
+    if type(help) == "string" then help = NewText(row, help, "GameFontHighlightSmall") end
+    if help then
+        help:SetParent(row)
+        help:SetTextColor(0.65, 0.65, 0.70)
+    end
+    local line = row:CreateTexture(nil, "BACKGROUND")
+    line:SetPoint("BOTTOMLEFT", 16, 0)
+    line:SetPoint("BOTTOMRIGHT", -16, 0)
+    line:SetHeight(1)
+    line:SetColorTexture(1, 1, 1, 0.055)
+    row:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
+    row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.035)
+    -- A checkbox can be toggled from its entire labeled row.
+    if control:IsObjectType("CheckButton") then
+        row:SetScript("OnClick", function() control:Click() end)
+    end
+    row:SetScript("OnEnter", function()
+        local enter = control:GetScript("OnEnter")
+        if enter then enter(control) end
+    end)
+    row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return AddLayoutItem(parent, {
+        kind = "row", frame = row, label = label, control = control, help = help,
+        controlWidth = controlWidth or control:GetWidth(), minHeight = minHeight or 48,
+    })
+end
+
+local function AddCustom(parent, frame, layout)
+    return AddLayoutItem(parent, { kind = "custom", frame = frame, layout = layout })
+end
+
+local function LayoutPage(page)
+    if page.layingOut then return end
+    local width = page.scroll:GetWidth()
+    if not width or width < 120 then return end -- not yet attached to its host
+    page.layingOut = true
+    local content = page.content
+    content:SetWidth(width)
+    local y, openCard, cardTop = 8, nil, 0
+    local function CloseCard()
+        if openCard then openCard:SetHeight(math.max(16, y - cardTop + 8)) end
+    end
+    for _, item in ipairs(content._gamLayout or {}) do
+        if item.kind == "section" then
+            CloseCard()
+            if openCard then y = y + 28 end
+            item.title:ClearAllPoints()
+            item.title:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -y)
+            item.title:SetWidth(width - 16)
+            y = y + item.title:GetStringHeight() + 12
+            item.card:ClearAllPoints()
+            item.card:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+            item.card:SetWidth(width)
+            openCard, cardTop = item.card, y
+            y = y + 4
+        elseif item.kind == "row" then
+            local row, control = item.frame, item.control
+            local cw = math.min(item.controlWidth, math.max(80, width * 0.45))
+            local lw = math.max(40, width - cw - 52)
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+            row:SetWidth(width)
+            item.label:ClearAllPoints()
+            item.label:SetPoint("TOPLEFT", row, "TOPLEFT", 16, -12)
+            item.label:SetWidth(lw)
+            item.label:SetWordWrap(true)
+            local textHeight = item.label:GetStringHeight()
+            if item.help then
+                item.help:ClearAllPoints()
+                item.help:SetPoint("TOPLEFT", item.label, "BOTTOMLEFT", 0, -5)
+                item.help:SetWidth(lw)
+                item.help:SetWordWrap(true)
+                textHeight = textHeight + 5 + item.help:GetStringHeight()
+            end
+            local height = math.max(item.minHeight, textHeight + 24)
+            row:SetHeight(height)
+            control:ClearAllPoints()
+            control:SetPoint("RIGHT", row, "RIGHT", -16, 0)
+            control:SetWidth(cw)
+            y = y + height
+        elseif item.kind == "text" then
+            item.text:ClearAllPoints()
+            item.text:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -y - 10)
+            item.text:SetWidth(width - 32)
+            item.text:SetWordWrap(true)
+            y = y + item.text:GetStringHeight() + 20
+        elseif item.kind == "custom" then
+            item.frame:ClearAllPoints()
+            item.frame:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -y - 8)
+            item.frame:SetWidth(width - 32)
+            local height = item.layout(width - 32)
+            item.frame:SetHeight(math.max(1, height))
+            y = y + height + 16
+        end
+    end
+    CloseCard()
+    content:SetHeight(math.max(1, y + 20, page.scroll:GetHeight()))
+    page.scroll:UpdateScrollChildRect()
+    local range = math.max(0, page.scroll:GetVerticalScrollRange())
+    page.scroll:SetVerticalScroll(math.min(page.scroll:GetVerticalScroll(), range))
+    if page.scroll.ScrollBar then page.scroll.ScrollBar:SetShown(range > 1) end
+    page.layingOut = false
+end
+
+local function MakeSlider(parent, label, tip, minV, maxV, step)
+    local group = CreateFrame("Frame", nil, parent)
+    group:SetSize(170, 48)
+    local name = NextWidgetName("Slider")
+    local sl = CreateFrame("Slider", name, group, "OptionsSliderTemplate")
+    sl:SetPoint("LEFT", group, "LEFT", 0, 0)
+    sl:SetPoint("RIGHT", group, "RIGHT", 0, 0)
     sl:SetMinMaxValues(minV, maxV)
     sl:SetValueStep(step)
     sl:SetObeyStepOnDrag(true)
-    local lowText  = _G[slName .. "Low"]
-    local highText = _G[slName .. "High"]
-    if lowText  then lowText:SetText(tostring(minV))  end
-    if highText then highText:SetText(tostring(maxV)) end
-
-    local val = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    val:SetPoint("TOP", sl, "BOTTOM", 0, 2)
-
-    sl:SetScript("OnValueChanged", function(self, v)
-        val:SetText(string.format("%.2f", v))
+    local low, high, title = _G[name .. "Low"], _G[name .. "High"], _G[name .. "Text"]
+    if low then low:SetText(tostring(minV)) end
+    if high then high:SetText(tostring(maxV)) end
+    if title then title:SetText("") end
+    local val = NewText(group, "", "GameFontHighlightSmall")
+    val:SetPoint("BOTTOM", sl, "TOP", 0, 3)
+    sl:SetScript("OnValueChanged", function(_, v)
+        val:SetText(step >= 1 and string.format("%.0f", v) or string.format("%.2f", v))
     end)
-
     if tip then
-        sl:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        local function ShowTip()
+            GameTooltip:SetOwner(sl, "ANCHOR_RIGHT")
             GameTooltip:SetText(tip, 1, 1, 1, 1, true)
             GameTooltip:Show()
-        end)
+        end
+        sl:SetScript("OnEnter", ShowTip)
         sl:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        group:SetScript("OnEnter", ShowTip)
     end
-
+    AddRow(parent, label, group, nil, 170, 68)
     return sl, val
 end
 
--- ===== Helper: checkbox =====
-local function MakeCheckbox(parent, label, yOff)
-    local cbName = NextWidgetName("CB")
-    local cb = CreateFrame("CheckButton", cbName, parent, "UICheckButtonTemplate")
-    cb:SetPoint("TOPLEFT", parent, "TOPLEFT", 20, yOff)
-    cb:SetSize(24, 24)
-    local textFrame = _G[cbName .. "Text"]
-    if textFrame then
-        textFrame:SetText(label)
-    else
-        local lbl = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        lbl:SetPoint("LEFT", cb, "RIGHT", 4, 0)
-        lbl:SetText(label)
-    end
+local function MakeCheckbox(parent, label)
+    local name = NextWidgetName("CB")
+    local cb = CreateFrame("CheckButton", name, parent, "UICheckButtonTemplate")
+    cb:SetSize(26, 26)
+    if _G[name .. "Text"] then _G[name .. "Text"]:SetText("") end
+    AddRow(parent, label, cb)
     return cb
 end
 
--- ===== Helper: button =====
 local function MakeButton(parent, label, w, x, y)
     local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    btn:SetSize(w, 22)
-    if x and y then
-        btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    end
+    btn:SetSize(w, 28)
+    if x and y then btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y) end
     btn:SetText(label)
     return btn
 end
@@ -166,6 +281,7 @@ end
 local function MeasureButtonWidth(parent, text, minW, maxW, padding)
     parent._gamMeasureFS = parent._gamMeasureFS or parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     local fs = parent._gamMeasureFS
+    fs:Hide()
     fs:SetText(text or "")
     local w = math.ceil(fs:GetStringWidth() + (padding or 24))
     if minW and w < minW then w = minW end
@@ -221,7 +337,7 @@ local function LayoutButtonsTop(parent, buttons, topY, cfg)
     }
 end
 
--- UIDropDownMenuTemplate replaced with cycle button: pops outside ScrollFrame boundaries.
+-- Rank policy uses a cycle button, avoiding pop-out menus inside scroll frames.
 
 -- Formats an integer with thousands-separator commas: 50000 → "50,000"
 local function FmtQty(n)
@@ -310,64 +426,148 @@ local function BuildPanel()
     local L    = GAM.L
     local opts = GetOpts()
 
-    -- Plain frame: no BackdropTemplate, no custom title, no custom close button.
-    -- Blizzard Settings embeds this directly; it inherits the canvas background.
     panel = CreateFrame("Frame", "GoldAdvisorMidnightSettingsPanel", UIParent)
-    panel:SetSize(620, 550)
+    panel:SetSize(760, 570)
     panel:SetPoint("CENTER", UIParent, "CENTER")
     panel:Hide()
 
-    -- Outer scroll container to keep all controls clipped within Blizzard's canvas.
-    local outerScroll = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-    outerScroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 10, -10)
-    outerScroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -30, 10)
+    local nav = CreateFrame("Frame", nil, panel)
+    nav:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, -16)
+    nav:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 8, 16)
+    nav:SetWidth(144)
+    local divider = nav:CreateTexture(nil, "BACKGROUND")
+    divider:SetPoint("TOPRIGHT", 8, 0)
+    divider:SetPoint("BOTTOMRIGHT", 8, 0)
+    divider:SetWidth(1)
+    divider:SetColorTexture(1, 1, 1, 0.16)
 
-    local content = CreateFrame("Frame", nil, outerScroll)
-    content:SetPoint("TOPLEFT", outerScroll, "TOPLEFT", 0, 0)
-    content:SetSize(560, 1)
-    outerScroll:SetScrollChild(content)
+    local navDefs = {
+        { key = "general", label = "General", description = "Scanning and addon display." },
+        { key = "pricing", label = "Pricing", description = "Default quantities and material prices." },
+        { key = "crafting", label = "Stat fallbacks", description = "Manual values used when a captured profile is unavailable." },
+        { key = "nodes", label = "Profession nodes", description = "Captured specialization ranks and manual overrides." },
+        { key = "tools", label = "Tools", description = "Reload strategy data and manage the price cache." },
+        { key = "about", label = "About", description = "Gold Advisor Midnight contributors and acknowledgments." },
+    }
 
-    local function FinalizeContentLayout(finalY, bottomPadding)
-        local viewportW = outerScroll:GetWidth()
-        if not viewportW or viewportW <= 0 then
-            viewportW = panel:GetWidth() - 40
-        end
-        content:SetWidth(math.max(1, viewportW))
+    local pageHost = CreateFrame("Frame", nil, panel)
+    pageHost:SetPoint("TOPLEFT", nav, "TOPRIGHT", 28, 0)
+    pageHost:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -12, 14)
+    local title = NewText(pageHost, "", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 0, 0)
+    title:SetPoint("TOPRIGHT", 0, 0)
+    title:SetTextColor(0.95, 0.95, 0.97)
+    local subtitle = NewText(pageHost, "", "GameFontHighlightSmall")
+    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    subtitle:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -6)
+    subtitle:SetTextColor(0.65, 0.65, 0.7)
 
-        local viewportH = outerScroll:GetHeight()
-        if not viewportH or viewportH <= 0 then
-            viewportH = panel:GetHeight() - 20
-        end
-        local neededH = math.max(viewportH, math.abs(finalY) + (bottomPadding or 0))
-        content:SetHeight(math.max(1, neededH))
+    -- One scrollbar per page, including About. Its viewport follows the host.
+    local pages, navButtons = {}, {}
+    local selectedKey = "general"
+    local ReflowPages
+    for _, def in ipairs(navDefs) do
+        local page = CreateFrame("Frame", nil, pageHost)
+        page:SetPoint("TOPLEFT", pageHost, "TOPLEFT", 0, -54)
+        page:SetPoint("BOTTOMRIGHT", pageHost, "BOTTOMRIGHT", 0, 0)
+        page:Hide()
+        local scroll = CreateFrame("ScrollFrame", nil, page, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 0, 0)
+        scroll:SetPoint("BOTTOMRIGHT", -24, 0)
+        local pageContent = CreateFrame("Frame", nil, scroll)
+        pageContent:SetSize(520, 1)
+        scroll:SetScrollChild(pageContent)
+        local state = { frame = page, scroll = scroll, content = pageContent }
+        pages[def.key] = state
+        scroll:EnableMouseWheel(true)
+        scroll:SetScript("OnMouseWheel", function(self, delta)
+            local range = math.max(0, self:GetVerticalScrollRange())
+            self:SetVerticalScroll(math.max(0, math.min(range, self:GetVerticalScroll() - delta * 36)))
+        end)
+        scroll:HookScript("OnSizeChanged", function() LayoutPage(state) end)
+        scroll:HookScript("OnScrollRangeChanged", function(self, _, range)
+            if self.ScrollBar then self.ScrollBar:SetShown((range or 0) > 1) end
+        end)
+        page:SetScript("OnShow", function() LayoutPage(state) end)
     end
 
-    local y = -14
+    local function SelectSettingsSection(key)
+        if not pages[key] then return end
+        selectedKey = key
+        for _, def in ipairs(navDefs) do
+            if def.key == key then
+                title:SetText(def.label)
+                subtitle:SetText(def.description)
+            end
+        end
+        for pageKey, page in pairs(pages) do
+            page.frame:SetShown(pageKey == key)
+        end
+        for _, entry in ipairs(navButtons) do
+            local selected = entry.key == key
+            entry.fill:SetShown(selected)
+            entry.indicator:SetShown(selected)
+            entry.text:SetTextColor(selected and GOLD_R or 0.8,
+                selected and GOLD_G or 0.8, selected and GOLD_B or 0.84)
+        end
+        -- Keep each page's scroll position and pending edits when navigating.
+        if ReflowPages then ReflowPages() else LayoutPage(pages[key]) end
+    end
+
+    for i, def in ipairs(navDefs) do
+        local key = def.key
+        local btn = CreateFrame("Button", nil, nav)
+        btn:SetSize(144, 36)
+        if key == "about" then
+            btn:SetPoint("BOTTOMLEFT", 0, 0)
+        else
+            btn:SetPoint("TOPLEFT", 0, -(i - 1) * 42)
+        end
+        btn:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
+        btn:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
+        local fill = btn:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        fill:SetColorTexture(GOLD_R, GOLD_G, GOLD_B, 0.10)
+        local indicator = btn:CreateTexture(nil, "ARTWORK")
+        indicator:SetPoint("TOPLEFT", 0, -4)
+        indicator:SetPoint("BOTTOMLEFT", 0, 4)
+        indicator:SetWidth(3)
+        indicator:SetColorTexture(GOLD_R, GOLD_G, GOLD_B, 1)
+        local text = NewText(btn, def.label)
+        text:SetPoint("LEFT", 14, 0)
+        text:SetWidth(124)
+        btn:SetScript("OnClick", function() SelectSettingsSection(key) end)
+        navButtons[#navButtons + 1] = {
+            key = key, button = btn, fill = fill, indicator = indicator, text = text,
+        }
+    end
+
+    local content = pages.general.content
+    local function FinalizeContentLayout()
+        for _, page in pairs(pages) do
+            if page.content == content then LayoutPage(page); break end
+        end
+    end
 
     -- ── Scan Settings ──────────────────────────────────────────────────────
-    y = MakeSectionHeader(content, L["SETTINGS_SECTION_SCAN"], y)
-    -- y now just below the gold rule
+    MakeSectionHeader(content, L["SETTINGS_SECTION_SCAN"])
 
     local slScanDelay, _ = MakeSlider(content, L["OPT_SCAN_DELAY"], L["OPT_SCAN_DELAY_TIP"],
-        1, 10, 0.5, y - 4)
+        1, 10, 0.5)
     slScanDelay:SetValue(opts.scanDelay)
-    y = y - 58
 
     local slVerbosity, _ = MakeSlider(content, L["OPT_VERBOSITY"], L["OPT_VERBOSITY_TIP"],
-        0, 3, 1, y)
+        0, 3, 1)
     slVerbosity:SetValue(opts.debugVerbosity)
-    y = y - 48
 
     -- ── Display ────────────────────────────────────────────────────────────
-    y = MakeSectionHeader(content, L["SETTINGS_SECTION_DISPLAY"], y)
+    MakeSectionHeader(content, L["SETTINGS_SECTION_DISPLAY"])
 
-    local cbMinimap = MakeCheckbox(content, L["OPT_MINIMAP"], y - 4)
+    local cbMinimap = MakeCheckbox(content, L["OPT_MINIMAP"])
     cbMinimap:SetChecked(not opts.minimapHidden)
-    y = y - 32
 
     -- Rank policy: cycle button — avoids UIDropDownMenu pop-out bugs.
     local rankLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    rankLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
     rankLabel:SetText(L["OPT_RANK_POLICY"])
 
     local rankTexts = {
@@ -378,9 +578,9 @@ local function BuildPanel()
     local rankCurrent = rankTexts[opts.rankPolicy] and opts.rankPolicy or "lowest"
 
     local rankBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
-    rankBtn:SetSize(110, 22)
-    rankBtn:SetPoint("LEFT", rankLabel, "RIGHT", 12, 0)
+    rankBtn:SetSize(170, 28)
     rankBtn:SetText(rankTexts[rankCurrent])
+    AddRow(content, rankLabel, rankBtn, nil, 170)
     rankBtn:SetScript("OnClick", function()
         rankCurrent = rankCurrent == "lowest" and "optimal"
             or rankCurrent == "optimal" and "highest"
@@ -390,41 +590,17 @@ local function BuildPanel()
 
     -- Shim so ApplySettings can call ddRank.GetValue() unchanged
     local ddRank = { GetValue = function() return rankCurrent end }
-    y = y - 30
-
-    -- Theme: cycle button (Classic ↔ Soft)
-    local themeLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    themeLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
-    themeLabel:SetText(L["OPT_THEME"])
-
-    local themeTexts = { classic = L["OPT_THEME_CLASSIC"], soft = L["OPT_THEME_SOFT"] }
-    local themeCurrent = (opts.v2Theme == "soft") and "soft" or "classic"
-
-    local themeBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
-    themeBtn:SetSize(80, 22)
-    themeBtn:SetPoint("LEFT", themeLabel, "RIGHT", 12, 0)
-    themeBtn:SetText(themeTexts[themeCurrent])
-    themeBtn:SetScript("OnClick", function()
-        themeCurrent = (themeCurrent == "classic") and "soft" or "classic"
-        themeBtn:SetText(themeTexts[themeCurrent])
-    end)
-    y = y - 30
 
     local slScale, slScaleVal = MakeSlider(content, L["OPT_UI_SCALE"], L["OPT_UI_SCALE_TIP"],
-        GAM.C.MIN_UI_SCALE, GAM.C.MAX_UI_SCALE, 0.05, y)
+        GAM.C.MIN_UI_SCALE, GAM.C.MAX_UI_SCALE, 0.05)
     slScale:SetValue(opts.uiScale or GAM.C.DEFAULT_UI_SCALE)
     -- Override OnValueChanged to also apply scale live
     slScale:SetScript("OnValueChanged", function(self, v)
         slScaleVal:SetText(string.format("%.2f", v))
         ApplyScaleToFrames(v)
     end)
-    local slScaleRange = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    slScaleRange:SetPoint("LEFT", slScale, "RIGHT", 6, 0)
-    slScaleRange:SetText(L["OPT_UI_SCALE_RANGE"])
-    slScaleRange:SetTextColor(0.55, 0.55, 0.55)
-    y = y - 48
 
-    local cbRememberAHState = MakeCheckbox(content, L["OPT_REMEMBER_AH_STATE"], y - 4)
+    local cbRememberAHState = MakeCheckbox(content, L["OPT_REMEMBER_AH_STATE"])
     cbRememberAHState:SetChecked(opts.rememberAHWindowState ~= false)
     cbRememberAHState:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -433,15 +609,60 @@ local function BuildPanel()
         GameTooltip:Show()
     end)
     cbRememberAHState:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    y = y - 32
 
     -- ── Pricing ────────────────────────────────────────────────────────────
-    y = MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"], y)
+    FinalizeContentLayout()
+    content = pages.pricing.content
+    MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"])
 
     local ebFillQty
     local ebLumberPrice
+    local ebGlobalStartingCrafts
+
+    local startingCraftsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    startingCraftsLabel:SetText("Default starting crafts")
+
+    ebGlobalStartingCrafts = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+    ebGlobalStartingCrafts:SetSize(90, 26)
+    ebGlobalStartingCrafts:SetAutoFocus(false)
+    ebGlobalStartingCrafts:SetNumeric(true)
+    ebGlobalStartingCrafts:SetMaxLetters(7)
+    ebGlobalStartingCrafts:SetText(tostring(
+        (GAM.State and GAM.State.GetGlobalStartingCrafts
+            and GAM.State.GetGlobalStartingCrafts()) or GAM.C.DEFAULT_STARTING_CRAFTS))
+
+    local startingCraftsHelp = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    startingCraftsHelp:SetText(string.format(
+        "Used by strategies without an override (%s-%s). Per-strategy values still take priority.",
+        FmtQty(GAM.C.MIN_STARTING_CRAFTS), FmtQty(GAM.C.MAX_STARTING_CRAFTS)))
+    startingCraftsHelp:SetTextColor(0.68, 0.68, 0.72)
+    AddRow(content, startingCraftsLabel, ebGlobalStartingCrafts, startingCraftsHelp, 90)
+
+    local function NormalizeGlobalStartingCraftsBox()
+        local value, err = GAM.State.NormalizeStartingCrafts(ebGlobalStartingCrafts:GetText())
+        if not value then
+            value = GAM.State.GetGlobalStartingCrafts()
+            if err then
+                GAM.Log.Warn("Invalid global starting crafts in Settings: %s", tostring(err))
+            end
+        end
+        ebGlobalStartingCrafts:SetText(tostring(value))
+        ebGlobalStartingCrafts:ClearFocus()
+        return value
+    end
+    ebGlobalStartingCrafts:SetScript("OnEnterPressed", NormalizeGlobalStartingCraftsBox)
+    ebGlobalStartingCrafts:SetScript("OnEditFocusLost", NormalizeGlobalStartingCraftsBox)
+    ebGlobalStartingCrafts:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Default Starting Crafts", 1, 1, 1)
+        GameTooltip:AddLine(
+            "Sets the initial craft count for every strategy that does not have its own saved value.",
+            1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    ebGlobalStartingCrafts:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     local modeLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    modeLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
     modeLabel:SetText(L["OPT_MASS_CRAFT_MODEL"])
 
     local modeTexts = {
@@ -449,33 +670,28 @@ local function BuildPanel()
     }
     local modeCurrent = "exhaust_materials"
     local modeBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
-    modeBtn:SetSize(170, 22)
-    modeBtn:SetPoint("LEFT", modeLabel, "RIGHT", 12, 0)
+    modeBtn:SetSize(180, 28)
     modeBtn:SetText(modeTexts[modeCurrent])
     modeBtn:Disable()
 
     local modeHelp = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    modeHelp:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 28)
     modeHelp:SetText(L["OPT_MASS_CRAFT_MODEL_TIP"])
     modeHelp:SetTextColor(0.72, 0.72, 0.72, 1)
-
-    y = y - 48
+    AddRow(content, modeLabel, modeBtn, modeHelp, 180)
 
     local lblFillQty = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblFillQty:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
     lblFillQty:SetText(L["OPT_SHALLOW_FILL_QTY"])
 
     ebFillQty = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-    ebFillQty:SetSize(60, 22)
-    ebFillQty:SetPoint("TOPLEFT", content, "TOPLEFT", 84, y)
+    ebFillQty:SetSize(90, 26)
     ebFillQty:SetAutoFocus(false)
     ebFillQty:SetNumeric(true)
     ebFillQty:SetText(tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
 
     local lblRange = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    lblRange:SetPoint("LEFT", ebFillQty, "RIGHT", 6, 0)
     lblRange:SetText(L["OPT_SHALLOW_FILL_RANGE"])
     lblRange:SetTextColor(0.55, 0.55, 0.55)
+    AddRow(content, lblFillQty, ebFillQty, lblRange, 90)
 
     local function ClampFillQty()
         local raw = tonumber(ebFillQty:GetText())
@@ -495,15 +711,13 @@ local function BuildPanel()
     end)
     ebFillQty:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    y = y - 40
+    MakeSectionHeader(content, "Material prices")
 
     local lblLumberPrice = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblLumberPrice:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
     lblLumberPrice:SetText(L["OPT_LUMBER_PRICE"])
 
     ebLumberPrice = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-    ebLumberPrice:SetSize(70, 22)
-    ebLumberPrice:SetPoint("TOPLEFT", content, "TOPLEFT", 145, y)
+    ebLumberPrice:SetSize(90, 26)
     ebLumberPrice:SetAutoFocus(false)
     ebLumberPrice:SetMaxLetters(12)
     do
@@ -512,9 +726,9 @@ local function BuildPanel()
     end
 
     local lblLumberUnit = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    lblLumberUnit:SetPoint("LEFT", ebLumberPrice, "RIGHT", 6, 0)
     lblLumberUnit:SetText(L["OPT_GOLD_EACH"])
     lblLumberUnit:SetTextColor(0.55, 0.55, 0.55)
+    AddRow(content, lblLumberPrice, ebLumberPrice, lblLumberUnit, 90)
 
     local function NormalizeLumberPrice()
         local copper = ParseGoldInput(ebLumberPrice:GetText())
@@ -531,32 +745,29 @@ local function BuildPanel()
     end)
     ebLumberPrice:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    y = y - 40
-
     -- ── Advanced manual stat fallbacks ─────────────────────────────────────
-    y = MakeSectionHeader(content, "Advanced: Manual Stat Fallbacks", y)
+    FinalizeContentLayout()
+    content = pages.crafting.content
+    MakeSectionHeader(content, "Manual stat fallbacks")
 
     local subHdr = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    subHdr:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
+    subHdr:SetJustifyH("LEFT")
+    subHdr:SetWordWrap(true)
     subHdr:SetText(L["OPT_PROFILE_FALLBACK_TIP"])
-    y = y - 20
+    AddText(content, subHdr)
 
     local chMulti = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    chMulti:SetPoint("TOPLEFT", content, "TOPLEFT", 250, y)
     chMulti:SetText(L["V2_STAT_MULTI_LABEL"])
     local chRes = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    chRes:SetPoint("TOPLEFT", content, "TOPLEFT", 345, y)
     chRes:SetText(L["V2_STAT_RES_LABEL"])
-    y = y - 20
 
     local craftStatRows = {}
 
-    local function MakeStatEditBox(anchorX, tooltipTitle, tooltipBody, fallbackValue)
+    local function MakeStatEditBox(tooltipTitle, tooltipBody, fallbackValue)
         local eb = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
         eb:SetSize(44, 22)
         eb:SetAutoFocus(false)
         eb:SetMaxLetters(6)
-        eb:SetPoint("TOPLEFT", content, "TOPLEFT", anchorX, y)
         eb:SetText(FormatStatPercentValue(fallbackValue))
         eb:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -571,11 +782,11 @@ local function BuildPanel()
     -- multiKey=nil → no Multi% field (Milling/Prospecting/Crushing/Shattering have no Multicraft stat)
     local function MakeStatRow(def)
         local lbl = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        lbl:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
         lbl:SetText(def.label)
 
         local row = {
             label = def.label,
+            labelFrame = lbl,
             multiKey = def.multiKey,
             resKey = def.resKey,
             defaultMulti = def.defaultMulti,
@@ -586,7 +797,6 @@ local function BuildPanel()
 
         if row.multiKey then
             row.multiBox = MakeStatEditBox(
-                250,
                 GAM.L["TT_STAT_MULTI_TITLE"] or "Multicraft %",
                 GAM.L["TT_STAT_MULTI_BODY"] or "Your Multicraft stat from the profession window (%). Higher values increase expected output quantity.",
                 GetOptionValue(opts, row.multiKey, row.defaultMulti)
@@ -602,7 +812,6 @@ local function BuildPanel()
         end
 
         row.resBox = MakeStatEditBox(
-            345,
             GAM.L["TT_STAT_RES_TITLE"] or "Resourcefulness %",
             GAM.L["TT_STAT_RES_BODY"] or "Your Resourcefulness stat from the profession window (%). Higher values reduce average reagent consumption.",
             GetOptionValue(opts, row.resKey, row.defaultRes)
@@ -617,7 +826,6 @@ local function BuildPanel()
         row.resBox:SetScript("OnEditFocusLost", NormalizeRes)
 
         craftStatRows[#craftStatRows + 1] = row
-        y = y - 26
     end
 
     MakeStatRow({
@@ -719,7 +927,53 @@ local function BuildPanel()
         defaultRes = GAM.C.DEFAULT_ENG_CRAFT_RES,
     })
 
-    local btnResetStatFallbacks = MakeButton(content, "Reset Fallback Defaults", 160, 20, y - 2)
+    local statTable = CreateFrame("Frame", nil, content)
+    chMulti:SetParent(statTable)
+    chRes:SetParent(statTable)
+    for _, row in ipairs(craftStatRows) do
+        row.labelFrame:SetParent(statTable)
+        if row.multiBox then row.multiBox:SetParent(statTable) end
+        row.resBox:SetParent(statTable)
+        row.rule = statTable:CreateTexture(nil, "BACKGROUND")
+        row.rule:SetColorTexture(1, 1, 1, 0.05)
+    end
+    AddCustom(content, statTable, function(width)
+        local colWidth = math.min(104, width * 0.27)
+        local multiX, resX = width - colWidth * 2, width - colWidth
+        for i, header in ipairs({ chMulti, chRes }) do
+            header:ClearAllPoints()
+            header:SetPoint("TOPLEFT", statTable, "TOPLEFT", i == 1 and multiX or resX, 0)
+            header:SetWidth(colWidth - 6)
+            header:SetWordWrap(true)
+        end
+        local top = math.max(chMulti:GetStringHeight(), chRes:GetStringHeight()) + 12
+        for _, row in ipairs(craftStatRows) do
+            local label = row.labelFrame
+            label:ClearAllPoints()
+            label:SetPoint("TOPLEFT", statTable, "TOPLEFT", 0, -top - 5)
+            label:SetWidth(math.max(40, multiX - 12))
+            label:SetWordWrap(true)
+            local height = math.max(36, label:GetStringHeight() + 14)
+            for i = 1, 2 do
+                local box
+                if i == 1 then box = row.multiBox else box = row.resBox end
+                if box then
+                    box:ClearAllPoints()
+                    box:SetPoint("TOPLEFT", statTable, "TOPLEFT", i == 1 and multiX or resX, -top)
+                    box:SetSize(math.min(64, colWidth - 16), 26)
+                end
+            end
+            row.rule:ClearAllPoints()
+            row.rule:SetPoint("TOPLEFT", statTable, "TOPLEFT", 0, -top - height + 4)
+            row.rule:SetSize(width, 1)
+            top = top + height
+        end
+        return top
+    end)
+
+    local btnResetStatFallbacks = MakeButton(content, "Reset Fallback Defaults", 160)
+    AddRow(content, "Restore fallback values", btnResetStatFallbacks,
+        "Resets the fields on this page to addon defaults.", 170)
     btnResetStatFallbacks:SetScript("OnClick", function()
         for _, row in ipairs(craftStatRows) do
             if row.multiBox and row.defaultMulti ~= nil then
@@ -730,9 +984,11 @@ local function BuildPanel()
             end
         end
     end)
-    y = y - 34
 
     -- ── Profession node ranks ──────────────────────────────────────────────
+    FinalizeContentLayout()
+    content = pages.nodes.content
+    MakeSectionHeader(content, "Specialization ranks")
     local professionNodeRows = {}
     local professionNodeSections = {}
     local professionNodeOrder = (GAM.CraftingStats
@@ -742,38 +998,111 @@ local function BuildPanel()
         professionNodeOrder = { "Engineering" }
     end
     local currentNodeProfessionIndex = 1
-    local professionNodeButtons = {}
+    local RefreshProfessionNodeRows
 
-    local nodeTitle = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    nodeTitle:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y - 3)
-    nodeTitle:SetText(L["OPT_PROFESSION_NODES"])
+    local nodeStatus = NewText(content, L["OPT_PROFESSION_NODES_TIP"], "GameFontHighlightSmall")
+    AddText(content, nodeStatus)
 
-    local nodeStatus = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    nodeStatus:SetPoint("TOPLEFT", nodeTitle, "BOTTOMLEFT", 0, -4)
-    nodeStatus:SetWidth(520)
-    nodeStatus:SetJustifyH("LEFT")
-    nodeStatus:SetTextColor(0.65, 0.65, 0.65)
-    nodeStatus:SetText(L["OPT_PROFESSION_NODES_TIP"])
+    -- Keep the selector outside the scroll child, visible even in a long tree.
+    local selectorBar = CreateFrame("Frame", nil, pages.nodes.frame)
+    selectorBar:SetPoint("TOPLEFT", 0, 0)
+    selectorBar:SetPoint("TOPRIGHT", -24, 0)
+    selectorBar:SetHeight(44)
+    pages.nodes.scroll:SetPoint("TOPLEFT", pages.nodes.frame, "TOPLEFT", 0, -48)
+    local selectorLabel = NewText(selectorBar, "Profession", "GameFontNormal")
+    selectorLabel:SetPoint("LEFT", 8, 0)
 
-    local nodeButtonTopY = y - 42
-    for _, profession in ipairs(professionNodeOrder) do
-        local btn = MakeButton(content, profession, MeasureButtonWidth(content, profession, 86, 118, 18))
-        btn._gamNodeProfession = profession
-        professionNodeButtons[#professionNodeButtons + 1] = btn
+    local function ChooseProfession(index)
+        if currentNodeProfessionIndex ~= index then
+            currentNodeProfessionIndex = index
+            pages.nodes.scroll:SetVerticalScroll(0)
+        end
+        if RefreshProfessionNodeRows then RefreshProfessionNodeRows(true) end
     end
-    local nodeButtonLayout = LayoutButtonsTop(content, professionNodeButtons, nodeButtonTopY, {
-        left = 20,
-        right = 540,
-        gap = 6,
-        rowGap = 4,
-        align = "left",
-        height = 22,
-    })
-    y = nodeButtonTopY - nodeButtonLayout.usedHeight - 12
+    local UpdateProfessionSelector
+    local ok, professionSelector = pcall(CreateFrame, "DropdownButton", nil,
+        selectorBar, "WowStyle1DropdownTemplate")
+    if ok and professionSelector and professionSelector.SetupMenu then
+        professionSelector:SetPoint("LEFT", selectorBar, "LEFT", 102, 0)
+        professionSelector:SetPoint("RIGHT", selectorBar, "RIGHT", -8, 0)
+        professionSelector:SetHeight(30)
+        professionSelector:SetupMenu(function(_, root)
+            for i, profession in ipairs(professionNodeOrder) do
+                local index = i
+                root:CreateRadio(profession, function() return currentNodeProfessionIndex == index end,
+                    function() ChooseProfession(index) end)
+            end
+        end)
+        UpdateProfessionSelector = function()
+            professionSelector:SetDefaultText(professionNodeOrder[currentNodeProfessionIndex])
+        end
+    else
+        if ok and professionSelector then professionSelector:Hide() end
+        -- Older clients use the native legacy menu, also outside the scroll child.
+        professionSelector = CreateFrame("Frame", NextWidgetName("ProfessionMenu"),
+            selectorBar, "UIDropDownMenuTemplate")
+        professionSelector:SetPoint("LEFT", selectorBar, "LEFT", 86, -2)
+        UIDropDownMenu_Initialize(professionSelector, function()
+            for i, profession in ipairs(professionNodeOrder) do
+                local index = i
+                local info = UIDropDownMenu_CreateInfo()
+                info.text = profession
+                info.checked = currentNodeProfessionIndex == index
+                info.func = function() ChooseProfession(index) end
+                UIDropDownMenu_AddButton(info)
+            end
+        end)
+        UpdateProfessionSelector = function()
+            UIDropDownMenu_SetText(professionSelector, professionNodeOrder[currentNodeProfessionIndex])
+            UIDropDownMenu_SetWidth(professionSelector, math.max(120, selectorBar:GetWidth() - 134))
+        end
+        selectorBar:HookScript("OnSizeChanged", UpdateProfessionSelector)
+        selectorBar:HookScript("OnHide", function()
+            if CloseDropDownMenus then CloseDropDownMenus() end
+        end)
+    end
+    UpdateProfessionSelector()
 
     local nodeRowsFrame = CreateFrame("Frame", nil, content)
-    nodeRowsFrame:SetPoint("TOPLEFT", content, "TOPLEFT", 20, y)
-    nodeRowsFrame:SetSize(520, 1)
+    nodeRowsFrame:SetSize(480, 1)
+    local activeNodeHeight = 1
+    AddCustom(content, nodeRowsFrame, function(width)
+        for _, section in ipairs(professionNodeSections) do
+            section.frame:SetWidth(width)
+            for _, group in ipairs(section.groups) do group.header:SetWidth(width) end
+            for _, row in ipairs(section.rows) do
+                row.label:SetWidth(math.max(40, width - 182))
+                row.box:ClearAllPoints()
+                row.box:SetPoint("LEFT", row.label, "LEFT", math.max(52, width - 170), 0)
+                row.note:SetWidth(76)
+            end
+            local top = 0
+            if #section.rows == 0 then
+                section.empty:SetWidth(width)
+                top = section.empty:GetStringHeight() + 24
+            end
+            for _, group in ipairs(section.groups) do
+                group.header:ClearAllPoints()
+                group.header:SetPoint("TOPLEFT", section.frame, "TOPLEFT", 0, -top)
+                top = top + group.header:GetStringHeight() + 12
+                for _, row in ipairs(group.rows) do
+                    row.label:ClearAllPoints()
+                    row.label:SetPoint("TOPLEFT", section.frame, "TOPLEFT", 0, -top - 4)
+                    top = top + math.max(34, row.label:GetStringHeight() + 12)
+                end
+                top = top + 10
+            end
+            local layout = LayoutButtonsTop(section.frame, section.buttons, -top, {
+                left = 0, right = width, gap = 8, rowGap = 6, align = "left", height = 28,
+            })
+            section.height = top + layout.usedHeight + 8
+            section.frame:SetHeight(section.height)
+            if section.profession == professionNodeOrder[currentNodeProfessionIndex] then
+                activeNodeHeight = section.height
+            end
+        end
+        return activeNodeHeight
+    end)
 
     local function GetNodeImpactText(row)
         if NodeDisplay and NodeDisplay.BuildImpactText then
@@ -798,7 +1127,7 @@ local function BuildPanel()
 
     local function MakeNodeRankBox(parent, rowState)
         local eb = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-        eb:SetSize(36, 20)
+        eb:SetSize(40, 26)
         eb:SetAutoFocus(false)
         eb:SetMaxLetters(3)
         eb:SetNumeric(true)
@@ -825,16 +1154,14 @@ local function BuildPanel()
         return eb
     end
 
-    local function AddNodeGroupHeader(parent, text, nodeY)
+    local function AddNodeGroupHeader(parent, text)
         local hdr = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        hdr:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, nodeY)
-        hdr:SetWidth(505)
         hdr:SetJustifyH("LEFT")
         hdr:SetText(text)
-        return nodeY - 20, hdr
+        return hdr
     end
 
-    local function AddNodeRow(parent, profession, section, row, nodeY)
+    local function AddNodeRow(parent, profession, row)
         local rowState = {
             profession = profession,
             nodeID = row.nodeID,
@@ -847,16 +1174,16 @@ local function BuildPanel()
             dirty = false,
         }
         local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        lbl:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, nodeY - 2)
-        lbl:SetWidth(310)
+        lbl:SetWordWrap(true)
         lbl:SetJustifyH("LEFT")
         lbl:SetText(row.name or ("Node " .. tostring(row.nodeID)))
-        lbl:EnableMouse(true)
-        lbl:SetScript("OnEnter", function(self) ShowNodeTooltip(self, rowState) end)
-        lbl:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        local hover = CreateFrame("Frame", nil, parent)
+        hover:SetAllPoints(lbl)
+        hover:EnableMouse(true)
+        hover:SetScript("OnEnter", function(self) ShowNodeTooltip(self, rowState) end)
+        hover:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
         local eb = MakeNodeRankBox(parent, rowState)
-        eb:SetPoint("TOPLEFT", parent, "TOPLEFT", 335, nodeY)
 
         local maxText = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         maxText:SetPoint("LEFT", eb, "RIGHT", 4, 0)
@@ -873,9 +1200,8 @@ local function BuildPanel()
         rowState.label = lbl
         rowState.maxText = maxText
         rowState.note = note
-        section.rows[#section.rows + 1] = rowState
-        professionNodeRows[#professionNodeRows + 1] = rowState
-        return nodeY - 25
+        rowState.hover = hover
+        return rowState
     end
 
     local function BuildNodeSection(profession)
@@ -883,6 +1209,8 @@ local function BuildPanel()
             profession = profession,
             rows = {},
             groups = {},
+            rowsByID = {},
+            headers = {},
         }
         local frame = CreateFrame("Frame", nil, nodeRowsFrame)
         frame:SetPoint("TOPLEFT", nodeRowsFrame, "TOPLEFT", 0, 0)
@@ -890,23 +1218,15 @@ local function BuildPanel()
         frame:Hide()
         section.frame = frame
 
-        local nodeY = 0
-        local nodeData = GAM.CraftingStats
-            and GAM.CraftingStats.GetProfessionNodeRows
-            and GAM.CraftingStats.GetProfessionNodeRows(profession)
-        for _, group in ipairs((nodeData and nodeData.groups) or {}) do
-            local header
-            nodeY, header = AddNodeGroupHeader(frame, group.label or "Nodes", nodeY)
-            section.groups[#section.groups + 1] = {
-                header = header,
-                rootNodeID = group.rootNodeID,
-            }
-            for _, row in ipairs(group.rows or {}) do
-                nodeY = AddNodeRow(frame, profession, section, row, nodeY)
-            end
-        end
+        section.empty = NewText(frame,
+            "No specialization nodes are available for " .. profession ..
+            ". Open that profession on its crafter, then return here. " ..
+            "If this stays empty, the addon's profession data may need an update.",
+            "GameFontHighlight")
+        section.empty:SetPoint("TOPLEFT", 0, 0)
+        section.empty:SetTextColor(0.72, 0.72, 0.76)
 
-        local btnResetCaptured = MakeButton(frame, "Use Captured", 120, 12, nodeY - 4)
+        local btnResetCaptured = MakeButton(frame, "Use Captured", 120)
         btnResetCaptured:SetScript("OnClick", function()
             if GAM.CraftingStats and GAM.CraftingStats.ResetProfessionNodesToCaptured then
                 GAM.CraftingStats.ResetProfessionNodesToCaptured(profession)
@@ -914,58 +1234,88 @@ local function BuildPanel()
             if panel and panel.refresh then panel.refresh() end
         end)
 
-        local btnResetDefaults = MakeButton(frame, "Use Defaults", 115, 140, nodeY - 4)
+        local btnResetDefaults = MakeButton(frame, "Use Defaults", 115)
         btnResetDefaults:SetScript("OnClick", function()
             if GAM.CraftingStats and GAM.CraftingStats.ResetProfessionNodesToDefaults then
                 GAM.CraftingStats.ResetProfessionNodesToDefaults(profession)
             end
             if panel and panel.refresh then panel.refresh() end
         end)
-        nodeY = nodeY - 34
-        section.height = math.abs(nodeY) + 4
+        section.buttons = { btnResetCaptured, btnResetDefaults }
+        section.height = 1
         frame:SetHeight(section.height)
         professionNodeSections[#professionNodeSections + 1] = section
         return section.height
     end
 
-    local maxNodeSectionHeight = 1
-    for _, profession in ipairs(professionNodeOrder) do
-        local height = BuildNodeSection(profession)
-        if height > maxNodeSectionHeight then
-            maxNodeSectionHeight = height
+    for _, profession in ipairs(professionNodeOrder) do BuildNodeSection(profession) end
+
+    -- Reconcile the provider's current structure on every refresh. Reuse rank
+    -- boxes by node ID so captures can add/reorder nodes without losing drafts.
+    local function SyncNodeSection(section, data, preserveDirty)
+        for _, row in pairs(section.rowsByID) do
+            if not preserveDirty then row.dirty = false end
+            row.label:Hide(); row.box:Hide(); row.maxText:Hide(); row.note:Hide(); row.hover:Hide()
         end
+        for _, header in ipairs(section.headers) do header:Hide() end
+        section.rows, section.groups = {}, {}
+        local seen = {}
+        for groupIndex, group in ipairs((data and data.groups) or {}) do
+            local header = section.headers[groupIndex]
+            if not header then
+                header = AddNodeGroupHeader(section.frame, group.label or "Nodes")
+                section.headers[groupIndex] = header
+            end
+            header:SetText(group.label or "Nodes")
+            local groupState = { header = header, rootNodeID = group.rootNodeID, rows = {} }
+            for _, rowData in ipairs(group.rows or {}) do
+                local id = rowData.nodeID
+                if id ~= nil and not seen[id] then
+                    seen[id] = true
+                    local row = section.rowsByID[id]
+                    if not row then
+                        row = AddNodeRow(section.frame, section.profession, rowData)
+                        section.rowsByID[id] = row
+                    end
+                    row.label:Show(); row.box:Show(); row.maxText:Show(); row.note:Show(); row.hover:Show()
+                    groupState.rows[#groupState.rows + 1] = row
+                    section.rows[#section.rows + 1] = row
+                    professionNodeRows[#professionNodeRows + 1] = row
+                end
+            end
+            if #groupState.rows > 0 then
+                header:Show()
+                section.groups[#section.groups + 1] = groupState
+            end
+        end
+        section.empty:SetShown(#section.rows == 0)
+        for _, btn in ipairs(section.buttons) do btn:SetEnabled(#section.rows > 0) end
     end
-    nodeRowsFrame:SetHeight(maxNodeSectionHeight)
 
     local function SelectNodeProfession(index)
         currentNodeProfessionIndex = index
         local currentProfession = professionNodeOrder[currentNodeProfessionIndex] or professionNodeOrder[1]
-        for i, btn in ipairs(professionNodeButtons) do
-            local selected = (i == currentNodeProfessionIndex)
-            btn:SetEnabled(not selected)
-            if btn:GetFontString() then
-                if selected then
-                    btn:GetFontString():SetTextColor(GOLD_R, GOLD_G, GOLD_B)
-                else
-                    btn:GetFontString():SetTextColor(1, 1, 1)
-                end
-            end
-        end
+        UpdateProfessionSelector()
         for _, section in ipairs(professionNodeSections) do
             section.frame:SetShown(section.profession == currentProfession)
         end
+        LayoutPage(pages.nodes)
         return currentProfession
     end
 
-    local function RefreshProfessionNodeRows(preserveDirty)
+    RefreshProfessionNodeRows = function(preserveDirty)
         local selectedProfession = SelectNodeProfession(currentNodeProfessionIndex)
         local selectedData = nil
         local data = GAM.CraftingStats
             and GAM.CraftingStats.GetProfessionNodeRows
+        wipe(professionNodeRows)
+        local selectedRowCount = 0
         for _, section in ipairs(professionNodeSections) do
             local sectionData = data and data(section.profession) or nil
+            SyncNodeSection(section, sectionData, preserveDirty)
             if section.profession == selectedProfession then
                 selectedData = sectionData
+                selectedRowCount = #section.rows
             end
             local byID = {}
             local groupsByRootID = {}
@@ -1022,27 +1372,25 @@ local function BuildPanel()
             end
         end
 
-        if selectedData and selectedData.capturedAt then
+        if selectedRowCount == 0 then
+            nodeStatus:SetText("No node data returned for " .. tostring(selectedProfession) .. ".")
+        elseif selectedData and selectedData.capturedAt then
             nodeStatus:SetText(string.format(L["OPT_NODES_CAPTURED"], tostring(selectedProfession)))
         else
             nodeStatus:SetText(string.format(L["OPT_NODES_DEFAULT"], tostring(selectedProfession)))
         end
+        LayoutPage(pages.nodes)
     end
 
-    for i, btn in ipairs(professionNodeButtons) do
-        btn:SetScript("OnClick", function()
-            currentNodeProfessionIndex = i
-            RefreshProfessionNodeRows()
-        end)
-    end
-    SelectNodeProfession(currentNodeProfessionIndex)
-
-    y = y - nodeRowsFrame:GetHeight() - 8
+    RefreshProfessionNodeRows()
+    pages.nodes.frame:HookScript("OnShow", function() RefreshProfessionNodeRows(true) end)
 
     -- ── Actions ────────────────────────────────────────────────────────────
-    y = MakeSectionHeader(content, L["SETTINGS_SECTION_ACTIONS"], y)
+    FinalizeContentLayout()
+    content = pages.tools.content
+    MakeSectionHeader(content, L["SETTINGS_SECTION_ACTIONS"])
 
-    -- Row 1: action buttons (auto-sized, centered, wrapped if needed)
+    -- Maintenance actions use the same labeled rows as preferences.
     local btnReload = MakeButton(content, L["BTN_RELOAD_DATA"], 120)
     btnReload:SetScript("OnClick", function()
         GAM.Importer.Init()
@@ -1064,85 +1412,106 @@ local function BuildPanel()
         end
     end)
 
-    btnReload:SetWidth(MeasureButtonWidth(content, btnReload:GetText(), 120, 220, 24))
-    btnClear:SetWidth(MeasureButtonWidth(content, btnClear:GetText(), 120, 260, 24))
-    btnLog:SetWidth(MeasureButtonWidth(content, btnLog:GetText(), 100, 240, 24))
-    local actionsRow1 = LayoutButtonsTop(content, { btnReload, btnClear, btnLog }, y - 4, {
-        left = 14, right = 546, gap = 8, rowGap = 4, align = "center",
-    })
-    y = y - actionsRow1.usedHeight - 10
-
-    y = y - 4
-
+    AddRow(content, "Strategy data", btnReload, "Reload the bundled strategy data.", 150)
+    AddRow(content, "Price cache", btnClear, "Clear saved prices, then scan again for fresh results.", 150)
+    AddRow(content, "Diagnostics", btnLog, "Open the addon log to investigate a problem.", 150)
     -- ── Credits & Thanks ───────────────────────────────────────────────────
-    y = MakeSectionHeader(content, L["SETTINGS_SECTION_CREDITS"], y)
-
-    -- Dark gold-tinted box to hold the credits scroll
-    local creditsBox = CreateFrame("Frame", nil, content, "BackdropTemplate")
-    creditsBox:SetPoint("TOPLEFT",  content, "TOPLEFT",  14, y - 4)
-    creditsBox:SetPoint("TOPRIGHT", content, "TOPRIGHT", -14, y - 4)
-    creditsBox:SetHeight(148)
-    creditsBox:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 },
-    })
-    creditsBox:SetBackdropColor(0.04, 0.03, 0.0, 0.90)
-    creditsBox:SetBackdropBorderColor(GOLD_R, GOLD_G, GOLD_B, 0.85)
-
-    local scroll = CreateFrame("ScrollFrame", nil, creditsBox, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT",     creditsBox, "TOPLEFT",      6,  -6)
-    scroll:SetPoint("BOTTOMRIGHT", creditsBox, "BOTTOMRIGHT", -26,  6)
-
-    local scrollChild = CreateFrame("Frame", nil, scroll)
-    scrollChild:SetWidth(scroll:GetWidth() or 560)
-    scrollChild:SetHeight(1)  -- auto-expand with content
-    scroll:SetScrollChild(scrollChild)
-
-    -- Credits text as individual FontStrings stacked top-to-bottom
-    local function AddCreditLine(text, r, g, b, cy)
-        local fs = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        fs:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, cy)
-        fs:SetWidth(scrollChild:GetWidth() - 8)
-        fs:SetJustifyH("LEFT")
-        fs:SetTextColor(r or 1, g or 1, b or 1)
-        fs:SetText(text)
-        return cy - 18
+    FinalizeContentLayout()
+    content = pages.about.content
+    local about = CreateFrame("Frame", nil, content)
+    local aboutTitle = NewText(about, L["SETTINGS_NAME"], "GameFontNormalLarge")
+    aboutTitle:SetTextColor(0.95, 0.95, 0.97)
+    local aboutIntro = NewText(about, "Crafting strategy, pricing, and profession insights.", "GameFontHighlight")
+    aboutIntro:SetTextColor(0.72, 0.72, 0.76)
+    local creditsTitle = NewText(about, L["SETTINGS_SECTION_CREDITS"], "GameFontNormal")
+    local contributors = {}
+    for _, def in ipairs({
+        { "Eloncs", "The game economy spreadsheet that powers every strategy in this addon." },
+        { "Brrerker", "Creator of arp_tracker, an invaluable reference for Auction House scanning patterns." },
+        { "CraftSim", "Crafting simulation, optional integration, and MIT-licensed static specialization data references." },
+    }) do
+        local name = NewText(about, def[1], "GameFontNormalLarge")
+        local description = NewText(about, def[2], "GameFontHighlight")
+        description:SetTextColor(0.82, 0.82, 0.85)
+        local rule = about:CreateTexture(nil, "BACKGROUND")
+        rule:SetColorTexture(1, 1, 1, 0.10)
+        contributors[#contributors + 1] = { name = name, description = description, rule = rule }
     end
+    local thanks = NewText(about,
+        "And to the wider WoW addon community on Wago, CurseForge, and GitHub: thank you. " ..
+        "This addon stands on your shoulders.", "GameFontHighlight")
+    thanks:SetTextColor(0.72, 0.72, 0.76)
+    AddCustom(content, about, function(width)
+        for _, fs in ipairs({ aboutTitle, aboutIntro, creditsTitle, thanks }) do fs:SetWidth(width) end
+        aboutTitle:ClearAllPoints()
+        aboutTitle:SetPoint("TOPLEFT", 0, 0)
+        aboutIntro:ClearAllPoints()
+        aboutIntro:SetPoint("TOPLEFT", aboutTitle, "BOTTOMLEFT", 0, -10)
+        local top = aboutTitle:GetStringHeight() + aboutIntro:GetStringHeight() + 42
+        creditsTitle:ClearAllPoints()
+        creditsTitle:SetPoint("TOPLEFT", about, "TOPLEFT", 0, -top)
+        top = top + creditsTitle:GetStringHeight() + 24
+        local natural = top + thanks:GetStringHeight() + 24
+        for _, entry in ipairs(contributors) do
+            entry.name:SetWidth(width)
+            entry.description:SetWidth(width)
+            natural = natural + entry.name:GetStringHeight() + entry.description:GetStringHeight() + 38
+        end
+        local height = math.max(natural, pages.about.scroll:GetHeight() - 48)
+        local extraGap = (height - natural) / #contributors
+        for _, entry in ipairs(contributors) do
+            entry.name:ClearAllPoints()
+            entry.name:SetPoint("TOPLEFT", about, "TOPLEFT", 0, -top)
+            entry.description:ClearAllPoints()
+            entry.description:SetPoint("TOPLEFT", entry.name, "BOTTOMLEFT", 0, -8)
+            top = top + entry.name:GetStringHeight() + entry.description:GetStringHeight() + 24
+            entry.rule:ClearAllPoints()
+            entry.rule:SetPoint("TOPLEFT", about, "TOPLEFT", 0, -top)
+            entry.rule:SetSize(width, 1)
+            top = top + 14 + extraGap
+        end
+        thanks:ClearAllPoints()
+        thanks:SetPoint("TOPLEFT", about, "TOPLEFT", 0, -top - 12)
+        return height
+    end)
 
-    local cy = -4
-    cy = AddCreditLine("|cffFFD100Eloncs|r  —  The game economy spreadsheet that powers every strategy in this addon.", 1, 1, 1, cy)
-    cy = AddCreditLine("", 1, 1, 1, cy)  -- spacer
-    cy = AddCreditLine("|cffFFD100Brrerker|r  —  arp_tracker addon; an invaluable reference for AH scanning patterns.", 1, 1, 1, cy)
-    cy = AddCreditLine("", 1, 1, 1, cy)
-    cy = AddCreditLine("|cffFFD100CraftSim|r  —  Outstanding crafting simulation addon; GAM uses optional interop and MIT-licensed static spec-data references.", 1, 1, 1, cy)
-    cy = AddCreditLine("", 1, 1, 1, cy)
-    cy = AddCreditLine("|cffaaaaaa... and the wider WoW addon community on Wago, CurseForge, and GitHub.|r", 1, 1, 1, cy)
-    cy = AddCreditLine("", 1, 1, 1, cy)
-    cy = AddCreditLine("|cff888888Thank you all — this addon stands on your shoulders.|r", 1, 1, 1, cy)
+    FinalizeContentLayout()
 
-    scrollChild:SetHeight(math.abs(cy) + 8)
-    y = y - 162
-
-    -- ── Apply / Close (shown only in standalone/fallback mode) ─────────────
-    local applyBtn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
-    applyBtn:SetSize(100, 22)
-    applyBtn:SetPoint("TOPRIGHT", content, "TOPRIGHT", -14, y)
-    applyBtn:SetText(L["BTN_APPLY_CLOSE"])
-    applyBtn:SetWidth(MeasureButtonWidth(content, applyBtn:GetText(), 100, 260, 24))
-    applyBtn:Hide()  -- hidden by default; shown if nativeMode is false
-    y = y - 32
-    FinalizeContentLayout(y, 22)
+    -- Fixed footer for the standalone fallback; native Settings owns its footer.
+    local footer = CreateFrame("Frame", nil, panel)
+    footer:SetPoint("BOTTOMLEFT", pageHost, "BOTTOMLEFT", 0, 0)
+    footer:SetPoint("BOTTOMRIGHT", pageHost, "BOTTOMRIGHT", 0, 0)
+    footer:SetHeight(38)
+    footer:Hide()
+    local applyBtn = MakeButton(footer, L["BTN_APPLY_CLOSE"], 150)
+    applyBtn:SetPoint("RIGHT", 0, 0)
+    applyBtn:SetWidth(MeasureButtonWidth(footer, applyBtn:GetText(), 150, 260, 24))
+    panel._setStandalone = function()
+        footer:Show()
+        for _, page in pairs(pages) do
+            page.frame:SetPoint("BOTTOMRIGHT", pageHost, "BOTTOMRIGHT", 0, 46)
+            LayoutPage(page)
+        end
+    end
+    ReflowPages = function()
+        local top = math.max(54, title:GetStringHeight() + subtitle:GetStringHeight() + 24)
+        for _, page in pairs(pages) do
+            page.frame:SetPoint("TOPLEFT", pageHost, "TOPLEFT", 0, -top)
+            LayoutPage(page)
+        end
+    end
+    panel:HookScript("OnSizeChanged", ReflowPages)
+    SelectSettingsSection("general")
+    ReflowPages()
 
     -- ── Apply logic ────────────────────────────────────────────────────────
     local function ApplySettings()
         local currentOpts = GetOpts()
         local prevQty = GetOptionValue(currentOpts, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)
+        local prevStartingCrafts = GAM.State.GetGlobalStartingCrafts()
         currentOpts.scanDelay = slScanDelay:GetValue()
         currentOpts.debugVerbosity = slVerbosity:GetValue()
         currentOpts.minimapHidden = not cbMinimap:GetChecked()
-        currentOpts.v2Theme = themeCurrent
         currentOpts.rememberAHWindowState = cbRememberAHState:GetChecked()
         currentOpts.rankPolicy = ddRank.GetValue() or "lowest"
         currentOpts.v2PricingMode = "exhaust_materials"
@@ -1176,6 +1545,9 @@ local function BuildPanel()
         currentOpts.uiScale = slScale:GetValue()
         currentOpts.ahCut = GAM.C.AH_CUT
         ApplyScaleToFrames(currentOpts.uiScale)
+
+        local globalStartingCrafts = NormalizeGlobalStartingCraftsBox()
+        GAM.State.SetGlobalStartingCrafts(globalStartingCrafts)
 
         local raw = tonumber(ebFillQty:GetText())
         currentOpts.shallowFillQty = raw
@@ -1211,6 +1583,11 @@ local function BuildPanel()
             print("|cffff8800[GAM]|r " .. msg)
         end
 
+        if globalStartingCrafts ~= prevStartingCrafts then
+            GAM.Log.Info("Global starting crafts changed: %d -> %d",
+                prevStartingCrafts, globalStartingCrafts)
+        end
+
         GAM.Log.Info("Fill qty: %d", currentOpts.shallowFillQty)
         local lumberPriceText = "unset"
         if lumberCopper and GAM.Pricing and GAM.Pricing.FormatPrice then
@@ -1228,10 +1605,6 @@ local function BuildPanel()
             GAM.UI.StrategyDetail.Refresh()
         end
 
-        if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.ApplyTheme then
-            GAM.UI.MainWindow.ApplyTheme()
-        end
-
         GAM.Log.Info("Settings saved.")
     end
 
@@ -1243,6 +1616,9 @@ local function BuildPanel()
         cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
         slScale:SetValue(GetOptionValue(o, "uiScale", GAM.C.DEFAULT_UI_SCALE))
         ebFillQty:SetText(tostring(GetOptionValue(o, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)))
+        ebGlobalStartingCrafts:SetText(tostring(
+            (GAM.State and GAM.State.GetGlobalStartingCrafts
+                and GAM.State.GetGlobalStartingCrafts()) or GAM.C.DEFAULT_STARTING_CRAFTS))
         do
             local pdb = GAM.GetPatchDB and GAM:GetPatchDB(GAM.C.DEFAULT_PATCH)
             ebLumberPrice:SetText(FormatGoldInput(
@@ -1253,9 +1629,6 @@ local function BuildPanel()
         rankBtn:SetText(rankTexts[rankCurrent])
         modeCurrent = "exhaust_materials"
         modeBtn:SetText(modeTexts[modeCurrent])
-        themeCurrent = themeTexts[o.v2Theme] and o.v2Theme or "classic"
-        themeBtn:SetText(themeTexts[themeCurrent])
-
         for _, row in ipairs(craftStatRows) do
             if row.multiBox and row.multiKey then
                 row.multiBox:SetText(FormatStatPercentValue(
@@ -1275,6 +1648,8 @@ local function BuildPanel()
     -- (covers changes made via the V2 left panel since settings was last opened)
     panel:SetScript("OnShow", function()
         RefreshControlsFromOptions(GetOpts())
+        SelectSettingsSection(selectedKey)
+        ReflowPages()
     end)
 
     -- Blizzard Settings ok/cancel callbacks
@@ -1288,6 +1663,9 @@ local function BuildPanel()
     end
     panel._refreshProfessionNodes = function()
         RefreshProfessionNodeRows(true)
+    end
+    panel._refreshGlobalStartingCrafts = function()
+        ebGlobalStartingCrafts:SetText(tostring(GAM.State.GetGlobalStartingCrafts()))
     end
     panel.OnCommit = panel.okay
     panel.OnRefresh = panel.refresh
@@ -1355,7 +1733,7 @@ function SettingsMod.Init()
     if not nativeMode then
         -- Blizzard API unavailable: build a standalone draggable wrapper and show Apply button
         wrapper = CreateFrame("Frame", "GAMSettingsWrapper", UIParent, "BackdropTemplate")
-        wrapper:SetSize(648, 590)
+        wrapper:SetSize(800, 640)
         wrapper:SetPoint("CENTER", UIParent, "CENTER")
         wrapper:SetMovable(true)
         wrapper:EnableMouse(true)
@@ -1388,9 +1766,11 @@ function SettingsMod.Init()
         p:SetParent(wrapper)
         p:ClearAllPoints()
         p:SetPoint("TOPLEFT", wrapper, "TOPLEFT", 14, -40)
+        p:SetPoint("BOTTOMRIGHT", wrapper, "BOTTOMRIGHT", -14, 14)
+        wrapper:HookScript("OnShow", function() p:Show() end)
         p:Show()
 
-        if p._applyBtn then p._applyBtn:Show() end
+        if p._setStandalone then p._setStandalone() end
     end
 end
 
@@ -1428,6 +1808,12 @@ end
 function SettingsMod.Hide()
     if wrapper then wrapper:Hide() end
     if panel   then panel:Hide() end
+end
+
+function SettingsMod.Refresh()
+    if panel and panel._refreshGlobalStartingCrafts then
+        panel._refreshGlobalStartingCrafts()
+    end
 end
 
 -- OpenPanel: open the Blizzard Interface > AddOns panel to our category.

@@ -21,6 +21,33 @@ local FAVORITE_POLICIES = {
     highest = true,
 }
 
+local function StartingCraftsBounds()
+    local constants = GAM.C or {}
+    return constants.MIN_STARTING_CRAFTS or 1,
+        constants.MAX_STARTING_CRAFTS or 1000000,
+        constants.DEFAULT_STARTING_CRAFTS or 1000
+end
+
+function State.NormalizeStartingCrafts(value)
+    local minValue, maxValue = StartingCraftsBounds()
+    local text = tostring(value or ""):gsub(",", ""):match("^%s*(.-)%s*$")
+    local number = tonumber(text)
+    if not number or number ~= number or number == math.huge or number == -math.huge then
+        return nil, string.format(
+            "Starting crafts must be a whole number from %d to %d.", minValue, maxValue)
+    end
+    if number ~= math.floor(number) then
+        return nil, string.format(
+            "Starting crafts must be a whole number from %d to %d.", minValue, maxValue)
+    end
+    number = math.floor(number)
+    if number < minValue or number > maxValue then
+        return nil, string.format(
+            "Starting crafts must be from %d to %d.", minValue, maxValue)
+    end
+    return number
+end
+
 local function NormalizeRankPolicy(rankPolicy)
     return (rankPolicy == "highest" or rankPolicy == "optimal") and "highest" or "lowest"
 end
@@ -124,6 +151,21 @@ function State.SetOption(key, value)
         return
     end
     db.options[key] = value
+end
+
+function State.GetGlobalStartingCrafts()
+    local _, _, defaultValue = StartingCraftsBounds()
+    local value = State.GetOption("globalStartingCrafts", defaultValue)
+    return State.NormalizeStartingCrafts(value) or defaultValue
+end
+
+function State.SetGlobalStartingCrafts(value)
+    local normalized, err = State.NormalizeStartingCrafts(value)
+    if not normalized then
+        return nil, err
+    end
+    State.SetOption("globalStartingCrafts", normalized)
+    return normalized
 end
 
 function State.GetPatchDB(patchTag)

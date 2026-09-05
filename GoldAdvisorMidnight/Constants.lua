@@ -36,8 +36,8 @@ for _, profession in ipairs(PROFESSION_REGISTRY) do
 end
 
 GAM.C = {
-    ADDON_VERSION        = "2.0.9",
-    DATA_VERSION         = 18,
+    ADDON_VERSION        = "2.0.10",
+    DATA_VERSION         = 19,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",
 
@@ -78,6 +78,11 @@ GAM.C = {
     DEFAULT_BOLT_COST_SOURCE     = "ah",  -- "ah" | "craft"
     DEFAULT_INGOT_COST_SOURCE    = "ah",  -- "ah" | "craft"
     DEFAULT_V2_PRICING_MODE      = "exhaust_materials",
+
+    -- Default batch size used when a strategy has no saved per-strategy override.
+    DEFAULT_STARTING_CRAFTS = 1000,
+    MIN_STARTING_CRAFTS     = 1,
+    MAX_STARTING_CRAFTS     = 1000000,
 
     -- Crafting stat defaults (percent values; decimals allowed; match workbook baseline values)
     -- Milling, Prospecting, Crushing, Shattering: no Multicraft stat (profession window doesn't show it).

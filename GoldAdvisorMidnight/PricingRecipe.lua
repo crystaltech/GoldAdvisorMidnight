@@ -123,23 +123,29 @@ BuildProfileContext = function(strat, opts)
     }
 end
 
-local function ResolveStartingAmountAndCrafts(strat, active, pdb, craftQty)
-    local startingAmt = (active.defaultStartingAmount or strat.defaultStartingAmount or 1) * craftQty
-
-    if pdb.inputQtyOverrides and pdb.inputQtyOverrides[strat.id] then
-        startingAmt = pdb.inputQtyOverrides[strat.id]
-    end
-
+local function ResolveStartingAmountAndCrafts(strat, active, pdb, craftQty, globalStartingCrafts)
     local defaultCrafts = active.defaultCrafts or strat.defaultCrafts
         or active.defaultStartingAmount or strat.defaultStartingAmount or 1
     if defaultCrafts <= 0 then
         defaultCrafts = 1
     end
 
-    local crafts = defaultCrafts
     local baseStartingAmount = active.defaultStartingAmount or strat.defaultStartingAmount or 0
-    if baseStartingAmount > 0 then
-        crafts = defaultCrafts * (startingAmt / baseStartingAmount)
+    local crafts = tonumber(globalStartingCrafts) or (defaultCrafts * craftQty)
+    local startingAmt = crafts
+    if baseStartingAmount > 0 and defaultCrafts > 0 then
+        startingAmt = crafts * baseStartingAmount / defaultCrafts
+    end
+
+    -- A saved input quantity is itself a per-strategy batch override. Preserve
+    -- its historical precedence over the global default.
+    if pdb.inputQtyOverrides and pdb.inputQtyOverrides[strat.id] then
+        startingAmt = pdb.inputQtyOverrides[strat.id]
+        if baseStartingAmount > 0 then
+            crafts = defaultCrafts * (startingAmt / baseStartingAmount)
+        else
+            crafts = startingAmt
+        end
     end
 
     if pdb.craftsOverrides and pdb.craftsOverrides[strat.id] then
@@ -163,9 +169,10 @@ local function IsVerticalIntegrationEnabled(opts)
         or (opts.boltCostSource == "craft")
 end
 
-BuildCalcContext = function(strat, active, patchTag, craftQty, opts, pdb, ahCut, runtimeOverrides)
+BuildCalcContext = function(strat, active, patchTag, craftQty, opts, pdb, ahCut, runtimeOverrides, globalStartingCrafts)
     local profile = BuildProfileContext(strat, opts)
-    local startingAmt, crafts = ResolveStartingAmountAndCrafts(strat, active, pdb, craftQty)
+    local startingAmt, crafts = ResolveStartingAmountAndCrafts(
+        strat, active, pdb, craftQty, globalStartingCrafts)
 
     -- Runtime planning constraints must not rewrite the user's persisted batch
     -- size. Scale both sides together so a craft-now plan can honor live recipe
