@@ -441,3 +441,6 @@ L["VI_TT_ROW"] = "Un paso de fabricación o compra"
 L["VI_TT_USED_CHAIN_COST"] = "Coste de la ruta de fabricación: %s"
 L["VI_TT_USED_TOTAL_COST"] = "Coste total usado: %s"
 L["VI_TT_USED_UNIT_PRICE"] = "Precio unitario usado: %s"
+
+L["VI_TT_OUTPUT_ESTIMATE"] = "La cantidad producida es una estimación. Revisa el resultado antes de empezar el siguiente paso."
+L["VI_HDR_CRAFT_QTY"] = "Fabricaciones"

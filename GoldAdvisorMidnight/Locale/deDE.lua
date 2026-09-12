@@ -442,3 +442,6 @@ L["VI_TT_ROW"] = "Ein Herstellungs- oder Kaufschritt"
 L["VI_TT_USED_CHAIN_COST"] = "Kosten des Herstellungswegs: %s"
 L["VI_TT_USED_TOTAL_COST"] = "Verwendete Gesamtkosten: %s"
 L["VI_TT_USED_UNIT_PRICE"] = "Verwendeter Stückpreis: %s"
+
+L["VI_TT_OUTPUT_ESTIMATE"] = "Die Ausgabemenge ist ein Schätzwert. Prüfe dein Ergebnis, bevor du den nächsten Schritt beginnst."
+L["VI_HDR_CRAFT_QTY"] = "Herstellungen"

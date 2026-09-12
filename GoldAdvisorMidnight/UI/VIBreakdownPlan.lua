@@ -283,7 +283,10 @@ function Plan.Build(breakdown, vendorPrices, labels)
             end
             entry.name = entry.name or "Final Output"
             entry.craftsExecution = math.max(0, math.floor(tonumber(entry.craftsToProduce or entry.craftsExecution) or 0))
-            entry.required = entry.required or entry.craftsExecution
+            -- Item output is distinct from the number of recipe executions.
+            entry.expectedOutput = tonumber(entry.expectedOutput)
+                or (tonumber(entry.expectedOutputPerCraft)
+                    and entry.craftsExecution * entry.expectedOutputPerCraft)
             craftSteps[#craftSteps + 1] = entry
         end
         craftSteps[#craftSteps].isFinalCraft = true
@@ -298,6 +301,9 @@ function Plan.Build(breakdown, vendorPrices, labels)
     AddSection(rows, "craft", labels.craft or "Crafting Order", craftSteps)
     for index, entry in ipairs(craftSteps) do
         entry.craftOrder = index
+        if entry.expectedOutput == nil and entry.expectedOutputPerCraft then
+            entry.expectedOutput = entry.craftsExecution * entry.expectedOutputPerCraft
+        end
     end
 
     return {

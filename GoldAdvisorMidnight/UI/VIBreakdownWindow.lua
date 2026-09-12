@@ -18,7 +18,7 @@ local VI_WINDOW_H = 260
 local VI_WINDOW_MIN_W = 720
 local VI_WINDOW_MIN_H = 220
 local VI_WINDOW_MAX_H = 640
-local VI_ROW_H = 22
+local VI_ROW_H = 42
 
 local function GetL()
     return GAM.L or {}
@@ -83,15 +83,17 @@ local function FormatBreakdownStep(entry)
     local name = (entry and entry.name) or "Unknown"
     if entry and entry.kind == "craft" then
         local craftText = string.format("%d. %s %s", tonumber(entry.craftOrder) or 0, action, name)
-        if entry.selectedInputNames and #entry.selectedInputNames > 0 then
-            return string.format(
-                L["VI_USE_INPUT_FORMAT"] or "%s — use %s",
-                craftText,
-                table.concat(entry.selectedInputNames, ", "))
+        local quantities = (L["VI_HDR_CRAFT_QTY"] or "Craft Qty") .. ": "
+            .. FormatTraceCount(entry.craftsExecution)
+        if entry.expectedOutput then
+            quantities = quantities .. "   |   " .. string.format(
+                L["TT_ROW_EXPECTED_OUTPUT"] or "Expected Output: %s",
+                "~" .. FormatTraceCount(entry.expectedOutput))
         end
-        return craftText
+        return craftText .. "\n" .. quantities
     end
-    return name
+    return action .. " " .. FormatTraceCount(entry and entry.needToBuy) .. " × " .. name
+
 end
 
 local function BuildBreakdownUsedCostText(entry)
@@ -167,19 +169,25 @@ local function ShowBreakdownTooltip(self)
 
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText(FormatBreakdownStep(entry), 1, 1, 1)
-    GameTooltip:AddLine(L["VI_TT_ROW"] or "One craft or purchase step", 0.82, 0.82, 0.82)
-    GameTooltip:AddLine(string.format(L["VI_TT_AMOUNT_NEEDED"] or "Amount needed: %s",
-        FormatTraceCount((entry.kind == "craft") and (entry.requiredRaw or entry.required) or entry.needToBuy)), 1, 0.82, 0)
+    if entry.selectedInputNames and #entry.selectedInputNames > 0 then
+        GameTooltip:AddLine(string.format(L["VI_USE_INPUT_FORMAT"] or "%s — use %s",
+            entry.name or "", table.concat(entry.selectedInputNames, ", ")), 1, 0.82, 0, true)
+    end
     if entry.kind == "craft" then
-        GameTooltip:AddLine(string.format(L["VI_TT_PLAN_CRAFTS"] or "Plan crafts: %s", FormatTraceCount(entry.craftsEconomic)), 1, 0.82, 0)
-        GameTooltip:AddLine(string.format(L["VI_TT_ACTUAL_CRAFTS"] or "Actual crafts: %s", FormatTraceCount(entry.craftsExecution)), 1, 0.82, 0)
+        if entry.expectedOutput then
+            GameTooltip:AddLine(L["VI_TT_OUTPUT_ESTIMATE"]
+                or "Output is an estimate. Check your results before starting the next step.",
+                0.82, 0.82, 0.82, true)
+        end
         local gearLabels = {
             multicraft = L["GEAR_MODE_MC"] or "Multicraft",
             resourcefulness = L["GEAR_MODE_RES"] or "Resourcefulness",
             current = L["VI_GEAR_CURRENT"] or "Current gear",
         }
-        GameTooltip:AddLine(string.format(L["VI_GEAR_FORMAT"] or "Gear: %s",
-            gearLabels[entry.gearModeResolved] or gearLabels.current), 1, 0.82, 0)
+        if entry.gearModeResolved then
+            GameTooltip:AddLine(string.format(L["VI_GEAR_FORMAT"] or "Gear: %s",
+                gearLabels[entry.gearModeResolved] or gearLabels.current), 1, 0.82, 0)
+        end
         if entry.gearPresetMissing then
             GameTooltip:AddLine(L["VI_GEAR_MISSING"]
                 or "The selected gear setup is not saved; current gear stats are being used.",
@@ -268,6 +276,7 @@ local function SetVIBreakdownHeaderVisibility(win, shown)
         end
     end
     ApplyVisibility(win.headerStepFS)
+    shown = false -- Quantities are inline with each action, not in separate columns.
     ApplyVisibility(win.headerNeedFS)
     ApplyVisibility(win.headerEconomicFS)
     ApplyVisibility(win.headerExecutionFS)
@@ -317,7 +326,7 @@ local function ApplyVIBreakdownLayout(win)
     end
     win.headerStepFS:ClearAllPoints()
     win.headerStepFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18, -54)
-    win.headerStepFS:SetWidth(stepW)
+    win.headerStepFS:SetWidth(contentWidth - 16)
     win.headerNeedFS:ClearAllPoints()
     win.headerNeedFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xNeed, -54)
     win.headerNeedFS:SetWidth(amountW)
@@ -345,7 +354,13 @@ local function ApplyVIBreakdownLayout(win)
         local stepInset = row._stepInset or 0
         row.stepFS:ClearAllPoints()
         row.stepFS:SetPoint("LEFT", row, "LEFT", 8 + stepInset, 0)
-        row.stepFS:SetWidth(math.max(80, stepW - stepInset - 12))
+        row.stepFS:SetWidth(contentWidth - stepInset - 16)
+        row.stepFS:SetHeight(VI_ROW_H - 6)
+        row.needFS:Hide()
+        row.economicFS:Hide()
+        row.executionFS:Hide()
+        row.usedCostFS:Hide()
+        row.noteFS:Hide()
         row.needFS:ClearAllPoints()
         row.needFS:SetPoint("LEFT", row, "LEFT", xNeed, 0)
         row.needFS:SetWidth(amountW)

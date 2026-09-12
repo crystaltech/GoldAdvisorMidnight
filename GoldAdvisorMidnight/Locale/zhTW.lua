@@ -441,3 +441,6 @@ L["VI_TT_ROW"] = "一個製作或購買步驟"
 L["VI_TT_USED_CHAIN_COST"] = "製作路徑成本：%s"
 L["VI_TT_USED_TOTAL_COST"] = "採用的總成本：%s"
 L["VI_TT_USED_UNIT_PRICE"] = "採用的單價：%s"
+
+L["VI_TT_OUTPUT_ESTIMATE"] = "產出數量為估計值。開始下一步前請確認實際結果。"
+L["VI_HDR_CRAFT_QTY"] = "製作次數"

@@ -303,6 +303,13 @@ local function GetPlannerExpectedOutputPerCraft(ctx, producer)
     return GetExpectedOutputPerCraft(producer.strat, producer.active, ctx and ctx.opts)
 end
 
+-- Display yield per queued recipe execution, excluding extra attempts from
+-- Resourcefulness (the economic planner also exposes yield per material pool).
+local function GetExecutionOutputPerCraft(ctx, strat, active)
+    local output, formula = GetV2ExpectedOutputPerCraft(strat, active, ctx)
+    return formula and formula.expectedYieldPerActualCraft or output
+end
+
 local function FindProducerMatch(ctx, itemID, state)
     if not ctx.chainActive or not itemID or not (GAM.Importer and GAM.Importer.GetProducerCandidates) then
         return nil
@@ -513,6 +520,7 @@ local function BuildGraphLeafPlan(ctx, mode)
             producerStratName = producer.strat.stratName,
             craftsToProduce = math.floor(craftsToProduce + 1e-9),
             craftsExecution = math.floor(craftsToProduce + 1e-9),
+            expectedOutputPerCraft = GetExecutionOutputPerCraft(ctx, producer.strat, producer.active),
             outputItemID = producer.outputItemID,
             variantKey = producer.key,
             reagents = {},
@@ -869,6 +877,7 @@ local function BuildVIBreakdownData(ctx, metrics)
             producerStratName = ctx.strat and ctx.strat.stratName,
             craftsToProduce = finalCrafts,
             craftsExecution = finalCrafts,
+            expectedOutputPerCraft = GetExecutionOutputPerCraft(ctx, ctx.strat, ctx.active),
             outputItemID = ctx.active and ctx.active.outputs and ctx.active.outputs[1]
                 and ctx.active.outputs[1].itemIDs and ctx.active.outputs[1].itemIDs[1],
             variantKey = "final",

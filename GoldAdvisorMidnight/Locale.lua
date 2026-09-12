@@ -516,3 +516,5 @@ L["VI_TT_MISSING_PRICE"]         = "Price data is missing for this step or one o
 L["VI_GEAR_CURRENT"]             = "Current gear"
 L["VI_GEAR_FORMAT"]              = "Gear: %s"
 L["VI_GEAR_MISSING"]             = "The selected gear setup is not saved; current gear stats are being used."
+
+L["VI_TT_OUTPUT_ESTIMATE"] = "Output is an estimate. Check your results before starting the next step."
