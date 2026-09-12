@@ -8,6 +8,11 @@
 if GetLocale() ~= "frFR" then return end
 local _, GAM = ...
 local L = GAM.L  -- base table already created by Locale.lua; override keys below
+L["BTN_GET_CRAFT_PRICE"] = "Obtenir le prix de fabrication"
+L["TT_GET_CRAFT_PRICE_TITLE"] = "Obtenir le prix de la fabrication sélectionnée"
+L["TT_GET_CRAFT_PRICE_BODY"] = "Met à jour les prix de l’hôtel des ventes pour la recette sélectionnée et ses matériaux. Maj-clic pour scanner les favoris visibles."
+L["BTN_QUEUE_CRAFTSIM"] = "Mettre en file dans CraftSim"
+L["TT_QUEUE_CRAFTSIM"] = "Valide le plan complet, puis l’ajoute à CraftSim."
 
 -- Fin de révision : réglages, temps de recharge et outils annexes
 L["BTN_COMPACT_DETAIL"] = "DÉTAIL"
@@ -225,7 +230,7 @@ L["V2_TOOLS_TITLE"]        = "Outils de stratégie"
 L["V2_BEST_TITLE"]         = "Meilleure stratégie"
 L["V2_ALL_STRATS"]         = "Toutes les stratégies"
 L["V2_MY_PROFS"]           = "Mes professions"
-L["V2_ALL_FILTER"]         = "Toutes"
+L["V2_ALL_FILTER"]         = "Toutes les professions"
 L["V2_FILL_QTY"]           = "Qté ciblée"
 L["V2_CRAFT_STATS"]        = "Stats de craft"
 L["V2_MATERIAL_RANK"]      = "Rang des matériaux"

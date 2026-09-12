@@ -168,6 +168,7 @@ function LeftPanelUI.Build(args)
     local setFilterProfSet = args.setFilterProfSet or Noop
     local getFilterProfSingleSet = args.getFilterProfSingleSet or function() return {} end
     local setFilterProfSingleSet = args.setFilterProfSingleSet or Noop
+    local styleButton = args.styleButton or (GAM.UI.MainWindowCommon and GAM.UI.MainWindowCommon.StyleComfortableButton) or Noop
     local softInk = layoutMode == "soft"
     local labelColor = softInk and bodyTextColor or { 0.9, 0.9, 0.9, 1.0 }
     local helperColor = softInk and mutedTextColor or { 0.65, 0.65, 0.65, 1.0 }
@@ -222,7 +223,7 @@ function LeftPanelUI.Build(args)
     -- Keep this menu entirely addon-owned.  UIDropDownMenu uses shared global
     -- DropDownList frames; changing those frames from addon code can taint
     -- unrelated protected Blizzard UI (for example the Game Menu).
-    local ddProf = CreateFrame("Button", "GAMMainV2ProfDD", panel, "UIPanelButtonTemplate")
+    local ddProf = CreateFrame("Button", GAM.RuntimeName("GAMMainV2ProfDD"), panel, "UIPanelButtonTemplate")
     ddProf:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -122)
     ddProf:SetSize(panelWidth - LP * 2, 22)
 
@@ -449,7 +450,7 @@ function LeftPanelUI.Build(args)
             labelColor[3],
             viEnabled and (labelColor[4] or 1) or 0.55
         )
-        if rankLbl then
+        if rankLbl and layoutMode ~= "comfortable" then
             rankLbl:ClearAllPoints()
             rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, viEnabled and -250 or -218)
         end
@@ -474,7 +475,7 @@ function LeftPanelUI.Build(args)
 
     rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -218)
 
-    local ddRank = CreateFrame("Button", "GAMMainV2RankDD", panel, "UIPanelButtonTemplate")
+    local ddRank = CreateFrame("Button", GAM.RuntimeName("GAMMainV2RankDD"), panel, "UIPanelButtonTemplate")
     ddRank:SetPoint("TOPLEFT", rankLbl, "BOTTOMLEFT", 0, -4)
     ddRank:SetSize(innerW, 22)
     local rankTextMap = {
@@ -617,6 +618,7 @@ function LeftPanelUI.Build(args)
     local selectedCraftSimBtn
     local selectedShoppingBtn
 
+    local refreshComfortableSummary = Noop
     RefreshVisiblePanels = function()
         rebuildList()
         refreshBestStratCard()
@@ -625,6 +627,7 @@ function LeftPanelUI.Build(args)
         RefreshGearPlan()
         refreshVisibleDetail()
         RefreshVIBreakdownToggle()
+        refreshComfortableSummary()
     end
     panel.refreshVisiblePanels = RefreshVisiblePanels
 
@@ -734,7 +737,7 @@ function LeftPanelUI.Build(args)
     attachButtonTooltip(
         scanBtnLeft,
         (L and L["TT_SCAN_ALL_TITLE"]) or "Scan Current Strategy List",
-        (L and L["TT_SCAN_ALL_BODY"]) or "Update Auction House prices for every strategy allowed by the current profession filters. Shift-click to scan every supported profession."
+        GAM.UI.MainWindowCommon.SCAN_HELP
     )
 
     local selectedScanBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -829,6 +832,208 @@ function LeftPanelUI.Build(args)
         toolsMenu:SetShown(not toolsMenu:IsShown())
     end)
     panel:HookScript("OnHide", function() toolsMenu:Hide() end)
+
+    if layoutMode == "comfortable" then
+        charNameFS:Hide()
+        realmFS:Hide()
+        lpRule:Hide()
+        filterLbl:Hide()
+        fillRangeFS:Hide()
+        actionsLbl:Hide()
+        selectedScanBtn:Hide()
+
+        local showLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        showLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 10, -15)
+        showLabel:SetText("Show")
+        showLabel:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
+        applyFontSize(showLabel, 11)
+
+        btnFilterMine:ClearAllPoints()
+        btnFilterMine:SetPoint("TOPLEFT", panel, "TOPLEFT", 48, -8)
+        btnFilterMine:SetSize(90, 28)
+        btnFilterMine:SetText((L and L["V2_MY_PROFS"]) or "My professions")
+
+        btnFilterAll:ClearAllPoints()
+        btnFilterAll:SetPoint("LEFT", btnFilterMine, "RIGHT", 4, 0)
+        btnFilterAll:SetSize(84, 28)
+
+        local professionLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        professionLabel:SetPoint("LEFT", btnFilterAll, "RIGHT", 16, 0)
+        professionLabel:SetText("Profession")
+        professionLabel:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
+        applyFontSize(professionLabel, 11)
+
+        ddProf:ClearAllPoints()
+        ddProf:SetPoint("LEFT", professionLabel, "RIGHT", 12, 0)
+        ddProf:SetSize(150, 28)
+        profMenu:ClearAllPoints()
+        profMenu:SetPoint("TOPLEFT", ddProf, "BOTTOMLEFT", 0, -2)
+        profMenu:SetWidth(200)
+
+        scanBtnLeft:ClearAllPoints()
+        scanBtnLeft:SetPoint("LEFT", ddProf, "RIGHT", 8, 0)
+        scanBtnLeft:SetSize(158, 28)
+        scanBtnLeft:SetText((L and L["BTN_SCAN_ALL"]) or "Scan Current List")
+
+        moreToolsBtn:ClearAllPoints()
+        moreToolsBtn:SetPoint("LEFT", scanBtnLeft, "RIGHT", 8, 0)
+        moreToolsBtn:SetSize(118, 28)
+        moreToolsBtn:SetText((L and L["BTN_MORE_TOOLS"]) or "More Tools")
+
+        -- This is a disclosure control rather than a primary action. Keep it
+        -- as a roomy clickable text link on the right edge of the toolbar;
+        -- the expanded controls remain above it when the toolbar grows.
+        local optionsBtn = CreateFrame("Button", nil, panel)
+        optionsBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -8)
+        optionsBtn:SetSize(172, 24)
+        local optionsText = optionsBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        optionsText:SetAllPoints()
+        optionsText:SetJustifyH("RIGHT")
+        optionsText:SetTextColor(gold[1], gold[2], gold[3], 1)
+        applyFontSize(optionsText, 11)
+
+        local workflowHint = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        workflowHint:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -45)
+        workflowHint:SetText("Scan prices  ->  choose a strategy  ->  review its materials and estimated profit.")
+        workflowHint:SetTextColor(helperColor[1], helperColor[2], helperColor[3], helperColor[4] or 1)
+        applyFontSize(workflowHint, 10)
+
+        local summary = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        summary:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -76)
+        summary:SetPoint("TOPRIGHT", optionsBtn, "TOPLEFT", -8, 0)
+        summary:SetJustifyH("LEFT")
+        summary:SetWordWrap(false)
+        summary:SetTextColor(helperColor[1], helperColor[2], helperColor[3], helperColor[4] or 1)
+        applyFontSize(summary, 10)
+
+        fillLbl:ClearAllPoints()
+        fillLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -108)
+        fillQtyBox:ClearAllPoints()
+        fillQtyBox:SetPoint("TOPLEFT", fillLbl, "BOTTOMLEFT", 4, -8)
+        fillQtyBox:SetSize(100, 24)
+        fillQtyOKBtn:ClearAllPoints()
+        fillQtyOKBtn:SetPoint("LEFT", fillQtyBox, "RIGHT", 4, 0)
+
+        rankLbl:ClearAllPoints()
+        rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 170, -108)
+        ddRank:ClearAllPoints()
+        ddRank:SetPoint("TOPLEFT", rankLbl, "BOTTOMLEFT", 0, -4)
+        ddRank:SetSize(194, 24)
+
+        gearLbl:ClearAllPoints()
+        gearLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 382, -108)
+        gearPlanBtn:ClearAllPoints()
+        gearPlanBtn:SetPoint("TOPLEFT", gearLbl, "BOTTOMLEFT", 0, -4)
+        gearPlanBtn:SetSize(194, 24)
+        gearMenu:ClearAllPoints()
+        gearMenu:SetPoint("TOPLEFT", gearPlanBtn, "BOTTOMLEFT", 0, -2)
+        gearMenu:SetSize(240, 56)
+
+        local compactGearGap = 3
+        local compactGearW = 76
+        for index, mode in ipairs({ "auto", "multicraft", "resourcefulness" }) do
+            local button = gearButtons[mode]
+            button:ClearAllPoints()
+            button:SetPoint("TOPLEFT", gearMenu, "TOPLEFT", 2 + ((index - 1) * (compactGearW + compactGearGap)), -2)
+            button:SetSize(compactGearW, 22)
+        end
+        captureMCBtn:ClearAllPoints()
+        captureMCBtn:SetPoint("BOTTOMLEFT", gearMenu, "BOTTOMLEFT", 2, 2)
+        captureMCBtn:SetSize(115, 22)
+        captureResBtn:ClearAllPoints()
+        captureResBtn:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
+        captureResBtn:SetSize(115, 22)
+
+        viOwn:ClearAllPoints()
+        viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", 600, -122)
+        viLbl:SetWidth(140)
+        viBreakdownOwn:ClearAllPoints()
+        viBreakdownOwn:SetPoint("LEFT", viLbl, "RIGHT", 8, 0)
+        viBreakdownLbl:SetWidth(math.max(150, panelWidth - 600 - 140 - 48))
+
+        toolsMenu:ClearAllPoints()
+        toolsMenu:SetPoint("TOPLEFT", moreToolsBtn, "BOTTOMLEFT", 0, -2)
+        toolsMenu:SetSize(286, 83)
+        local toolButtons = {
+            { selectedShoppingBtn, 1, 1 }, { quickBuyBtn, 2, 1 },
+            { cooldownsBtn, 1, 2 }, { selectedCraftSimBtn, 2, 2 },
+            { btnARP, 1, 3 },
+        }
+        for _, entry in ipairs(toolButtons) do
+            entry[1]:SetParent(toolsMenu)
+            entry[1]:Show()
+            entry[1]:ClearAllPoints()
+            entry[1]:SetPoint("TOPLEFT", toolsMenu, "TOPLEFT",
+                entry[2] == 1 and 2 or 144, -2 - ((entry[3] - 1) * 27))
+            entry[1]:SetSize(138, 24)
+        end
+
+        for _, button in ipairs({
+            btnFilterMine, btnFilterAll, ddProf, moreToolsBtn,
+            ddRank, gearPlanBtn, selectedShoppingBtn, quickBuyBtn, cooldownsBtn,
+            selectedCraftSimBtn, selectedScanBtn, btnARP, captureMCBtn, captureResBtn,
+        }) do
+            styleButton(button, false)
+        end
+        styleButton(scanBtnLeft, true)
+        for _, button in pairs(gearButtons) do styleButton(button, false) end
+        UpdateSegBtnColors()
+
+        local function SetOptionsShown(shown)
+            getOpts().craftingOptionsExpanded = shown and true or false
+            optionsText:SetText(shown and "Crafting options  ^" or "Crafting options  v")
+            for _, widget in ipairs({
+                fillLbl, fillQtyBox, rankLbl, ddRank,
+                gearLbl, gearPlanBtn, viOwn, viLbl, viBreakdownOwn, viBreakdownLbl,
+            }) do
+                widget:SetShown(shown)
+            end
+            if shown then
+                RefreshCommitButton(fillQtyBox)
+                RefreshVIBreakdownToggle()
+            else
+                fillQtyOKBtn:Hide()
+            end
+            gearMenu:Hide()
+            relayoutPanels()
+        end
+
+        refreshComfortableSummary = function()
+            local opts = getOpts()
+            local rank = ({ lowest = "R1 mats", highest = "R2 mats", optimal = "Best mix" })[opts.rankPolicy or "lowest"]
+                or tostring(opts.rankPolicy or "R1 mats")
+            local gearStatus = getGearStatus()
+            local gear = gearStatus and gearStatus.selected or "Auto"
+            if gear == "multicraft" then gear = "Multicraft" end
+            if gear == "resourcefulness" then gear = "Resourcefulness" end
+            if gear == "auto" then gear = "Auto" end
+            local vi = ((opts.pigmentCostSource == "mill") or (opts.boltCostSource == "craft")
+                or (opts.ingotCostSource == "craft")) and "VI on" or "VI off"
+            summary:SetText(string.format("AH qty %s   -   %s   -   Gear %s   -   %s",
+                tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY), rank, gear, vi))
+        end
+
+        optionsBtn:SetScript("OnClick", function()
+            SetOptionsShown(not getOpts().craftingOptionsExpanded)
+        end)
+        optionsBtn:HookScript("OnEnter", function()
+            optionsText:SetTextColor(1, 1, 1, 1)
+        end)
+        optionsBtn:HookScript("OnLeave", function()
+            optionsText:SetTextColor(gold[1], gold[2], gold[3], 1)
+        end)
+        attachButtonTooltip(
+            optionsBtn,
+            "Crafting Options",
+            "Show or hide the quantity, material rank, stat gear, and vertical-integration settings."
+        )
+        panel.getPreferredHeight = function()
+            return getOpts().craftingOptionsExpanded and 160 or 100
+        end
+        panel.setCraftingOptionsExpanded = SetOptionsShown
+        refreshComfortableSummary()
+        SetOptionsShown(getOpts().craftingOptionsExpanded and true or false)
+    end
 
     local filterProfSet = buildPlayerProfessionSet()
     if hasAnyEntries(filterProfSet) then

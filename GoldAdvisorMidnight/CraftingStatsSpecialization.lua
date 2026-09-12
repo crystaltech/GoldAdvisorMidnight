@@ -40,7 +40,7 @@ end
 local function GetSpecializationCatalog(profession, season)
     local def = ResolveProfessionDef(profession)
     if not def then return nil end
-    local root = GAM_SPECIALIZATION_DATA
+    local root = GAM.SpecializationData
     local seasonKey = tostring(season or SEASON_KEY):upper()
     return root
         and root[seasonKey]

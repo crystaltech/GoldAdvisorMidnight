@@ -14,37 +14,35 @@ It includes 283 commodity strategies across nine professions. Equipment, profess
 - Compares saved Multicraft and Resourcefulness gear with the `Auto` option
 - Builds cooldown-aware vertical-integration (VI) shopping and crafting plans
 - Creates Auctionator shopping lists and can send prices to CraftSim
+- Sends a validated VI execution plan to the CraftSim queue when CraftSim supports it
 - Tracks recipe cooldowns and charges across cached characters
 
 ## Installation
 
-1. Download a release zip from GitHub Releases.
-2. Copy `GoldAdvisorMidnight/` to:
+1. Copy `GoldAdvisorMidnight/` to `World of Warcraft/_retail_/Interface/AddOns/`, replacing the previous production addon files.
+2. Launch the game or run `/reload`, then enable **Gold Advisor Midnight**.
+3. Use `/gam` to open the addon.
 
-   ```text
-   World of Warcraft/_retail_/Interface/AddOns/
-   ```
-
-3. Keep the addon folder named `GoldAdvisorMidnight`.
-4. Launch the game or run `/reload`.
-5. Open the Auction House. Use `/gam` if GAM is not visible.
+Version **2.1.0** includes the Comfortable interface and appearance profiles. Existing
+`GoldAdvisorMidnightDB` settings are retained and upgraded in place. The separate
+development addon's settings are not imported.
 
 ## Basic Workflow
 
 1. Select a profession and strategy.
 2. Open the matching Blizzard recipe so GAM can capture its current stats and specialization bonuses.
 3. Choose the starting craft count, material rank, and stat gear.
-4. Use `Scan Selected` to refresh the required Auction House prices.
+4. Use Shift-click on `Scan` to refresh the required Auction House prices.
 5. Review profit, ROI, break-even price, materials, and expected output.
 6. Enable `VI Crafting` to compare buying intermediates with crafting them yourself.
 7. Enable `Show craft steps` to open the grouped shopping list and dependency-safe crafting order.
 
 Set the default batch for strategies without a saved override with
-`/gam globalstartqty 100`, or change **Default starting crafts** in the addon
+`/gam globalstartqty 50`, or change **Default starting crafts** in the addon
 settings. Editing **Starting crafts** on an individual strategy continues to
 override the global value for that strategy.
 
-`Scan Current List` refreshes the currently relevant strategy list. Additional tools—including cooldowns, shopping, CraftSim, Quick Buy, and exports—are under `More Tools`.
+Click `Scan` to refresh the filtered list; Ctrl-click scans all strategies, Alt-click scans favorites, and Shift-click scans the selected strategy. Click during a scan to stop it. Additional tools—including cooldowns, shopping, CraftSim, Quick Buy, and exports—are under `More Tools`.
 
 ## Important Controls
 
@@ -72,12 +70,14 @@ To save a gear setup, equip it, open the exact Blizzard recipe, and use `Save MC
 /gam
 /goldadvisor
 /gam log
+/gam settings
 /gam help
 ```
 
 - `/gam` or `/goldadvisor` toggles the main window.
-- `/gam log` opens the copyable support log.
-- `/gam help` lists the available commands.
+- `/gam log` opens the addon's copyable support log.
+- `/gam settings` opens the Dev settings window directly.
+- `/gam help` lists the available Dev commands.
 
 ## Versioning
 

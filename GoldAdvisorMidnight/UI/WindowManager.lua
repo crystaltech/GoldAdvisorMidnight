@@ -7,6 +7,7 @@ GAM.UI = GAM.UI or {}
 
 local WindowManager = {}
 GAM.UI.WindowManager = WindowManager
+WindowManager._registeredFrames = WindowManager._registeredFrames or {}
 
 WindowManager.ROLES = {
     main = "MEDIUM",
@@ -38,6 +39,39 @@ local function ApplyOwnerLevel(frame)
     if (frame:GetFrameLevel() or 0) < desiredLevel then
         frame:SetFrameLevel(desiredLevel)
     end
+end
+
+local function IsSettingsFrame(frame)
+    if not frame then return false end
+    if frame._gamIsSettingsFrame then return true end
+    local name = frame.GetName and frame:GetName()
+    -- The standalone fallback is deliberately kept native-looking.  Use the
+    -- runtime name suffix so this remains valid for both Dev and production
+    -- prefixes without requiring Settings.lua to depend on this helper.
+    return name and (name:find("SettingsWrapper", 1, true) or name:find("SettingsPanel", 1, true)) ~= nil
+end
+
+-- Secondary windows may contain a small number of deliberate card/menu
+-- surfaces.  Keep their styling in the same pass as the window chrome so a
+-- frame that is recreated or shown after a theme refresh cannot retain an old
+-- surface color.  Children opt in with _gamComfortSurface; row backgrounds
+-- intentionally do not, since they carry their own alternating/status colors.
+local function StyleComfortableSurfaces(frame)
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if not (common and common.GetThemeDef and common.SetBackdropColors) then return end
+    local theme = common.GetThemeDef()
+    local shell = theme and theme.shells and theme.shells.card
+    if not shell then return end
+    local function visit(parent)
+        if not parent or not parent.GetChildren then return end
+        for _, child in ipairs({ parent:GetChildren() }) do
+            if child._gamComfortSurface and child.SetBackdrop then
+                common.SetBackdropColors(child, shell.outerBgColor, shell.outerBorderColor)
+            end
+            visit(child)
+        end
+    end
+    visit(frame)
 end
 
 function WindowManager.ApplyRole(frame, role, opts)
@@ -72,6 +106,7 @@ function WindowManager.Register(frame, role, opts)
     end
 
     WindowManager.ApplyRole(frame, role, opts)
+    WindowManager._registeredFrames[frame] = true
     if frame._gamWindowManagerRegistered then
         return frame
     end
@@ -79,6 +114,15 @@ function WindowManager.Register(frame, role, opts)
     frame._gamWindowManagerRegistered = true
     if frame.HookScript then
         frame:HookScript("OnShow", function(self)
+            local common = GAM.UI.MainWindowCommon
+            if self._gamWindowRole ~= "main" and not IsSettingsFrame(self)
+                and common and common.StyleSecondaryWindow then
+                common.StyleSecondaryWindow(self)
+                StyleComfortableSurfaces(self)
+            end
+            if self._gamThemeRefresh then
+                self._gamThemeRefresh(self)
+            end
             if self._gamWindowPresentOnShow ~= false then
                 WindowManager.Present(self)
             end
@@ -89,6 +133,22 @@ function WindowManager.Register(frame, role, opts)
     end
 
     return frame
+end
+
+function WindowManager.RefreshThemes()
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if not common then return end
+    for frame in pairs(WindowManager._registeredFrames) do
+        if frame and frame.IsObjectType and frame:IsObjectType("Frame")
+                and frame._gamWindowRole ~= "main" and not IsSettingsFrame(frame)
+                and common.StyleSecondaryWindow then
+            common.StyleSecondaryWindow(frame)
+            StyleComfortableSurfaces(frame)
+        end
+        if frame and frame._gamThemeRefresh then
+            frame._gamThemeRefresh(frame)
+        end
+    end
 end
 
 function WindowManager.Present(frame, role, opts)

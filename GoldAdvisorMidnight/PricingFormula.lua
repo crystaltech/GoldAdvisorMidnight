@@ -104,8 +104,7 @@ function Formula.CalculateFixedCrafts(input)
             and values.resPercent > 0 then
         averageSavedCost = values.requiredCraftCost
             * values.resPercent
-            * values.resourcefulnessSaveBase
-            * (1 + values.resExtra)
+            * Clamp01(values.resourcefulnessSaveBase * (1 + values.resExtra))
         if averageSavedCost > values.requiredCraftCost then
             averageSavedCost = values.requiredCraftCost
         end

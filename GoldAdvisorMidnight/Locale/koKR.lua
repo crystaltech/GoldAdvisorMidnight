@@ -8,6 +8,11 @@
 if GetLocale() ~= "koKR" then return end
 local _, GAM = ...
 local L = GAM.L  -- base table already created by Locale.lua; override keys below
+L["BTN_GET_CRAFT_PRICE"] = "제작 가격 가져오기"
+L["TT_GET_CRAFT_PRICE_TITLE"] = "선택한 제작 가격 가져오기"
+L["TT_GET_CRAFT_PRICE_BODY"] = "선택한 제조법과 재료의 경매장 가격을 업데이트합니다. Shift-클릭하면 표시된 즐겨찾기를 스캔합니다."
+L["BTN_QUEUE_CRAFTSIM"] = "CraftSim 대기열에 추가"
+L["TT_QUEUE_CRAFTSIM"] = "전체 실행 계획을 확인한 뒤 CraftSim에 추가합니다."
 
 -- 검토 완료: 설정, 재사용 대기시간, 보조 도구
 L["BTN_COMPACT_DETAIL"] = "세부"
@@ -225,7 +230,7 @@ L["V2_TOOLS_TITLE"]        = "전략 도구"
 L["V2_BEST_TITLE"]         = "최고 전략"
 L["V2_ALL_STRATS"]         = "모든 전략"
 L["V2_MY_PROFS"]           = "내 전문기술"
-L["V2_ALL_FILTER"]         = "전체"
+L["V2_ALL_FILTER"]         = "모든 전문 기술"
 L["V2_FILL_QTY"]           = "목표 수량"
 L["V2_CRAFT_STATS"]        = "제작 수치"
 L["V2_MATERIAL_RANK"]      = "재료 등급"

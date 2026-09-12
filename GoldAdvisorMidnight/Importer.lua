@@ -164,15 +164,15 @@ function Importer.Init()
     local commoditySkipped = 0
     local disabledSkipped = 0
 
-    if type(GAM_RECIPES_GENERATED) == "table" then
-        local l, s, c, d = LoadRecipeList(GAM_RECIPES_GENERATED, "Generated", false)
+    if type(GAM.RecipesGenerated) == "table" then
+        local l, s, c, d = LoadRecipeList(GAM.RecipesGenerated, "Generated", false)
         loaded = loaded + l
         skipped = skipped + s
         builtInLoaded = builtInLoaded + l
         commoditySkipped = commoditySkipped + c
         disabledSkipped = disabledSkipped + d
-    elseif type(GAM_STRATS_GENERATED) == "table" then
-        local l, s, c, d = LoadRecipeList(GAM_STRATS_GENERATED, "GeneratedLegacy", false)
+    elseif type(GAM.StratsGenerated) == "table" then
+        local l, s, c, d = LoadRecipeList(GAM.StratsGenerated, "GeneratedLegacy", false)
         loaded = loaded + l
         skipped = skipped + s
         builtInLoaded = builtInLoaded + l

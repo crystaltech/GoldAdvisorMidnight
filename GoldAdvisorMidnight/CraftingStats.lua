@@ -21,7 +21,7 @@ local activeRecipeOpenID = nil
 local PROFESSION_DEFS = Specialization.GetProfessionDefs()
 
 local function GetFormulaProfiles()
-    return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+    return (GAM.WorkbookGenerated and GAM.WorkbookGenerated.formulaProfiles) or {}
 end
 
 local function ClampNonNegative(value)
@@ -899,7 +899,7 @@ function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
         end
         return false
     end
-    local function OpenAndCapture(isFinalAttempt)
+    local function OpenAndCapture(isFinalAttempt, allowOpen)
         if completed then return true end
         if recipeOpenGeneration ~= requestGeneration then
             FinishRequest()
@@ -916,7 +916,12 @@ function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
             end
             return false
         end
-        local called, openError = pcall(C_TradeSkillUI.OpenRecipe, recipeID)
+        -- Protected recipe selection belongs only to the initiating click.
+        -- Timer retries may read/capture the UI, but must never select a recipe.
+        local called, openError = true, nil
+        if allowOpen then
+            called, openError = pcall(C_TradeSkillUI.OpenRecipe, recipeID)
+        end
         if not called then
             lastReason = "open-recipe-failed:" .. tostring(openError)
         else
@@ -948,7 +953,7 @@ function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
         return true
     end
 
-    local openedImmediately = OpenAndCapture(false)
+    local openedImmediately = OpenAndCapture(false, true)
     if C_Timer and type(C_Timer.After) == "function" then
         -- Profession data can still be changing immediately after OpenTradeSkill.
         -- Verify the visible recipe on each bounded retry; OpenRecipe has no

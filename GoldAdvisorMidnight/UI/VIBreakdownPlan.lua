@@ -116,6 +116,7 @@ local function AddCraft(groups, order, entry)
             itemID = entry.itemID,
             producerStratID = entry.producerStratID,
             producerStratName = entry.producerStratName,
+            recipeID = entry.recipeID,
             gearModeRequested = entry.gearModeRequested,
             gearModeResolved = entry.gearModeResolved,
             gearPresetMissing = entry.gearPresetMissing and true or false,
@@ -222,6 +223,7 @@ local function BuildFinalCraft(breakdown)
         gearModeRequested = breakdown.finalGearModeRequested,
         gearModeResolved = breakdown.finalGearModeResolved,
         gearPresetMissing = breakdown.finalGearPresetMissing and true or false,
+        recipeID = breakdown.finalRecipeID,
     }
 end
 
@@ -248,7 +250,9 @@ function Plan.Build(breakdown, vendorPrices, labels)
     local vendorGroups, vendorOrder = {}, {}
     local auctionGroups, auctionOrder = {}, {}
     local purchaseEntries = breakdown.shoppingReagents
-    if type(purchaseEntries) ~= "table" or #purchaseEntries == 0 then
+    -- An explicitly empty shopping plan means inventory covers execution.
+    -- Only older projections without that field need the economic-tree fallback.
+    if type(purchaseEntries) ~= "table" then
         purchaseEntries = breakdown.entries or {}
     end
     for _, entry in ipairs(purchaseEntries) do
@@ -264,8 +268,29 @@ function Plan.Build(breakdown, vendorPrices, labels)
 
     local vendorBuys = FinishPurchases(vendorGroups, vendorOrder)
     local auctionBuys = FinishPurchases(auctionGroups, auctionOrder)
-    local craftSteps = BuildCraftSteps(breakdown)
-    craftSteps[#craftSteps + 1] = BuildFinalCraft(breakdown)
+    local craftSteps
+    if type(breakdown.executionSteps) == "table" and #breakdown.executionSteps > 0 then
+        -- Execution traversal is authoritative for queueing: it is postorder
+        -- and already accounts for integer batches, inventory and cooldowns.
+        craftSteps = {}
+        for index, source in ipairs(breakdown.executionSteps) do
+            local entry = {}
+            for key, value in pairs(source) do entry[key] = value end
+            entry.kind = "craft"
+            entry.name = entry.name or entry.producerStratName
+            if index == #breakdown.executionSteps then
+                entry.name = entry.name or breakdown.finalOutputName or breakdown.stratName
+            end
+            entry.name = entry.name or "Final Output"
+            entry.craftsExecution = math.max(0, math.floor(tonumber(entry.craftsToProduce or entry.craftsExecution) or 0))
+            entry.required = entry.required or entry.craftsExecution
+            craftSteps[#craftSteps + 1] = entry
+        end
+        craftSteps[#craftSteps].isFinalCraft = true
+    else
+        craftSteps = BuildCraftSteps(breakdown)
+        craftSteps[#craftSteps + 1] = BuildFinalCraft(breakdown)
+    end
 
     local rows = {}
     AddSection(rows, "vendor", labels.vendor or "Vendor Purchases", vendorBuys)

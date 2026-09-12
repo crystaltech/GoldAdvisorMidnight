@@ -1,8 +1,11 @@
 -- GoldAdvisorMidnight/Data/ProfessionCrafts.lua
 -- Shared table for compact per-profession craft fact files.
 
-GAM_PROFESSION_CRAFTS = GAM_PROFESSION_CRAFTS or {}
-GAM_RUNTIME_PROFESSION_CRAFTS = GAM_RUNTIME_PROFESSION_CRAFTS or {}
+local ADDON_NAME, GAM = ...
+GAM.ProfessionCrafts = GAM.ProfessionCrafts or {}
+GAM.RuntimeProfessionCrafts = GAM.RuntimeProfessionCrafts or {}
+local professionCrafts = GAM.ProfessionCrafts
+local runtimeProfessionCrafts = GAM.RuntimeProfessionCrafts
 
 local function CopyItemIDs(itemIDs)
     local copy = {}
@@ -38,17 +41,17 @@ end
 
 -- Convert reviewed compact craft facts into the canonical runtime strategy
 -- shape. Patch facts are authored once and appended after RecipesGenerated.lua.
-function GAM_APPEND_RUNTIME_PROFESSION_CRAFTS()
-    GAM_RECIPES_GENERATED = GAM_RECIPES_GENERATED or {}
+function GAM.AppendRuntimeProfessionCrafts()
+    GAM.RecipesGenerated = GAM.RecipesGenerated or {}
 
-    for _, entry in ipairs(GAM_RUNTIME_PROFESSION_CRAFTS) do
+    for _, entry in ipairs(runtimeProfessionCrafts) do
         local profession = assert(entry.profession, "runtime craft profession is required")
         local craft = assert(entry.craft, "runtime craft facts are required")
         local firstInput = assert(craft.inputs and craft.inputs[1],
             tostring(craft.id) .. ": runtime craft requires a primary input")
         local defaultCrafts = craft.defaultCrafts or 1000
 
-        GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED + 1] = {
+        GAM.RecipesGenerated[#GAM.RecipesGenerated + 1] = {
             id = assert(craft.id, "runtime craft id is required"),
             profession = profession,
             stratName = assert(craft.name, tostring(craft.id) .. ": runtime craft name is required"),

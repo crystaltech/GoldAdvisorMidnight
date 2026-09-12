@@ -25,7 +25,7 @@ local function StartingCraftsBounds()
     local constants = GAM.C or {}
     return constants.MIN_STARTING_CRAFTS or 1,
         constants.MAX_STARTING_CRAFTS or 1000000,
-        constants.DEFAULT_STARTING_CRAFTS or 1000
+        constants.DEFAULT_STARTING_CRAFTS or 50
 end
 
 function State.NormalizeStartingCrafts(value)
@@ -112,7 +112,7 @@ local function ToggleFavoriteForPatch(patch, stratID, rankPolicy)
 end
 
 local function EnsureDB()
-    local db = GAM.db or GoldAdvisorMidnightDB
+    local db = GAM.db or _G[ADDON_NAME .. "DB"]
     if not db then
         return nil
     end

@@ -17,7 +17,7 @@ local function MakeID(profession, name, patchTag)
 end
 
 local function GetItemCatalog()
-    return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.itemCatalog) or {}
+    return (GAM.WorkbookGenerated and GAM.WorkbookGenerated.itemCatalog) or {}
 end
 
 local function CopyIDs(ids)

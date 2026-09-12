@@ -11,7 +11,7 @@ GAM.UI.MainWindowV2 = MainWindow -- Compatibility alias for pre-refocus callers.
 local lastScanRefreshAt = 0
 
 -- ===== Layout constants =====
-local ROW_H        = 22
+local ROW_H        = 28
 local VISIBLE_ROWS = 40
 local CARD_H       = 52
 local LIST_SECTION_H = 22
@@ -62,6 +62,9 @@ local function GetUIScale()
 end
 
 local function GetTickerHeight(C)
+    if GAM.C and GAM.C.USE_COMFORTABLE_UI then
+        return 0
+    end
     return math.max((C and C.TICKER_H) or 18, FOOTER_MIN_HEIGHT)
 end
 
@@ -69,9 +72,37 @@ local function IsSoftThemeLayout()
     return GetThemeKey() == "soft"
 end
 
+local function IsComfortableLayout()
+    return GAM.C and GAM.C.USE_COMFORTABLE_UI
+end
+
 local function GetLayoutSpec()
     local theme = GetThemeDef()
     local C = GAM.C
+    if IsComfortableLayout() then
+        return {
+            key = "comfortable",
+            windowWidth = 1120,
+            windowHeight = 720,
+            minWidth = 1000,
+            minHeight = 560,
+            maxWidth = 1500,
+            maxHeight = 980,
+            leftWidth = 1092,
+            rightWidth = 460,
+            toolbarCollapsedHeight = 116,
+            toolbarExpandedHeight = 184,
+            rightRatio = 0.47,
+            cardGap = 10,
+            outerPadding = 0,
+            guideHeight = 0,
+            compactPadding = 0,
+            maxVisibleRows = 60,
+            listHeaderTop = 38,
+            scrollBarTop = 66,
+            panelGap = 10,
+        }
+    end
     if theme and theme.layout and IsSoftThemeLayout() then
         return {
             key = "soft",
@@ -186,6 +217,9 @@ local discordPopup
 local leftPanelChecks = {}  -- refs for left-panel cost source checkboxes
 local compactBtn      = nil -- compact mode toggle button ref
 local compactActive   = false -- tracks whether compact mode layout is currently applied
+local fullWindowGeometry = nil
+local resizeGrip = nil
+local suppressFrameRelayout = false
 local listMetricCache = StrategyListModel.NewMetricCache(function(strat, patchTag)
     local facade = GAM.PricingFacade
     if not (facade and facade.CalculateCurrent) then
@@ -197,6 +231,7 @@ local bestStratCardDirty = true
 local builtThemeKey   = nil
 local scrollBarTopOffset = LIST_TOP_PAD + 4
 local columnHeaderTopOffset = CARD_H + LIST_SECTION_H + 12
+local currentRowWidth = 0
 local STRAT_ICON_W    = 20   -- left gutter for star icon
 local UpdateCollapseButtonAnchors
 local RebuildList
@@ -298,6 +333,49 @@ end
 
 local function RememberWindowState(isOpen)
     SetOption("lastAHWindowOpen", isOpen and true or false)
+end
+
+local function CaptureFullWindowGeometry()
+    if not frame or compactActive then return end
+    local point, _, relativePoint, x, y = frame:GetPoint(1)
+    fullWindowGeometry = {
+        point = point or "CENTER",
+        relativePoint = relativePoint or point or "CENTER",
+        x = x or 0,
+        y = y or 0,
+        width = frame:GetWidth(),
+        height = frame:GetHeight(),
+    }
+    GetOpts().mainWindowGeometry = fullWindowGeometry
+end
+
+local function RestoreFullWindowGeometry(layout)
+    local saved = fullWindowGeometry or GetOpts().mainWindowGeometry
+    if type(saved) ~= "table" then saved = nil end
+    local function Finite(value, fallback)
+        value = tonumber(value)
+        if not value or value ~= value or math.abs(value) == math.huge then return fallback end
+        return value
+    end
+    local width = Finite(saved and saved.width, layout.windowWidth)
+    local height = Finite(saved and saved.height, layout.windowHeight)
+    width = math.max(layout.minWidth or width, math.min(layout.maxWidth or width, width))
+    height = math.max(layout.minHeight or height, math.min(layout.maxHeight or height, height))
+    suppressFrameRelayout = true
+    frame:SetSize(width, height)
+    frame:ClearAllPoints()
+    if saved then
+        local anchors = { TOPLEFT = true, TOP = true, TOPRIGHT = true,
+            LEFT = true, CENTER = true, RIGHT = true,
+            BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true }
+        local point = anchors[saved.point] and saved.point or "CENTER"
+        local relativePoint = anchors[saved.relativePoint] and saved.relativePoint or point
+        frame:SetPoint(point, UIParent, relativePoint,
+            Finite(saved.x, 0), Finite(saved.y, 0))
+    else
+        frame:SetPoint("CENTER", UIParent, "CENTER")
+    end
+    suppressFrameRelayout = false
 end
 
 local function ApplyTheme()
@@ -521,10 +599,13 @@ local function ApplyTheme()
         local color = (i % 2 == 1) and theme.listRowOdd or theme.listRowEven
         bg:SetColorTexture(color[1], color[2], color[3], color[4])
     end
+    if Common.RefreshButtonStyles then
+        Common.RefreshButtonStyles(frame)
+    end
 end
 
 local function BuildDiscordPopup(L)
-    discordPopup = CreateFrame("Frame", "GAMDiscordPopup", UIParent, "BackdropTemplate")
+    discordPopup = CreateFrame("Frame", GAM.RuntimeName("GAMDiscordPopup"), UIParent, "BackdropTemplate")
     discordPopup:SetSize(440, 150)
     discordPopup:SetPoint("CENTER")
     discordPopup:SetScale(GetUIScale())
@@ -640,6 +721,7 @@ end
 
 local function BuildFrameHeader(L, HDR_PX)
     local softInk = IsSoftThemeLayout()
+    local comfortable = IsComfortableLayout()
     local headerBg = frame:CreateTexture(nil, "BACKGROUND")
     headerBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -4)
     headerBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -4)
@@ -647,7 +729,12 @@ local function BuildFrameHeader(L, HDR_PX)
     themeRefs.headerBg = headerBg
 
     local titleFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    titleFS:SetPoint("TOP", frame, "TOP", 0, softInk and -7 or -6)
+    if comfortable then
+        titleFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 22, -10)
+        titleFS:SetJustifyH("LEFT")
+    else
+        titleFS:SetPoint("TOP", frame, "TOP", 0, softInk and -7 or -6)
+    end
     titleFS:SetText(L["ADDON_TITLE"])
     titleFS:SetTextColor(C_GR, C_GG, C_GB)
     ApplyFontSize(titleFS, softInk and 15 or 14)
@@ -661,6 +748,25 @@ local function BuildFrameHeader(L, HDR_PX)
     ApplyFontSize(verFS, 10)
     ApplyTextShadow(verFS, 0.75)
     themeRefs.versionText = verFS
+    verFS:SetShown(not comfortable)
+
+    if comfortable then
+        local modeFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        frame.modeLabel = modeFS
+        modeFS:SetPoint("LEFT", titleFS, "RIGHT", 10, 0)
+        modeFS:SetText("Crafting planner")
+        modeFS:SetTextColor(0.86, 0.86, 0.88, 1)
+        ApplyFontSize(modeFS, 11)
+        ApplyTextShadow(modeFS, 0.75)
+
+        local contextFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        contextFS:SetPoint("LEFT", modeFS, "RIGHT", 12, 0)
+        contextFS:SetText(string.format("%s - %s", UnitName("player") or "-", GetRealmName() or "-"))
+        contextFS:SetTextColor(0.68, 0.68, 0.68, 1)
+        ApplyFontSize(contextFS, 11)
+        ApplyTextShadow(contextFS, 0.75)
+        frame.characterContext = contextFS
+    end
 
     local titleRule = frame:CreateTexture(nil, "ARTWORK")
     titleRule:SetHeight(1)
@@ -674,7 +780,7 @@ local function BuildFrameHeader(L, HDR_PX)
     closeBtn:SetScript("OnClick", function() MainWindow.Hide() end)
 
     compactBtn = CreateFrame("Button", nil, frame, "BackdropTemplate")
-    compactBtn:SetSize(52, 20)
+    compactBtn:SetSize(comfortable and 68 or 52, comfortable and 24 or 20)
     compactBtn:SetPoint("TOPRIGHT", closeBtn, "TOPLEFT", -6, -1)
     compactBtn:SetBackdrop(THIN_BACKDROP)
     compactBtn:EnableMouse(true)
@@ -683,7 +789,7 @@ local function BuildFrameHeader(L, HDR_PX)
     local cBtnLbl = compactBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     cBtnLbl:SetAllPoints()
     cBtnLbl:SetJustifyH("CENTER")
-    cBtnLbl:SetText((L and L["BTN_COMPACT_DETAIL"]) or "DETAIL")
+    cBtnLbl:SetText(comfortable and "Details" or ((L and L["BTN_COMPACT_DETAIL"]) or "DETAIL"))
     cBtnLbl:SetTextColor(C_GR * 0.4, C_GG * 0.4, C_GB * 0.4)
     ApplyFontSize(cBtnLbl, 11)
     ApplyTextShadow(cBtnLbl)
@@ -693,6 +799,9 @@ local function BuildFrameHeader(L, HDR_PX)
     AttachButtonTooltip(compactBtn,
         (L and L["TT_BTN_COMPACT_TITLE"]) or "Compact Mode",
         (L and L["TT_BTN_COMPACT_BODY"])  or "Show only the strategy detail panel.")
+    if comfortable and Common.StyleComfortableButton then
+        Common.StyleComfortableButton(compactBtn, false)
+    end
 end
 
 local function BuildStatusAndTicker(L, C, SB_H)
@@ -731,6 +840,20 @@ local function BuildStatusAndTicker(L, C, SB_H)
     themeRefs.progressBar = progBar
     themeRefs.progressBarBg = progBg
 
+    if IsComfortableLayout() then
+        local footerMeta = statusBarFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        footerMeta:SetPoint("RIGHT", statusBarFrame, "RIGHT", -10, 0)
+        footerMeta:SetText(string.format("Support: %s   -   v%s", DISCORD_INVITE_CODE, tostring(GAM.version or "?")))
+        footerMeta:SetTextColor(0.62, 0.62, 0.66, 1)
+        ApplyFontSize(footerMeta, 10)
+        ApplyTextShadow(footerMeta, 0.65)
+        frame.footerMeta = footerMeta
+        progBar:ClearAllPoints()
+        progBar:SetPoint("LEFT", statusBarFrame, "LEFT", 118, 0)
+        progBar:SetPoint("RIGHT", footerMeta, "LEFT", -12, 0)
+        progBar:SetHeight(15)
+    end
+
     scanBtnStatus = CreateFrame("Button", nil, statusBarFrame, "UIPanelButtonTemplate")
     scanBtnStatus:SetSize(82, 22)
     scanBtnStatus:SetText(L["BTN_SCAN_ALL"])
@@ -763,7 +886,7 @@ local function BuildStatusAndTicker(L, C, SB_H)
     tickerFS:SetJustifyH("CENTER")
     tickerFS:SetWordWrap(false)
     tickerFS:SetText(
-        "\124cffffcc00[Gold Advisor Midnight]\124r" ..
+        "\124cffffcc00[" .. (GAM.C.ADDON_DISPLAY_NAME or "Gold Advisor Midnight") .. "]\124r" ..
         SEP .. "For support and community:" ..
         SEP .. "\124cff7289daDiscord:\124r  " .. DISCORD_INVITE_CODE ..
         SEP .. "\124cff666666v" .. (GAM.version or "?") .. "\124r"
@@ -792,6 +915,7 @@ local function BuildStatusAndTicker(L, C, SB_H)
 
     themeRefs.tickerText = tickerFS
     frame.tickerClip = tickerClip
+    if IsComfortableLayout() then tickerClip:Hide() end
 end
 
 local function FinalizeBuildOnShow(sb)
@@ -880,7 +1004,7 @@ local function FormatStatPercentValue(value)
 end
 
 local function AddThousandsSeparators(text)
-    local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.%d+)?$")
+    local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.?%d*)$")
     if not digits then
         return tostring(text or "")
     end
@@ -977,6 +1101,30 @@ local shoppingIntegration = Shopping.Create({
 local ToggleShoppingSync = shoppingIntegration.ToggleSync
 local DisableShoppingSync = shoppingIntegration.DisableSync
 
+local function SyncScanProgressFromEngine()
+    local scan = GAM.AHScan
+    if not (scan and scan.IsScanning and scan.IsScanning()) then
+        return
+    end
+    local done, total = 0, 0
+    if scan.GetProgress then
+        done, total = scan.GetProgress()
+    end
+    if MainWindow.OnScanProgress then
+        MainWindow.OnScanProgress(done or 0, total or 0, false)
+    end
+end
+
+local function StartQueuedScan()
+    if not (GAM.AHScan and GAM.AHScan.StartScan) then
+        return
+    end
+    GAM.AHScan.StartScan()
+    -- Paint the initial 0 / total state immediately. The engine callback then
+    -- owns subsequent updates and completion.
+    SyncScanProgressFromEngine()
+end
+
 local function ScanSingleStrategy(strat, patchTag, callback)
     if not strat or not GAM.AHScan then return end
     if not GAM.ahOpen then
@@ -1057,7 +1205,7 @@ local function ScanSingleStrategy(strat, patchTag, callback)
     local viScanItems = (GAM.Pricing and GAM.Pricing.GetVerticalIntegrationScanItems
         and GAM.Pricing.GetVerticalIntegrationScanItems(strat, pt)) or {}
     for _, item in ipairs(viScanItems) do queueItem(item, "selected VI material") end
-    GAM.AHScan.StartScan()
+    StartQueuedScan()
 end
 
 local function ScanSelectedStrategyAction(strat, patchTag, callback)
@@ -1130,7 +1278,7 @@ RebuildList = function()
 end
 
 -- ===== DoScan =====
-local function DoScan()
+local function DoScan(selectedOverride, patchOverride)
     local L = GetL()
     if GAM.AHScan and GAM.AHScan.IsScanning and GAM.AHScan.IsScanning() then
         GAM.AHScan.StopScan()
@@ -1140,14 +1288,38 @@ local function DoScan()
         print("|cffff8800[GAM]|r " .. (L and L["ERR_NO_AH"] or "Open the Auction House first."))
         return
     end
+    local mode = Common.GetScanMode(IsControlKeyDown and IsControlKeyDown(),
+        IsAltKeyDown and IsAltKeyDown(), IsShiftKeyDown and IsShiftKeyDown())
+    if mode == "selected" then
+        local target = (type(selectedOverride) == "table" and selectedOverride.id and selectedOverride) or (rpDetail and rpDetail.currentStrat)
+        if not target then
+            print("|cffff8800[GAM]|r Select a strategy before Shift-clicking Scan.")
+            return
+        end
+        ScanSingleStrategy(target, patchOverride or rpDetail.currentPatch or filterPatch)
+        return
+    end
+    local list = filteredList
+    if mode == "favorites" then
+        list = {}
+        for _, strat in ipairs(GAM.Importer.GetAllStrats(filterPatch) or {}) do
+            if IsFavorite(strat.id) then list[#list + 1] = strat end
+        end
+    end
+    if mode ~= "all" and #list == 0 then
+        print("|cffff8800[GAM]|r No strategies in this scan scope.")
+        return
+    end
     GAM.AHScan.ResetQueue()
-    if IsShiftKeyDown and IsShiftKeyDown() then
+    if mode == "all" then
         GAM.AHScan.QueueAllStratItems(filterPatch)
     else
-        GAM.AHScan.QueueStratListItems(filteredList, filterPatch)
+        GAM.AHScan.QueueStratListItems(list, filterPatch)
     end
-    GAM.AHScan.StartScan()
+    StartQueuedScan()
 end
+
+MainWindow.ScanWithModifiers = DoScan
 
 local function GetVisibleFavoriteStrats()
     local favorites = {}
@@ -1187,45 +1359,21 @@ ScanVisibleFavoriteStrats = function()
     GAM.AHScan.StopScan()
     GAM.AHScan.ResetQueue()
     GAM.AHScan.QueueStratListItems(favorites, filterPatch)
-    GAM.AHScan.StartScan()
+    StartQueuedScan()
 end
 
 RefreshScanButtonLabels = function()
     local L = GetL()
-    local shiftActive = IsShiftScanModifierActive()
-
-    if scanBtnLeft then
-        local mainLabel = scanning
-            and ((L and L["BTN_SCAN_STOP"]) or "Stop Scan")
-            or (shiftActive
-                and ((L and L["BTN_SCAN_EVERYTHING"]) or "Scan Everything")
-                or ((L and L["BTN_SCAN_ALL"]) or "Scan Current List"))
-        scanBtnLeft:SetText(mainLabel)
-    end
-
-    if selectedScanBtn then
-        local selectedLabel = shiftActive
-            and ((L and L["BTN_SCAN_FAVS"]) or "Scan Favs")
-            or ((L and L["BTN_SCAN_SELECTED"]) or "Scan Selected Strat")
-        selectedScanBtn:SetText(selectedLabel)
-
-        local canScan = (selectedStratID and rpDetail and rpDetail.currentStrat)
-            or (shiftActive and HasVisibleFavorites())
-        if canScan then
-            selectedScanBtn:Enable()
-            selectedScanBtn:SetAlpha(1)
-        else
-            selectedScanBtn:Disable()
-            selectedScanBtn:SetAlpha(0.45)
-        end
-    end
-
+    local _, label = Common.GetScanMode(IsControlKeyDown and IsControlKeyDown(),
+        IsAltKeyDown and IsAltKeyDown(), IsShiftKeyDown and IsShiftKeyDown())
+    if scanning then label = (L and L["BTN_SCAN_STOP"]) or "Stop Scan" end
+    if scanBtnLeft then scanBtnLeft:SetText(label) end
     if rpDetail and rpDetail.btnScanStrat then
-        local detailLabel = shiftActive
-            and ((L and L["BTN_SCAN_FAVS"]) or "Scan Favs")
-            or ((L and L["BTN_SCAN_STRAT"]) or "Scan Strat")
-        rpDetail.btnScanStrat:SetText(detailLabel)
+        rpDetail.btnScanStrat:SetText(scanning
+            and ((L and L["BTN_SCAN_STOP"]) or "Stop Scan")
+            or ((L and L["BTN_GET_CRAFT_PRICE"]) or "Get Craft Price"))
     end
+
 end
 
 local function SetScanningState(isScanning)
@@ -1245,6 +1393,7 @@ local function SetScanningState(isScanning)
     if scanBtnStatus then
         scanBtnStatus:SetText(lbl)
         scanBtnStatus:Enable()
+        scanBtnStatus:SetShown(isScanning)
     end
     if RefreshScanButtonLabels then
         RefreshScanButtonLabels()
@@ -1255,6 +1404,10 @@ end
 
 local function EnsureInlineDetailReady()
     local opts = GetOpts()
+    if IsComfortableLayout() and not compactActive then
+        opts.rightPanelCollapsed = false
+        RelayoutPanels()
+    end
     if not compactActive and opts.rightPanelCollapsed then
         opts.rightPanelCollapsed = false
         RelayoutPanels()
@@ -1364,8 +1517,9 @@ end
 -- ===== Row frames (30-slot virtual scroll pool) =====
 -- ===== ApplyColumnLayout — re-anchors headers + row cells =====
 local function ApplyColumnLayout(rowW)
-    return Common.ApplyColumnLayout({
-        rowW = rowW or 0,
+    currentRowWidth = rowW or currentRowWidth
+    local columns = Common.ApplyColumnLayout({
+        rowW = currentRowWidth or 0,
         localizer = GetL(),
         colHeaderBtns = colHeaderBtns,
         rowFrames = rowFrames,
@@ -1375,6 +1529,19 @@ local function ApplyColumnLayout(rowW)
         listSectionHeight = LIST_SECTION_H,
         topOffset = columnHeaderTopOffset,
     })
+    if IsComfortableLayout() then
+        if colHeaderBtns[2] and colHeaderBtns[2].labelFS then
+            colHeaderBtns[2].labelFS:SetText("Estimated profit")
+            AttachButtonTooltip(colHeaderBtns[2], "Estimated profit",
+                "Expected net revenue minus the material value for the configured starting crafts.")
+        end
+        if colHeaderBtns[3] and colHeaderBtns[3].labelFS then
+            colHeaderBtns[3].labelFS:SetText("Return")
+            AttachButtonTooltip(colHeaderBtns[3], "Estimated return",
+                "Estimated profit as a percentage of material value. Actual crafting results can vary.")
+        end
+    end
+    return columns
 end
 
 -- ===== PopulateRow =====
@@ -1403,6 +1570,9 @@ function MainWindow.RefreshRows()
         setSuppressScrollCallback = function(value)
             suppressScrollCallback = value and true or false
         end,
+        onRowsAdded = function()
+            ApplyColumnLayout(currentRowWidth)
+        end,
         getLocalizer = GetL,
     })
 end
@@ -1429,10 +1599,12 @@ end
 -- Always enabled in compact mode so the user can always return to full layout.
 RefreshCompactButtonEnabledState = function()
     if not compactBtn then return end
+    local detailLabel = IsComfortableLayout() and "Details" or ((GetL()["BTN_COMPACT_DETAIL"]) or "DETAIL")
+    local fullLabel = IsComfortableLayout() and "Full" or ((GetL()["BTN_COMPACT_FULL"]) or "FULL")
     if compactActive then
         compactBtn:Enable()
         if compactBtn.labelFS then
-            compactBtn.labelFS:SetText((GetL()["BTN_COMPACT_FULL"]) or "FULL")
+            compactBtn.labelFS:SetText(fullLabel)
             compactBtn.labelFS:SetTextColor(C_GR, C_GG, C_GB)
         end
     else
@@ -1440,13 +1612,13 @@ RefreshCompactButtonEnabledState = function()
         if hasTarget then
             compactBtn:Enable()
             if compactBtn.labelFS then
-                compactBtn.labelFS:SetText((GetL()["BTN_COMPACT_DETAIL"]) or "DETAIL")
+                compactBtn.labelFS:SetText(detailLabel)
                 compactBtn.labelFS:SetTextColor(C_GR, C_GG, C_GB)
             end
         else
             compactBtn:Disable()
             if compactBtn.labelFS then
-                compactBtn.labelFS:SetText((GetL()["BTN_COMPACT_DETAIL"]) or "DETAIL")
+                compactBtn.labelFS:SetText(detailLabel)
                 compactBtn.labelFS:SetTextColor(C_GR * 0.4, C_GG * 0.4, C_GB * 0.4)
             end
         end
@@ -1458,11 +1630,14 @@ local function UpdateCollapseTogglePositions(isCompact)
     if frame then
         if frame.btnCollapseLeft  then frame.btnCollapseLeft:SetShown(not isCompact) end
         if frame.btnCollapseRight then frame.btnCollapseRight:SetShown(not isCompact) end
+        if resizeGrip then resizeGrip:Show() end
+        if frame.modeLabel then frame.modeLabel:SetShown(not isCompact and frame:GetWidth() >= 900) end
+        if frame.characterContext then frame.characterContext:SetShown(not isCompact and frame:GetWidth() >= 1100) end
     end
 end
 
 -- ===== RelayoutPanels =====
-RelayoutPanels = function()
+RelayoutPanels = function(presentationOnly)
     if not dividerContainer then return end
     local opts    = GetOpts()
     local layout  = GetLayoutSpec()
@@ -1492,7 +1667,19 @@ RelayoutPanels = function()
         end
         -- Only resize the frame when actually entering compact mode
         if not compactActive and frame then
-            frame:SetWidth(layout.rightWidth + (layout.compactPadding * 2) + 28)
+            CaptureFullWindowGeometry()
+            -- SetWidth can synchronously fire OnSizeChanged. Mark the mode
+            -- first so that callback cannot capture the narrow size as full view.
+            compactActive = true
+            if frame.SetResizeBounds then frame:SetResizeBounds(440, 360, layout.maxWidth, layout.maxHeight) end
+            local size = opts.mainDetailSize
+            local function dimension(value, fallback, low, high)
+                value = tonumber(value)
+                if not value or value ~= value or value == math.huge or value == -math.huge then value = fallback end
+                return math.max(low, math.min(high, value))
+            end
+            frame:SetSize(dimension(type(size) == "table" and size.width, (layout.rightWidth or 500) + (layout.compactPadding * 2) + 28, 440, layout.maxWidth or 1500),
+                dimension(type(size) == "table" and size.height, 620, 360, layout.maxHeight or 980))
         end
         compactActive = true
         UpdateCollapseTogglePositions(true)
@@ -1509,7 +1696,10 @@ RelayoutPanels = function()
 
     if wasCompact then
         -- Returning from compact: restore frame size, scrollbar, rightPanel anchors, centerPanel
-        if frame then frame:SetSize(layout.windowWidth, layout.windowHeight) end
+        if frame then
+            if frame.SetResizeBounds then frame:SetResizeBounds(layout.minWidth, layout.minHeight, layout.maxWidth, layout.maxHeight) end
+            RestoreFullWindowGeometry(layout)
+        end
         if frame and frame.scrollBar then frame.scrollBar:Show() end
         if centerPanelShell then centerPanelShell:Show() end
     end
@@ -1518,6 +1708,52 @@ RelayoutPanels = function()
     local rc    = opts.rightPanelCollapsed or false
     local leftW = lc and 0 or layout.leftWidth
     local rightW= rc and 0 or layout.rightWidth
+
+    if layout.key == "comfortable" then
+        local gap = layout.cardGap or 10
+        local toolbarHeight = layout.toolbarCollapsedHeight or 116
+        if leftPanel and leftPanel.getPreferredHeight then
+            toolbarHeight = leftPanel.getPreferredHeight()
+        end
+        local contentWidth = math.max(1, dividerContainer:GetWidth())
+        local detailVisible = ResolveCompactDetailTarget() ~= nil
+        local detailWidth = detailVisible and math.floor((contentWidth - gap) * (layout.rightRatio or 0.47)) or 0
+        local listWidth = contentWidth - detailWidth - (detailVisible and gap or 0)
+
+        leftPanelShell:Show()
+        leftPanelShell:ClearAllPoints()
+        leftPanelShell:SetPoint("TOPLEFT", dividerContainer, "TOPLEFT", 0, 0)
+        leftPanelShell:SetPoint("TOPRIGHT", dividerContainer, "TOPRIGHT", 0, 0)
+        leftPanelShell:SetHeight(toolbarHeight)
+
+        centerPanelShell:Show()
+        centerPanelShell:ClearAllPoints()
+        centerPanelShell:SetPoint("TOPLEFT", leftPanelShell, "BOTTOMLEFT", 0, -gap)
+        centerPanelShell:SetPoint("BOTTOMLEFT", dividerContainer, "BOTTOMLEFT", 0, 0)
+        centerPanelShell:SetWidth(listWidth)
+
+        rightPanelShell:SetShown(detailVisible)
+        if detailVisible then
+            rightPanelShell:ClearAllPoints()
+            rightPanelShell:SetPoint("TOPLEFT", leftPanelShell, "BOTTOMLEFT", listWidth + gap, -gap)
+            rightPanelShell:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
+        end
+
+        local rowW = math.max(0, listWidth - 28)
+        for _, r in ipairs(rowFrames) do r:SetWidth(rowW) end
+        ApplyColumnLayout(rowW)
+        UpdateCollapseTogglePositions(false)
+        RefreshCompactButtonEnabledState()
+        MainWindow.RefreshRows()
+        if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
+            if presentationOnly and rpDetail.reflow then
+                rpDetail.reflow()
+            else
+                ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+            end
+        end
+        return
+    end
 
     if leftPanelShell  then leftPanelShell:SetShown(not lc) end
     if rightPanelShell then rightPanelShell:SetShown(not rc) end
@@ -1603,7 +1839,11 @@ RelayoutPanels = function()
     RefreshBestStratCard()
     MainWindow.RefreshRows()
     if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
-        ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+        if presentationOnly and rpDetail.reflow then
+            rpDetail.reflow()
+        else
+            ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+        end
     end
 end
 
@@ -1635,6 +1875,18 @@ local function HideInlineDetail()
             end
         end,
     })
+end
+
+local function CloseSelectedDetail()
+    HideInlineDetail()
+    selectedStratID = nil
+    rpDetail.currentStrat = nil
+    rpDetail.currentPatch = nil
+    rpDetail.canonicalResult = nil
+    RelayoutPanels()
+    MainWindow.RefreshRows()
+    RefreshBestStratCard()
+    RefreshCompactButtonEnabledState()
 end
 
 local function IsVerticalIntegrationEnabled()
@@ -1719,7 +1971,7 @@ local function BuildInlineDetail(panel)
         rowHeight = ROW_H,
         applyFontSize = ApplyFontSize,
         applyTextShadow = ApplyTextShadow,
-        flattenSections = (layout.key == "soft"),
+        flattenSections = (layout.key == "soft" or layout.key == "comfortable"),
         createShell = CreateShell,
         attachButtonTooltip = AttachButtonTooltip,
         itemRowClick = ItemRowClick,
@@ -1750,7 +2002,8 @@ local function BuildInlineDetail(panel)
             ScanSelectedStrategyAction(
                 rpDetail.currentStrat,
                 rpDetail.currentPatch,
-                function() ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch) end)
+                function() ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch) end
+            )
         end,
         onOpenRecipe = function()
             OpenAndRefreshSelectedRecipe(rpDetail.currentStrat, true)
@@ -1771,6 +2024,11 @@ local function BuildInlineDetail(panel)
         onToggleShopping = function()
             ToggleShoppingSync(rpDetail.currentStrat, rpDetail.currentPatch)
         end,
+        onQuickBuy = function()
+            if GAM.QuickBuy and GAM.QuickBuy.Show then
+                GAM.QuickBuy.Show()
+            end
+        end,
         onShowBreakdown = function()
             if rpDetail.currentStrat and DetailUI and DetailUI.ShowBreakdownWindow then
                 DetailUI.ShowBreakdownWindow(
@@ -1779,6 +2037,7 @@ local function BuildInlineDetail(panel)
                     rpDetail.canonicalResult)
             end
         end,
+        onCloseDetail = CloseSelectedDetail,
     })
 end
 
@@ -1960,18 +2219,30 @@ local function InitializeMainFrame(L, C, layout)
     local SB_H = C.STATUS_BAR_H + 6
     local tickerHeight = GetTickerHeight(C)
 
-    frame = CreateFrame("Frame", "GoldAdvisorMidnightMainWindow", UIParent, "BackdropTemplate")
-    _G["GoldAdvisorMidnightMainWindowV2"] = frame -- Legacy named-frame alias.
-    frame:SetSize(layout.windowWidth, layout.windowHeight)
-    frame:SetPoint("CENTER", UIParent, "CENTER")
+    frame = CreateFrame("Frame", GAM.RuntimeName("GoldAdvisorMidnightMainWindow"), UIParent, "BackdropTemplate")
+    _G[GAM.RuntimeName("GoldAdvisorMidnightMainWindowV2")] = frame -- Legacy named-frame alias.
+    RestoreFullWindowGeometry(layout)
     frame:SetScale(GetOpts().uiScale or 1.0)
     frame:SetMovable(true)
+    frame:SetResizable(layout.key == "comfortable")
+    if layout.key == "comfortable" then
+        if frame.SetResizeBounds then
+            frame:SetResizeBounds(layout.minWidth, layout.minHeight, layout.maxWidth, layout.maxHeight)
+        elseif frame.SetMinResize then
+            frame:SetMinResize(layout.minWidth, layout.minHeight)
+            if frame.SetMaxResize then frame:SetMaxResize(layout.maxWidth, layout.maxHeight) end
+        end
+    end
     frame:EnableMouse(true)
     frame:RegisterEvent("MODIFIER_STATE_CHANGED")
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
+    frame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        CaptureFullWindowGeometry()
+    end)
     frame:SetScript("OnHide", function()
+        CaptureFullWindowGeometry()
         DisableShoppingSync(true)
     end)
     frame:SetScript("OnEvent", function(_, event)
@@ -1982,6 +2253,39 @@ local function InitializeMainFrame(L, C, layout)
     frame:SetClampedToScreen(true)
     frame:Hide()
     WindowManager.Register(frame, "main")
+    if UISpecialFrames then
+        table.insert(UISpecialFrames, frame:GetName())
+    end
+
+    if layout.key == "comfortable" then
+        resizeGrip = CreateFrame("Button", nil, frame)
+        resizeGrip:SetSize(20, 20)
+        resizeGrip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
+        resizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+        resizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+        resizeGrip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+        resizeGrip:SetScript("OnMouseDown", function(_, button)
+            if button == "LeftButton" then frame:StartSizing("BOTTOMRIGHT") end
+        end)
+        resizeGrip:SetScript("OnMouseUp", function()
+            frame:StopMovingOrSizing()
+            if compactActive then
+                GetOpts().mainDetailSize = { width = frame:GetWidth(), height = frame:GetHeight() }
+                if rpDetail.reflow then rpDetail.reflow() end
+            else
+                CaptureFullWindowGeometry()
+                RelayoutPanels(true)
+            end
+        end)
+        frame:SetScript("OnSizeChanged", function()
+            if not frame:IsShown() or suppressFrameRelayout then return end
+            if compactActive then
+                if rpDetail.reflow then rpDetail.reflow() end
+            else
+                RelayoutPanels(true)
+            end
+        end)
+    end
 
     SafeBuildSection("Frame header", function()
         BuildFrameHeader(L, HDR_PX)
@@ -2009,6 +2313,9 @@ local function BuildPanelSurfaces(L, layout)
     if layout.key == "soft" then
         leftPanelShell, leftPanel = Common.CreatePaperCard(dividerContainer, layout.cardInsets, themeRefs.paperCards)
         leftPanelShell:SetWidth(layout.leftWidth)
+    elseif layout.key == "comfortable" then
+        leftPanelShell, leftPanel = CreateShell(dividerContainer, "panel", { left = 8, right = 8, top = 6, bottom = 6 })
+        leftPanelShell:SetHeight(layout.toolbarCollapsedHeight)
     else
         leftPanelShell, leftPanel = CreateShell(dividerContainer, "panel", { left = 4, right = 4, top = 4, bottom = 4 })
         leftPanelShell:SetWidth(layout.leftWidth)
@@ -2016,16 +2323,20 @@ local function BuildPanelSurfaces(L, layout)
         leftPanelShell:SetPoint("BOTTOMLEFT", dividerContainer, "BOTTOMLEFT", 0, 0)
     end
 
-    local leftTitle = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    leftTitle:SetPoint("TOP", leftPanel, "TOP", 0, -12)
-    leftTitle:SetText((L and L["V2_TOOLS_TITLE"]) or "Crafting Planner")
-    leftTitle:SetTextColor(C_GR, C_GG, C_GB)
-    ApplyFontSize(leftTitle, layout.key == "soft" and 14 or 13)
-    ApplyTextShadow(leftTitle)
+    if layout.key ~= "comfortable" then
+        local leftTitle = leftPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        leftTitle:SetPoint("TOP", leftPanel, "TOP", 0, -12)
+        leftTitle:SetText((L and L["V2_TOOLS_TITLE"]) or "Crafting Planner")
+        leftTitle:SetTextColor(C_GR, C_GG, C_GB)
+        ApplyFontSize(leftTitle, layout.key == "soft" and 14 or 13)
+        ApplyTextShadow(leftTitle)
+    end
 
     if layout.key == "soft" then
         rightPanelShell, rightPanel = Common.CreatePaperCard(dividerContainer, layout.cardInsets, themeRefs.paperCards)
         rightPanelShell:SetWidth(layout.rightWidth)
+    elseif layout.key == "comfortable" then
+        rightPanelShell, rightPanel = CreateShell(dividerContainer, "panel", { left = 8, right = 8, top = 8, bottom = 8 })
     else
         rightPanelShell, rightPanel = CreateShell(dividerContainer, "panel", { left = 4, right = 4, top = 4, bottom = 4 })
         rightPanelShell:SetWidth(layout.rightWidth)
@@ -2035,7 +2346,7 @@ local function BuildPanelSurfaces(L, layout)
 
     local rpPlaceholder = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     rpPlaceholder:SetPoint("CENTER", rightPanel, "CENTER", 0, 10)
-    rpPlaceholder:SetWidth(layout.rightWidth - 40)
+    rpPlaceholder:SetWidth((layout.rightWidth or 420) - 40)
     rpPlaceholder:SetJustifyH("CENTER")
     rpPlaceholder:SetTextColor(0.5, 0.5, 0.5, 1)
     rpPlaceholder:SetText((L and L["V2_PLACEHOLDER_DETAIL"]) or "Select a strategy to review\ncosts, output, and next actions.")
@@ -2119,6 +2430,9 @@ local function MakeCollapseToggle(anchorSide, anchorX, labelDefault, isLeft)
 end
 
 local function BuildCollapseToggles(layout)
+    if layout.key == "comfortable" then
+        return
+    end
     frame.btnCollapseLeft  = MakeCollapseToggle("LEFT",  layout.leftWidth,  "<", true)
     frame.btnCollapseRight = MakeCollapseToggle("RIGHT", -layout.rightWidth, ">", false)
 end
@@ -2155,6 +2469,7 @@ local function BuildCenterContent(L, C, layout)
         listTopPad = LIST_TOP_PAD,
         headerTopOffset = layout.listHeaderTop,
         visibleRows = layout.maxVisibleRows,
+        initialRowPool = math.min(VISIBLE_ROWS, layout.maxVisibleRows),
         getVisibleListRows = GetVisibleListRows,
         getFilteredList = function()
             return filteredList
@@ -2229,6 +2544,11 @@ local function Build()
     local C = GAM.C
     local layout = GetLayoutSpec()
     InitializeMainFrame(L, C, layout)
+    if GAM.AHScan and GAM.AHScan.SetProgressCallback then
+        GAM.AHScan.SetProgressCallback(function(done, total, isComplete)
+            MainWindow.OnScanProgress(done, total, isComplete)
+        end)
+    end
     BuildPanelSurfaces(L, layout)
     BuildCollapseToggles(layout)
     local sb = BuildCenterContent(L, C, layout)
@@ -2250,6 +2570,8 @@ function MainWindow.OnScanProgress(done, total, isComplete)
         SetScanningState(false)
     else
         SetScanningState(true)
+        if statusBarShell then statusBarShell:Show() end
+        if statusBarFrame then statusBarFrame:Show() end
         frame.progBar:Show()
         if total and total > 0 then
             frame.progBar:SetValue(done / total)

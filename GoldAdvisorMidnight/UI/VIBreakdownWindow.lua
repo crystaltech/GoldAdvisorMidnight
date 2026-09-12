@@ -10,12 +10,14 @@ GAM.UI.VIBreakdownWindow = VIBreakdownWindow
 
 local WindowManager = GAM.UI.WindowManager
 local VIBreakdownPlan = GAM.UI.VIBreakdownPlan
-local DEFAULT_GOLD = { 1.0, 0.82, 0.0 }
-local DEFAULT_RULE = { 0.7, 0.57, 0.0, 0.7 }
-local VI_WINDOW_W = 920
-local VI_WINDOW_H = 420
+local Common = GAM.UI.MainWindowCommon
+local DEFAULT_GOLD = { 0.96, 0.82, 0.36 }
+local DEFAULT_RULE = { 0.38, 0.32, 0.14, 0.65 }
+local VI_WINDOW_W = 820
+local VI_WINDOW_H = 260
 local VI_WINDOW_MIN_W = 720
-local VI_WINDOW_MIN_H = 280
+local VI_WINDOW_MIN_H = 220
+local VI_WINDOW_MAX_H = 640
 local VI_ROW_H = 22
 
 local function GetL()
@@ -23,7 +25,7 @@ local function GetL()
 end
 
 local function AddThousandsSeparators(text)
-    local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.%d+)?$")
+    local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.?%d*)$")
     if not digits then
         return tostring(text or "")
     end
@@ -218,8 +220,37 @@ local function HideBreakdownTooltip()
     GameTooltip:Hide()
 end
 
+local function QueueCurrentBreakdown(win)
+    local queue = GAM.CraftSimQueue
+    local breakdown = win and win._breakdown
+    if not (queue and breakdown and win._plan) then
+        print("|cffff8800[GAM]|r CraftSim queue is unavailable for this plan.")
+        return
+    end
+    local strategy = GAM.Importer and GAM.Importer.GetStratByID
+        and GAM.Importer.GetStratByID(breakdown.stratID)
+    local count, err = queue.QueueBreakdown(breakdown, win._plan, { strategy = strategy })
+    if err then
+        print("|cffff8800[GAM]|r CraftSim queue failed: " .. tostring(err))
+    else
+        print("|cff55ff55[GAM]|r Queued " .. tostring(count or 0) .. " CraftSim step(s).")
+    end
+end
+
 local function GetVIBreakdownContentWidth(width)
     return math.max(660, width - 58)
+end
+
+local function AutoSizeVIBreakdownWindow(win, rowCount)
+    if not win or win._userSized then
+        return
+    end
+    local rows = math.max(0, tonumber(rowCount) or 0)
+    local targetHeight = 90 + (rows * VI_ROW_H)
+    targetHeight = math.max(VI_WINDOW_MIN_H, math.min(VI_WINDOW_MAX_H, targetHeight))
+    if math.abs((win:GetHeight() or 0) - targetHeight) > 1 then
+        win:SetHeight(targetHeight)
+    end
 end
 
 local function SetVIBreakdownHeaderVisibility(win, shown)
@@ -270,41 +301,42 @@ local function ApplyVIBreakdownLayout(win)
     local xUsedCost = xExecution + actualW + 6
     local xNote = xUsedCost + usedCostW + 6
 
-    win.subtitleFS:SetWidth(width - 40)
+    win.subtitleFS:SetWidth(math.max(120, width - 360))
     win.emptyFS:SetWidth(contentWidth - 16)
     if win.summaryCard then
-        win.summaryCard:ClearAllPoints()
-        win.summaryCard:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -54)
-        win.summaryCard:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -54)
-        win.summaryCard:SetHeight(60)
+        win.summaryCard:Hide()
+    end
+    if win.queueBtn then
+        win.queueBtn:ClearAllPoints()
+        win.queueBtn:SetPoint("TOPRIGHT", win, "TOPRIGHT", -42, -8)
     end
     if win.summaryRule then
         win.summaryRule:ClearAllPoints()
-        win.summaryRule:SetPoint("TOPLEFT", win, "TOPLEFT", 12, -122)
-        win.summaryRule:SetPoint("TOPRIGHT", win, "TOPRIGHT", -12, -122)
+        win.summaryRule:SetPoint("TOPLEFT", win, "TOPLEFT", 12, -42)
+        win.summaryRule:SetPoint("TOPRIGHT", win, "TOPRIGHT", -12, -42)
     end
     win.headerStepFS:ClearAllPoints()
-    win.headerStepFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18, -136)
+    win.headerStepFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18, -54)
     win.headerStepFS:SetWidth(stepW)
     win.headerNeedFS:ClearAllPoints()
-    win.headerNeedFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xNeed, -136)
+    win.headerNeedFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xNeed, -54)
     win.headerNeedFS:SetWidth(amountW)
     win.headerEconomicFS:ClearAllPoints()
-    win.headerEconomicFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xEconomic, -136)
+    win.headerEconomicFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xEconomic, -54)
     win.headerEconomicFS:SetWidth(planW)
     win.headerExecutionFS:ClearAllPoints()
-    win.headerExecutionFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xExecution, -136)
+    win.headerExecutionFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xExecution, -54)
     win.headerExecutionFS:SetWidth(actualW)
     win.headerUsedCostFS:ClearAllPoints()
-    win.headerUsedCostFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xUsedCost, -136)
+    win.headerUsedCostFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xUsedCost, -54)
     win.headerUsedCostFS:SetWidth(usedCostW)
     win.headerNoteFS:ClearAllPoints()
-    win.headerNoteFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xNote, -136)
+    win.headerNoteFS:SetPoint("TOPLEFT", win, "TOPLEFT", 18 + xNote, -54)
     win.headerNoteFS:SetWidth(noteW)
     if win.scrollFrame then
         win.scrollFrame:ClearAllPoints()
-        win.scrollFrame:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -150)
-        win.scrollFrame:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -30, 18)
+        win.scrollFrame:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -68)
+        win.scrollFrame:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -30, 14)
     end
 
     win.listHost:SetWidth(contentWidth)
@@ -341,6 +373,10 @@ local function ShowVIBreakdownMessage(win, breakdown, message, detail)
     win._breakdown = breakdown
     win._stratID = breakdown and breakdown.stratID or nil
     win._patchTag = breakdown and breakdown.patchTag or nil
+    if win.queueBtn then
+        win.queueBtn:Disable()
+        win.queueBtn:Hide()
+    end
     win.titleFS:SetText(L["VI_BREAKDOWN_TITLE"] or "VI Breakdown")
     win.subtitleFS:SetText((breakdown and breakdown.stratName or (L["VI_SELECTED_STRAT"] or "Selected Strategy"))
         .. " | "
@@ -355,7 +391,116 @@ local function ShowVIBreakdownMessage(win, breakdown, message, detail)
     win.listHost:SetHeight(1)
     win.emptyFS:SetText(message or "")
     win.emptyFS:Show()
+    if win._gamThemeRefresh then win._gamThemeRefresh(win) end
+    AutoSizeVIBreakdownWindow(win, 0)
     ApplyVIBreakdownLayout(win)
+end
+
+local function GetVIBreakdownThemeColors()
+    local theme = Common and Common.GetThemeDef and Common.GetThemeDef() or nil
+    local primary = theme and (theme.primaryText or theme.bodyText or theme.cardBodyText)
+        or { 0.88, 0.88, 0.90, 1 }
+    local secondary = theme and (theme.secondaryText or theme.mutedText)
+        or { 0.68, 0.68, 0.72, 1 }
+    local accent = theme and (theme.accent or theme.titleText)
+        or DEFAULT_GOLD
+    local frameBg = theme and theme.frame and theme.frame.bgColor
+        or { 0.055, 0.055, 0.062, 1 }
+    local frameBorder = theme and theme.frame and theme.frame.borderColor
+        or { 0.48, 0.40, 0.16, 0.90 }
+    local shell = theme and theme.shells and theme.shells.card
+    local cardBg = shell and (shell.outerBgColor or shell.innerBgColor)
+        or { 0.105, 0.105, 0.115, 1 }
+    local cardBorder = shell and (shell.outerBorderColor or shell.innerBorderColor)
+        or { 0.30, 0.28, 0.22, 0.75 }
+    local odd = theme and theme.listRowOdd or { 0.155, 0.155, 0.168, 1 }
+    local even = theme and theme.listRowEven or { 0.125, 0.125, 0.138, 1 }
+    local section = theme and theme.sectionHeader or { 0.22, 0.16, 0.04, 0.96 }
+    local separator = theme and theme.separatorColor or DEFAULT_RULE
+    return theme, primary, secondary, accent, frameBg, frameBorder,
+        cardBg, cardBorder, odd, even, section, separator
+end
+
+local function SetTextColor(fontString, color)
+    if fontString and color then
+        fontString:SetTextColor(color[1], color[2], color[3], color[4] or 1)
+    end
+end
+
+local function ApplyVIBreakdownRowTheme(row, index, colors)
+    if not row or not row._viEntry then return end
+    local entry = row._viEntry
+    local _, primary, secondary, accent, _, _, _, _, odd, even, section, separator = unpack(colors)
+    local rowColor = (index % 2 == 1) and odd or even
+    row.topRule:SetColorTexture(separator[1], separator[2], separator[3], separator[4] or 0.48)
+    row.stageAccent:SetColorTexture(accent[1], accent[2], accent[3], 0.88)
+
+    if entry.rowType == "section" then
+        SetTextColor(row.stepFS, accent)
+        row.bg:SetColorTexture(section[1], section[2], section[3], section[4] or 1)
+        row.stageAccent:Show()
+    elseif entry.excludeFromCost then
+        SetTextColor(row.stepFS, secondary)
+        SetTextColor(row.usedCostFS, secondary)
+        SetTextColor(row.noteFS, secondary)
+        row.bg:SetColorTexture(even[1], even[2], even[3], even[4] or 1)
+        row.stageAccent:Hide()
+    elseif entry.kind == "craft" and row._isStage then
+        SetTextColor(row.stepFS, { 0.45, 1.0, 0.45, 1 })
+        SetTextColor(row.usedCostFS, accent)
+        SetTextColor(row.noteFS, secondary)
+        row.bg:SetColorTexture(0.06, 0.18, 0.06, 0.82)
+        row.stageAccent:Show()
+    elseif entry.kind == "craft" then
+        SetTextColor(row.stepFS, accent)
+        SetTextColor(row.usedCostFS, accent)
+        SetTextColor(row.noteFS, secondary)
+        row.bg:SetColorTexture(rowColor[1], rowColor[2], rowColor[3], rowColor[4] or 1)
+        row.stageAccent:Hide()
+    else
+        SetTextColor(row.stepFS, primary)
+        SetTextColor(row.usedCostFS, primary)
+        SetTextColor(row.noteFS, secondary)
+        row.bg:SetColorTexture(rowColor[1], rowColor[2], rowColor[3], rowColor[4] or 1)
+        row.stageAccent:Hide()
+    end
+
+    SetTextColor(row.needFS, primary)
+    SetTextColor(row.economicFS, secondary)
+    SetTextColor(row.executionFS, { 0.76, 0.92, 0.76, 1 })
+end
+
+local function ApplyVIBreakdownTheme(win)
+    if not win then return end
+    local theme, primary, secondary, accent, frameBg, frameBorder,
+        cardBg, cardBorder, odd, even, section, separator = GetVIBreakdownThemeColors()
+    if Common and Common.SetBackdropColors then
+        Common.SetBackdropColors(win, frameBg, frameBorder)
+        if win.summaryCard then Common.SetBackdropColors(win.summaryCard, cardBg, cardBorder) end
+    end
+    if win.bgTex then win.bgTex:SetColorTexture(frameBg[1], frameBg[2], frameBg[3], frameBg[4] or 1) end
+    SetTextColor(win.titleFS, accent)
+    SetTextColor(win.subtitleFS, secondary)
+    SetTextColor(win.summaryFS, accent)
+    SetTextColor(win.summaryNoteFS, secondary)
+    SetTextColor(win.emptyFS, secondary)
+    for _, fs in ipairs({
+        win.headerStepFS, win.headerNeedFS, win.headerEconomicFS,
+        win.headerExecutionFS, win.headerUsedCostFS, win.headerNoteFS,
+    }) do
+        SetTextColor(fs, accent)
+    end
+    if win.summaryRule then
+        win.summaryRule:SetColorTexture(separator[1], separator[2], separator[3], separator[4] or 0.6)
+    end
+    if win.queueBtn and Common and Common.StyleComfortableButton then
+        Common.StyleComfortableButton(win.queueBtn, false)
+    end
+    local colors = { theme, primary, secondary, accent, frameBg, frameBorder,
+        cardBg, cardBorder, odd, even, section, separator }
+    for index, row in ipairs(viBreakdownRows) do
+        ApplyVIBreakdownRowTheme(row, index, colors)
+    end
 end
 
 local function EnsureVIBreakdownWindow()
@@ -363,7 +508,7 @@ local function EnsureVIBreakdownWindow()
         return viBreakdownWindow
     end
 
-    viBreakdownWindow = CreateFrame("Frame", "GAMVIBreakdownWindow", UIParent, "BackdropTemplate")
+    viBreakdownWindow = CreateFrame("Frame", GAM.RuntimeName("GAMVIBreakdownWindow"), UIParent, "BackdropTemplate")
     viBreakdownWindow:SetSize(VI_WINDOW_W, VI_WINDOW_H)
     viBreakdownWindow:SetResizable(true)
     viBreakdownWindow:SetScale((GAM.GetOption and GAM:GetOption("uiScale", 1.0)) or 1.0)
@@ -382,25 +527,26 @@ local function EnsureVIBreakdownWindow()
         tile = true, tileSize = 8, edgeSize = 2,
         insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
-    viBreakdownWindow:SetBackdropColor(0, 0, 0, 1)
-    viBreakdownWindow:SetBackdropBorderColor(0.7, 0.57, 0.0, 0.62)
+    viBreakdownWindow:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    viBreakdownWindow:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
     viBreakdownWindow:Hide()
     WindowManager.Register(viBreakdownWindow, "dialog")
 
     local bgTex = viBreakdownWindow:CreateTexture(nil, "BACKGROUND", nil, -8)
     bgTex:SetAllPoints()
-    bgTex:SetColorTexture(0, 0, 0, 1)
+    bgTex:SetColorTexture(0.055, 0.055, 0.062, 1)
+    viBreakdownWindow.bgTex = bgTex
 
     local title = viBreakdownWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", viBreakdownWindow, "TOP", 0, -14)
+    title:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 16, -14)
     title:SetText((GetL()["VI_BREAKDOWN_TITLE"]) or "VI Breakdown")
     title:SetTextColor(DEFAULT_GOLD[1], DEFAULT_GOLD[2], DEFAULT_GOLD[3])
     viBreakdownWindow.titleFS = title
 
     local subtitle = viBreakdownWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    subtitle:SetPoint("TOP", title, "BOTTOM", 0, -4)
+    subtitle:SetPoint("LEFT", title, "RIGHT", 12, 0)
     subtitle:SetWidth(VI_WINDOW_W - 40)
-    subtitle:SetJustifyH("CENTER")
+    subtitle:SetJustifyH("LEFT")
     subtitle:SetTextColor(0.75, 0.72, 0.64, 1)
     viBreakdownWindow.subtitleFS = subtitle
 
@@ -411,38 +557,61 @@ local function EnsureVIBreakdownWindow()
         tile = true, tileSize = 8, edgeSize = 1,
         insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    summaryCard:SetBackdropColor(0.09, 0.07, 0.04, 0.96)
-    summaryCard:SetBackdropBorderColor(DEFAULT_RULE[1], DEFAULT_RULE[2], DEFAULT_RULE[3], 0.46)
+    summaryCard:SetBackdropColor(0.105, 0.105, 0.115, 1)
+    summaryCard:SetBackdropBorderColor(0.30, 0.28, 0.22, 0.75)
+    summaryCard._gamComfortSurface = true
     viBreakdownWindow.summaryCard = summaryCard
 
     local summary = summaryCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    summary:SetPoint("TOPLEFT", summaryCard, "TOPLEFT", 12, -8)
-    summary:SetPoint("TOPRIGHT", summaryCard, "TOPRIGHT", -12, -8)
-    summary:SetJustifyH("CENTER")
+    summary:SetPoint("TOPLEFT", summaryCard, "TOPLEFT", 12, -5)
+    summary:SetPoint("TOPRIGHT", summaryCard, "TOPRIGHT", -164, -5)
+    summary:SetJustifyH("LEFT")
     summary:SetWordWrap(false)
     summary:SetTextColor(1.0, 0.82, 0.0, 1.0)
     viBreakdownWindow.summaryFS = summary
 
     local summaryNote = summaryCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    summaryNote:SetPoint("TOPLEFT", summaryCard, "TOPLEFT", 12, -28)
-    summaryNote:SetPoint("TOPRIGHT", summaryCard, "TOPRIGHT", -12, -28)
-    summaryNote:SetPoint("BOTTOMLEFT", summaryCard, "BOTTOMLEFT", 12, 8)
-    summaryNote:SetPoint("BOTTOMRIGHT", summaryCard, "BOTTOMRIGHT", -12, 8)
-    summaryNote:SetJustifyH("CENTER")
-    summaryNote:SetWordWrap(true)
+    summaryNote:SetPoint("TOPLEFT", summaryCard, "TOPLEFT", 12, -22)
+    summaryNote:SetPoint("TOPRIGHT", summaryCard, "TOPRIGHT", -164, -22)
+    summaryNote:SetJustifyH("LEFT")
+    summaryNote:SetWordWrap(false)
     summaryNote:SetTextColor(0.78, 0.78, 0.78, 1.0)
     viBreakdownWindow.summaryNoteFS = summaryNote
+
+    local queueBtn = CreateFrame("Button", nil, viBreakdownWindow, "UIPanelButtonTemplate")
+    queueBtn:SetSize(142, 22)
+    queueBtn:SetText(GetL()["BTN_QUEUE_CRAFTSIM"] or "Queue in CraftSim")
+    queueBtn:SetScript("OnClick", function()
+        QueueCurrentBreakdown(viBreakdownWindow)
+    end)
+    queueBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GetL()["BTN_QUEUE_CRAFTSIM"] or "Queue in CraftSim", 1, 1, 1)
+        GameTooltip:AddLine(GetL()["TT_QUEUE_CRAFTSIM"]
+            or "Validate the full execution plan, then append it to CraftSim.",
+            1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    queueBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if common and common.StyleComfortableButton then
+        common.StyleComfortableButton(queueBtn, false)
+    end
+    queueBtn:Disable()
+    queueBtn:Hide()
+    viBreakdownWindow.queueBtn = queueBtn
 
     local closeBtn = CreateFrame("Button", nil, viBreakdownWindow, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", viBreakdownWindow, "TOPRIGHT", -4, -4)
     closeBtn:SetScript("OnClick", function()
         viBreakdownWindow:Hide()
     end)
+    viBreakdownWindow.closeBtn = closeBtn
 
     local rule = viBreakdownWindow:CreateTexture(nil, "ARTWORK")
     rule:SetHeight(1)
-    rule:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 12, -122)
-    rule:SetPoint("TOPRIGHT", viBreakdownWindow, "TOPRIGHT", -12, -122)
+    rule:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 12, -42)
+    rule:SetPoint("TOPRIGHT", viBreakdownWindow, "TOPRIGHT", -12, -42)
     rule:SetColorTexture(DEFAULT_RULE[1], DEFAULT_RULE[2], DEFAULT_RULE[3], 0.6)
     viBreakdownWindow.summaryRule = rule
 
@@ -465,7 +634,7 @@ local function EnsureVIBreakdownWindow()
     viBreakdownWindow.headerExecutionFS:SetJustifyH("CENTER")
 
     local scroll = CreateFrame("ScrollFrame", nil, viBreakdownWindow, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 16, -150)
+    scroll:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 16, -68)
     scroll:SetPoint("BOTTOMRIGHT", viBreakdownWindow, "BOTTOMRIGHT", -30, 18)
     viBreakdownWindow.scrollFrame = scroll
 
@@ -508,10 +677,13 @@ local function EnsureVIBreakdownWindow()
     end)
     resizeBtn:SetScript("OnMouseUp", function()
         viBreakdownWindow:StopMovingOrSizing()
+        viBreakdownWindow._userSized = true
         viBreakdownWindow._userMoved = true
         ApplyVIBreakdownLayout(viBreakdownWindow)
     end)
     viBreakdownWindow.resizeBtn = resizeBtn
+    viBreakdownWindow._gamThemeRefresh = ApplyVIBreakdownTheme
+    ApplyVIBreakdownTheme(viBreakdownWindow)
     SetVIBreakdownHeaderVisibility(viBreakdownWindow, true)
     ApplyVIBreakdownLayout(viBreakdownWindow)
 
@@ -609,13 +781,31 @@ local function RenderVIBreakdownWindow(win, breakdown)
     win._plan = plan
     win._stratID = breakdown.stratID
     win._patchTag = breakdown.patchTag
+    if win.queueBtn then
+        win.queueBtn:SetText(L["BTN_QUEUE_CRAFTSIM"] or "Queue in CraftSim")
+        if GAM.CraftSimQueue and GAM.CraftSimQueue.IsAvailable
+                and GAM.CraftSimQueue.IsAvailable()
+                and #((plan and plan.craftSteps) or {}) > 0 then
+            win.queueBtn:Enable()
+            win.queueBtn:Show()
+        else
+            win.queueBtn:Disable()
+            win.queueBtn:Hide()
+        end
+    end
     win.titleFS:SetText(L["VI_BREAKDOWN_TITLE"] or "VI Breakdown")
     win.subtitleFS:SetText((breakdown.stratName or (L["VI_SELECTED_STRAT"] or "Selected Strategy"))
         .. " | "
         .. ((breakdown.chainActive and (L["VI_STATUS_ENABLED"] or "VI on")) or (L["VI_STATUS_DISABLED"] or "VI off")))
 
     local metricParts = {}
-    if breakdown.totalCostFull then
+    local missingCost = breakdown.totalCostFull == nil
+    for _, entry in ipairs(orderedEntries) do
+        missingCost = missingCost or entry.effectiveMissingPrice or entry.hasMissingPrice
+    end
+    if missingCost then
+        metricParts[#metricParts + 1] = "Cost unavailable (missing prices)"
+    elseif breakdown.totalCostFull then
         metricParts[#metricParts + 1] = "Cost " .. GAM.Pricing.FormatPrice(breakdown.totalCostFull)
     end
     if breakdown.netRevenue then
@@ -640,6 +830,7 @@ local function RenderVIBreakdownWindow(win, breakdown)
     else
         win.summaryNoteFS:SetText(L["VI_SUMMARY_GROUPED"] or "Buy grouped materials first, then complete the crafting order from top to bottom.")
     end
+    AutoSizeVIBreakdownWindow(win, #orderedEntries)
     SetVIBreakdownHeaderVisibility(win, #orderedEntries > 0)
     ApplyVIBreakdownLayout(win)
 
@@ -669,7 +860,7 @@ local function RenderVIBreakdownWindow(win, breakdown)
             row.stepFS:SetTextColor(0.62, 0.62, 0.62, 1)
             row.usedCostFS:SetTextColor(0.62, 0.62, 0.62, 1)
             row.noteFS:SetTextColor(0.62, 0.62, 0.62, 1)
-            row.bg:SetColorTexture(0.08, 0.08, 0.08, 0.30)
+            row.bg:SetColorTexture(0.125, 0.125, 0.138, 1.0)
             row.stageAccent:Hide()
             row.topRule:Hide()
         elseif entry.kind == "craft" then
@@ -691,7 +882,12 @@ local function RenderVIBreakdownWindow(win, breakdown)
             row.stepFS:SetTextColor(0.95, 0.95, 0.95, 1)
             row.usedCostFS:SetTextColor(0.92, 0.92, 0.92, 1)
             row.noteFS:SetTextColor(0.78, 0.78, 0.78, 1)
-            row.bg:SetColorTexture(0.10, 0.10, 0.10, (index % 2 == 1) and 0.55 or 0.28)
+            row.bg:SetColorTexture(
+                index % 2 == 1 and 0.155 or 0.125,
+                index % 2 == 1 and 0.155 or 0.125,
+                index % 2 == 1 and 0.168 or 0.138,
+                1.0
+            )
             row.stageAccent:Hide()
             row.topRule:Hide()
         end
@@ -712,6 +908,8 @@ local function RenderVIBreakdownWindow(win, breakdown)
         viBreakdownRows[index]._viEntry = nil
         viBreakdownRows[index]:Hide()
     end
+
+    if win._gamThemeRefresh then win._gamThemeRefresh(win) end
 
     win.listHost:SetHeight(math.max(1, #orderedEntries * VI_ROW_H))
     win.scrollFrame:SetVerticalScroll(0)

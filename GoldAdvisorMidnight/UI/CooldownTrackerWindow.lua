@@ -81,7 +81,7 @@ local function SetStatusColor(fontString, status)
     if status == "ready" then
         fontString:SetTextColor(0.25, 1.0, 0.45, 1)
     elseif status == "cooldown" then
-        fontString:SetTextColor(1.0, 0.82, 0.0, 1)
+        fontString:SetTextColor(0.96, 0.82, 0.36, 1)
     elseif status == "unlearned" or status == "restricted" then
         fontString:SetTextColor(1.0, 0.35, 0.35, 1)
     else
@@ -95,7 +95,12 @@ local function CreateRow(parent, index)
     row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -((index - 1) * (ROW_H + ROW_GAP)))
     row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -((index - 1) * (ROW_H + ROW_GAP)))
     row:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" })
-    row:SetBackdropColor(index % 2 == 0 and 0.12 or 0.16, index % 2 == 0 and 0.12 or 0.16, index % 2 == 0 and 0.12 or 0.16, 0.96)
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    local theme = common and common.GetThemeDef and common.GetThemeDef()
+    local even = theme and theme.listRowEven or { 0.125, 0.125, 0.138, 1 }
+    local odd = theme and theme.listRowOdd or { 0.155, 0.155, 0.168, 1 }
+    local color = (index % 2 == 0) and even or odd
+    row:SetBackdropColor(color[1], color[2], color[3], color[4] or 1)
 
     row.nameFS = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     row.nameFS:SetPoint("LEFT", row, "LEFT", 8, 6)
@@ -124,6 +129,10 @@ local function CreateRow(parent, index)
     row.removeBtn:SetSize(58, 22)
     row.removeBtn:SetPoint("RIGHT", row, "RIGHT", -5, 0)
     row.removeBtn:SetText(L("COOLDOWN_STOP_TRACKING", "Stop"))
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if common and common.StyleComfortableButton then
+        common.StyleComfortableButton(row.removeBtn, false)
+    end
     row.removeBtn:SetScript("OnClick", function(self)
         if self.recipeID and selectedUID then
             Tracker.UntrackRecipe(selectedUID, self.recipeID)
@@ -161,7 +170,7 @@ local function RefreshCrafterMenu()
 
         local highlight = row:CreateTexture(nil, "HIGHLIGHT")
         highlight:SetAllPoints()
-        highlight:SetColorTexture(1, 0.82, 0, 0.18)
+        highlight:SetColorTexture(0.96, 0.82, 0.36, 0.18)
 
         row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         row.text:SetPoint("LEFT", row, "LEFT", 7, 0)
@@ -272,8 +281,9 @@ end
 local function EnsureWindow()
     if window then return window end
 
-    window = CreateFrame("Frame", "GAMCooldownTrackerWindow", UIParent, "BackdropTemplate")
+    window = CreateFrame("Frame", GAM.RuntimeName("GAMCooldownTrackerWindow"), UIParent, "BackdropTemplate")
     window:SetSize(WINDOW_W, WINDOW_H)
+    window:SetScale((GAM.GetOption and GAM:GetOption("uiScale", 1.0)) or 1.0)
     window:SetPoint("CENTER", UIParent, "CENTER", 50, 20)
     window:SetMovable(true)
     window:EnableMouse(true)
@@ -287,15 +297,15 @@ local function EnsureWindow()
         edgeSize = 2,
         insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
-    window:SetBackdropColor(0.025, 0.025, 0.025, 1)
-    window:SetBackdropBorderColor(0.7, 0.57, 0.0, 0.72)
+    window:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    window:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
     window:Hide()
     WindowManager.Register(window, "dialog")
 
     local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", window, "TOP", 0, -14)
+    title:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -14)
     title:SetText(L("COOLDOWN_TITLE", "Craft Cooldowns"))
-    title:SetTextColor(1, 0.82, 0, 1)
+    title:SetTextColor(0.96, 0.82, 0.36, 1)
 
     local closeBtn = CreateFrame("Button", nil, window, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -4, -4)
@@ -303,7 +313,7 @@ local function EnsureWindow()
     local crafterLabel = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     crafterLabel:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -50)
     crafterLabel:SetText(L("COOLDOWN_CRAFTER", "Crafter"))
-    crafterLabel:SetTextColor(1, 0.82, 0, 1)
+    crafterLabel:SetTextColor(0.96, 0.82, 0.36, 1)
 
     local helpBtn = CreateFrame("Button", nil, window)
     helpBtn:SetSize(22, 22)
@@ -350,6 +360,7 @@ local function EnsureWindow()
     })
     window.crafterMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.99)
     window.crafterMenu:SetBackdropBorderColor(0.7, 0.57, 0, 0.9)
+    window.crafterMenu._gamComfortSurface = true
     window.crafterMenu:Hide()
 
     window.crafterMenuScroll = CreateFrame("ScrollFrame", nil, window.crafterMenu, "UIPanelScrollFrameTemplate")
@@ -409,11 +420,19 @@ local function EnsureWindow()
     end)
     window.trackOpenBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if common and common.StyleComfortableButton then
+        common.StyleComfortableButton(window.crafterBtn, false)
+        common.StyleComfortableButton(window.refreshBtn, false)
+        common.StyleComfortableButton(window.addSelectedBtn, false)
+        common.StyleComfortableButton(window.trackOpenBtn, false)
+    end
+
     local rule = window:CreateTexture(nil, "ARTWORK")
     rule:SetHeight(1)
     rule:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -152)
     rule:SetPoint("TOPRIGHT", window, "TOPRIGHT", -18, -152)
-    rule:SetColorTexture(0.7, 0.57, 0, 0.6)
+    rule:SetColorTexture(0.38, 0.32, 0.14, 0.65)
 
     local recipeHdr = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     recipeHdr:SetPoint("TOPLEFT", window, "TOPLEFT", 26, -162)

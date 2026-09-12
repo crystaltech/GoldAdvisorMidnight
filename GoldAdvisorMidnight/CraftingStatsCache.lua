@@ -81,7 +81,7 @@ local function EnsureCharacterShape(character, uid, name, realm)
 end
 
 function Cache.Ensure()
-    local db = GAM.db or GoldAdvisorMidnightDB
+    local db = GAM.db or _G[ADDON_NAME .. "DB"]
     if type(db) ~= "table" then
         return nil
     end

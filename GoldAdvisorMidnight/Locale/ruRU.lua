@@ -8,6 +8,11 @@
 if GetLocale() ~= "ruRU" then return end
 local _, GAM = ...
 local L = GAM.L  -- base table already created by Locale.lua; override keys below
+L["BTN_GET_CRAFT_PRICE"] = "Получить цену изготовления"
+L["TT_GET_CRAFT_PRICE_TITLE"] = "Получить цену выбранного изготовления"
+L["TT_GET_CRAFT_PRICE_BODY"] = "Обновить цены аукциона для выбранного рецепта и его материалов. Shift+клик сканирует видимые избранные рецепты."
+L["BTN_QUEUE_CRAFTSIM"] = "Добавить в очередь CraftSim"
+L["TT_QUEUE_CRAFTSIM"] = "Проверить полный план выполнения и добавить его в CraftSim."
 
 -- Завершение проверки: настройки, восстановление и вспомогательные инструменты
 L["BTN_COMPACT_DETAIL"] = "ПОДРОБНО"
@@ -225,7 +230,7 @@ L["V2_TOOLS_TITLE"]        = "Инструменты стратегии"
 L["V2_BEST_TITLE"]         = "Лучшая стратегия"
 L["V2_ALL_STRATS"]         = "Все стратегии"
 L["V2_MY_PROFS"]           = "Мои профессии"
-L["V2_ALL_FILTER"]         = "Все"
+L["V2_ALL_FILTER"]         = "Все профессии"
 L["V2_FILL_QTY"]           = "Объём"
 L["V2_CRAFT_STATS"]        = "Параметры крафта"
 L["V2_MATERIAL_RANK"]      = "Ранг материалов"

@@ -6,7 +6,7 @@ local ADDON_NAME, GAM = ...
 local Catalog = {}
 GAM.CommodityCatalog = Catalog
 
-local manifest = GAM_COMMODITY_MANIFEST or {}
+local manifest = GAM.CommodityManifest or {}
 local commodityItemIDs = manifest.itemIDs or {}
 
 local function CopyFilteredItemIDs(itemIDs)

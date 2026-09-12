@@ -9,7 +9,7 @@ local Model = {}
 GAM.UI.StrategyDetailModel = Model
 
 local function AddThousandsSeparators(text)
-    local sign, digits, fraction = tostring(text or ""):match("^([%-]?)(%d+)(%.%d+)?$")
+    local sign, digits, fraction = tostring(text or ""):match("^([%-]?)(%d+)(%.?%d*)$")
     if not digits then
         return tostring(text or "")
     end
