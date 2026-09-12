@@ -2,6 +2,9 @@
 
 Gold Advisor Midnight (GAM) is a World of Warcraft Retail addon for comparing Midnight crafting profits with live Auction House prices.
 
+> This branch builds **Gold Advisor Midnight Dev**, an isolated development addon
+> that can be enabled beside the released Gold Advisor Midnight addon.
+
 It includes 283 commodity strategies across nine professions. Equipment, profession tools, bags, toys, mounts, bind-on-pickup items, and other one-off crafts are intentionally excluded.
 
 ## Features
@@ -14,20 +17,25 @@ It includes 283 commodity strategies across nine professions. Equipment, profess
 - Compares saved Multicraft and Resourcefulness gear with the `Auto` option
 - Builds cooldown-aware vertical-integration (VI) shopping and crafting plans
 - Creates Auctionator shopping lists and can send prices to CraftSim
+- Sends a validated VI execution plan to the CraftSim queue when CraftSim supports it
 - Tracks recipe cooldowns and charges across cached characters
 
 ## Installation
 
-1. Download a release zip from GitHub Releases.
-2. Copy `GoldAdvisorMidnight/` to:
+1. Keep the released `GoldAdvisorMidnight/` addon installed normally.
+2. Copy `GoldAdvisorMidnightDev/` to:
 
    ```text
    World of Warcraft/_retail_/Interface/AddOns/
    ```
 
-3. Keep the addon folder named `GoldAdvisorMidnight`.
+3. Keep the development addon folder named `GoldAdvisorMidnightDev`.
 4. Launch the game or run `/reload`.
-5. Open the Auction House. Use `/gam` if GAM is not visible.
+5. Enable **Gold Advisor Midnight Dev** in the addon list. Use `/gamdev` to toggle it.
+
+The Dev addon uses `GoldAdvisorMidnightDevDB`, separate frame and broker names,
+and its own Auctionator owner identity. Its settings, caches, and test data do not
+overwrite the released addon's SavedVariables.
 
 ## Basic Workflow
 
@@ -40,7 +48,7 @@ It includes 283 commodity strategies across nine professions. Equipment, profess
 7. Enable `Show craft steps` to open the grouped shopping list and dependency-safe crafting order.
 
 Set the default batch for strategies without a saved override with
-`/gam globalstartqty 100`, or change **Default starting crafts** in the addon
+`/gamdev globalstartqty 50`, or change **Default starting crafts** in the addon
 settings. Editing **Starting crafts** on an individual strategy continues to
 override the global value for that strategy.
 
@@ -69,15 +77,17 @@ To save a gear setup, equip it, open the exact Blizzard recipe, and use `Save MC
 ## Commands
 
 ```text
-/gam
-/goldadvisor
-/gam log
-/gam help
+/gamdev
+/goldadvisordev
+/gamdev log
+/gamdev settings
+/gamdev help
 ```
 
-- `/gam` or `/goldadvisor` toggles the main window.
-- `/gam log` opens the copyable support log.
-- `/gam help` lists the available commands.
+- `/gamdev` or `/goldadvisordev` toggles the Dev main window.
+- `/gamdev log` opens the Dev build's copyable support log.
+- `/gamdev settings` opens the Dev settings window directly.
+- `/gamdev help` lists the available Dev commands.
 
 ## Versioning
 
@@ -93,4 +103,4 @@ World of Warcraft and source-data build numbers are tracked separately from the 
 
 - [Release history](https://github.com/crystaltech/GoldAdvisorMidnight/releases)
 - Discord: https://discord.gg/v7vsCKCsFh
-- For unexpected results, include the output from `/gam log`.
+- For unexpected Dev results, include the output from `/gamdev log`.

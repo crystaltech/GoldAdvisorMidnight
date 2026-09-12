@@ -1,0 +1,1209 @@
+-- GoldAdvisorMidnight/UI/StrategyDetail.lua
+-- Strategy detail panel: reagent table, output table, rank selector,
+-- scan buttons, 2-column metrics display (Cost/Revenue + ROI/Break-Even, centered Profit),
+-- Auctionator export, Push-to-CraftSim. Gold accent theme throughout.
+-- Module: GAM.UI.StrategyDetail
+
+local ADDON_NAME, GAM = ...
+local SD = {}
+GAM.UI.StrategyDetail = SD
+GAM.UI.StratDetail = SD -- Compatibility alias for pre-refocus callers.
+local WindowManager = GAM.UI.WindowManager
+local StrategyDetailModel = GAM.UI.StrategyDetailModel
+
+local WIN_W, WIN_H = 720, 720
+local ROW_H        = 22
+local PROFIT_BASE_Y = 52
+local MIN_NOTICE_GAP_ABOVE_BUTTONS = 6
+local MIN_NOTICE_GAP_BELOW_PROFIT  = 10
+local TABLE_SCROLL_GUTTER = 20
+local TABLE_ROW_W = WIN_W - 28 - TABLE_SCROLL_GUTTER
+local ROW_SCAN_BTN_MAX_W = 60
+
+local frame
+local currentStrat  = nil
+local currentPatch  = nil
+local detailProjection = nil -- canonical visible economics and rows
+local canonicalResult = nil  -- authoritative result for migrated integrations
+local positioned    = false -- true once the initial frame position has been set
+
+-- Section scroll child refs (needed in SD.Refresh)
+local inputScrollFrame, inputListHost
+local outputScrollFrame, outputListHost
+
+local function GetOpts()
+    return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
+end
+
+local function SetOption(key, value)
+    if GAM.State and GAM.State.SetOption then
+        GAM.State.SetOption(key, value)
+        return
+    end
+    if GAM.db and GAM.db.options then
+        GAM.db.options[key] = value
+    end
+end
+
+local function GetUIScale()
+    return GetOpts().uiScale or 1.0
+end
+
+local function MeasureButtonWidth(parent, text, minW, maxW, padding)
+    parent._gamMeasureFS = parent._gamMeasureFS or parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local fs = parent._gamMeasureFS
+    fs:SetText(text or "")
+    local w = math.ceil(fs:GetStringWidth() + (padding or 24))
+    if minW and w < minW then w = minW end
+    if maxW and w > maxW then w = maxW end
+    return w
+end
+
+local function LayoutButtonRowBottom(parent, buttons, cfg)
+    local left   = cfg.left or 14
+    local right  = cfg.right or (WIN_W - 14)
+    local bottom = cfg.bottom or 20
+    local gap    = cfg.gap or 8
+    local rowGap = cfg.rowGap or 4
+    local align  = cfg.align or "center"
+    local h      = cfg.height or 22
+    local avail  = math.max(1, right - left)
+
+    local rows = { {} }
+    local rowWidths = { 0 }
+    for _, btn in ipairs(buttons) do
+        local bw = btn:GetWidth()
+        local row = rows[#rows]
+        local nextW = (#row > 0) and (rowWidths[#rows] + gap + bw) or bw
+        if #row > 0 and nextW > avail then
+            rows[#rows + 1] = { btn }
+            rowWidths[#rowWidths + 1] = bw
+        else
+            row[#row + 1] = btn
+            rowWidths[#rowWidths] = nextW
+        end
+    end
+
+    for ri, row in ipairs(rows) do
+        local rw = rowWidths[ri]
+        local x
+        if align == "right" then
+            x = right - rw
+        elseif align == "left" then
+            x = left
+        else
+            x = left + math.floor((avail - rw) / 2)
+        end
+        local y = bottom + (ri - 1) * (h + rowGap)
+        for bi, btn in ipairs(row) do
+            btn:ClearAllPoints()
+            btn:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x, y)
+            x = x + btn:GetWidth() + ((bi < #row) and gap or 0)
+        end
+    end
+
+    return {
+        rows = #rows,
+        top = bottom + (#rows - 1) * (h + rowGap) + h,
+    }
+end
+
+local function GetCommitButtonText()
+    return "OK"
+end
+
+local function RefreshCommitButton(editBox)
+    local button = editBox and editBox._gamCommitButton
+    if not button then
+        return
+    end
+    local committed = tostring(editBox._gamCommittedText or "")
+    local current = tostring(editBox:GetText() or "")
+    local keepVisible = editBox._gamCommitFromButton or editBox._gamCommitInProgress
+    local shouldShow = editBox:IsShown() and current ~= committed and (editBox:HasFocus() or keepVisible)
+    button:SetShown(shouldShow)
+end
+
+local function AttachTransientCommitButton(editBox, button, commitFn)
+    if not (editBox and button and commitFn) then
+        return
+    end
+
+    editBox._gamCommitButton = button
+    editBox._gamCommittedText = tostring(editBox:GetText() or "")
+
+    local function CommitCurrentValue(fromButton)
+        local text = tostring(editBox:GetText() or "")
+        editBox._gamCommitInProgress = true
+        if fromButton then
+            editBox._gamCommitFromButton = true
+        end
+        commitFn(text)
+        editBox._gamCommittedText = tostring(editBox:GetText() or text)
+        if editBox:HasFocus() then
+            editBox:ClearFocus()
+        end
+        editBox._gamCommitInProgress = nil
+        editBox._gamCommitFromButton = nil
+        RefreshCommitButton(editBox)
+    end
+
+    button:SetScript("OnMouseDown", function()
+        editBox._gamCommitFromButton = true
+        RefreshCommitButton(editBox)
+        CommitCurrentValue(true)
+    end)
+    button:SetScript("OnClick", function()
+        CommitCurrentValue(true)
+    end)
+    button:SetScript("OnHide", function()
+        editBox._gamCommitFromButton = nil
+    end)
+
+    editBox:SetScript("OnEnterPressed", function(self)
+        CommitCurrentValue(false)
+    end)
+    editBox:SetScript("OnEscapePressed", function(self)
+        self:SetText(self._gamCommittedText or "")
+        self._gamCommitFromButton = nil
+        self:ClearFocus()
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnEditFocusGained", function(self)
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnTextChanged", function(self)
+        RefreshCommitButton(self)
+    end)
+    editBox:SetScript("OnEditFocusLost", function(self)
+        if self._gamCommitFromButton or self._gamCommitInProgress
+            or (self._gamCommitButton and MouseIsOver and MouseIsOver(self._gamCommitButton)) then
+            self._gamCommitFromButton = self._gamCommitFromButton or true
+            return
+        end
+        local committed = tostring(self._gamCommittedText or "")
+        if tostring(self:GetText() or "") ~= committed then
+            self:SetText(committed)
+        end
+        RefreshCommitButton(self)
+    end)
+
+    button:Hide()
+end
+
+-- ===== Helpers =====
+local function GetPDB() return GAM:GetPatchDB(currentPatch) end
+
+-- Save the desired input (primary reagent) qty; both the canonical facade and
+-- compatibility action metrics read the same persisted override.
+local function SetInputQtyOverride(value)
+    local pdb = GetPDB()
+    pdb.inputQtyOverrides = pdb.inputQtyOverrides or {}
+    local n = tonumber(value)
+    if n and n > 0 then
+        pdb.inputQtyOverrides[currentStrat.id] = n
+    else
+        pdb.inputQtyOverrides[currentStrat.id] = nil
+    end
+end
+
+-- ===== Item row helper =====
+-- Detail rows only become clickable once WoW has produced a safe cached item link.
+-- Before that, the row stays readable but inert so shift-click / SetItemRef never
+-- receives a nil or plain-text fallback.
+local function BindItemRow(frameObj, display)
+    frameObj._itemDisplay = display
+    frameObj:EnableMouse(display and display.hasSafeLink and display.itemLink and true or false)
+end
+
+local function ItemRowClick(self, button)
+    local display = self and self._itemDisplay
+    local link = display and display.itemLink
+    if not link or link == "" then return end
+    if HandleModifiedItemClick and HandleModifiedItemClick(link) then
+        return
+    end
+    local itemString = link:match("|H([^|]+)|h")
+    if itemString then
+        SetItemRef(itemString, link, button)
+    end
+end
+
+local function FormatExpectedOutputTooltip(qty, qtyRaw)
+    local raw = tonumber(qtyRaw)
+    if raw and math.abs(raw - math.floor(raw + 0.5)) > 0.01 then
+        return string.format("%.2f", raw)
+    end
+    return string.format("%.0f", qty or 0)
+end
+
+local function ItemRowEnter(self)
+    local display = self and self._itemDisplay
+    local link = display and display.itemLink
+    local L = GAM.L
+    if not link or link == "" then return end
+    GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+    GameTooltip:SetHyperlink(link)
+    local tt = self and self._metricTooltip
+    if tt then
+        GameTooltip:AddLine(" ")
+        if tt.kind == "reagent" then
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_PRICE"]) or "Unit Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_REQUIRED"]) or "Total Required: %s", string.format("%.0f", tt.required or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_NEED_TO_BUY"]) or "Need to Buy: %s", string.format("%.0f", tt.needToBuy or 0)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_FULL_COST"]) or "Full Cost: %s", tt.totalCostFull and GAM.Pricing.FormatPrice(tt.totalCostFull) or "|cff888888—|r"), 1, 0.82, 0)
+            if tt.totalCost and tt.totalCostFull and tt.totalCost ~= tt.totalCostFull then
+                GameTooltip:AddLine(string.format((L and L["TT_ROW_BUY_NOW_COST"]) or "Buy Now Cost: %s", GAM.Pricing.FormatPrice(tt.totalCost)), 1, 0.82, 0)
+            end
+        elseif tt.kind == "output" then
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", FormatExpectedOutputTooltip(tt.expectedQty, tt.expectedQtyRaw)), 1, 0.82, 0)
+            GameTooltip:AddLine(string.format((L and L["TT_ROW_TOTAL_NET_REVENUE"]) or "Total Net Revenue: %s", tt.netRevenue and GAM.Pricing.FormatPrice(tt.netRevenue) or "|cff888888—|r"), 1, 0.82, 0)
+            GameTooltip:AddLine((L and L["TT_ROW_NET_NOTE"]) or "Net is the total expected sale value for this craft plan, not the price of one item.", 1, 0.82, 0, true)
+        end
+    end
+    GameTooltip:Show()
+end
+
+local function ItemRowLeave()
+    GameTooltip:Hide()
+end
+
+-- ===== Auctionator export =====
+local function CreateAuctionatorList()
+    if not (Auctionator and Auctionator.API and Auctionator.API.v1 and
+            type(Auctionator.API.v1.CreateShoppingList) == "function") then
+        print("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_NOT_FOUND"])
+        return
+    end
+    if not currentStrat then return end
+    local result = canonicalResult or GAM.PricingFacade.CalculateCurrent(currentStrat, currentPatch)
+    if not result then return end
+
+    local addonName  = ADDON_NAME
+    local hasConvert = type(Auctionator.API.v1.ConvertToSearchString) == "function"
+    local searchStrings, qtySummary = {}, {}
+
+    for _, rm in ipairs(result.shoppingReagents or {}) do
+        local qty = math.floor(rm.needToBuy or 0)
+        if qty > 0 then
+            local entry
+            local searchData = GAM.Pricing.GetShoppingSearchData(rm.itemID, rm.name)
+            if hasConvert then
+                local qualityID = (rm.itemID and C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo)
+                    and C_TradeSkillUI.GetItemReagentQualityByItemInfo(rm.itemID) or nil
+                local searchTerm = {
+                    searchString = searchData.searchName or rm.name,
+                    quantity = qty,
+                    isExact = true,
+                }
+                if qualityID and qualityID > 0 then searchTerm.tier = qualityID end
+                entry = Auctionator.API.v1.ConvertToSearchString(addonName, searchTerm)
+            else
+                entry = searchData.searchString
+            end
+            if entry then
+                searchStrings[#searchStrings + 1] = entry
+                qtySummary[#qtySummary + 1] = string.format("  %s: |cffffd700%d|r", searchData.displayName, qty)
+            end
+        end
+    end
+
+    if #searchStrings == 0 then
+        print("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_NO_ITEMS"])
+        return
+    end
+    local listName = GAM.L["AUCTIONATOR_LIST_NAME"]
+    Auctionator.API.v1.CreateShoppingList(addonName, listName, searchStrings)
+    print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_CREATED"], listName, #searchStrings))
+    for _, line in ipairs(qtySummary) do print(line) end
+end
+
+-- ===== Metrics section =====
+local function RefreshMetrics()
+    if not frame or not currentStrat then return end
+    local projection = detailProjection
+    if not projection then return end
+
+    frame.metCost:SetText(projection.cost and GAM.Pricing.FormatPrice(projection.cost) or GAM.L["NO_PRICE"])
+    frame.metRevenue:SetText(projection.revenue and GAM.Pricing.FormatPrice(projection.revenue) or GAM.L["NO_PRICE"])
+    if projection.profit then
+        local c = projection.profit >= 0 and "|cff55ff55" or "|cffff5555"
+        frame.metProfit:SetText(c .. GAM.Pricing.FormatPrice(projection.profit) .. "|r")
+    else
+        frame.metProfit:SetText("|cff888888" .. GAM.L["NO_PRICE"] .. "|r")
+    end
+
+    if projection.roi then
+        local c = projection.roi >= 0 and "|cff55ff55" or "|cffff5555"
+        frame.metROI:SetText(c .. string.format("%.2f%%", projection.roi) .. "|r")
+    else
+        frame.metROI:SetText("|cff888888—|r")
+    end
+
+    frame.metBreakeven:SetText(projection.breakEvenSell and GAM.Pricing.FormatPrice(projection.breakEvenSell) or "|cff888888—|r")
+    if frame.expNotice then
+        local buyNow = projection.buyNowCost and GAM.Pricing.FormatPrice(projection.buyNowCost) or GAM.L["NO_PRICE"]
+        frame.expNotice:SetText((GAM.L["LBL_BUY_NOW_COST"] or "Buy Now Cost:") .. " " .. buyNow)
+        frame.expNotice:Show()
+    end
+end
+
+local function RefreshSelectionNote()
+    if not frame or not frame.selectionNoteFS or not currentStrat then return end
+    local selectionNames = detailProjection and detailProjection.selectionNotes or nil
+    local model = GAM.UI and GAM.UI.StrategyDetailModel
+    local rankMixNotice = model and model.GetRankMixNotice and model.GetRankMixNotice(detailProjection)
+    if rankMixNotice then
+        frame.selectionNoteFS:SetText(rankMixNotice)
+        frame.selectionNoteFS:Show()
+    elseif selectionNames and #selectionNames > 0 then
+        local key = (#selectionNames > 1) and "DETAIL_SELECTION_NOTE_MULTI" or "DETAIL_SELECTION_NOTE"
+        frame.selectionNoteFS:SetText(string.format(
+            GAM.L[key] or "Using %s as cheapest input.",
+            table.concat(selectionNames, ", ")))
+        frame.selectionNoteFS:Show()
+    else
+        frame.selectionNoteFS:SetText("")
+        frame.selectionNoteFS:Hide()
+    end
+end
+
+-- ===== Reagent rows =====
+local reagentRows = {}
+
+local function MakeReagentRow(parent, idx)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetSize(TABLE_ROW_W, ROW_H)
+    row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(idx - 1) * ROW_H)
+    row:SetHyperlinksEnabled(false)
+    row:SetScript("OnMouseUp",  ItemRowClick)
+    row:SetScript("OnEnter",    ItemRowEnter)
+    row:SetScript("OnLeave",    ItemRowLeave)
+
+    -- Column x positions: Item | Total Qty | In Bags | NeedBuy | UnitPrice | TotalCost | [Scan]
+    -- colX[3] shifted left to 232 to give COL_HAVE 88px (fits translated "In Bags" labels).
+    -- COL_QTY_CRAFT narrows from 80 to 62px accordingly; "Total Qty" and its translations are short.
+    local colX = { 0, 170, 232, 320, 400, 500, 590 }
+
+    local function MakeFontCell(xOff, w, justify)
+        local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        fs:SetPoint("TOPLEFT", row, "TOPLEFT", xOff, 0)
+        fs:SetSize(w - 4, ROW_H)
+        fs:SetJustifyH(justify or "LEFT")
+        return fs
+    end
+
+    row.nameText  = MakeFontCell(colX[1], colX[2] - colX[1])
+
+    -- Total Qty: FontString for secondary rows, EditBox for primary reagent
+    local qtyFS = MakeFontCell(colX[2], colX[3] - colX[2], "CENTER")
+    local qtyEB = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    qtyEB:SetSize(58, 20)   -- narrowed to match 62px COL_QTY_CRAFT column (colX[3]-colX[2]=62)
+    qtyEB:SetPoint("TOPLEFT", row, "TOPLEFT", colX[2], 1)
+    qtyEB:SetAutoFocus(false)
+    qtyEB:SetNumeric(false)
+    qtyEB:SetJustifyH("CENTER")
+    local function SaveInputQty(text)
+        if currentStrat then
+            SetInputQtyOverride(text)
+            SD.Refresh()
+        end
+    end
+    qtyFS:Hide()
+    qtyEB:Hide()
+    row.qtyText = qtyFS   -- alias kept for non-primary path
+    row.qtyEB   = qtyEB
+
+    local qtyOKBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    qtyOKBtn:SetSize(26, 22)
+    qtyOKBtn:SetPoint("TOPLEFT", row, "TOPLEFT", colX[4] - 28, 1)
+    qtyOKBtn:SetText(GetCommitButtonText())
+    qtyOKBtn:SetWidth(MeasureButtonWidth(row, qtyOKBtn:GetText(), 24, 40, 12))
+    qtyOKBtn:Hide()
+    row.qtyOKBtn = qtyOKBtn
+    AttachTransientCommitButton(qtyEB, qtyOKBtn, SaveInputQty)
+
+    row.haveText  = MakeFontCell(colX[3], colX[4] - colX[3], "CENTER")  -- In Bags (read-only)
+    row.needText  = MakeFontCell(colX[4], colX[5] - colX[4], "CENTER")
+    row.priceText = MakeFontCell(colX[5], colX[6] - colX[5])
+    row.costText  = MakeFontCell(colX[6], colX[7] - colX[6])
+
+    -- Scan button
+    local scanBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    scanBtn:SetSize(40, 22)
+    scanBtn:SetText(GAM.L["BTN_SCAN_ITEM"])
+    scanBtn:SetWidth(MeasureButtonWidth(row, scanBtn:GetText(), 40, ROW_SCAN_BTN_MAX_W, 14))
+    scanBtn:SetPoint("RIGHT", row, "RIGHT", -2, 0)
+    scanBtn:SetScript("OnClick", function()
+        if not GAM.ahOpen then
+            print("|cffff8800[GAM]|r " .. GAM.L["ERR_NO_AH"])
+            return
+        end
+        local rData = row.reagentData
+        if not rData then return end
+        GAM.AHScan.StopScan()
+        GAM.AHScan.ResetQueue()
+        local pdb = GetPDB()
+        local ids = rData.itemIDs
+        if (not ids or #ids == 0) and rData.name then
+            ids = pdb.rankGroups[rData.name] or {}
+        end
+        if ids and #ids > 0 then
+            for _, id in ipairs(ids) do
+                GAM.AHScan.QueueItemScan(id, function() SD.Refresh() end)
+            end
+            GAM.AHScan.StartScan()
+        else
+            GAM.AHScan.QueueNameScan(rData.name, currentPatch, function() SD.Refresh() end)
+            GAM.AHScan.StartScan()
+        end
+    end)
+    scanBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_SCAN_ITEM_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_SCAN_ITEM_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    scanBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    row.scanBtn = scanBtn
+
+    return row
+end
+
+local function PopulateReagentRow(row, reagentMetric, isPrimary)
+    -- Store a scannable reference derived from the metric (expanded item, not original strat def)
+    row.reagentData = {
+        itemIDs = reagentMetric.scanItemIDs or (reagentMetric.itemID and { reagentMetric.itemID } or {}),
+        name = reagentMetric.name,
+    }
+    local display = GAM.Pricing.GetItemDisplayData(reagentMetric.itemID, reagentMetric.name)
+    row.nameText:SetText(display.displayText)
+    BindItemRow(row, display)
+
+    local qtyStr = string.format("%.0f", reagentMetric.required or 0)
+    if isPrimary then
+        row.qtyEB:Show()
+        row.qtyText:Hide()
+        if not row.qtyEB:HasFocus() then
+            row.qtyEB:SetText(qtyStr)
+            row.qtyEB._gamCommittedText = qtyStr
+            RefreshCommitButton(row.qtyEB)
+        end
+    else
+        row.qtyEB:Hide()
+        if row.qtyOKBtn then row.qtyOKBtn:Hide() end
+        row.qtyText:Show()
+        row.qtyText:SetText(qtyStr)
+    end
+    row.haveText:SetText(string.format("%.0f", reagentMetric.have or 0))
+    row.needText:SetText(string.format("%.0f", reagentMetric.needToBuy or 0))
+    row._metricTooltip = {
+        kind = "reagent",
+        unitPrice = reagentMetric.unitPrice,
+        required = reagentMetric.required,
+        needToBuy = reagentMetric.needToBuy,
+        totalCost = reagentMetric.totalCost,
+        totalCostFull = reagentMetric.totalCostFull,
+    }
+
+    if reagentMetric.unitPrice then
+        row.priceText:SetText(GAM.Pricing.FormatPrice(reagentMetric.unitPrice))
+    else
+        row.priceText:SetText("|cffff8800" .. GAM.L["NO_PRICE"] .. "|r")
+    end
+
+    if reagentMetric.totalCost then
+        row.costText:SetText(GAM.Pricing.FormatPrice(reagentMetric.totalCost))
+    else
+        row.costText:SetText("|cff888888—|r")
+    end
+
+    row:Show()
+end
+
+-- ===== Output rows =====
+local outputRows = {}
+
+local function MakeOutputRow(parent, idx)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetSize(TABLE_ROW_W, ROW_H)
+    row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(idx - 1) * ROW_H)
+    row:SetHyperlinksEnabled(false)
+    row:SetScript("OnMouseUp",  ItemRowClick)
+    row:SetScript("OnEnter",    ItemRowEnter)
+    row:SetScript("OnLeave",    ItemRowLeave)
+
+    local function MakeFontCell(xOff, w, justify)
+        local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        fs:SetPoint("TOPLEFT", row, "TOPLEFT", xOff, 0)
+        fs:SetSize(w - 4, ROW_H)
+        fs:SetJustifyH(justify or "LEFT")
+        return fs
+    end
+
+    row.nameText    = MakeFontCell(0, 196)
+    row.priceText   = MakeFontCell(290, 126)
+    row.revenueText = MakeFontCell(420, 126)
+
+    -- Qty: FontString for display, EditBox for primary output
+    local qtyFS = MakeFontCell(200, 86, "CENTER")
+    local qtyEB = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+    qtyEB:SetSize(80, 20)
+    qtyEB:SetPoint("TOPLEFT", row, "TOPLEFT", 200, 1)
+    qtyEB:SetAutoFocus(false)
+    qtyEB:SetNumeric(false)
+    qtyEB:SetJustifyH("CENTER")
+    -- Output qty is read-only (derived from input qty); no script handlers needed.
+    qtyFS:Hide()
+    qtyEB:Hide()
+    row.qtyFS = qtyFS
+    row.qtyEB = qtyEB
+
+    -- Scan button
+    local scanBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+    scanBtn:SetSize(40, 22)
+    scanBtn:SetText(GAM.L["BTN_SCAN_ITEM"])
+    scanBtn:SetWidth(MeasureButtonWidth(row, scanBtn:GetText(), 40, ROW_SCAN_BTN_MAX_W, 14))
+    scanBtn:SetPoint("RIGHT", row, "RIGHT", -2, 0)
+    scanBtn:SetScript("OnClick", function()
+        if not GAM.ahOpen then return end
+        local od = row.outputData
+        if not od then return end
+        GAM.AHScan.StopScan()
+        GAM.AHScan.ResetQueue()
+        if od.itemID then
+            GAM.AHScan.QueueItemScan(od.itemID, function() SD.Refresh() end)
+        elseif od.name then
+            GAM.AHScan.QueueNameScan(od.name, currentPatch, function() SD.Refresh() end)
+        end
+        GAM.AHScan.StartScan()
+    end)
+    scanBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_SCAN_ITEM_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_SCAN_ITEM_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    scanBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    row.scanBtn = scanBtn
+
+    return row
+end
+
+local function PopulateOutputRow(row, outputMetric, isPrimary)
+    row.outputData = outputMetric
+    row._metricTooltip = {
+        kind = "output",
+        unitPrice = outputMetric.unitPrice,
+        expectedQty = outputMetric.expectedQty,
+        expectedQtyRaw = outputMetric.expectedQtyRaw,
+        netRevenue = outputMetric.netRevenue,
+    }
+    local display = GAM.Pricing.GetItemDisplayData(outputMetric.itemID, outputMetric.name)
+    row.nameText:SetText(display.displayText)
+    BindItemRow(row, display)
+
+    local averageQty = outputMetric.expectedQtyRaw or outputMetric.expectedQty
+    local qtyStr = averageQty and string.format("%.1f", averageQty):gsub("%.0$", "") or "—"
+    row.qtyEB:Hide()
+    row.qtyFS:Show()
+    row.qtyFS:SetText(qtyStr)
+
+    row.priceText:SetText(outputMetric.unitPrice
+        and GAM.Pricing.FormatPrice(outputMetric.unitPrice)
+        or "|cffff8800" .. GAM.L["NO_PRICE"] .. "|r")
+
+    -- netRevenue is pre-computed in CalculateStratMetrics (after AH cut, integer copper).
+    -- Using it here keeps the output row consistent with the bottom "Net Revenue" label.
+    row.revenueText:SetText(outputMetric.netRevenue
+        and GAM.Pricing.FormatPrice(outputMetric.netRevenue)
+        or "|cff888888—|r")
+
+    row:Show()
+end
+
+-- ===== Build =====
+local function Build()
+    local L = GAM.L
+    local GR,  GG,  GB  = 1.0, 0.82, 0.0   -- gold accent
+    local GDR, GDG, GDB = 0.7, 0.57, 0.0   -- dimmed gold for rules/borders
+
+    frame = CreateFrame("Frame", GAM.RuntimeName("GoldAdvisorMidnightStrategyDetail"), UIParent,
+        "BackdropTemplate")
+    _G[GAM.RuntimeName("GoldAdvisorMidnightStratDetail")] = frame -- Legacy named-frame alias.
+    frame:SetSize(WIN_W, WIN_H)
+    frame:SetPoint("CENTER", UIParent, "CENTER")  -- placeholder so child scroll frames get valid width at build time
+    frame:SetScale(GetUIScale())
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:SetClampedToScreen(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
+    frame:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 1,
+        insets = { left=1, right=1, top=1, bottom=1 },
+    })
+    frame:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    frame:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
+    -- Explicit solid fill guards against backdrop edge cases (strata clipping, alpha inheritance).
+    local bgTex = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+    bgTex:SetAllPoints()
+    bgTex:SetColorTexture(0.055, 0.055, 0.062, 1)
+    frame:Hide()
+    WindowManager.Register(frame, "dialog")
+
+    -- Title
+    local titleFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    titleFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -10)
+    titleFS:SetText(L["DETAIL_TITLE"])
+    frame.titleFS = titleFS
+
+    -- Thin gold underline below title
+    local titleRule = frame:CreateTexture(nil, "ARTWORK")
+    titleRule:SetHeight(1)
+    titleRule:SetPoint("TOPLEFT",  frame, "TOPLEFT",  14, -28)
+    titleRule:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -28)
+    titleRule:SetColorTexture(GDR, GDG, GDB, 0.7)
+
+    -- Close
+    local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
+    closeBtn:SetScript("OnClick", function() frame:Hide() end)
+
+    -- Strat name
+    local stratNameFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    stratNameFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -34)
+    stratNameFS:SetWidth(WIN_W - 80)
+    stratNameFS:SetJustifyH("LEFT")
+    frame.stratNameFS = stratNameFS
+
+    -- Notes
+    local notesFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    notesFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -52)
+    notesFS:SetWidth(WIN_W - 28)
+    notesFS:SetTextColor(0.8, 0.8, 0.5)
+    notesFS:SetJustifyH("LEFT")
+    frame.notesFS = notesFS
+
+    local selectionNoteFS = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    selectionNoteFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -68)
+    selectionNoteFS:SetWidth(WIN_W - 28)
+    selectionNoteFS:SetTextColor(1.0, 0.82, 0.0, 1.0)
+    selectionNoteFS:SetJustifyH("LEFT")
+    selectionNoteFS:Hide()
+    frame.selectionNoteFS = selectionNoteFS
+
+    -- ── Input Section Frame ──
+    local inputSection = CreateFrame("Frame", nil, frame)
+    inputSection:SetPoint("TOPLEFT",  selectionNoteFS, "BOTTOMLEFT",  0, -10)
+    inputSection:SetPoint("TOPRIGHT", selectionNoteFS, "BOTTOMRIGHT", 0, -10)
+    inputSection:SetHeight(224)
+
+    local inHdr = inputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    inHdr:SetPoint("TOPLEFT", inputSection, "TOPLEFT", 0, 0)
+    inHdr:SetText(L["DETAIL_INPUT_HDR"])
+    inHdr:SetTextColor(GR, GG, GB)
+
+    local inColDefs = {
+        { L["COL_ITEM"],       0,   170, "LEFT" },
+        { L["COL_QTY_CRAFT"], 170,   62, "CENTER" },  -- narrowed; col shifts at colX[3]=232
+        { L["COL_HAVE"],      232,   88, "CENTER" },  -- widened for translated "In Bags" labels
+        { L["COL_NEED_BUY"],  320,   80, "CENTER" },
+        { L["COL_UNIT_PRICE"],400,  100, "LEFT" },
+        { L["COL_TOTAL_COST"],500,   90, "LEFT" },
+    }
+    for _, cd in ipairs(inColDefs) do
+        local fs = inputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetPoint("TOPLEFT", inputSection, "TOPLEFT", cd[2], -22)
+        fs:SetWidth(cd[3])
+        fs:SetText(cd[1])
+        fs:SetJustifyH(cd[4] or "LEFT")
+    end
+
+    local inSep = inputSection:CreateTexture(nil, "ARTWORK")
+    inSep:SetColorTexture(GDR, GDG, GDB, 0.7)
+    inSep:SetPoint("TOPLEFT",  inputSection, "TOPLEFT",  0,  -43)
+    inSep:SetPoint("TOPRIGHT", inputSection, "TOPRIGHT", -20, -43)
+    inSep:SetHeight(1)
+
+    inputScrollFrame = CreateFrame("ScrollFrame", nil, inputSection, "UIPanelScrollFrameTemplate")
+    inputScrollFrame:SetPoint("TOPLEFT",     inputSection, "TOPLEFT",     0,  -45)
+    inputScrollFrame:SetPoint("BOTTOMRIGHT", inputSection, "BOTTOMRIGHT", -20, 0)
+
+    inputListHost = CreateFrame("Frame", nil, inputScrollFrame)
+    inputListHost:SetWidth(inputScrollFrame:GetWidth())
+    inputListHost:SetHeight(1)
+    inputScrollFrame:SetScrollChild(inputListHost)
+
+    inputListHost:EnableMouseWheel(true)
+    inputListHost:SetScript("OnMouseWheel", function(_, delta)
+        local cur = inputScrollFrame:GetVerticalScroll()
+        local max = inputScrollFrame:GetVerticalScrollRange()
+        inputScrollFrame:SetVerticalScroll(math.max(0, math.min(max, cur - delta * (ROW_H * 3))))
+    end)
+
+    for i = 1, 16 do
+        reagentRows[i] = MakeReagentRow(inputListHost, i)
+        reagentRows[i]:Hide()
+    end
+
+    -- ── Output Section Frame ──
+    local outputSection = CreateFrame("Frame", nil, frame)
+    outputSection:SetPoint("TOPLEFT",  inputSection, "BOTTOMLEFT",  0, -6)
+    outputSection:SetPoint("TOPRIGHT", inputSection, "BOTTOMRIGHT", 0, -6)
+    outputSection:SetHeight(152)
+
+    local outHdr = outputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    outHdr:SetPoint("TOPLEFT", outputSection, "TOPLEFT", 0, 0)
+    outHdr:SetText(L["DETAIL_OUTPUT_HDR"])
+    outHdr:SetTextColor(GR, GG, GB)
+
+    local outColDefs = {
+        { L["COL_ITEM"],          0,   200, "LEFT" },
+        { L["COL_QTY_CRAFT"],   200,    90, "CENTER" },
+        { L["COL_AH_SELL_PRICE"],290,  130, "LEFT" },
+        { L["COL_REVENUE"],     420,   130, "LEFT" },
+    }
+    for _, cd in ipairs(outColDefs) do
+        local fs = outputSection:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetPoint("TOPLEFT", outputSection, "TOPLEFT", cd[2], -22)
+        fs:SetWidth(cd[3])
+        fs:SetText(cd[1])
+        fs:SetJustifyH(cd[4] or "LEFT")
+    end
+
+    local outSep = outputSection:CreateTexture(nil, "ARTWORK")
+    outSep:SetColorTexture(0.3, 0.3, 0.3, 0.8)
+    outSep:SetPoint("TOPLEFT",  outputSection, "TOPLEFT",  0,  -43)
+    outSep:SetPoint("TOPRIGHT", outputSection, "TOPRIGHT", -20, -43)
+    outSep:SetHeight(1)
+
+    outputScrollFrame = CreateFrame("ScrollFrame", nil, outputSection, "UIPanelScrollFrameTemplate")
+    outputScrollFrame:SetPoint("TOPLEFT",     outputSection, "TOPLEFT",     0,  -45)
+    outputScrollFrame:SetPoint("BOTTOMRIGHT", outputSection, "BOTTOMRIGHT", -20, 0)
+
+    outputListHost = CreateFrame("Frame", nil, outputScrollFrame)
+    outputListHost:SetWidth(outputScrollFrame:GetWidth())
+    outputListHost:SetHeight(1)
+    outputScrollFrame:SetScrollChild(outputListHost)
+
+    outputListHost:EnableMouseWheel(true)
+    outputListHost:SetScript("OnMouseWheel", function(_, delta)
+        local cur = outputScrollFrame:GetVerticalScroll()
+        local max = outputScrollFrame:GetVerticalScrollRange()
+        outputScrollFrame:SetVerticalScroll(math.max(0, math.min(max, cur - delta * (ROW_H * 3))))
+    end)
+
+    for i = 1, 8 do
+        outputRows[i] = MakeOutputRow(outputListHost, i)
+        outputRows[i]:Hide()
+    end
+
+    -- ── Metrics section — 2-column layout, Profit centered ──
+    local function MakeMetricPair(label, xOff, yOff, valWidth)
+        local lbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", xOff, yOff)
+        lbl:SetWidth(110)
+        lbl:SetText(label)
+        local val = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        val:SetPoint("LEFT", lbl, "RIGHT", 4, 0)
+        val:SetWidth(valWidth or 200)
+        return val
+    end
+
+    local function MakeCenteredMetric(label, yOff)
+        -- Thin gold rule above Profit as a visual separator
+        local rule = frame:CreateTexture(nil, "ARTWORK")
+        rule:SetHeight(1)
+        rule:SetPoint("BOTTOMLEFT",  frame, "BOTTOMLEFT",  14, yOff + 17)
+        rule:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, yOff + 17)
+        rule:SetColorTexture(GDR, GDG, GDB, 0.7)
+
+        local lbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("BOTTOMRIGHT", frame, "BOTTOM", -4, yOff)
+        lbl:SetWidth(110)
+        lbl:SetJustifyH("RIGHT")
+        lbl:SetText(label)
+        local val = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        val:SetPoint("BOTTOMLEFT", frame, "BOTTOM", 4, yOff)
+        val:SetWidth(160)
+        val:SetJustifyH("LEFT")
+        return val
+    end
+
+    -- Invisible button overlay for FontString labels (FontStrings can't have OnEnter).
+    -- Positioned over the label+value area so hovering shows a tooltip.
+    local function MakeTooltipAnchor(x, y, w, titleKey, bodyKey)
+        local anchor = CreateFrame("Button", nil, frame)
+        anchor:SetSize(w, 18)
+        anchor:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, y - 2)
+        anchor:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(GAM.L[titleKey] or titleKey, 1, 1, 1)
+            GameTooltip:AddLine(GAM.L[bodyKey] or bodyKey, 1, 0.82, 0, true)
+            GameTooltip:Show()
+        end)
+        anchor:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+
+    frame.metCost      = MakeMetricPair(L["LBL_COST"],       14,  95, 200)
+    frame.metRevenue   = MakeMetricPair(L["LBL_REVENUE"],    14,  75, 200)
+    frame.metROI       = MakeMetricPair(L["LBL_ROI"],       364,  95, 180)
+    frame.metBreakeven = MakeMetricPair(L["LBL_BREAKEVEN"], 364,  75, 180)
+    frame.metProfit    = MakeCenteredMetric(L["LBL_PROFIT"],      PROFIT_BASE_Y)
+
+    -- Tooltip anchors over metric label pairs
+    MakeTooltipAnchor( 14,  95, 310, "TT_LBL_COST_TITLE",      "TT_LBL_COST_BODY")
+    MakeTooltipAnchor( 14,  75, 310, "TT_LBL_REVENUE_TITLE",   "TT_LBL_REVENUE_BODY")
+    MakeTooltipAnchor(364,  95, 310, "TT_LBL_ROI_TITLE",       "TT_LBL_ROI_BODY")
+    MakeTooltipAnchor(364,  75, 310, "TT_LBL_BREAKEVEN_TITLE", "TT_LBL_BREAKEVEN_BODY")
+    -- Profit is centred; anchor spans the middle region
+    MakeTooltipAnchor(WIN_W / 2 - 155, PROFIT_BASE_Y, 310, "TT_LBL_PROFIT_TITLE", "TT_LBL_PROFIT_BODY")
+
+    -- Orange notice line reused for Buy Now Cost.
+    local expNotice = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    expNotice:SetWidth(WIN_W - 40)
+    expNotice:SetJustifyH("CENTER")
+    expNotice:SetTextColor(1.0, 0.65, 0.0, 1.0)
+    expNotice:Hide()
+    frame.expNotice = expNotice
+    local expNoticeAnchor = CreateFrame("Button", nil, frame)
+    expNoticeAnchor:SetSize(WIN_W - 40, 18)
+    expNoticeAnchor:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_LBL_BUY_NOW_COST_TITLE"] or "Buy Now Cost", 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_LBL_BUY_NOW_COST_BODY"] or "Only the cost of materials you still need to buy after subtracting items already in your bags and bank.", 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    expNoticeAnchor:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    frame.expNoticeAnchor = expNoticeAnchor
+    -- ── Bottom buttons ──
+    -- Rank toggle
+    local rankToggleBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    rankToggleBtn:SetSize(80, 22)
+    rankToggleBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 20)
+    rankToggleBtn:SetScript("OnClick", function()
+        local cur = GetOpts().rankPolicy or "lowest"
+        local nextPolicy = cur == "lowest" and "optimal"
+            or cur == "optimal" and "highest"
+            or "lowest"
+        SetOption("rankPolicy", nextPolicy)
+        SD.Refresh()
+    end)
+    frame.rankToggleBtn = rankToggleBtn
+
+    -- Auctionator button
+    local btnAuctionator = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnAuctionator:SetSize(120, 22)
+    btnAuctionator:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 104, 20)
+    btnAuctionator:SetText(L["BTN_AUCTIONATOR"])
+    btnAuctionator:SetScript("OnClick", function() CreateAuctionatorList() end)
+
+    -- Push to CraftSim button (centered)
+    local btnCraftSim = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    btnCraftSim:SetSize(140, 22)
+    btnCraftSim:SetPoint("BOTTOM", frame, "BOTTOM", 0, 20)
+    btnCraftSim:SetText(L["BTN_PUSH_CRAFTSIM"])
+    btnCraftSim:SetScript("OnClick", function()
+        if not currentStrat then return end
+        local pushed, err = GAM.CraftSimBridge.PushStratPrices(currentStrat, currentPatch, canonicalResult)
+        if err then
+            print("|cffff8800[GAM]|r " .. string.format(
+                L["MSG_CRAFTSIM_PUSH_FAILED"] or "CraftSim push failed: %s", err))
+        elseif pushed == 0 then
+            print("|cffff8800[GAM]|r " .. (L["MSG_NO_PRICES_TO_PUSH"]
+                or "No prices to push — scan items first."))
+        else
+            print("|cffff8800[GAM]|r " .. string.format(
+                L["MSG_PRICES_PUSHED"] or "Pushed %d price(s) to CraftSim.", pushed))
+        end
+    end)
+    btnCraftSim:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_CRAFTSIM_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_CRAFTSIM_WARN"], 1, 0.8, 0, true)
+        GameTooltip:Show()
+    end)
+    btnCraftSim:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    btnAuctionator:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_SHOPPING_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.L["TT_SHOPPING_BODY"], 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    btnAuctionator:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- Scan All button
+    local scanAllBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    scanAllBtn:SetSize(110, 22)
+    scanAllBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, 20)
+    scanAllBtn:SetText(L["BTN_SCAN_ALL_ITEMS"])
+    scanAllBtn:SetText("Scan")
+    scanAllBtn:SetScript("OnClick", function()
+        if GAM.UI.MainWindow and GAM.UI.MainWindow.ScanWithModifiers then
+            GAM.UI.MainWindow.ScanWithModifiers(currentStrat, currentPatch)
+        end
+    end)
+    scanAllBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(GAM.L["TT_SCAN_ALL_ITEMS_TITLE"], 1, 1, 1)
+        GameTooltip:AddLine(GAM.UI.MainWindowCommon.SCAN_HELP, 1, 0.82, 0, true)
+        GameTooltip:Show()
+    end)
+    scanAllBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local refreshRecipeBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    refreshRecipeBtn:SetSize(120, 22)
+    refreshRecipeBtn:SetText((L and L["BTN_REFRESH_RECIPE"]) or "Refresh Recipe")
+    refreshRecipeBtn:SetScript("OnClick", function()
+        local stats = GAM.CraftingStats
+        if not currentStrat or not stats or not stats.OpenRecipeForStrat then return end
+        local opened, reason = stats.OpenRecipeForStrat(currentStrat, function()
+            SD.Refresh()
+        end, function(asyncReason)
+            print("|cffff8800[GAM]|r Could not refresh the selected recipe: " .. tostring(asyncReason or "unknown"))
+        end)
+        if not opened then
+            print("|cffff8800[GAM]|r Could not open the selected recipe: " .. tostring(reason or "unknown"))
+        end
+    end)
+
+    local infoBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    infoBtn:SetSize(64, 22)
+    infoBtn:SetText("Info")
+    local infoPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    infoPanel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 110)
+    infoPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, 110)
+    infoPanel:SetHeight(300)
+    infoPanel:SetFrameLevel(frame:GetFrameLevel() + 20)
+    infoPanel:EnableMouse(true)
+    infoPanel:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    infoPanel:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    infoPanel:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
+    local infoClose = CreateFrame("Button", nil, infoPanel, "UIPanelCloseButton")
+    infoClose:SetPoint("TOPRIGHT", infoPanel, "TOPRIGHT", 0, 0)
+    infoClose:SetScript("OnClick", function() infoPanel:Hide() end)
+    local infoTitle = infoPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    infoTitle:SetPoint("TOPLEFT", infoPanel, "TOPLEFT", 12, -12)
+    infoTitle:SetText("Calculation information")
+    local infoScroll = CreateFrame("ScrollFrame", nil, infoPanel, "UIPanelScrollFrameTemplate")
+    infoScroll:SetPoint("TOPLEFT", infoPanel, "TOPLEFT", 12, -38)
+    infoScroll:SetPoint("BOTTOMRIGHT", infoPanel, "BOTTOMRIGHT", -30, 12)
+    local infoContent = CreateFrame("Frame", nil, infoScroll)
+    infoContent:SetWidth(WIN_W - 70)
+    infoContent:SetHeight(1)
+    infoScroll:SetScrollChild(infoContent)
+    local infoText = infoContent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    infoText:SetPoint("TOPLEFT", infoContent, "TOPLEFT", 0, 0)
+    infoText:SetWidth(WIN_W - 70)
+    infoText:SetJustifyH("LEFT")
+    infoText:SetWordWrap(true)
+    frame.RefreshInfo = function()
+        local projection = detailProjection or {}
+        local parts = {}
+        for _, key in ipairs({"statsTooltip", "gearTooltip", "nodeBonusTooltip"}) do
+            local value = projection[key]
+            if value and value ~= "" then parts[#parts + 1] = value end
+        end
+        infoText:SetText(#parts > 0 and table.concat(parts, "\n\n") or "No captured calculation information is available for this recipe.")
+        local height = infoText:GetStringHeight() + 8
+        infoContent:SetHeight(height)
+        infoPanel:SetHeight(math.min(frame:GetHeight() - 150, math.max(110, height + 50)))
+        infoScroll:SetVerticalScroll(math.min(infoScroll:GetVerticalScroll(),
+            math.max(0, height - infoScroll:GetHeight())))
+        if infoScroll.ScrollBar then infoScroll.ScrollBar:SetShown(height > infoScroll:GetHeight()) end
+    end
+    infoBtn:SetScript("OnClick", function()
+        frame.RefreshInfo()
+        infoPanel:SetShown(not infoPanel:IsShown())
+    end)
+    infoPanel:Hide()
+    frame:HookScript("OnHide", function() infoPanel:Hide() end)
+
+    local function RelayoutBottomButtons()
+        rankToggleBtn:SetWidth(MeasureButtonWidth(frame, rankToggleBtn:GetText(), 80, 180, 24))
+        btnAuctionator:SetWidth(MeasureButtonWidth(frame, btnAuctionator:GetText(), 120, 260, 24))
+        btnCraftSim:SetWidth(MeasureButtonWidth(frame, btnCraftSim:GetText(), 140, 300, 24))
+        scanAllBtn:SetWidth(MeasureButtonWidth(frame, scanAllBtn:GetText(), 110, 260, 24))
+        local info = LayoutButtonRowBottom(frame,
+            { rankToggleBtn, btnAuctionator, btnCraftSim, scanAllBtn, refreshRecipeBtn, infoBtn },
+            { left = 14, right = WIN_W - 14, bottom = 12, gap = 8, rowGap = 4, align = "center" })
+        local profitY    = PROFIT_BASE_Y
+        local lowerBound = info.top + MIN_NOTICE_GAP_ABOVE_BUTTONS
+        local upperBound = profitY - MIN_NOTICE_GAP_BELOW_PROFIT
+        local noticeY
+        if lowerBound <= upperBound then
+            noticeY = math.floor((lowerBound + upperBound) * 0.5 + 0.5)
+        else
+            noticeY = lowerBound
+        end
+        if frame.expNotice then
+            frame.expNotice:ClearAllPoints()
+            frame.expNotice:SetPoint("BOTTOM", frame, "BOTTOM", 0, noticeY)
+        end
+        if frame.expNoticeAnchor then
+            frame.expNoticeAnchor:ClearAllPoints()
+            frame.expNoticeAnchor:SetPoint("BOTTOM", frame, "BOTTOM", 0, noticeY - 2)
+        end
+        GAM.Log.Verbose("StrategyDetail: warning layout bounds lower=%d upper=%d chosen=%d",
+            lowerBound, upperBound, noticeY)
+    end
+    frame.RelayoutBottomButtons = RelayoutBottomButtons
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if common and common.StyleComfortableButton then
+        for _, button in ipairs({ rankToggleBtn, btnAuctionator, btnCraftSim, scanAllBtn, infoBtn }) do
+            common.StyleComfortableButton(button, false)
+        end
+        common.StyleComfortableButton(refreshRecipeBtn, true)
+    end
+    RelayoutBottomButtons()
+
+end
+
+-- ===== Public API =====
+
+function SD.Show(strat, patchTag)
+    if not frame then Build() end
+    if not positioned then
+        frame:ClearAllPoints()
+        local mwF = _G[GAM.RuntimeName("GoldAdvisorMidnightMainWindow")]
+        if mwF then
+            local screenW = UIParent:GetWidth()
+            local mwRight = mwF:GetRight() or (screenW / 2 + 360)
+            if mwRight + 10 + WIN_W <= screenW then
+                frame:SetPoint("TOPLEFT", mwF, "TOPRIGHT", 10, 0)
+            else
+                frame:SetPoint("TOPRIGHT", mwF, "TOPLEFT", -10, 0)
+            end
+        else
+            frame:SetPoint("CENTER", UIParent, "CENTER")
+        end
+        positioned = true
+    end
+    if strat then
+        currentStrat = strat
+        currentPatch = patchTag or GAM.C.DEFAULT_PATCH
+    end
+    SD.Refresh()
+    frame:Show()
+    WindowManager.Present(frame)
+end
+
+function SD.Refresh()
+    if not frame or not currentStrat then return end
+    GAM.Pricing.PreloadStratItemData(currentStrat, currentPatch)
+    local L = GAM.L
+
+    frame.stratNameFS:SetText(currentStrat.stratName .. " (" .. currentStrat.profession .. ")")
+    frame.notesFS:SetText(currentStrat.notes or "")
+
+    -- Canonical results own visible values and all retained detail actions.
+    local nextCanonicalResult, canonicalErr = GAM.PricingFacade.CalculateCurrent(currentStrat, currentPatch)
+    local detailSnapshot, snapshotErr = StrategyDetailModel.CreateSnapshot(nextCanonicalResult)
+    canonicalResult = detailSnapshot and detailSnapshot.canonicalResult or nextCanonicalResult
+    detailProjection = detailSnapshot and detailSnapshot.projection or nil
+    if frame.RefreshInfo then frame.RefreshInfo() end
+    if not detailSnapshot and GAM.Log and GAM.Log.Warn then
+        GAM.Log.Warn("Canonical fallback detail projection failed for '%s': %s",
+            tostring(currentStrat.stratName or currentStrat.id or "?"),
+            tostring(canonicalErr or snapshotErr or "unknown error"))
+    end
+    RefreshSelectionNote()
+
+    -- Rank toggle label
+    if frame.rankToggleBtn then
+        local policy = GetOpts().rankPolicy or "lowest"
+        local labels = {
+            lowest = L["RANK_BTN_R1"] or "R1 Mats",
+            optimal = L["RANK_BTN_OPTIMAL"] or "Best Mix",
+            highest = L["RANK_BTN_R2"] or "R2 Mats",
+        }
+        frame.rankToggleBtn:SetText(labels[policy] or labels.lowest)
+        if frame.RelayoutBottomButtons then frame.RelayoutBottomButtons() end
+    end
+
+    -- Reagents
+    -- Only the topmost input row is editable so the field remains stable while browsing.
+    local reagentMetrics = detailProjection and detailProjection.reagents or {}
+
+    -- Guard: only show the editable primary field on row 1 when chain expansion has NOT
+    -- changed the first reagent (i.e. the displayed item still matches the base strat's
+    -- first reagent).  If the first base reagent expanded to something else (e.g. pigments
+    -- to herbs when Mill own herbs is on), the editbox would write the herb qty into
+    -- inputQtyOverrides, which expects the strategy's own startingAmount scale.
+    local firstMetID  = reagentMetrics[1] and reagentMetrics[1].itemID
+    local baseR1IDs   = currentStrat.reagents and currentStrat.reagents[1] and currentStrat.reagents[1].itemIDs or {}
+    local firstUnchanged = false
+    for _, id in ipairs(baseR1IDs) do
+        if id == firstMetID then firstUnchanged = true; break end
+    end
+
+    -- Render from the canonical shopping-reagent projection as the source of truth so that
+    -- chain-expanded rows (e.g. ore when craft-ingots is on) display correctly.
+    for i, row in ipairs(reagentRows) do
+        local rMet = reagentMetrics[i]
+        if rMet then
+            PopulateReagentRow(row, rMet, i == 1 and firstUnchanged)
+        else
+            BindItemRow(row, nil)
+            row:Hide()
+            if row.qtyOKBtn then row.qtyOKBtn:Hide() end
+            row.reagentData = nil
+            row._metricTooltip = nil
+        end
+    end
+
+    -- Resize input scroll child to match actual expanded reagent count
+    if inputListHost then
+        inputListHost:SetHeight(math.max(1, #reagentMetrics * ROW_H))
+    end
+
+    -- Output section
+    -- Canonical results always normalize single- and multi-output strategies
+    -- into one outputs array.
+    local outputItems = {}
+    for index, outputMetric in ipairs((detailProjection and detailProjection.outputs) or {}) do
+        outputItems[#outputItems + 1] = { metric = outputMetric, isPrimary = index == 1 }
+    end
+
+    for i, row in ipairs(outputRows) do
+        local oi = outputItems[i]
+        if oi then
+            PopulateOutputRow(row, oi.metric, oi.isPrimary)
+        else
+            BindItemRow(row, nil)
+            row._metricTooltip = nil
+            row:Hide()
+        end
+    end
+
+    if outputListHost then
+        outputListHost:SetHeight(math.max(1, #outputItems * ROW_H))
+    end
+
+    RefreshMetrics()
+end
+
+function SD.Hide()
+    if frame then frame:Hide() end
+end
+
+function SD.IsShown()
+    return frame and frame:IsShown()
+end
+
+-- ===== Inline panel mode (Phase 5 — stub) =====
+-- Called by MainWindow when the right panel is visible.
+-- Currently delegates to the floating SD.Show(); full inline rendering
+-- (reparented contentHost, 340px layout) will replace this in Phase 5.
+function SD.ShowInPanel(strat, patchTag, panelFrame)
+    SD.Show(strat, patchTag)
+end
