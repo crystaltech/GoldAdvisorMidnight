@@ -169,18 +169,50 @@ local function CraftSimDBAvailable()
     return CraftSimDB ~= nil and type(CraftSimDB) == "table"
 end
 
-local function GetPlayerCrafterUID()
-    local name = type(UnitName) == "function" and UnitName("player") or nil
-    local realm = type(GetRealmName) == "function" and GetRealmName() or nil
-    return (name or "Unknown") .. "-" .. (realm or "Unknown")
-end
-
 local function GetPlayerCrafterData()
+    -- CraftSim owns the canonical character identity used by its saved
+    -- variable cache. Reuse it when available so normalized realm names and
+    -- any future identity changes stay aligned with CraftSimDB.
+    local craftSim = GetCraftSimAddon()
+    local util = craftSim and craftSim.UTIL
+    if util and type(util.GetPlayerCrafterData) == "function" then
+        local ok, data = pcall(function()
+            return util:GetPlayerCrafterData()
+        end)
+        if ok and type(data) == "table" and data.name and data.realm then
+            return {
+                name = data.name,
+                realm = data.realm,
+                class = data.class,
+            }
+        end
+    end
+
+    local name
+    if type(UnitNameUnmodified) == "function" then
+        name = select(1, UnitNameUnmodified("player"))
+    elseif type(UnitName) == "function" then
+        name = UnitName("player")
+    end
+
+    local realm
+    if type(GetNormalizedRealmName) == "function" then
+        realm = GetNormalizedRealmName()
+    end
+    if not realm and type(GetRealmName) == "function" then
+        realm = GetRealmName()
+    end
+
     return {
-        name = type(UnitName) == "function" and UnitName("player") or nil,
-        realm = type(GetRealmName) == "function" and GetRealmName() or nil,
+        name = name,
+        realm = realm,
         class = type(UnitClass) == "function" and select(2, UnitClass("player")) or nil,
     }
+end
+
+local function GetPlayerCrafterUID()
+    local data = GetPlayerCrafterData()
+    return (data.name or "Unknown") .. "-" .. (data.realm or "Unknown")
 end
 
 local function GetCachedCrafterData()
@@ -475,7 +507,7 @@ local function ApplyCraftSimStatBreakdown(snapshot, recipeData)
 end
 
 local function GetFormulaProfiles()
-    return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+    return (GAM.WorkbookGenerated and GAM.WorkbookGenerated.formulaProfiles) or {}
 end
 
 local function GetProfileSupports(profileKey)
@@ -497,7 +529,7 @@ local function GetCurrentTimestamp()
 end
 
 local function GetV2StatProfileCache(create)
-    local db = GAM.db or GoldAdvisorMidnightDB
+    local db = GAM.db or _G[ADDON_NAME .. "DB"]
     if type(db) ~= "table" then
         return nil
     end

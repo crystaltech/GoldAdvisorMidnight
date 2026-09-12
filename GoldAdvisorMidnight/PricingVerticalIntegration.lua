@@ -303,13 +303,62 @@ local function GetPlannerExpectedOutputPerCraft(ctx, producer)
     return GetExpectedOutputPerCraft(producer.strat, producer.active, ctx and ctx.opts)
 end
 
+-- Display yield per queued recipe execution, excluding extra attempts from
+-- Resourcefulness (the economic planner also exposes yield per material pool).
+local function GetExecutionOutputPerCraft(ctx, strat, active)
+    local output, formula = GetV2ExpectedOutputPerCraft(strat, active, ctx)
+    return formula and formula.expectedYieldPerActualCraft or output
+end
+
 local function FindProducerMatch(ctx, itemID, state)
     if not ctx.chainActive or not itemID or not (GAM.Importer and GAM.Importer.GetProducerCandidates) then
         return nil
     end
 
     local candidates = GAM.Importer.GetProducerCandidates(itemID, ctx.patchTag)
+    local orderedCandidates = {}
+    local preferredVariantKey = nil
+    local getStratByID = GAM.Importer and GAM.Importer.GetStratByID
+
+    -- Ranked recipe variants commonly expose the complete output ID pool on
+    -- every variant. The output ID alone therefore cannot distinguish the
+    -- lowest producer from the highest producer. Prefer the variant that
+    -- actually owns the requested output rank; fall back to the current input
+    -- policy when the client has not resolved output quality yet.
     for _, candidate in ipairs(candidates or {}) do
+        local candidateStrat = candidate and candidate.stratID
+            and type(getStratByID) == "function"
+            and getStratByID(candidate.stratID)
+            or nil
+        local requestedQuality = candidateStrat
+            and GetOutputQualityForItem(itemID, candidateStrat.recipeID)
+            or nil
+        if requestedQuality then
+            preferredVariantKey = requestedQuality >= 2 and "highest" or "lowest"
+            break
+        end
+    end
+    if not preferredVariantKey then
+        local inputPolicy = GetInputRankPolicy(ctx.strat)
+        preferredVariantKey = (inputPolicy == "highest" or inputPolicy == "optimal")
+            and "highest" or "lowest"
+    end
+
+    for index, candidate in ipairs(candidates or {}) do
+        orderedCandidates[#orderedCandidates + 1] = {
+            candidate = candidate,
+            index = index,
+            priority = candidate and candidate.variantKey == preferredVariantKey and 0
+                or (candidate and candidate.variantKey == nil and 1 or 2),
+        }
+    end
+    table.sort(orderedCandidates, function(a, b)
+        if a.priority == b.priority then return a.index < b.index end
+        return a.priority < b.priority
+    end)
+
+    for _, ordered in ipairs(orderedCandidates) do
+        local candidate = ordered.candidate
         local strat, active, candidateOutputID = GetProducerCandidateResolvedOutputID(
             candidate, ctx.patchTag, itemID)
         if strat
@@ -364,6 +413,7 @@ local function BuildGraphLeafPlan(ctx, mode)
         activeProducerKeys = {},
         inventoryLedger = mode == "execution" and NewInventoryLedger() or nil,
         producerCraftsRemaining = {},
+        craftSteps = {},
     }
     local rootOrder, rootMap = BuildMergedReagentMap(ctx, "none")
 
@@ -464,6 +514,17 @@ local function BuildGraphLeafPlan(ctx, mode)
         producer.active = optimizedActive or producer.active
 
         local scaledStartingAmt = GetScaledStartingAmountForCrafts(producer.active, craftsToProduce)
+        local craftStep = {
+            recipeID = tonumber(producer.strat.recipeID),
+            producerStratID = producer.strat.id,
+            producerStratName = producer.strat.stratName,
+            craftsToProduce = math.floor(craftsToProduce + 1e-9),
+            craftsExecution = math.floor(craftsToProduce + 1e-9),
+            expectedOutputPerCraft = GetExecutionOutputPerCraft(ctx, producer.strat, producer.active),
+            outputItemID = producer.outputItemID,
+            variantKey = producer.key,
+            reagents = {},
+        }
         state.activeProducerKeys[producer.key] = true
         for _, reagent in ipairs(producer.active.reagents or {}) do
             -- Only expand inputs for the crafts the live cooldown capacity
@@ -472,9 +533,18 @@ local function BuildGraphLeafPlan(ctx, mode)
             -- intermediate was also added as an AH purchase.
             local childQty = GetRequiredReagentAmountRaw(
                 reagent, scaledStartingAmt, craftsToProduce)
+            craftStep.reagents[#craftStep.reagents + 1] = {
+                itemID = reagent.itemIDs and reagent.itemIDs[1],
+                itemIDs = reagent.itemIDs,
+                quantity = tonumber(reagent.quantityPerCraft or reagent.qtyPerCraft) or 0,
+                quantityTotal = childQty,
+                name = reagent.name,
+            }
             ExpandNode(reagent, childQty, depth + 1)
         end
         state.activeProducerKeys[producer.key] = nil
+        -- Postorder is the only safe queue order for a dependency chain.
+        state.craftSteps[#state.craftSteps + 1] = craftStep
     end
 
     for _, key in ipairs(rootOrder) do
@@ -485,6 +555,7 @@ local function BuildGraphLeafPlan(ctx, mode)
     return {
         leafMap = leafMap,
         leafOrder = leafOrder,
+        craftSteps = state.craftSteps,
     }
 end
 
@@ -596,6 +667,7 @@ local function BuildGraphLeafMetrics(ctx, mode)
         totalCostRequired = totalCostRequired,
         hasStale = hasStale,
         missingPrices = missingPrices,
+        executionSteps = mode == "execution" and plan.craftSteps or nil,
     }
 end
 
@@ -792,6 +864,26 @@ local function BuildBreakdownNodePricing(ctx, resolvedEntry, requiredRaw, requir
 end
 
 local function BuildVIBreakdownData(ctx, metrics)
+    -- Keep queue metadata from the same execution traversal that computes
+    -- whole-batch inputs, inventory consumption, and cooldown capacity.  The
+    -- display tree below remains economic/detail-oriented; queue consumers use
+    -- this postorder list instead of re-rounding its fractional rows.
+    local executionPlan = BuildGraphLeafPlan(ctx, "execution")
+    local finalCrafts = math.floor(tonumber(metrics and metrics.recommendedCrafts or ctx.crafts) or 0)
+    if finalCrafts > 0 and executionPlan then
+        executionPlan.craftSteps[#executionPlan.craftSteps + 1] = {
+            recipeID = tonumber(ctx.strat and ctx.strat.recipeID),
+            producerStratID = ctx.strat and ctx.strat.id,
+            producerStratName = ctx.strat and ctx.strat.stratName,
+            craftsToProduce = finalCrafts,
+            craftsExecution = finalCrafts,
+            expectedOutputPerCraft = GetExecutionOutputPerCraft(ctx, ctx.strat, ctx.active),
+            outputItemID = ctx.active and ctx.active.outputs and ctx.active.outputs[1]
+                and ctx.active.outputs[1].itemIDs and ctx.active.outputs[1].itemIDs[1],
+            variantKey = "final",
+            reagents = ctx.active and ctx.active.reagents or {},
+        }
+    end
     local rootOrder, rootMap = BuildMergedReagentMap(ctx, "none")
     local statUsages = metrics and (metrics.statUsages
         or (metrics.diagnostics and metrics.diagnostics.statUsages)) or {}
@@ -956,6 +1048,7 @@ local function BuildVIBreakdownData(ctx, metrics)
             producer.active = optimizedActive or producer.active
             local statUsage = statUsageByStratID[producer.strat.id]
             entry.producerStratID = producer.strat.id
+            entry.recipeID = tonumber(producer.strat.recipeID)
             entry.producerStratName = producer.strat.stratName
             entry.profileKey = producer.strat.formulaProfile
             entry.gearModeRequested = statUsage and statUsage.gearModeRequested or "auto"
@@ -1096,6 +1189,7 @@ local function BuildVIBreakdownData(ctx, metrics)
             or ctx.strat and ctx.strat.stratName,
         finalOutputItemID = metrics and metrics.outputs and metrics.outputs[1] and metrics.outputs[1].itemID
             or metrics and metrics.output and metrics.output.itemID,
+        finalRecipeID = tonumber(ctx.strat and ctx.strat.recipeID),
         finalExpectedOutput = metrics and metrics.outputs and metrics.outputs[1]
             and (metrics.outputs[1].expectedQtyRaw or metrics.outputs[1].expectedQty)
             or metrics and metrics.output and (metrics.output.expectedQtyRaw or metrics.output.expectedQty),
@@ -1107,6 +1201,7 @@ local function BuildVIBreakdownData(ctx, metrics)
         rootIndices = state.rootIndices,
         entries = state.entries,
         usedFallbackRows = usedFallbackRows,
+        executionSteps = executionPlan and executionPlan.craftSteps or {},
     }
 end
 

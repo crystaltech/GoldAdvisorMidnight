@@ -30,7 +30,7 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
         patchTag or GAM.C.DEFAULT_PATCH)
     if not canonicalResult then return nil end
 
-    local addonName  = "GoldAdvisorMidnight"
+    local addonName  = ADDON_NAME
     local hasConvert = type(Auctionator.API.v1.ConvertToSearchString) == "function"
     local searchStrings = {}
     local signatureParts = {}

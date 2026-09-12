@@ -18,7 +18,7 @@ local function GetOpts()
 end
 local function GetPatchDB(pt) return GAM:GetPatchDB(pt) end
 local function GetFormulaProfiles()
-    return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+    return (GAM.WorkbookGenerated and GAM.WorkbookGenerated.formulaProfiles) or {}
 end
 local function GetItemLabel(item)
     if not item then return nil end

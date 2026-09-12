@@ -19,7 +19,8 @@ local function GetItemKeyDB()
     if GAM.State and GAM.State.GetItemKeyDB then
         return GAM.State.GetItemKeyDB()
     end
-    return (GoldAdvisorMidnightDB and GoldAdvisorMidnightDB.itemKeyDB) or {}
+    local db = GAM.db or _G[ADDON_NAME .. "DB"]
+    return (db and db.itemKeyDB) or {}
 end
 
 local function NormalizeTargetQty(targetQty)

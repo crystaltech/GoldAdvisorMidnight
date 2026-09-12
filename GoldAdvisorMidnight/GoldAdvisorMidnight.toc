@@ -1,8 +1,8 @@
 ## Interface: 120100
 ## Title: Gold Advisor Midnight
 ## Category: Professions
-## Notes: Crafting profit advisor for WoW Midnight. Scans AH, computes ROI per strategy.
-## Version: 2.0.10
+## Notes: Compare Midnight crafting profits with live Auction House prices.
+## Version: 2.1.0
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled
@@ -45,7 +45,6 @@ DataBroker.lua
 UI\WindowManager.lua
 UI\StrategyListModel.lua
 UI\StrategyDetailModel.lua
-Settings.lua
 PricingDerivation.lua
 PricingContract.lua
 PricingFormula.lua
@@ -68,12 +67,15 @@ AuctionHouseResults.lua
 AuctionHouseQuery.lua
 AuctionHouseScan.lua
 Importer.lua
+RecipeAudit.lua
 Data\RecipesGenerated.lua
 Data\Recipes\Patch12_1.lua
 CraftSimPriceOverrides.lua
 CraftSimBridge.lua
+CraftSimQueue.lua
 UI\DebugLog.lua
 UI\MainWindowCommon.lua
+Settings.lua
 UI\VIBreakdownPlan.lua
 UI\VIBreakdownWindow.lua
 UI\CrushingAnalyzerWindow.lua

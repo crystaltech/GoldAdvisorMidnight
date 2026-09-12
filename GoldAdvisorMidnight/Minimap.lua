@@ -50,7 +50,7 @@ function MM.Init()
         dragAngle = opts.minimapAngle
     end
 
-    btn = CreateFrame("Button", "GoldAdvisorMidnightMinimapBtn", Minimap)
+    btn = CreateFrame("Button", GAM.RuntimeName("GoldAdvisorMidnightMinimapBtn"), Minimap)
     btn:SetSize(32, 32)
     btn:SetFrameStrata("MEDIUM")
     btn:SetFrameLevel(8)
@@ -102,8 +102,11 @@ function MM.Init()
                 GAM.UI.MainWindow.Toggle()
             end
         elseif button == "RightButton" then
-            -- Open WoW Interface > AddOns settings tab to the GAM category
-            if GAM.Settings and GAM.Settings.OpenPanel then
+            -- Always use GAM's framed standalone host. Retail's canvas can
+            -- otherwise display only the transparent navigation child.
+            if GAM.Settings and GAM.Settings.ShowStandalone then
+                GAM.Settings.ShowStandalone()
+            elseif GAM.Settings and GAM.Settings.OpenPanel then
                 GAM.Settings.OpenPanel()
             end
         end
@@ -128,4 +131,3 @@ function MM.Toggle()
     if not btn then return end
     MM.SetShown(not btn:IsShown())
 end
-

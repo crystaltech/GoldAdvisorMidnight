@@ -3,7 +3,7 @@
 -- Module: GAM.C
 
 local ADDON_NAME, GAM = ...
-local workbookProfiles = (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+local workbookProfiles = (GAM.WorkbookGenerated and GAM.WorkbookGenerated.formulaProfiles) or {}
 
 local function ProfileDefault(profileKey, field, fallback)
     local profile = workbookProfiles[profileKey]
@@ -36,8 +36,13 @@ for _, profession in ipairs(PROFESSION_REGISTRY) do
 end
 
 GAM.C = {
-    ADDON_VERSION        = "2.0.10",
-    DATA_VERSION         = 19,
+    ADDON_ID             = ADDON_NAME,
+    -- Release UI selection is independent of the addon folder/name.
+    USE_COMFORTABLE_UI   = true,
+    ADDON_DISPLAY_NAME   = "Gold Advisor Midnight",
+    PRIMARY_SLASH_COMMAND = "/gam",
+    ADDON_VERSION        = "2.1.0",
+    DATA_VERSION         = 20,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",
 
@@ -80,7 +85,7 @@ GAM.C = {
     DEFAULT_V2_PRICING_MODE      = "exhaust_materials",
 
     -- Default batch size used when a strategy has no saved per-strategy override.
-    DEFAULT_STARTING_CRAFTS = 1000,
+    DEFAULT_STARTING_CRAFTS = 50,
     MIN_STARTING_CRAFTS     = 1,
     MAX_STARTING_CRAFTS     = 1000000,
 
@@ -166,3 +171,8 @@ GAM.C = {
         [242642] = 1225,   -- Thalassian Herbs         (12s 25c)
     },
 }
+
+-- Preserve the established production frame and broker names.
+function GAM.RuntimeName(stableName)
+    return stableName
+end

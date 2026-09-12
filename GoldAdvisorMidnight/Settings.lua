@@ -1,6 +1,7 @@
 -- GoldAdvisorMidnight/Settings.lua
--- Registers a native Blizzard Interface > AddOns canvas panel (no custom backdrop on canvas).
--- Falls back to a draggable standalone popup when Blizzard API is unavailable.
+-- Draggable standalone settings window. The Blizzard 12.1 canvas host can
+-- present addon-owned anchored frames without its surrounding chrome, so GAM
+-- keeps one deterministic layout for minimap, slash-command, and button entry.
 -- Vertical navigation, measured setting rows, and one scroll viewport per page.
 -- Module: GAM.Settings
 
@@ -12,6 +13,7 @@ local BlizzardSettingsAPI = Settings
 local SettingsMod = {}
 GAM.Settings = SettingsMod
 local WindowManager = GAM.UI.WindowManager
+local Common = GAM.UI.MainWindowCommon
 local NodeDisplay = GAM.ProfessionNodeDisplay
 
 local panel          -- plain canvas frame (registered with Blizzard)
@@ -19,6 +21,7 @@ local wrapper        -- standalone popup wrapper (only built on Blizzard API fai
 local category       -- Blizzard Settings category reference
 local categoryID     -- resolved category ID for OpenToCategory/OpenSettingsPanel
 local nativeMode     -- true if Blizzard registration succeeded
+local categoryPanel  -- stable Blizzard canvas that launches the standalone UI
 local nodeCaptureUnsubscribe
 
 local function LogWarn(fmt, ...)
@@ -39,6 +42,65 @@ local function ResolveCategoryID(cat)
     return cat
 end
 
+local function RegisterSettingsCategory()
+    if category then return true end
+    BlizzardSettingsAPI = _G.Settings
+
+    if not categoryPanel then
+        categoryPanel = CreateFrame("Frame", GAM.RuntimeName("GAMSettingsCategoryPanel"), UIParent)
+        categoryPanel.name = GAM.L["SETTINGS_NAME"] or "Gold Advisor Midnight"
+        categoryPanel:Hide()
+
+        local title = categoryPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+        title:SetPoint("TOPLEFT", categoryPanel, "TOPLEFT", 24, -24)
+        title:SetText(categoryPanel.name)
+
+        local note = categoryPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        note:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -14)
+        note:SetText("Gold Advisor settings open in their own movable window.")
+
+        local openButton = CreateFrame("Button", nil, categoryPanel, "UIPanelButtonTemplate")
+        openButton:SetSize(180, 26)
+        openButton:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -18)
+        openButton:SetText("Open Gold Advisor Settings")
+        openButton:SetScript("OnClick", function()
+            if SettingsMod.ShowStandalone then SettingsMod.ShowStandalone() end
+        end)
+        categoryPanel:SetScript("OnShow", function()
+            if SettingsMod.ShowStandalone then SettingsMod.ShowStandalone() end
+        end)
+    end
+
+    if BlizzardSettingsAPI and BlizzardSettingsAPI.RegisterCanvasLayoutCategory then
+        local ok, cat = pcall(BlizzardSettingsAPI.RegisterCanvasLayoutCategory, categoryPanel, categoryPanel.name)
+        if ok and cat then
+            local registered, err = pcall(BlizzardSettingsAPI.RegisterAddOnCategory, cat)
+            if not registered then
+                LogWarn("Settings category registration failed: %s", tostring(err))
+                return false
+            end
+            category = cat
+            categoryID = ResolveCategoryID(cat)
+            return true
+        end
+    elseif BlizzardSettingsAPI and BlizzardSettingsAPI.RegisterAddOnCategory then
+        local ok, cat = pcall(BlizzardSettingsAPI.RegisterAddOnCategory, categoryPanel)
+        if ok then
+            category = cat or categoryPanel
+            categoryID = ResolveCategoryID(category)
+            return true
+        end
+    elseif InterfaceOptions_AddCategory then
+        local ok = pcall(InterfaceOptions_AddCategory, categoryPanel)
+        if ok then
+            category = categoryPanel
+            categoryID = ResolveCategoryID(categoryPanel) or categoryPanel.name
+            return true
+        end
+    end
+    return false
+end
+
 local function GetOpts()
     return (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
 end
@@ -56,12 +118,14 @@ end
 -- Apply a scale factor to all main addon frames
 local function ApplyScaleToFrames(scale)
     local targets = {
-        _G["GoldAdvisorMidnightMainWindow"],
-        _G["GoldAdvisorMidnightStrategyDetail"],
-        _G["GoldAdvisorMidnightDebugLog"],
-        _G["GoldAdvisorMidnightShoppingList"],
+        "GoldAdvisorMidnightMainWindow", "GoldAdvisorMidnightStrategyDetail",
+        "GoldAdvisorMidnightDebugLog", "GAMQuickBuyWindow", "GAMCooldownTrackerWindow",
+        "GAMVIBreakdownWindow", "GAMCrushingAnalyzer", "GAMARPExportPopup",
     }
-    for _, f in ipairs(targets) do
+    -- Iterate names: a table of frame values contains holes for unopened
+    -- windows, and ipairs stops at the first hole.
+    for _, name in ipairs(targets) do
+        local f = _G[GAM.RuntimeName(name)]
         if f then f:SetScale(scale) end
     end
 end
@@ -75,7 +139,7 @@ local THALASSIAN_LUMBER_ITEM_ID = 256963
 local _widgetCount = 0
 local function NextWidgetName(prefix)
     _widgetCount = _widgetCount + 1
-    return "GAMSettings_" .. prefix .. _widgetCount
+    return GAM.RuntimeName("GAMSettings_" .. prefix .. _widgetCount)
 end
 
 -- Layout is measured from the current canvas width. The same row and section
@@ -278,6 +342,68 @@ local function MakeButton(parent, label, w, x, y)
     return btn
 end
 
+local function MakeColorControl(parent, color)
+    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    button:SetSize(170, 28)
+    button:SetText("")
+    local swatch = button:CreateTexture(nil, "ARTWORK")
+    swatch:SetPoint("LEFT", button, "LEFT", 8, 0)
+    swatch:SetSize(18, 18)
+    local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("LEFT", swatch, "RIGHT", 8, 0)
+    label:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+    label:SetJustifyH("LEFT")
+    label:SetText("Choose color")
+    button.swatch = swatch
+    button.labelFS = label
+    button:SetScript("OnDisable", function(self)
+        self:SetAlpha(0.55)
+    end)
+    button:SetScript("OnEnable", function(self)
+        self:SetAlpha(1)
+    end)
+    if color then
+        swatch:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
+    end
+    return button
+end
+
+local function OpenColorPicker(color, onChanged)
+    if not ColorPickerFrame then return false end
+    local previous = { color[1], color[2], color[3], color[4] or 1 }
+    local function ReadPickerColor()
+        local r, g, b = ColorPickerFrame:GetColorRGB()
+        local a = previous[4]
+        if ColorPickerFrame.GetColorAlpha then
+            a = ColorPickerFrame:GetColorAlpha()
+        elseif ColorPickerFrame.opacity then
+            a = 1 - ColorPickerFrame.opacity
+        end
+        onChanged({ r, g, b, a })
+    end
+    local info = {
+        r = previous[1], g = previous[2], b = previous[3], opacity = previous[4],
+        hasOpacity = true,
+        swatchFunc = ReadPickerColor,
+        opacityFunc = ReadPickerColor,
+        cancelFunc = function()
+            onChanged(previous)
+        end,
+    }
+    if ColorPickerFrame.SetupColorPickerAndShow then
+        ColorPickerFrame:SetupColorPickerAndShow(info)
+    else
+        ColorPickerFrame.func = ReadPickerColor
+        ColorPickerFrame.opacityFunc = ReadPickerColor
+        ColorPickerFrame.cancelFunc = info.cancelFunc
+        ColorPickerFrame.hasOpacity = true
+        ColorPickerFrame:SetColorRGB(previous[1], previous[2], previous[3])
+        if ColorPickerFrame.SetColorAlpha then ColorPickerFrame:SetColorAlpha(previous[4]) end
+        ColorPickerFrame:Show()
+    end
+    return true
+end
+
 local function MeasureButtonWidth(parent, text, minW, maxW, padding)
     parent._gamMeasureFS = parent._gamMeasureFS or parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     local fs = parent._gamMeasureFS
@@ -423,10 +549,12 @@ end
 -- ===== Build the settings content panel =====
 -- Returns a plain frame with no backdrop — safe to embed in Blizzard's canvas.
 local function BuildPanel()
+    -- Resolve at initialization too, so an earlier file load cannot retain nil.
+    Common = assert(GAM.UI.MainWindowCommon, "Settings requires MainWindowCommon")
     local L    = GAM.L
     local opts = GetOpts()
 
-    panel = CreateFrame("Frame", "GoldAdvisorMidnightSettingsPanel", UIParent)
+    panel = CreateFrame("Frame", GAM.RuntimeName("GoldAdvisorMidnightSettingsPanel"), UIParent)
     panel:SetSize(760, 570)
     panel:SetPoint("CENTER", UIParent, "CENTER")
     panel:Hide()
@@ -443,11 +571,12 @@ local function BuildPanel()
 
     local navDefs = {
         { key = "general", label = "General", description = "Scanning and addon display." },
+        { key = "appearance", label = "Appearance", description = "Shared colors for the addon UI." },
         { key = "pricing", label = "Pricing", description = "Default quantities and material prices." },
         { key = "crafting", label = "Stat fallbacks", description = "Manual values used when a captured profile is unavailable." },
         { key = "nodes", label = "Profession nodes", description = "Captured specialization ranks and manual overrides." },
         { key = "tools", label = "Tools", description = "Reload strategy data and manage the price cache." },
-        { key = "about", label = "About", description = "Gold Advisor Midnight contributors and acknowledgments." },
+        { key = "about", label = "About", description = GAM.C.ADDON_DISPLAY_NAME .. " contributors and acknowledgments." },
     }
 
     local pageHost = CreateFrame("Frame", nil, panel)
@@ -609,6 +738,114 @@ local function BuildPanel()
         GameTooltip:Show()
     end)
     cbRememberAHState:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    -- ── Appearance profiles ─────────────────────────────────────────────────
+    FinalizeContentLayout()
+    content = pages.appearance.content
+    MakeSectionHeader(content, "Appearance profiles")
+    local appearanceHint = NewText(content,
+        "Choose a shared color profile for this addon. Profiles are saved account-wide, " ..
+        "so the same profile can be selected by your other characters. Each character " ..
+        "can use a different profile.", "GameFontHighlight")
+    appearanceHint:SetTextColor(0.72, 0.72, 0.76)
+    AddText(content, appearanceHint)
+
+    local appearanceProfileName = Common.GetActiveThemeProfileName()
+    local profileButton = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+    profileButton:SetSize(170, 28)
+    AddRow(content, "Active profile", profileButton, "Default uses the addon’s current colors.", 170)
+
+    local newProfileBox = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+    newProfileBox:SetSize(170, 26)
+    newProfileBox:SetAutoFocus(false)
+    newProfileBox:SetMaxLetters(32)
+    AddRow(content, "New profile name", newProfileBox, "Create a named copy of the active profile.", 170)
+
+    local createProfileButton = MakeButton(content, "Create profile", 170)
+    AddRow(content, "Save as profile", createProfileButton, nil, 170)
+
+    local resetProfileButton = MakeButton(content, "Reset profile colors", 170)
+    AddRow(content, "Reset colors", resetProfileButton,
+        "Restores the selected custom profile to the addon’s current default colors.", 170)
+
+    local deleteProfileButton = MakeButton(content, "Delete profile", 170)
+    AddRow(content, "Delete profile", deleteProfileButton, "Deletes the selected custom profile.", 170)
+
+    local appearanceRows = {}
+    local function RefreshAppearanceControls()
+        appearanceProfileName = Common.GetActiveThemeProfileName()
+        profileButton:SetText(appearanceProfileName)
+        local editable = appearanceProfileName ~= Common.THEME_PROFILE_DEFAULT
+        resetProfileButton:SetEnabled(editable)
+        deleteProfileButton:SetEnabled(editable)
+        for _, row in ipairs(appearanceRows) do
+            local color = Common.GetThemeProfile(appearanceProfileName)[row.key]
+            row.control.swatch:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
+            row.control:SetEnabled(editable)
+            row.control.labelFS:SetText(string.format("%.0f%%  %.0f%%  %.0f%%",
+                color[1] * 100, color[2] * 100, color[3] * 100))
+        end
+    end
+
+    profileButton:SetScript("OnClick", function()
+        local names = Common.GetThemeProfileNames()
+        local current = 1
+        for i, name in ipairs(names) do
+            if name == appearanceProfileName then current = i break end
+        end
+        local nextName = names[(current % #names) + 1]
+        if Common.SetActiveThemeProfile(nextName) then
+            Common.RefreshTheme()
+            RefreshAppearanceControls()
+        end
+    end)
+
+    local function CreateNamedProfile()
+        local name = tostring(newProfileBox:GetText() or ""):match("^%s*(.-)%s*$")
+        if name == "" then
+            return
+        end
+        if Common.CreateThemeProfile(name, appearanceProfileName) then
+            newProfileBox:SetText("")
+            Common.RefreshTheme()
+            RefreshAppearanceControls()
+        else
+            LogWarn("Could not create appearance profile '%s'.", name)
+        end
+    end
+    createProfileButton:SetScript("OnClick", CreateNamedProfile)
+    newProfileBox:SetScript("OnEnterPressed", CreateNamedProfile)
+
+    resetProfileButton:SetScript("OnClick", function()
+        if Common.ResetThemeProfile(appearanceProfileName) then
+            Common.RefreshTheme()
+            RefreshAppearanceControls()
+        end
+    end)
+    deleteProfileButton:SetScript("OnClick", function()
+        if Common.DeleteThemeProfile(appearanceProfileName) then
+            Common.RefreshTheme()
+            RefreshAppearanceControls()
+        end
+    end)
+
+    for _, def in ipairs(Common.GetThemeColorDefinitions()) do
+        local control = MakeColorControl(content)
+        local row = { key = def.key, control = control }
+        appearanceRows[#appearanceRows + 1] = row
+        AddRow(content, def.label, control, def.help, 170, 44)
+        control:SetScript("OnClick", function()
+            if appearanceProfileName == Common.THEME_PROFILE_DEFAULT then return end
+            local current = Common.GetThemeProfile(appearanceProfileName)[def.key]
+            OpenColorPicker(current, function(color)
+                if Common.SetThemeProfileColor(appearanceProfileName, def.key, color) then
+                    Common.RefreshTheme()
+                    RefreshAppearanceControls()
+                end
+            end)
+        end)
+    end
+    RefreshAppearanceControls()
 
     -- ── Pricing ────────────────────────────────────────────────────────────
     FinalizeContentLayout()
@@ -1610,6 +1847,7 @@ local function BuildPanel()
 
     local function RefreshControlsFromOptions(o)
         if not o then return end
+        RefreshAppearanceControls()
         slScanDelay:SetValue(GetOptionValue(o, "scanDelay", GAM.C.DEFAULT_SCAN_DELAY))
         slVerbosity:SetValue(GetOptionValue(o, "debugVerbosity", GAM.C.DEFAULT_VERBOSITY))
         cbMinimap:SetChecked(not o.minimapHidden)
@@ -1672,17 +1910,20 @@ local function BuildPanel()
     panel.OnDefault = function() end
     panel.default = panel.OnDefault
 
-    -- Native Blizzard settings should not auto-apply on hide/cancel.
-    -- Standalone fallback keeps the historical apply-on-close behavior.
+    -- Closing discards drafts. Only the explicit apply action commits them.
     panel:SetScript("OnHide", function()
         if not nativeMode then
-            ApplySettings()
+            RefreshControlsFromOptions(GetOpts())
         end
     end)
 
     applyBtn:SetScript("OnClick", function()
+        ApplySettings()
         SettingsMod.Hide()
     end)
+    local cancelBtn = MakeButton(footer, CANCEL or "Cancel", 90)
+    cancelBtn:SetPoint("RIGHT", applyBtn, "LEFT", -8, 0)
+    cancelBtn:SetScript("OnClick", function() SettingsMod.Hide() end)
 
     -- Store reference so we can show/hide the apply button after registration attempt
     panel._applyBtn = applyBtn
@@ -1692,6 +1933,10 @@ end
 
 -- ===== Public API =====
 function SettingsMod.Init()
+    if wrapper then
+        RegisterSettingsCategory()
+        return
+    end
     local p = BuildPanel()
     nativeMode = false
     category = nil
@@ -1707,54 +1952,37 @@ function SettingsMod.Init()
         end)
     end
 
-    -- Attempt native Blizzard Settings registration
-    if BlizzardSettingsAPI and BlizzardSettingsAPI.RegisterCanvasLayoutCategory then
-        local ok, cat = pcall(BlizzardSettingsAPI.RegisterCanvasLayoutCategory, p, p.name)
-        if ok and cat then
-            pcall(BlizzardSettingsAPI.RegisterAddOnCategory, cat)
-            category   = cat
-            categoryID = ResolveCategoryID(cat)
-            nativeMode = true
-        end
-    elseif BlizzardSettingsAPI and BlizzardSettingsAPI.RegisterAddOnCategory then
-        local ok, cat = pcall(BlizzardSettingsAPI.RegisterAddOnCategory, p)
-        if ok then
-            category   = cat or p
-            categoryID = ResolveCategoryID(category)
-            nativeMode = true
-        end
-    elseif InterfaceOptions_AddCategory then
-        pcall(InterfaceOptions_AddCategory, p)
-        category = p
-        categoryID = ResolveCategoryID(p) or p.name
-        nativeMode = true
-    end
-
+    -- Use the standalone host consistently. Registering this anchored panel as
+    -- a 12.1 canvas can show only its child navigation over the game world.
     if not nativeMode then
-        -- Blizzard API unavailable: build a standalone draggable wrapper and show Apply button
-        wrapper = CreateFrame("Frame", "GAMSettingsWrapper", UIParent, "BackdropTemplate")
+        wrapper = CreateFrame("Frame", GAM.RuntimeName("GAMSettingsWrapper"), UIParent, "BackdropTemplate")
         wrapper:SetSize(800, 640)
         wrapper:SetPoint("CENTER", UIParent, "CENTER")
         wrapper:SetMovable(true)
         wrapper:EnableMouse(true)
+        wrapper:SetFrameStrata("DIALOG")
+        wrapper:SetToplevel(true)
         wrapper:RegisterForDrag("LeftButton")
         wrapper:SetScript("OnDragStart", wrapper.StartMoving)
         wrapper:SetScript("OnDragStop",  wrapper.StopMovingOrSizing)
-        wrapper:SetBackdrop({
-            bgFile   = "Interface\\Buttons\\WHITE8X8",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true, tileSize = 32, edgeSize = 32,
-            insets = { left = 11, right = 12, top = 12, bottom = 11 },
+        wrapper:SetBackdrop((Common and Common.THIN_BACKDROP) or {
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            tile = true, tileSize = 8, edgeSize = 1,
+            insets = { left = 1, right = 1, top = 1, bottom = 1 },
         })
-        wrapper:SetBackdropColor(0, 0, 0, 1)
-        local wbg = wrapper:CreateTexture(nil, "BACKGROUND", nil, -8)
+        wrapper:SetBackdropColor(0.055, 0.055, 0.062, 1)
+        wrapper:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.95)
+        local wbg = wrapper:CreateTexture(nil, "BACKGROUND")
         wbg:SetAllPoints()
-        wbg:SetColorTexture(0, 0, 0, 1)
+        wbg:SetColorTexture(0.055, 0.055, 0.062, 1)
+        wrapper._gamBackground = wbg
+        wrapper._gamIsSettingsFrame = true
         wrapper:Hide()
         WindowManager.Register(wrapper, "dialog")
 
         local wTitle = wrapper:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-        wTitle:SetPoint("TOP", wrapper, "TOP", 0, -14)
+        wTitle:SetPoint("TOPLEFT", wrapper, "TOPLEFT", 18, -14)
         wTitle:SetText(GAM.L["SETTINGS_NAME"])
         wTitle:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
 
@@ -1772,6 +2000,31 @@ function SettingsMod.Init()
 
         if p._setStandalone then p._setStandalone() end
     end
+
+    -- Register a separate, stable canvas so GAM remains discoverable in
+    -- Blizzard's AddOns list. The complex settings panel stays in our host.
+    RegisterSettingsCategory()
+end
+
+local function PresentStandaloneSettings()
+    if not (wrapper and panel) then
+        return false
+    end
+
+    -- The Blizzard settings canvas may retain or restore its former parent.
+    -- Repair the standalone relationship whenever this window is presented.
+    panel:SetParent(wrapper)
+    panel:ClearAllPoints()
+    panel:SetPoint("TOPLEFT", wrapper, "TOPLEFT", 14, -40)
+    panel:SetPoint("BOTTOMRIGHT", wrapper, "BOTTOMRIGHT", -14, 14)
+    wrapper:SetAlpha(1)
+    wrapper:SetFrameStrata("DIALOG")
+    wrapper:SetToplevel(true)
+    if wrapper._gamBackground then wrapper._gamBackground:Show() end
+    wrapper:Show()
+    panel:Show()
+    WindowManager.Present(wrapper, "dialog")
+    return true
 end
 
 -- Toggle standalone panel — always works regardless of nativeMode.
@@ -1784,8 +2037,7 @@ function SettingsMod.Toggle()
         if wrapper:IsShown() then
             wrapper:Hide()
         else
-            wrapper:Show()
-            WindowManager.Present(wrapper)
+            PresentStandaloneSettings()
         end
     elseif panel then
         if panel:IsShown() then panel:Hide() else panel:Show() end
@@ -1798,8 +2050,7 @@ function SettingsMod.Show()
         return
     end
     if wrapper then
-        wrapper:Show()
-        WindowManager.Present(wrapper)
+        PresentStandaloneSettings()
     elseif panel then
         panel:Show()
     end
@@ -1816,21 +2067,28 @@ function SettingsMod.Refresh()
     end
 end
 
+function SettingsMod.ShowStandalone()
+    return PresentStandaloneSettings()
+end
+
 -- OpenPanel: open the Blizzard Interface > AddOns panel to our category.
 -- Falls back to standalone wrapper/panel if the Blizzard API is unavailable or errors.
 function SettingsMod.OpenPanel()
     if nativeMode then
-        if categoryID and C_SettingsUtil and C_SettingsUtil.OpenSettingsPanel then
-            local ok, err = pcall(C_SettingsUtil.OpenSettingsPanel, categoryID)
-            if ok then return end
-            LogWarn("C_SettingsUtil.OpenSettingsPanel failed for categoryID=%s: %s",
-                tostring(categoryID), tostring(err))
-        end
-
+        -- Retail's current Settings API expects the registered category ID.
+        -- Prefer it over the older C_SettingsUtil path so right-clicking the
+        -- minimap button lands on GAM's page instead of the generic AddOns list.
         if categoryID and BlizzardSettingsAPI and BlizzardSettingsAPI.OpenToCategory then
             local ok, err = pcall(BlizzardSettingsAPI.OpenToCategory, categoryID)
             if ok then return end
             LogWarn("Settings.OpenToCategory failed for categoryID=%s: %s",
+                tostring(categoryID), tostring(err))
+        end
+
+        if categoryID and C_SettingsUtil and C_SettingsUtil.OpenSettingsPanel then
+            local ok, err = pcall(C_SettingsUtil.OpenSettingsPanel, categoryID)
+            if ok then return end
+            LogWarn("C_SettingsUtil.OpenSettingsPanel failed for categoryID=%s: %s",
                 tostring(categoryID), tostring(err))
         end
 
@@ -1853,8 +2111,7 @@ function SettingsMod.OpenPanel()
 
     -- Fallback: show standalone directly (no Toggle call — avoids any recursion)
     if wrapper then
-        wrapper:Show()
-        WindowManager.Present(wrapper)
+        PresentStandaloneSettings()
     elseif panel then
         panel:Show()
     end

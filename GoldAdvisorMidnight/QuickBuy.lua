@@ -114,6 +114,13 @@ function QuickBuy.CreateController(deps)
     end
 
     function controller:Reset()
+        -- Hiding the UI cannot revoke a purchase already submitted to the AH.
+        -- Keep its identity until success/failure so reopening cannot buy it twice.
+        if self.state.phase == "purchasing" then
+            self.state.active = false
+            Changed()
+            return
+        end
         if self.state.phase ~= "idle" and self.state.phase ~= "complete" then
             CancelQuote()
         end
@@ -237,10 +244,16 @@ function QuickBuy.CreateController(deps)
             state.active = false
         end
         Changed()
+        if state.phase == "complete" and deps.onComplete then
+            deps.onComplete(controller)
+        end
         return true
     end
 
     function controller:Skip()
+        if self.state.phase == "purchasing" then
+            return false, L("QB_ERR_BUSY", "The current purchase is still being processed.")
+        end
         if self.state.phase == "quoting" or self.state.phase == "approval" or self.state.phase == "purchasing" then
             CancelQuote()
             ClearPending()
@@ -263,6 +276,15 @@ end
 local controller
 local window
 local refs = {}
+
+local function DismissWindow()
+    if controller then controller:Reset() end
+    if window and window:IsShown() then
+        window._gamDismissInProgress = true
+        window:Hide()
+        window._gamDismissInProgress = nil
+    end
+end
 
 local function FormatMoney(value)
     if value and GAM.Pricing and GAM.Pricing.FormatPrice then
@@ -316,6 +338,8 @@ local function RefreshWindow()
         or "")
 
     local status
+    -- An acceptable quote is confirmed by the existing controller. The button
+    -- must disclose that this starts a purchase, not just a price lookup.
     local buttonText = L("QB_BUY_NEXT", "Buy Next")
     local enabled = true
     if state.phase == "quoting" then
@@ -343,14 +367,17 @@ local function RefreshWindow()
     refs.buy:SetText(buttonText)
     refs.buy:SetEnabled(enabled and entry ~= nil)
     refs.buy:SetAlpha((enabled and entry ~= nil) and 1 or 0.5)
-    refs.skip:SetEnabled(#entries > 0)
-    refs.skip:SetAlpha(#entries > 0 and 1 or 0.5)
+    local canSkip = #entries > 0 and state.phase ~= "purchasing"
+    refs.skip:SetEnabled(canSkip)
+    refs.skip:SetAlpha(canSkip and 1 or 0.5)
 end
 
 local function BuildWindow()
     if window then return end
-    window = CreateFrame("Frame", "GAMQuickBuyWindow", UIParent, "BackdropTemplate")
-    window:SetSize(430, 238)
+    window = CreateFrame("Frame", GAM.RuntimeName("GAMQuickBuyWindow"), UIParent, "BackdropTemplate")
+    window:SetSize(500, 230)
+    window:SetScale((GAM.GetOption and GAM:GetOption("uiScale", 1.0)) or 1.0)
+    window:SetClampedToScreen(true)
     window:SetPoint("CENTER", UIParent, "CENTER", 180, 40)
     window:SetFrameStrata("DIALOG")
     window:SetMovable(true)
@@ -364,31 +391,51 @@ local function BuildWindow()
         edgeSize = 1,
         insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    window:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
-    window:SetBackdropBorderColor(1, 0.82, 0, 0.9)
+    window:SetBackdropColor(0.055, 0.055, 0.062, 0.99)
+    window:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
+    -- Initial hide must not notify the controller before UI refs exist.
     window:Hide()
+    window:SetScript("OnHide", function(self)
+        if not self._gamDismissInProgress and not self._gamConfirmedComplete then
+            controller:Reset()
+        end
+        self._gamConfirmedComplete = nil
+    end)
+    -- Register after the OnHide contract is installed.  WindowManager only
+    -- hooks lifecycle events, so the initial Hide below remains callback-safe
+    -- and subsequent shows reapply the shared secondary chrome.
+    local windowManager = GAM.UI and GAM.UI.WindowManager
+    if windowManager and windowManager.Register then
+        windowManager.Register(window, "dialog")
+    end
+    if UISpecialFrames then
+        table.insert(UISpecialFrames, window:GetName())
+    end
 
     local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", window, "TOP", 0, -14)
+    title:SetPoint("TOPLEFT", window, "TOPLEFT", 16, -14)
     title:SetText(L("BTN_QUICK_BUY_SHORT", "Quick Buy"))
-    title:SetTextColor(1, 0.82, 0)
+    title:SetTextColor(0.96, 0.82, 0.36, 1)
+
+    local headerRule = window:CreateTexture(nil, "ARTWORK")
+    headerRule:SetHeight(1)
+    headerRule:SetPoint("TOPLEFT", window, "TOPLEFT", 0, -40)
+    headerRule:SetPoint("TOPRIGHT", window, "TOPRIGHT", 0, -40)
+    headerRule:SetColorTexture(0.38, 0.32, 0.14, 0.65)
 
     local close = CreateFrame("Button", nil, window, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", window, "TOPRIGHT", -2, -2)
-    close:SetScript("OnClick", function()
-        controller:Reset()
-        window:Hide()
-    end)
+    close:SetScript("OnClick", DismissWindow)
 
     refs.progress = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    refs.progress:SetPoint("TOPLEFT", window, "TOPLEFT", 20, -47)
+    refs.progress:SetPoint("LEFT", title, "RIGHT", 12, 0)
     refs.progress:SetTextColor(0.7, 0.7, 0.7)
 
     refs.item = window:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    refs.item:SetPoint("TOPLEFT", refs.progress, "BOTTOMLEFT", 0, -12)
+    refs.item:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -58)
     refs.item:SetPoint("RIGHT", window, "RIGHT", -20, 0)
     refs.item:SetJustifyH("LEFT")
-    refs.item:SetTextColor(1, 0.82, 0)
+    refs.item:SetTextColor(0.96, 0.82, 0.36, 1)
 
     refs.quantity = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     refs.quantity:SetPoint("TOPLEFT", refs.item, "BOTTOMLEFT", 0, -9)
@@ -404,23 +451,35 @@ local function BuildWindow()
     refs.status:SetWordWrap(true)
     refs.status:SetTextColor(0.9, 0.9, 0.9)
 
-    refs.buy = CreateFrame("Button", "GAMQuickBuyBtn", window, "UIPanelButtonTemplate")
-    refs.buy:SetSize(180, 26)
-    refs.buy:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", 20, 18)
+    refs.buy = CreateFrame("Button", GAM.RuntimeName("GAMQuickBuyBtn"), window, "UIPanelButtonTemplate")
+    refs.buy:SetSize(176, 28)
+    refs.buy:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -18, 14)
     refs.buy:SetScript("OnClick", function() controller:Click() end)
 
     refs.skip = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-    refs.skip:SetSize(94, 26)
-    refs.skip:SetPoint("LEFT", refs.buy, "RIGHT", 8, 0)
+    refs.skip:SetSize(120, 26)
+    refs.skip:SetPoint("RIGHT", refs.buy, "LEFT", -8, 0)
     refs.skip:SetText(L("QB_SKIP", "Skip"))
     refs.skip:SetScript("OnClick", function() controller:Skip() end)
 
-    local stop = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-    stop:SetSize(94, 26)
-    stop:SetPoint("LEFT", refs.skip, "RIGHT", 8, 0)
-    stop:SetText(L("QB_STOP", "Stop"))
-    stop:SetScript("OnClick", function() controller:Reset() end)
+    local footerRule = window:CreateTexture(nil, "ARTWORK")
+    footerRule:SetHeight(1)
+    footerRule:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", 0, 54)
+    footerRule:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", 0, 54)
+    footerRule:SetColorTexture(0.38, 0.32, 0.14, 0.65)
 
+    local footer = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    footer:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", 18, 23)
+    footer:SetText("Purchases remain explicit")
+    footer:SetTextColor(0.68, 0.68, 0.72, 1)
+
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if common and common.StyleComfortableButton then
+        common.StyleComfortableButton(refs.buy, true)
+        common.StyleComfortableButton(refs.skip, false)
+    end
+
+    if common and common.StyleSecondaryWindow then common.StyleSecondaryWindow(window) end
     RefreshWindow()
 end
 
@@ -449,6 +508,12 @@ function QuickBuy.Init()
         onPurchased = function(entry, _, list)
             RemoveAuctionatorEntry(entry, list)
         end,
+        onComplete = function()
+            if window and window:IsShown() then
+                window._gamConfirmedComplete = true
+                window:Hide()
+            end
+        end,
         onChanged = function(activeController)
             GAM.quickBuyState = activeController.state
             GAM.quickBuyList = activeController:GetList()
@@ -476,7 +541,7 @@ end
 function QuickBuy.Toggle()
     QuickBuy.Init()
     if window:IsShown() then
-        window:Hide()
+        DismissWindow()
     else
         QuickBuy.Show()
     end
@@ -484,6 +549,10 @@ end
 
 function QuickBuy.Reset()
     if controller then controller:Reset() end
+end
+
+function QuickBuy.Hide()
+    DismissWindow()
 end
 
 function QuickBuy.OnPriceUpdated(unitPrice, totalPrice)

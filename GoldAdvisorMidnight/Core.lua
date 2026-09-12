@@ -3,7 +3,9 @@
 -- Module: GAM (root)
 
 local ADDON_NAME, GAM = ...
-local workbookProfiles = (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+local workbookProfiles = (GAM.WorkbookGenerated and GAM.WorkbookGenerated.formulaProfiles) or {}
+-- Reuse production SavedVariables; isolated development settings are not imported.
+local DB_GLOBAL_NAME = "GoldAdvisorMidnightDB"
 
 local function ProfileDefault(profileKey, field, fallback)
     local profile = workbookProfiles[profileKey]
@@ -104,6 +106,11 @@ local DB_DEFAULTS = {
         characters = {},
     },
     userStrats = {},   -- user-created strategies (same schema as GAM_STRATS_MANUAL entries)
+    -- Account-wide appearance profiles. The selected profile is tracked per
+    -- character so each toon can choose its own look from the shared list.
+    activeThemeProfile = "Default",
+    themeProfileSelections = {},
+    themeProfiles = {},
 }
 
 -- ===== Migrations =====
@@ -374,6 +381,21 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        -- dataVersion 20: Add account-wide appearance profile storage.
+        dataVersion = 20,
+        migrate = function(db)
+            if type(db.themeProfiles) ~= "table" then
+                db.themeProfiles = {}
+            end
+            if type(db.themeProfileSelections) ~= "table" then
+                db.themeProfileSelections = {}
+            end
+            if type(db.activeThemeProfile) ~= "string" or db.activeThemeProfile == "" then
+                db.activeThemeProfile = "Default"
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)
@@ -478,8 +500,8 @@ handlers["ADDON_LOADED"] = function(self, _, name)
 
     -- Initialize only the containers migrations need. Full defaults must come
     -- afterward so they cannot mask legacy values a migration needs to inspect.
-    GoldAdvisorMidnightDB = GoldAdvisorMidnightDB or {}
-    self.db = GoldAdvisorMidnightDB
+    _G[DB_GLOBAL_NAME] = _G[DB_GLOBAL_NAME] or {}
+    self.db = _G[DB_GLOBAL_NAME]
     self.db.options = type(self.db.options) == "table" and self.db.options or {}
 
     local migrationsOK = RunMigrations(self.db)
@@ -571,7 +593,7 @@ end
 local ahBtn
 local function GetOrCreateAHButton()
     if ahBtn then return ahBtn end
-    ahBtn = CreateFrame("Button", "GAMAHButton", AuctionHouseFrame)
+    ahBtn = CreateFrame("Button", GAM.RuntimeName("GAMAHButton"), AuctionHouseFrame)
     ahBtn:SetSize(26, 26)
     local closeBtn = AuctionHouseFrame.CloseButton or _G["AuctionHouseFrameCloseButton"]
     if closeBtn then
@@ -742,9 +764,11 @@ GAM:RegisterEvent("COMMODITY_PURCHASE_SUCCEEDED")
 GAM:RegisterEvent("COMMODITY_PURCHASE_FAILED")
 
 -- ===== Slash command =====
-SLASH_GOLDADVISORMIDNIGHT1 = "/gam"
-SLASH_GOLDADVISORMIDNIGHT2 = "/goldadvisor"
-SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
+local slashKey = ADDON_NAME:upper():gsub("[^A-Z0-9]", "")
+local primarySlash = GAM.C.PRIMARY_SLASH_COMMAND
+_G["SLASH_" .. slashKey .. "1"] = primarySlash
+_G["SLASH_" .. slashKey .. "2"] = "/goldadvisor"
+SlashCmdList[slashKey] = function(input)
     local rawInput = input or ""
     local command, argument = rawInput:match("^%s*(%S*)%s*(.-)%s*$")
     local cmd = tostring(command or ""):lower()
@@ -752,6 +776,10 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
         if GAM.UI and GAM.UI.DebugLog then
             GAM.UI.DebugLog.Toggle()
         end
+    elseif cmd == "settings" or cmd == "options" then
+        if GAM.Settings then GAM.Settings.OpenPanel() end
+    elseif cmd == "auditrecipes" then
+        if GAM.RecipeAudit then GAM.RecipeAudit.Run(argument) end
     elseif cmd == "help" then
         print("|cffff8800[GAM]|r " .. GAM.L["MSG_COMMAND_HELP"])
     elseif cmd == "globalstartqty" then
@@ -760,8 +788,8 @@ SlashCmdList["GOLDADVISORMIDNIGHT"] = function(input)
                 and GAM.State.GetGlobalStartingCrafts()
                 or GAM.C.DEFAULT_STARTING_CRAFTS
             print(string.format(
-                "|cffff8800[GAM]|r Global starting crafts: %d. Usage: /gam globalstartqty <quantity>",
-                qty))
+                "|cffff8800[GAM%s]|r Global starting crafts: %d. Usage: %s globalstartqty <quantity>",
+                "", qty, primarySlash))
             return
         end
 

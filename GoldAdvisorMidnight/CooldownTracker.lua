@@ -58,7 +58,7 @@ local function CurrentIdentity()
 end
 
 local function EnsureCache()
-    local db = GAM.db or GoldAdvisorMidnightDB
+    local db = GAM.db or _G[ADDON_NAME .. "DB"]
     if type(db) ~= "table" then
         return nil
     end

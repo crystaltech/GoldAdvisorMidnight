@@ -8,6 +8,11 @@
 if GetLocale() ~= "ptBR" then return end
 local _, GAM = ...
 local L = GAM.L  -- base table already created by Locale.lua; override keys below
+L["BTN_GET_CRAFT_PRICE"] = "Obter preço de criação"
+L["TT_GET_CRAFT_PRICE_TITLE"] = "Obter o preço da criação selecionada"
+L["TT_GET_CRAFT_PRICE_BODY"] = "Atualiza os preços da Casa de Leilões para a receita selecionada e seus materiais. Use Shift+clique para escanear os favoritos visíveis."
+L["BTN_QUEUE_CRAFTSIM"] = "Enfileirar no CraftSim"
+L["TT_QUEUE_CRAFTSIM"] = "Valida o plano completo e depois o adiciona ao CraftSim."
 
 -- Conclusão da revisão: configurações, recargas e ferramentas auxiliares
 L["BTN_COMPACT_DETAIL"] = "DETALHE"
@@ -225,7 +230,7 @@ L["V2_TOOLS_TITLE"]        = "Tools"
 L["V2_BEST_TITLE"]         = "Best Strat"
 L["V2_ALL_STRATS"]         = "All Strats"
 L["V2_MY_PROFS"]           = "My Profs"
-L["V2_ALL_FILTER"]         = "All"
+L["V2_ALL_FILTER"]         = "Todas as profissões"
 L["V2_FILL_QTY"]           = "Fill Qty"
 L["V2_CRAFT_STATS"]        = "Craft Stats"
 L["V2_MATERIAL_RANK"]      = "Mat Rank"
@@ -435,3 +440,6 @@ L["VI_TT_ROW"] = "Uma etapa de criação ou compra"
 L["VI_TT_USED_CHAIN_COST"] = "Custo do caminho de criação: %s"
 L["VI_TT_USED_TOTAL_COST"] = "Custo total usado: %s"
 L["VI_TT_USED_UNIT_PRICE"] = "Preço unitário usado: %s"
+
+L["VI_TT_OUTPUT_ESTIMATE"] = "A quantidade produzida é uma estimativa. Confira o resultado antes de iniciar a próxima etapa."
+L["VI_HDR_CRAFT_QTY"] = "Fabricações"

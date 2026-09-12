@@ -8,6 +8,11 @@
 if GetLocale() ~= "zhCN" then return end
 local _, GAM = ...
 local L = GAM.L  -- base table already created by Locale.lua; override keys below
+L["BTN_GET_CRAFT_PRICE"] = "获取制造价格"
+L["TT_GET_CRAFT_PRICE_TITLE"] = "获取所选制造价格"
+L["TT_GET_CRAFT_PRICE_BODY"] = "更新所选配方及其材料的拍卖行价格。按住 Shift 点击可扫描可见的收藏项。"
+L["BTN_QUEUE_CRAFTSIM"] = "加入 CraftSim 队列"
+L["TT_QUEUE_CRAFTSIM"] = "验证完整执行计划，然后将其添加到 CraftSim。"
 
 -- 审核补全：设置、冷却与辅助工具
 L["BTN_COMPACT_DETAIL"] = "详情"
@@ -225,7 +230,7 @@ L["V2_TOOLS_TITLE"]        = "策略工具"
 L["V2_BEST_TITLE"]         = "最佳策略"
 L["V2_ALL_STRATS"]         = "全部策略"
 L["V2_MY_PROFS"]           = "我的专业"
-L["V2_ALL_FILTER"]         = "全部"
+L["V2_ALL_FILTER"]         = "所有专业"
 L["V2_FILL_QTY"]           = "填充数量"
 L["V2_CRAFT_STATS"]        = "制造属性"
 L["V2_MATERIAL_RANK"]      = "材料等级"
@@ -436,3 +441,6 @@ L["VI_TT_ROW"] = "一个制作或购买步骤"
 L["VI_TT_USED_CHAIN_COST"] = "制作路径成本：%s"
 L["VI_TT_USED_TOTAL_COST"] = "采用的总成本：%s"
 L["VI_TT_USED_UNIT_PRICE"] = "采用的单价：%s"
+
+L["VI_TT_OUTPUT_ESTIMATE"] = "产出数量为估算值。开始下一步前请确认实际结果。"
+L["VI_HDR_CRAFT_QTY"] = "制作次数"

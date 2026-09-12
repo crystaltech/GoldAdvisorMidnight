@@ -379,7 +379,13 @@ function Engine.Install(Pricing, deps)
             0,
             nil,
             GetV2StatsForStrat(strat, (ctx and ctx.opts) or GetOpts(), ctx))
-        return formulaResult and formulaResult.expectedOutput or baseYield
+        -- The first result is deliberately the output expected from one
+        -- material pool.  Execution planning also needs the formula metadata:
+        -- exhaust-materials profiles can turn one pool into more than one
+        -- actual craft attempt through Resourcefulness.  Keep the public
+        -- numeric result intact for pricing callers while exposing that
+        -- distinction to the queue planner as an optional second return.
+        return formulaResult and formulaResult.expectedOutput or baseYield, formulaResult
     end
 
     local function BuildV2SingleOutputMetrics(ctx, primaryOut, outputQtyRaw, outPrice, outMissingPrice, missingPrices)

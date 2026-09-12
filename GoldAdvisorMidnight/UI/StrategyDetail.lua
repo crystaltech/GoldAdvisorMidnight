@@ -280,7 +280,7 @@ local function CreateAuctionatorList()
     local result = canonicalResult or GAM.PricingFacade.CalculateCurrent(currentStrat, currentPatch)
     if not result then return end
 
-    local addonName  = "GoldAdvisorMidnight"
+    local addonName  = ADDON_NAME
     local hasConvert = type(Auctionator.API.v1.ConvertToSearchString) == "function"
     local searchStrings, qtySummary = {}, {}
 
@@ -604,8 +604,8 @@ local function PopulateOutputRow(row, outputMetric, isPrimary)
     row.nameText:SetText(display.displayText)
     BindItemRow(row, display)
 
-    local qtyStr = outputMetric.expectedQty
-        and string.format("%.0f", math.floor(outputMetric.expectedQty)) or "—"
+    local averageQty = outputMetric.expectedQtyRaw or outputMetric.expectedQty
+    local qtyStr = averageQty and string.format("%.1f", averageQty):gsub("%.0$", "") or "—"
     row.qtyEB:Hide()
     row.qtyFS:Show()
     row.qtyFS:SetText(qtyStr)
@@ -629,9 +629,9 @@ local function Build()
     local GR,  GG,  GB  = 1.0, 0.82, 0.0   -- gold accent
     local GDR, GDG, GDB = 0.7, 0.57, 0.0   -- dimmed gold for rules/borders
 
-    frame = CreateFrame("Frame", "GoldAdvisorMidnightStrategyDetail", UIParent,
+    frame = CreateFrame("Frame", GAM.RuntimeName("GoldAdvisorMidnightStrategyDetail"), UIParent,
         "BackdropTemplate")
-    _G["GoldAdvisorMidnightStratDetail"] = frame -- Legacy named-frame alias.
+    _G[GAM.RuntimeName("GoldAdvisorMidnightStratDetail")] = frame -- Legacy named-frame alias.
     frame:SetSize(WIN_W, WIN_H)
     frame:SetPoint("CENTER", UIParent, "CENTER")  -- placeholder so child scroll frames get valid width at build time
     frame:SetScale(GetUIScale())
@@ -643,21 +643,22 @@ local function Build()
     frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
     frame:SetBackdrop({
         bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left=11, right=12, top=12, bottom=11 },
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 1,
+        insets = { left=1, right=1, top=1, bottom=1 },
     })
-    frame:SetBackdropColor(0, 0, 0, 1)
+    frame:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    frame:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
     -- Explicit solid fill guards against backdrop edge cases (strata clipping, alpha inheritance).
     local bgTex = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     bgTex:SetAllPoints()
-    bgTex:SetColorTexture(0, 0, 0, 1)
+    bgTex:SetColorTexture(0.055, 0.055, 0.062, 1)
     frame:Hide()
     WindowManager.Register(frame, "dialog")
 
     -- Title
     local titleFS = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    titleFS:SetPoint("TOP", frame, "TOP", 0, -10)
+    titleFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -10)
     titleFS:SetText(L["DETAIL_TITLE"])
     frame.titleFS = titleFS
 
@@ -944,61 +945,88 @@ local function Build()
     scanAllBtn:SetSize(110, 22)
     scanAllBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, 20)
     scanAllBtn:SetText(L["BTN_SCAN_ALL_ITEMS"])
+    scanAllBtn:SetText("Scan")
     scanAllBtn:SetScript("OnClick", function()
-        if not GAM.ahOpen or not currentStrat then return end
-        GAM.AHScan.StopScan()
-        GAM.AHScan.ResetQueue()
-        local pdb = GetPDB()
-        local active = (GAM.Pricing and GAM.Pricing.GetActiveRecipeView and GAM.Pricing.GetActiveRecipeView(currentStrat)) or currentStrat
-        local seenIDs = {}
-        local seenNames = {}
-        local function queueItem(item)
-            if not item then return end
-            local itemName = item.name or item.itemRef
-            local ids = item.itemIDs
-            if (not ids or #ids == 0) and itemName then ids = pdb.rankGroups[itemName] or {} end
-            if ids and #ids > 0 then
-                for _, id in ipairs(ids) do
-                    if not seenIDs[id] then
-                        seenIDs[id] = true
-                        GAM.AHScan.QueueItemScan(id, function() SD.Refresh() end)
-                    end
-                end
-            else
-                if not itemName then return end
-                local nameKey = itemName .. "@" .. tostring(currentPatch or GAM.C.DEFAULT_PATCH)
-                if not seenNames[nameKey] then
-                    seenNames[nameKey] = true
-                    GAM.AHScan.QueueNameScan(itemName, currentPatch, function() SD.Refresh() end)
-                end
-            end
+        if GAM.UI.MainWindow and GAM.UI.MainWindow.ScanWithModifiers then
+            GAM.UI.MainWindow.ScanWithModifiers(currentStrat, currentPatch)
         end
-        queueItem(active.output)
-        if active.outputs then
-            for _, o in ipairs(active.outputs) do queueItem(o) end
-        end
-        -- Use the expanded reagent list from the last metrics computation so that
-        -- Scan All queues raw materials (ores, herbs) when vertical integration is on,
-        -- not the intermediate crafted items (ingots, pigments) from the base recipe.
-        local activeReagents = detailProjection and detailProjection.reagents
-        if activeReagents and #activeReagents > 0 then
-            for _, r in ipairs(activeReagents) do
-                queueItem({ itemIDs = r.itemID and {r.itemID} or {}, name = r.name })
-            end
-        else
-            for _, r in ipairs(active.reagents or {}) do queueItem(r) end
-        end
-        local extraScanItems = (GAM.Pricing and GAM.Pricing.GetExtraScanItems and GAM.Pricing.GetExtraScanItems(currentStrat, currentPatch)) or {}
-        for _, extra in ipairs(extraScanItems) do queueItem(extra) end
-        GAM.AHScan.StartScan()
     end)
     scanAllBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText(GAM.L["TT_SCAN_ALL_ITEMS_TITLE"], 1, 1, 1)
-        GameTooltip:AddLine(GAM.L["TT_SCAN_ALL_ITEMS_BODY"], 1, 0.82, 0, true)
+        GameTooltip:AddLine(GAM.UI.MainWindowCommon.SCAN_HELP, 1, 0.82, 0, true)
         GameTooltip:Show()
     end)
     scanAllBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local refreshRecipeBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    refreshRecipeBtn:SetSize(120, 22)
+    refreshRecipeBtn:SetText((L and L["BTN_REFRESH_RECIPE"]) or "Refresh Recipe")
+    refreshRecipeBtn:SetScript("OnClick", function()
+        local stats = GAM.CraftingStats
+        if not currentStrat or not stats or not stats.OpenRecipeForStrat then return end
+        local opened, reason = stats.OpenRecipeForStrat(currentStrat, function()
+            SD.Refresh()
+        end, function(asyncReason)
+            print("|cffff8800[GAM]|r Could not refresh the selected recipe: " .. tostring(asyncReason or "unknown"))
+        end)
+        if not opened then
+            print("|cffff8800[GAM]|r Could not open the selected recipe: " .. tostring(reason or "unknown"))
+        end
+    end)
+
+    local infoBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    infoBtn:SetSize(64, 22)
+    infoBtn:SetText("Info")
+    local infoPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    infoPanel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 110)
+    infoPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, 110)
+    infoPanel:SetHeight(300)
+    infoPanel:SetFrameLevel(frame:GetFrameLevel() + 20)
+    infoPanel:EnableMouse(true)
+    infoPanel:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    infoPanel:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    infoPanel:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
+    local infoClose = CreateFrame("Button", nil, infoPanel, "UIPanelCloseButton")
+    infoClose:SetPoint("TOPRIGHT", infoPanel, "TOPRIGHT", 0, 0)
+    infoClose:SetScript("OnClick", function() infoPanel:Hide() end)
+    local infoTitle = infoPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    infoTitle:SetPoint("TOPLEFT", infoPanel, "TOPLEFT", 12, -12)
+    infoTitle:SetText("Calculation information")
+    local infoScroll = CreateFrame("ScrollFrame", nil, infoPanel, "UIPanelScrollFrameTemplate")
+    infoScroll:SetPoint("TOPLEFT", infoPanel, "TOPLEFT", 12, -38)
+    infoScroll:SetPoint("BOTTOMRIGHT", infoPanel, "BOTTOMRIGHT", -30, 12)
+    local infoContent = CreateFrame("Frame", nil, infoScroll)
+    infoContent:SetWidth(WIN_W - 70)
+    infoContent:SetHeight(1)
+    infoScroll:SetScrollChild(infoContent)
+    local infoText = infoContent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    infoText:SetPoint("TOPLEFT", infoContent, "TOPLEFT", 0, 0)
+    infoText:SetWidth(WIN_W - 70)
+    infoText:SetJustifyH("LEFT")
+    infoText:SetWordWrap(true)
+    frame.RefreshInfo = function()
+        local projection = detailProjection or {}
+        local parts = {}
+        for _, key in ipairs({"statsTooltip", "gearTooltip", "nodeBonusTooltip"}) do
+            local value = projection[key]
+            if value and value ~= "" then parts[#parts + 1] = value end
+        end
+        infoText:SetText(#parts > 0 and table.concat(parts, "\n\n") or "No captured calculation information is available for this recipe.")
+        local height = infoText:GetStringHeight() + 8
+        infoContent:SetHeight(height)
+        infoPanel:SetHeight(math.min(frame:GetHeight() - 150, math.max(110, height + 50)))
+        infoScroll:SetVerticalScroll(math.min(infoScroll:GetVerticalScroll(),
+            math.max(0, height - infoScroll:GetHeight())))
+        if infoScroll.ScrollBar then infoScroll.ScrollBar:SetShown(height > infoScroll:GetHeight()) end
+    end
+    infoBtn:SetScript("OnClick", function()
+        frame.RefreshInfo()
+        infoPanel:SetShown(not infoPanel:IsShown())
+    end)
+    infoPanel:Hide()
+    frame:HookScript("OnHide", function() infoPanel:Hide() end)
 
     local function RelayoutBottomButtons()
         rankToggleBtn:SetWidth(MeasureButtonWidth(frame, rankToggleBtn:GetText(), 80, 180, 24))
@@ -1006,7 +1034,7 @@ local function Build()
         btnCraftSim:SetWidth(MeasureButtonWidth(frame, btnCraftSim:GetText(), 140, 300, 24))
         scanAllBtn:SetWidth(MeasureButtonWidth(frame, scanAllBtn:GetText(), 110, 260, 24))
         local info = LayoutButtonRowBottom(frame,
-            { rankToggleBtn, btnAuctionator, btnCraftSim, scanAllBtn },
+            { rankToggleBtn, btnAuctionator, btnCraftSim, scanAllBtn, refreshRecipeBtn, infoBtn },
             { left = 14, right = WIN_W - 14, bottom = 12, gap = 8, rowGap = 4, align = "center" })
         local profitY    = PROFIT_BASE_Y
         local lowerBound = info.top + MIN_NOTICE_GAP_ABOVE_BUTTONS
@@ -1029,6 +1057,13 @@ local function Build()
             lowerBound, upperBound, noticeY)
     end
     frame.RelayoutBottomButtons = RelayoutBottomButtons
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if common and common.StyleComfortableButton then
+        for _, button in ipairs({ rankToggleBtn, btnAuctionator, btnCraftSim, scanAllBtn, infoBtn }) do
+            common.StyleComfortableButton(button, false)
+        end
+        common.StyleComfortableButton(refreshRecipeBtn, true)
+    end
     RelayoutBottomButtons()
 
 end
@@ -1039,7 +1074,7 @@ function SD.Show(strat, patchTag)
     if not frame then Build() end
     if not positioned then
         frame:ClearAllPoints()
-        local mwF = _G["GoldAdvisorMidnightMainWindow"]
+        local mwF = _G[GAM.RuntimeName("GoldAdvisorMidnightMainWindow")]
         if mwF then
             local screenW = UIParent:GetWidth()
             local mwRight = mwF:GetRight() or (screenW / 2 + 360)
@@ -1075,6 +1110,7 @@ function SD.Refresh()
     local detailSnapshot, snapshotErr = StrategyDetailModel.CreateSnapshot(nextCanonicalResult)
     canonicalResult = detailSnapshot and detailSnapshot.canonicalResult or nextCanonicalResult
     detailProjection = detailSnapshot and detailSnapshot.projection or nil
+    if frame.RefreshInfo then frame.RefreshInfo() end
     if not detailSnapshot and GAM.Log and GAM.Log.Warn then
         GAM.Log.Warn("Canonical fallback detail projection failed for '%s': %s",
             tostring(currentStrat.stratName or currentStrat.id or "?"),

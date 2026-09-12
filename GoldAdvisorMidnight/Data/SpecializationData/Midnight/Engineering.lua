@@ -17,7 +17,8 @@
 
 local ADDON_NAME, GAM = ...
 
-GAM_SPECIALIZATION_DATA = GAM_SPECIALIZATION_DATA or {}
+GAM.SpecializationData = GAM.SpecializationData or {}
+local GAM_SPECIALIZATION_DATA = GAM.SpecializationData
 GAM_SPECIALIZATION_DATA.MIDNIGHT = GAM_SPECIALIZATION_DATA.MIDNIGHT or {}
 
 local PROFILES = { engineering_craft = true, engineering_recycling = true }

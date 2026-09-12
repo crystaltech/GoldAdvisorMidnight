@@ -220,6 +220,16 @@ function CenterUI.RefreshRows(args)
         return scrollOffset
     end
 
+    local rowsAdded = false
+    if visibleRows > #rowFrames and frame._gamMainListHost and frame._gamMainRowArgs then
+        for i = #rowFrames + 1, visibleRows do
+            rowFrames[i] = CenterUI.MakeRowFrame(frame._gamMainRowArgs, frame._gamMainListHost, i)
+            rowFrames[i]:Hide()
+            rowsAdded = true
+        end
+    end
+    if rowsAdded and args.onRowsAdded then args.onRowsAdded() end
+
     for i, row in ipairs(rowFrames) do
         local strat = filteredList[scrollOffset + i]
         if strat and i <= visibleRows then
@@ -279,6 +289,7 @@ function CenterUI.Build(args)
     local layoutMode = args.layoutMode or "classic"
     local columnHeaderColor = (layoutMode == "soft") and mutedTextColor or gold
     local visibleRows = args.visibleRows or 30
+    local initialRowPool = math.min(args.initialRowPool or visibleRows, visibleRows)
     local getVisibleListRows = args.getVisibleListRows or function() return visibleRows end
     local getFilteredList = args.getFilteredList or function() return {} end
     local getScrollOffset = args.getScrollOffset or function() return 0 end
@@ -295,7 +306,11 @@ function CenterUI.Build(args)
     local doScan = args.doScan or Noop
 
     local bestStratCardShell, bestStratCard
-    if layoutMode == "soft" then
+    if layoutMode == "comfortable" then
+        bestStratCardShell = CreateFrame("Frame", nil, centerPanel)
+        bestStratCard = bestStratCardShell
+        bestStratCardShell:Hide()
+    elseif layoutMode == "soft" then
         bestStratCardShell = guidePanel
         bestStratCard = guidePanel
     else
@@ -378,6 +393,10 @@ function CenterUI.Build(args)
     end)
     infoButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
     bestStratCard.infoButton = infoButton
+    if layoutMode == "comfortable" then
+        infoTitle:Hide()
+        infoButton:Hide()
+    end
 
     local colHeaderBtns = {}
     for i = 1, 3 do
@@ -401,9 +420,10 @@ function CenterUI.Build(args)
         colHeaderBtns[i] = btn
     end
 
-    local listTitleTop = (layoutMode == "soft") and 10 or (cardHeight + 14)
+    local listTitleTop = (layoutMode == "soft" or layoutMode == "comfortable") and 10 or (cardHeight + 14)
     local listHeaderTop = headerTopOffset or (cardHeight + listSectionHeight + 12)
-    local listHostTop = (layoutMode == "soft") and (listHeaderTop + headerHeight + 8) or (listTopPad + 4)
+    local listHostTop = (layoutMode == "soft" or layoutMode == "comfortable")
+        and (listHeaderTop + headerHeight + 8) or (listTopPad + 4)
 
     local hdrSep = listPanel:CreateTexture(nil, "ARTWORK")
     hdrSep:SetHeight(1)
@@ -424,12 +444,14 @@ function CenterUI.Build(args)
     listHost:SetClipsChildren(true)
 
     local rowFrames = {}
-    for i = 1, visibleRows do
+    for i = 1, initialRowPool do
         rowFrames[i] = CenterUI.MakeRowFrame(makeRowArgs, listHost, i)
         rowFrames[i]:Hide()
     end
+    frame._gamMainListHost = listHost
+    frame._gamMainRowArgs = makeRowArgs
 
-    local scrollBar = CreateFrame("Slider", "GAMMainScrollBarV2", frame)
+    local scrollBar = CreateFrame("Slider", GAM.RuntimeName("GAMMainScrollBarV2"), frame)
     scrollBar:SetOrientation("VERTICAL")
     scrollBar:SetWidth(16)
     scrollBar:SetThumbTexture("Interface\\Buttons\\UI-ScrollBar-Knob")

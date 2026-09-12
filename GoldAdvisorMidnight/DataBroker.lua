@@ -75,7 +75,7 @@ function Broker.Init()
         return nil
     end
 
-    dataObject = ldb:NewDataObject("GoldAdvisorMidnight", {
+    dataObject = ldb:NewDataObject(GAM.RuntimeName("GoldAdvisorMidnight"), {
         type = "launcher",
         label = GetTitle(),
         text = GetTitle(),

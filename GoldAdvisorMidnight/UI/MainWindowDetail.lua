@@ -22,7 +22,7 @@ local function Noop()
 end
 
 local function AddThousandsSeparators(text)
-    local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.%d+)?$")
+    local sign, digits, frac = tostring(text or ""):match("^([%-]?)(%d+)(%.?%d*)$")
     if not digits then
         return tostring(text or "")
     end
@@ -231,6 +231,8 @@ function Detail.Render(args)
     end
 
     local patchTag = args.patchTag or GAM.C.DEFAULT_PATCH
+    local selectionChanged = not rpDetail.currentStrat or rpDetail.currentStrat.id ~= strat.id
+        or rpDetail.currentPatch ~= patchTag
     local L = args.localizer or GAM.L
     local placeholder = GetPlaceholder(args)
     local projection = args.projection or {}
@@ -340,6 +342,7 @@ function Detail.Render(args)
     end
 
     local reagentMetrics = projection.reagents or {}
+    if rpDetail.ensureRows then rpDetail.ensureRows(#reagentMetrics, #outputItems) end
     for i, row in ipairs(rpDetail.reagentRows or {}) do
         local reagentMetric = reagentMetrics[i]
         if reagentMetric then
@@ -379,7 +382,7 @@ function Detail.Render(args)
             local display = getItemDisplayData(outputItem.itemID, outputItem.name)
             row.nameFS:SetText(display.displayText)
             bindItemRow(row, display)
-            row.qtyFS:SetText(outputItem.expectedQty and FormatQuantityValue(outputItem.expectedQty) or "—")
+            row.qtyFS:SetText(outputItem.expectedQty and FormatQuantityValue(outputItem.expectedQtyRaw or outputItem.expectedQty) or "—")
             row.priceFS:SetText(
                 outputItem.netRevenue and formatPrice(outputItem.netRevenue)
                 or (outputItem.unitPrice and formatPrice(outputItem.unitPrice) or "|cffff8800—|r")
@@ -405,7 +408,7 @@ function Detail.Render(args)
         if canOpen and type(args.canOpenRecipe) == "function" then
             canOpen = args.canOpenRecipe(strat) and true or false
         end
-        rpDetail.btnOpenRecipe:SetShown(canOpen)
+        rpDetail.btnOpenRecipe:Show()
         if canOpen then
             rpDetail.btnOpenRecipe:Enable()
             rpDetail.btnOpenRecipe:SetAlpha(1)
@@ -421,14 +424,25 @@ function Detail.Render(args)
         args.refreshCompactButtonEnabledState()
     end
     if rpDetail.btnScanStrat then
-        rpDetail.btnScanStrat:SetShown(isCompactMode)
-        if isCompactMode then
+        local showScan = true
+        rpDetail.btnScanStrat:SetShown(showScan)
+        if showScan then
             rpDetail.btnScanStrat:Enable()
             rpDetail.btnScanStrat:SetAlpha(1)
         else
             rpDetail.btnScanStrat:Disable()
             rpDetail.btnScanStrat:SetAlpha(0.45)
         end
+    end
+    if rpDetail.btnVIBreakdown then
+        rpDetail.btnVIBreakdown:Show()
+        rpDetail.btnVIBreakdown:Enable()
+        rpDetail.btnVIBreakdown:SetAlpha(1)
+    end
+    if rpDetail.btnShop then
+        rpDetail.btnShop:Show()
+        rpDetail.btnShop:Enable()
+        rpDetail.btnShop:SetAlpha(1)
     end
     if args.selectedScanBtn then
         args.selectedScanBtn:Enable()
@@ -443,10 +457,10 @@ function Detail.Render(args)
     if args.selectedShoppingBtn then
         args.selectedShoppingBtn:Enable()
     end
-    if rpDetail.reagentScrollFrame then
+    if selectionChanged and rpDetail.reagentScrollFrame then
         rpDetail.reagentScrollFrame:SetVerticalScroll(0)
     end
-    if rpDetail.outputScrollFrame then
+    if selectionChanged and rpDetail.outputScrollFrame then
         rpDetail.outputScrollFrame:SetVerticalScroll(0)
     end
     if rpDetail.reagentListHost then
@@ -465,7 +479,9 @@ function Detail.Render(args)
             scrollBar:SetShown(contentHeight > ((rpDetail.outputScrollFrame:GetHeight() or 0) + 1))
         end
     end
+    if selectionChanged and rpDetail.viewport then rpDetail.viewport:SetVerticalScroll(0) end
     rpDetail.root:Show()
+    if rpDetail.reflow then rpDetail.reflow() end
     if strat.id == "jewelcrafting__crushing__midnight_1" then
         CrushingAnalyzerWindow.Refresh(rpDetail.root, strat, patchTag, args.canonicalResult)
     else
@@ -507,7 +523,12 @@ function Detail.Build(args)
     local onOpenRecipe = args.onOpenRecipe or Noop
     local onPushCraftSim = args.onPushCraftSim or Noop
     local onToggleShopping = args.onToggleShopping or Noop
+    local onQuickBuy = args.onQuickBuy or Noop
     local onShowBreakdown = args.onShowBreakdown or Noop
+    local onCloseDetail = args.onCloseDetail or Noop
+    local styleButton = args.styleButton
+        or (GAM.UI.MainWindowCommon and GAM.UI.MainWindowCommon.StyleComfortableButton)
+        or Noop
 
     local usableWidth = rightPanelWidth - padding * 2
     local softInk = layoutMode == "soft"
@@ -521,6 +542,11 @@ function Detail.Build(args)
     root:SetClipsChildren(true)
     root:Hide()
     rpDetail.root = root
+
+    local closeButton = CreateFrame("Button", nil, root, "UIPanelCloseButton")
+    closeButton:SetPoint("TOPRIGHT", root, "TOPRIGHT", -2, -2)
+    closeButton:SetScript("OnClick", onCloseDetail)
+    rpDetail.closeButton = closeButton
 
     local titleFS = root:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     titleFS:SetPoint("TOP", root, "TOP", 0, -12)
@@ -536,10 +562,15 @@ function Detail.Build(args)
     topRule:SetColorTexture(rule[1], rule[2], rule[3], 0.6)
 
     local content = CreateFrame("Frame", nil, root)
-    content:SetPoint("TOPLEFT", root, "TOPLEFT", padding, -44)
-    content:SetPoint("TOPRIGHT", root, "TOPRIGHT", -padding, -44)
+    local contentTop = layoutMode == "comfortable" and 8 or 44
+    content:SetPoint("TOPLEFT", root, "TOPLEFT", padding, -contentTop)
+    content:SetPoint("TOPRIGHT", root, "TOPRIGHT", -padding, -contentTop)
     content:SetPoint("BOTTOM", root, "BOTTOM", 0, actionHeight + 6)
     rpDetail.content = content
+    if layoutMode == "comfortable" then
+        titleFS:Hide()
+        topRule:Hide()
+    end
 
     local y = -padding
 
@@ -631,6 +662,7 @@ function Detail.Build(args)
         ruleTexture:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, yOff)
         ruleTexture:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, yOff)
         ruleTexture:SetColorTexture(rule[1], rule[2], rule[3], alpha or rule[4] or 0.7)
+        if layoutMode == "comfortable" then ruleTexture:Hide() end
         return ruleTexture
     end
 
@@ -638,6 +670,7 @@ function Detail.Build(args)
     y = y - 6
 
     local labelWidth = 100
+    local metricRows, metricTooltips, columnHeaders = {}, {}, {}
     local function MakeMetricRow(label, yOff)
         local labelFS = bodyRoot:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         labelFS:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, yOff)
@@ -656,11 +689,14 @@ function Detail.Build(args)
         valueFS:SetTextColor(metricValueColor[1], metricValueColor[2], metricValueColor[3], metricValueColor[4] or 1)
         applyFontSize(valueFS, 11)
         applyTextShadow(valueFS)
+        valueFS._gamLabelFS = labelFS
+        metricRows[#metricRows + 1] = { value = valueFS, label = labelFS, originalY = yOff }
         return valueFS, yOff - 18
     end
 
     local function MakeMetricTooltip(yOff, titleKey, bodyKey, bodyProvider)
         local anchor = CreateFrame("Button", nil, bodyRoot)
+        metricTooltips[yOff] = anchor
         anchor:SetSize(usableWidth, 18)
         anchor:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, yOff)
         anchor:SetScript("OnEnter", function(self)
@@ -676,10 +712,18 @@ function Detail.Build(args)
     end
 
     -- Decision first: expected return, then material commitment, then setup.
-    rpDetail.metProfitFS, y = MakeMetricRow(L and L["LBL_PROFIT"] or "Profit:", y)
+    local yProfit = y
+    rpDetail.metProfitFS, y = MakeMetricRow(
+        layoutMode == "comfortable" and "Estimated profit:" or (L and L["LBL_PROFIT"] or "Profit:"), y)
     applyFontSize(rpDetail.metProfitFS, 12)
+    MakeMetricTooltip(yProfit, "Estimated profit",
+        "Expected net revenue minus material value for the configured starting crafts.")
 
-    rpDetail.metROIFS, y = MakeMetricRow(L and L["LBL_ROI"] or "ROI:", y)
+    local yReturn = y
+    rpDetail.metROIFS, y = MakeMetricRow(
+        layoutMode == "comfortable" and "Return:" or (L and L["LBL_ROI"] or "ROI:"), y)
+    MakeMetricTooltip(yReturn, "Estimated return",
+        "Estimated profit as a percentage of material value. Actual crafting results can vary.")
 
     local yBreakeven = y
     rpDetail.metBreakevenFS, y = MakeMetricRow(L and L["LBL_BREAKEVEN"] or "Break-even:", y)
@@ -698,7 +742,8 @@ function Detail.Build(args)
     rpDetail.metBuyNowFS, y = MakeMetricRow(L and L["LBL_BUY_NOW_COST"] or "Buy Now Cost:", y)
     MakeMetricTooltip(yBuyNow, "TT_LBL_BUY_NOW_COST_TITLE", "TT_LBL_BUY_NOW_COST_BODY")
 
-    rpDetail.metRevenueFS, y = MakeMetricRow(L and L["LBL_REVENUE"] or "Revenue:", y)
+    rpDetail.metRevenueFS, y = MakeMetricRow(
+        layoutMode == "comfortable" and "Net revenue:" or (L and L["LBL_REVENUE"] or "Revenue:"), y)
 
     MakeRule(y, 0.4)
     y = y - 4
@@ -801,6 +846,7 @@ function Detail.Build(args)
         fs:SetJustifyH(justify or "LEFT")
         applyFontSize(fs, 10)
         applyTextShadow(fs)
+        columnHeaders[#columnHeaders + 1] = fs
         return fs
     end
 
@@ -814,7 +860,7 @@ function Detail.Build(args)
         reagentSection:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, y)
         reagentSection:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, y)
         reagentSection:SetHeight(reagentSectionHeight)
-        MakeRule(y - 2, 0.22)
+        if layoutMode ~= "comfortable" then MakeRule(y - 2, 0.22) end
         rpDetail.reagentHeaderBg = nil
     else
         local reagentShell
@@ -859,7 +905,7 @@ function Detail.Build(args)
     end)
 
     rpDetail.reagentRows = {}
-    for i = 1, 12 do
+    local function CreateReagentRow(i)
         local row = CreateFrame("Frame", nil, reagentListHost)
         row:SetSize(detailInnerWidth, rowHeight)
         row:SetPoint("TOPLEFT", reagentListHost, "TOPLEFT", 0, -(i - 1) * rowHeight)
@@ -929,11 +975,12 @@ function Detail.Build(args)
         row:Hide()
         rpDetail.reagentRows[i] = row
     end
+    for i = 1, 12 do CreateReagentRow(i) end
     y = y - reagentSectionHeight - 8
 
     local outHdr = bodyRoot:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     outHdr:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, y)
-    outHdr:SetText((L and L["DETAIL_OUTPUT_HDR"]) or "Expected Output")
+    outHdr:SetText(((L and L["DETAIL_OUTPUT_HDR"]) or "Expected Output") .. " (average)")
     outHdr:SetTextColor(smallHeaderColor[1], smallHeaderColor[2], smallHeaderColor[3], smallHeaderColor[4] or 1)
     applyFontSize(outHdr, 12)
     applyTextShadow(outHdr)
@@ -952,7 +999,7 @@ function Detail.Build(args)
         outputSection:SetPoint("TOPLEFT", bodyRoot, "TOPLEFT", 0, y)
         outputSection:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, y)
         outputSection:SetHeight(outputSectionHeight)
-        MakeRule(y - 2, 0.22)
+        if layoutMode ~= "comfortable" then MakeRule(y - 2, 0.22) end
         rpDetail.outputHeaderBg = nil
     else
         local outputShell
@@ -996,7 +1043,7 @@ function Detail.Build(args)
     end)
 
     rpDetail.outputRows = {}
-    for i = 1, 10 do
+    local function CreateOutputRow(i)
         local row = CreateFrame("Frame", nil, outputListHost)
         row:SetSize(detailInnerWidth, rowHeight)
         row:SetPoint("TOPLEFT", outputListHost, "TOPLEFT", 0, -(i - 1) * rowHeight)
@@ -1041,9 +1088,14 @@ function Detail.Build(args)
         row:Hide()
         rpDetail.outputRows[i] = row
     end
+    for i = 1, 10 do CreateOutputRow(i) end
+    rpDetail.ensureRows = function(reagents, outputs)
+        for i = #rpDetail.reagentRows + 1, reagents do CreateReagentRow(i) end
+        for i = #rpDetail.outputRows + 1, outputs do CreateOutputRow(i) end
+    end
     local buttonY1 = padding + 22
-    -- Keep the only visible detail action above the clipped panel edge and
-    -- inside the height already reserved below `content`.
+    -- Keep the detail footer above the clipped panel edge and inside the
+    -- height already reserved below `content`.
     local buttonY0 = padding + 6
 
     local function MakeDetailButton(label, width, xOff, rowY)
@@ -1055,14 +1107,15 @@ function Detail.Build(args)
     end
 
     local btnScanStrat = CreateFrame("Button", nil, root, "UIPanelButtonTemplate")
-    btnScanStrat:SetSize(82, 22)
-    btnScanStrat:SetPoint("BOTTOM", root, "BOTTOM", 0, buttonY0)
-    btnScanStrat:SetText((L and L["BTN_SCAN_STRAT"]) or "Scan Strat")
+    btnScanStrat:SetSize(110, 22)
+    btnScanStrat:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", padding, buttonY0)
+    btnScanStrat:SetText((L and L["BTN_GET_CRAFT_PRICE"]) or "Get Craft Price")
     btnScanStrat:SetScript("OnClick", onScanSelected)
     attachButtonTooltip(
         btnScanStrat,
-        (L and L["TT_SCAN_SELECTED_TITLE"]) or "Scan Selected Strategy",
-        (L and L["TT_SCAN_SELECTED_BODY"]) or "Queue the selected strategy's reagents and output items for AH price lookups. Shift-click to scan only the currently visible favorites."
+        (L and L["TT_GET_CRAFT_PRICE_TITLE"]) or "Get Selected Craft Price",
+        (L and L["TT_GET_CRAFT_PRICE_BODY"])
+            or "Update Auction House prices for the selected recipe and its materials. Shift-click to scan visible Favorites instead."
     )
     btnScanStrat:Disable()
     btnScanStrat:SetAlpha(0.45)
@@ -1078,7 +1131,7 @@ function Detail.Build(args)
     )
     btnCraftSim:Hide()
 
-    local btnVIBreakdown = MakeDetailButton((L and L["BTN_VI_BREAKDOWN"]) or "VI Chain", 84, 0, buttonY1)
+    local btnVIBreakdown = MakeDetailButton((L and L["BTN_VI_BREAKDOWN"]) or "VI Chain", 74, 0, buttonY0)
     btnVIBreakdown:SetScript("OnClick", function()
         onShowBreakdown()
     end)
@@ -1090,14 +1143,24 @@ function Detail.Build(args)
     btnVIBreakdown:Hide()
     rpDetail.btnVIBreakdown = btnVIBreakdown
 
-    local btnShop = MakeDetailButton((L and L["BTN_SHOPPING_SHORT"]) or "Shopping", 70, 166, buttonY1)
-    btnShop:SetScript("OnClick", onToggleShopping)
+    local btnShop = MakeDetailButton((L and L["BTN_SHOPPING_SHORT"]) or "Shopping", 80, 0, buttonY0)
+    btnShop:SetScript("OnClick", function()
+        if IsShiftKeyDown and IsShiftKeyDown() then
+            onQuickBuy()
+        else
+            onToggleShopping()
+        end
+    end)
+    local shoppingTooltipBody = (L and L["TT_SHOPPING_BODY"])
+        or "Create a shopping list for the materials you still need."
+    shoppingTooltipBody = shoppingTooltipBody
+        .. "\nShift-click to open Quick Buy for the current list."
     attachButtonTooltip(
         btnShop,
         (L and L["TT_SHOPPING_TITLE"]) or "Auctionator Shopping List",
-        (L and L["TT_SHOPPING_BODY"]) or "Create a shopping list for the materials you still need."
+        shoppingTooltipBody
     )
-    btnShop:Hide()
+    rpDetail.btnShop = btnShop
 
     local btnOpenRecipe = CreateFrame("Button", nil, root, "UIPanelButtonTemplate")
     btnOpenRecipe:SetSize(104, 22)
@@ -1112,6 +1175,197 @@ function Detail.Build(args)
     btnOpenRecipe:Disable()
     btnOpenRecipe:SetAlpha(0.45)
     rpDetail.btnOpenRecipe = btnOpenRecipe
+
+    if layoutMode == "comfortable" then
+        styleButton(btnScanStrat, false)
+        styleButton(btnCraftSim, false)
+        styleButton(btnVIBreakdown, false)
+        styleButton(btnShop, false)
+        styleButton(btnOpenRecipe, true)
+    end
+
+    -- Keep the detail footer focused on the selected strategy's immediate
+    -- workflow: price it, inspect the VI chain, shop, then refresh its recipe.
+    btnScanStrat:ClearAllPoints()
+    btnScanStrat:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", padding, buttonY0)
+    btnVIBreakdown:ClearAllPoints()
+    btnVIBreakdown:SetPoint("LEFT", btnScanStrat, "RIGHT", 4, 0)
+    btnShop:ClearAllPoints()
+    btnShop:SetPoint("LEFT", btnVIBreakdown, "RIGHT", 4, 0)
+
+    if layoutMode == "comfortable" then
+        local diagnostics = {
+            rpDetail.metBreakevenFS,
+            rpDetail.metCostFS,
+            rpDetail.metStatsFS,
+            rpDetail.metGearFS,
+            rpDetail.metNodeBonusesFS,
+        }
+        local btnInfo = CreateFrame("Button", nil, root, "UIPanelButtonTemplate")
+        btnInfo:SetSize(72, 22)
+        btnInfo:SetPoint("RIGHT", btnOpenRecipe, "LEFT", -6, 0)
+        rpDetail.infoExpanded = rpDetail.infoExpanded and true or false
+
+        local function RefreshInfoDisclosure()
+            local shown = rpDetail.infoExpanded and true or false
+            btnInfo:SetText(shown and "Hide Info" or "Info")
+            for _, valueFS in ipairs(diagnostics) do
+                valueFS:SetShown(shown)
+                if valueFS._gamLabelFS then valueFS._gamLabelFS:SetShown(shown) end
+            end
+        end
+
+        btnInfo:SetScript("OnClick", function()
+            rpDetail.infoExpanded = not rpDetail.infoExpanded
+            RefreshInfoDisclosure()
+            if rpDetail.reflow then rpDetail.reflow() end
+        end)
+        attachButtonTooltip(btnInfo, "Estimate information",
+            "Show or hide the crafting-stat, gear-plan, and recipe-bonus diagnostics used by this estimate.")
+        rpDetail.btnInfo = btnInfo
+        rpDetail.refreshInfoDisclosure = RefreshInfoDisclosure
+        styleButton(btnInfo, false)
+        btnInfo:Hide()
+        RefreshInfoDisclosure()
+    end
+
+    if layoutMode == "comfortable" then
+        -- Keep the action row stationary while long names, diagnostics and
+        -- material lists share one measured, scrollable content area.
+        local viewport = CreateFrame("ScrollFrame", nil, root, "UIPanelScrollFrameTemplate")
+        viewport:SetPoint("TOPLEFT", root, "TOPLEFT", padding, -8)
+        viewport:SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", -padding - 20, 52)
+        content:ClearAllPoints()
+        content:SetParent(viewport)
+        content:SetWidth(usableWidth - 20)
+        content:SetHeight(1)
+        viewport:SetScrollChild(content)
+        rpDetail.viewport = viewport
+        viewport:EnableMouseWheel(true)
+        local function ScrollContent(_, delta)
+            viewport:SetVerticalScroll(math.max(0, math.min(viewport:GetVerticalScrollRange(),
+                viewport:GetVerticalScroll() - delta * rowHeight * 3)))
+        end
+        viewport:SetScript("OnMouseWheel", ScrollContent)
+        reagentListHost:SetScript("OnMouseWheel", ScrollContent)
+        outputListHost:SetScript("OnMouseWheel", ScrollContent)
+
+        local hiddenMetrics = {
+            [rpDetail.metBreakevenFS] = true, [rpDetail.metCostFS] = true,
+            [rpDetail.metStatsFS] = true, [rpDetail.metGearFS] = true,
+            [rpDetail.metNodeBonusesFS] = true,
+        }
+        local function Place(widget, parent, x, yOff, width)
+            widget:ClearAllPoints()
+            widget:SetPoint("TOPLEFT", parent, "TOPLEFT", x, yOff)
+            if width then widget:SetWidth(math.max(1, width)) end
+        end
+        rpDetail.reflow = function()
+            local width = math.max(250, viewport:GetWidth())
+            content:SetWidth(width)
+            nameFS:SetWidth(width)
+            profFS:SetWidth(width)
+            notesFS:SetWidth(width)
+            local top = -padding
+            Place(nameFS, content, 0, top, width)
+            top = top - math.max(18, nameFS:GetStringHeight()) - 6
+            Place(profFS, content, 0, top, width)
+            top = top - math.max(14, profFS:GetStringHeight()) - 6
+            Place(notesFS, content, 0, top, width)
+            if notesFS:IsShown() then top = top - notesFS:GetStringHeight() - 6 end
+            Place(bodyRoot, content, 0, top, width)
+            local cursor = -6
+            for _, metric in ipairs(metricRows) do
+                local shown = not hiddenMetrics[metric.value] or rpDetail.infoExpanded
+                metric.value:SetShown(shown and true or false)
+                metric.label:SetShown(shown and true or false)
+                local tooltip = metricTooltips[metric.originalY]
+                if tooltip then tooltip:SetShown(shown and true or false) end
+                if shown then
+                    local labelW = math.min(130, width * 0.43)
+                    Place(metric.label, bodyRoot, 0, cursor, labelW)
+                    Place(metric.value, bodyRoot, labelW + 6, cursor, width - labelW - 6)
+                    metric.value:SetWordWrap(true)
+                    metric.label:SetJustifyH("LEFT")
+                    metric.label:SetWordWrap(true)
+                    local h = math.max(20, metric.value:GetStringHeight() + 4, metric.label:GetStringHeight() + 4)
+                    if tooltip then Place(tooltip, bodyRoot, 0, cursor, width); tooltip:SetHeight(h) end
+                    cursor = cursor - h
+                end
+            end
+            Place(missingFS, bodyRoot, 0, cursor, width)
+            missingFS:SetWordWrap(true)
+            if missingFS:IsShown() then cursor = cursor - missingFS:GetStringHeight() - 6 end
+            cursor = cursor - 10
+            Place(reagHdr, bodyRoot, 0, cursor)
+            -- Align the batch input with its Materials section heading.
+            craftsOKBtn:ClearAllPoints()
+            craftsOKBtn:SetPoint("TOPRIGHT", bodyRoot, "TOPRIGHT", 0, cursor + 2)
+            cursor = cursor - 28
+            local reagentH = math.max(1, rpDetail.reagentListHost:GetHeight()) + 30
+            Place(reagentSection, bodyRoot, 0, cursor, width)
+            reagentSection:SetHeight(reagentH)
+            reagentScroll:ClearAllPoints()
+            reagentScroll:SetPoint("TOPLEFT", reagentSection, "TOPLEFT", 0, -22)
+            reagentScroll:SetPoint("BOTTOMRIGHT", reagentSection, "BOTTOMRIGHT", 0, 8)
+            if reagentScroll.ScrollBar then reagentScroll.ScrollBar:Hide() end
+            cursor = cursor - reagentH - 12
+            Place(outHdr, bodyRoot, 0, cursor)
+            cursor = cursor - 22
+            local outputH = math.max(1, rpDetail.outputListHost:GetHeight()) + 30
+            Place(outputSection, bodyRoot, 0, cursor, width)
+            outputSection:SetHeight(outputH)
+            outputScroll:ClearAllPoints()
+            outputScroll:SetPoint("TOPLEFT", outputSection, "TOPLEFT", 0, -22)
+            outputScroll:SetPoint("BOTTOMRIGHT", outputSection, "BOTTOMRIGHT", 0, 8)
+            if outputScroll.ScrollBar then outputScroll.ScrollBar:Hide() end
+            bodyRoot:SetHeight(-cursor + outputH)
+            content:SetHeight(-top - cursor + outputH + 8)
+            local range = math.max(0, content:GetHeight() - viewport:GetHeight())
+            viewport:SetVerticalScroll(math.min(viewport:GetVerticalScroll(), range))
+            if viewport.ScrollBar then viewport.ScrollBar:SetShown(range > 1) end
+
+            local nameW = math.max(80, width - 48 - 48 - 120)
+            local priceW = width - nameW - 96
+            reagentListHost:SetWidth(width)
+            outputListHost:SetWidth(width)
+            for i, header in ipairs(columnHeaders) do
+                local offsets = { 0, nameW, nameW + 48, nameW + 96, 0, nameW, nameW + 48 }
+                local widths = { nameW, 48, 48, priceW, nameW, 48, priceW + 48 }
+                Place(header, i <= 4 and reagentSection or outputSection, offsets[i], -4, widths[i])
+            end
+            for _, row in ipairs(rpDetail.reagentRows) do
+                row:SetWidth(width)
+                row.nameFS:SetWidth(nameW - 8)
+                row.qtyFS:ClearAllPoints(); row.qtyFS:SetPoint("LEFT", row, "LEFT", nameW, 0)
+                row.qtyEB:ClearAllPoints(); row.qtyEB:SetPoint("LEFT", row, "LEFT", nameW, 0)
+                row.needFS:ClearAllPoints(); row.needFS:SetPoint("LEFT", row, "LEFT", nameW + 48, 0)
+                row.priceFS:ClearAllPoints(); row.priceFS:SetPoint("LEFT", row, "LEFT", nameW + 96, 0)
+                row.priceFS:SetWidth(priceW)
+            end
+            for _, row in ipairs(rpDetail.outputRows) do
+                row:SetWidth(width)
+                row.nameFS:SetWidth(nameW - 8)
+                row.qtyFS:ClearAllPoints(); row.qtyFS:SetPoint("LEFT", row, "LEFT", nameW, 0)
+                row.priceFS:ClearAllPoints(); row.priceFS:SetPoint("LEFT", row, "LEFT", nameW + 48, 0)
+                row.priceFS:SetWidth(priceW + 48)
+            end
+        end
+        root:HookScript("OnSizeChanged", function() rpDetail.reflow() end)
+        btnScanStrat:ClearAllPoints()
+        btnScanStrat:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", padding, 12)
+        btnScanStrat:SetSize(110, 28)
+        btnVIBreakdown:SetSize(74, 28)
+        btnShop:SetSize(80, 28)
+        btnVIBreakdown:ClearAllPoints()
+        btnVIBreakdown:SetPoint("LEFT", btnScanStrat, "RIGHT", 6, 0)
+        btnShop:ClearAllPoints()
+        btnShop:SetPoint("LEFT", btnVIBreakdown, "RIGHT", 6, 0)
+        btnOpenRecipe:SetSize(130, 28)
+        btnOpenRecipe:ClearAllPoints()
+        btnOpenRecipe:SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", -padding, 12)
+        rpDetail.reflow()
+    end
 
     return root
 end

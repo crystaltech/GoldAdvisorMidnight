@@ -299,8 +299,22 @@ local function RefreshARPExportPopupLayout()
     arpPopupEB:SetHeight(math.max((arpPopupSF:GetHeight() or 0), textHeight + 16))
 end
 
+local function AddResizeGrip(window, onResize)
+    window:SetResizable(true)
+    if window.SetResizeBounds then window:SetResizeBounds(440, 220, 1400, 1000) end
+    local grip = CreateFrame("Button", nil, window)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -2, 2)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" then window:StartSizing("BOTTOMRIGHT") end
+    end)
+    grip:SetScript("OnMouseUp", function() window:StopMovingOrSizing() end)
+    window:HookScript("OnSizeChanged", onResize)
+end
+
 local function BuildARPExportPopup()
-    arpPopup = CreateFrame("Frame", "GAMARPExportPopup", UIParent, "BackdropTemplate")
+    arpPopup = CreateFrame("Frame", GAM.RuntimeName("GAMARPExportPopup"), UIParent, "BackdropTemplate")
     arpPopup:SetSize(540, 380)
     arpPopup:SetPoint("CENTER")
     arpPopup:SetScale(GetUIScale())
@@ -316,8 +330,8 @@ local function BuildARPExportPopup()
         tile = true, tileSize = 8, edgeSize = 2,
         insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
-    arpPopup:SetBackdropColor(0, 0, 0, 1)
-    arpPopup:SetBackdropBorderColor(0.7, 0.57, 0.0, 0.62)
+    arpPopup:SetBackdropColor(0.055, 0.055, 0.062, 0.99)
+    arpPopup:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.90)
     arpPopup:Hide()
     WindowManager.Register(arpPopup, "debug", { owner = frame, levelOffset = 8 })
 
@@ -325,6 +339,7 @@ local function BuildARPExportPopup()
     local title = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", arpPopup, "TOP", 0, -14)
     title:SetText((GAM.L and GAM.L["BTN_ARP_EXPORT"]) or "ARP Export")
+    title:SetTextColor(0.96, 0.82, 0.36, 1)
     arpPopupTitle = title
 
     -- Close button (top-right X)
@@ -363,6 +378,7 @@ local function BuildARPExportPopup()
     sizer:SetJustifyV("TOP")
     sizer:Hide()
     arpPopupSizer = sizer
+    AddResizeGrip(arpPopup, function() RefreshARPExportPopupLayout() end)
 
     sf:SetScript("OnSizeChanged", function()
         RefreshARPExportPopupLayout()
@@ -388,7 +404,7 @@ end
 
 -- ===== Build frame =====
 Build = function()
-    frame = CreateFrame("Frame", "GoldAdvisorMidnightDebugLog", UIParent,
+    frame = CreateFrame("Frame", GAM.RuntimeName("GoldAdvisorMidnightDebugLog"), UIParent,
                         "BackdropTemplate")
     frame:SetSize(WIN_W, WIN_H)
     frame:SetPoint("CENTER", UIParent, "CENTER", 200, -100)
@@ -405,15 +421,16 @@ Build = function()
         tile = true, tileSize = 8, edgeSize = 2,
         insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
-    frame:SetBackdropColor(0, 0, 0, 1)
-    frame:SetBackdropBorderColor(0.7, 0.57, 0.0, 0.62)
+    frame:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    frame:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
     frame:Hide()
     WindowManager.Register(frame, "debug")
 
     -- Title
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOP", frame, "TOP", 0, -12)
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -12)
     title:SetText(GAM.L["LOG_TITLE"])
+    title:SetTextColor(0.96, 0.82, 0.36, 1)
 
     -- Close button
     local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
@@ -446,6 +463,12 @@ Build = function()
     local btnCopy  = MakeBtn(GAM.L["BTN_COPY_LOG"],   90)
     local btnPause = MakeBtn(GAM.L["BTN_PAUSE_LOG"],  80)
     local btnDump  = MakeBtn(GAM.L["BTN_DUMP_IDS"],  100)
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    if common and common.StyleComfortableButton then
+        for _, button in ipairs({ btnClear, btnCopy, btnPause, btnDump }) do
+            common.StyleComfortableButton(button, false)
+        end
+    end
 
     local function RelayoutFooter()
         btnClear:SetWidth(MeasureButtonWidth(frame, btnClear:GetText(), 80, 180, 24))
@@ -453,13 +476,17 @@ Build = function()
         btnPause:SetWidth(MeasureButtonWidth(frame, btnPause:GetText(), 80, 200, 24))
         btnDump:SetWidth(MeasureButtonWidth(frame, btnDump:GetText(), 100, 220, 24))
         local info = LayoutButtonRowBottom(frame, { btnClear, btnCopy, btnPause, btnDump }, {
-            left = 14, right = WIN_W - 14, bottom = 10, gap = 8, rowGap = 4, align = "left",
+            left = 14, right = frame:GetWidth() - 14, bottom = 10, gap = 8, rowGap = 4, align = "left",
         })
         scrollFrame:ClearAllPoints()
         scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -32)
         scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, info.top + 8)
     end
     RelayoutFooter()
+    AddResizeGrip(frame, function()
+        RelayoutFooter()
+        editBox:SetWidth(math.max(1, scrollFrame:GetWidth() - 10))
+    end)
 
     btnClear:SetScript("OnClick", function()
         GAM.Log.Clear()

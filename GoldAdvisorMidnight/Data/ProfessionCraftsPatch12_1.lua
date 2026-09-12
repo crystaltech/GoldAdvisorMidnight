@@ -3,8 +3,11 @@
 -- Kept separate from the generated Midnight launch catalog so patch identity
 -- and rollback boundaries remain obvious.
 
-GAM_PROFESSION_CRAFTS = GAM_PROFESSION_CRAFTS or {}
-GAM_RUNTIME_PROFESSION_CRAFTS = GAM_RUNTIME_PROFESSION_CRAFTS or {}
+local ADDON_NAME, GAM = ...
+GAM.ProfessionCrafts = GAM.ProfessionCrafts or {}
+GAM.RuntimeProfessionCrafts = GAM.RuntimeProfessionCrafts or {}
+local professionCrafts = GAM.ProfessionCrafts
+local runtimeProfessionCrafts = GAM.RuntimeProfessionCrafts
 
 local SOURCE = "Retail DB2 12.1.0.69299"
 local NOTES = "Verified against live 12.1 spell, reagent, crafting-data, and item tables."
@@ -12,9 +15,9 @@ local NOTES = "Verified against live 12.1 spell, reagent, crafting-data, and ite
 local function Add(profession, craft)
     craft.sourceBlock = SOURCE
     craft.notes = NOTES
-    GAM_PROFESSION_CRAFTS[profession] = GAM_PROFESSION_CRAFTS[profession] or {}
-    table.insert(GAM_PROFESSION_CRAFTS[profession], craft)
-    GAM_RUNTIME_PROFESSION_CRAFTS[#GAM_RUNTIME_PROFESSION_CRAFTS + 1] = {
+    professionCrafts[profession] = professionCrafts[profession] or {}
+    table.insert(professionCrafts[profession], craft)
+    runtimeProfessionCrafts[#runtimeProfessionCrafts + 1] = {
         profession = profession,
         craft = craft,
     }
@@ -148,7 +151,7 @@ Add("Inscription", {
     id = "inscription__contract_zuljarras_forces__midnight_1",
     name = "Contract: Zul'jarra's Forces",
     patchTag = "midnight-1",
-    recipeID = 1303144,
+    recipeID = 1303151,
     formulaProfile = "insc_ink",
     inputs = {
         { itemRef = "Lexicologist's Vellum", itemIDs = { 245881 }, amount = 1 },

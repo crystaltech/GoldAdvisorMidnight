@@ -10,7 +10,7 @@ local function GetOpts()
 end
 
 local function GetFormulaProfiles()
-    return (GAM_WORKBOOK_GENERATED and GAM_WORKBOOK_GENERATED.formulaProfiles) or {}
+    return (GAM.WorkbookGenerated and GAM.WorkbookGenerated.formulaProfiles) or {}
 end
 
 local function NormalizeProfession(value)

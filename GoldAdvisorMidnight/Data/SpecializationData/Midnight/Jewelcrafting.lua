@@ -17,7 +17,8 @@
 
 local ADDON_NAME, GAM = ...
 
-GAM_SPECIALIZATION_DATA = GAM_SPECIALIZATION_DATA or {}
+GAM.SpecializationData = GAM.SpecializationData or {}
+local GAM_SPECIALIZATION_DATA = GAM.SpecializationData
 GAM_SPECIALIZATION_DATA.MIDNIGHT = GAM_SPECIALIZATION_DATA.MIDNIGHT or {}
 
 local PROFILES = { jc_craft = true, jc_crush = true, jc_prospect = true, jc_refine = true }

@@ -9,11 +9,11 @@ local CrushingAnalyzerWindow = {}
 GAM.UI.CrushingAnalyzerWindow = CrushingAnalyzerWindow
 
 local WindowManager = GAM.UI.WindowManager
-local DEFAULT_GOLD = { 1.0, 0.82, 0.0 }
-local DEFAULT_RULE = { 0.7, 0.57, 0.0, 0.7 }
+local DEFAULT_GOLD = { 0.96, 0.82, 0.36 }
+local DEFAULT_RULE = { 0.38, 0.32, 0.14, 0.65 }
 local CRUSHING_WINDOW_W = 592
 local CRUSHING_WINDOW_H = 278
-local CRUSHING_WINDOW_MIN_W = 430
+local CRUSHING_WINDOW_MIN_W = 560
 local CRUSHING_WINDOW_MIN_H = 168
 local CRUSHING_ROW_H = 22
 local CRUSHING_MAX_AUTO_H = 340
@@ -37,16 +37,15 @@ local function ApplyCrushingWindowLayout(win)
     local height = math.max(CRUSHING_WINDOW_MIN_H, math.floor((win:GetHeight() or CRUSHING_WINDOW_H) + 0.5))
     if width ~= (win:GetWidth() or 0) or height ~= (win:GetHeight() or 0) then
         win:SetSize(width, height)
-        return
     end
 
-    local contentWidth = math.max(320, width - 32)
+    local contentWidth = math.max(320, width - 46)
     local gap = 6
-    local gemW = math.max(150, math.floor(contentWidth * 0.34))
+    local gemW = math.floor(contentWidth * 0.30)
     local priceW = math.max(70, math.floor(contentWidth * 0.15))
     local profitW = math.max(86, math.floor(contentWidth * 0.20))
     local roiW = math.max(56, math.floor(contentWidth * 0.11))
-    local breakEvenW = math.max(94, contentWidth - gemW - priceW - profitW - roiW - (gap * 4))
+    local breakEvenW = math.max(1, contentWidth - gemW - priceW - profitW - roiW - (gap * 4))
 
     local gemX = 18
     local priceX = gemX + gemW + gap
@@ -116,19 +115,19 @@ local function ApplyCrushingWindowLayout(win)
         row.nameFS:SetWidth(gemW - 12)
 
         row.priceFS:ClearAllPoints()
-        row.priceFS:SetPoint("LEFT", row, "LEFT", priceX, 0)
+        row.priceFS:SetPoint("LEFT", row, "LEFT", priceX - 16, 0)
         row.priceFS:SetWidth(priceW)
 
         row.profitFS:ClearAllPoints()
-        row.profitFS:SetPoint("LEFT", row, "LEFT", profitX, 0)
+        row.profitFS:SetPoint("LEFT", row, "LEFT", profitX - 16, 0)
         row.profitFS:SetWidth(profitW)
 
         row.roiFS:ClearAllPoints()
-        row.roiFS:SetPoint("LEFT", row, "LEFT", roiX, 0)
+        row.roiFS:SetPoint("LEFT", row, "LEFT", roiX - 16, 0)
         row.roiFS:SetWidth(roiW)
 
         row.breakEvenFS:ClearAllPoints()
-        row.breakEvenFS:SetPoint("LEFT", row, "LEFT", breakEvenX, 0)
+        row.breakEvenFS:SetPoint("LEFT", row, "LEFT", breakEvenX - 16, 0)
         row.breakEvenFS:SetWidth(breakEvenW)
     end
 end
@@ -228,7 +227,12 @@ local function RenderCrushingAnalyzer(win, analyzer)
                 row.nameFS:SetTextColor(0.95, 0.95, 0.95, 1.0)
                 row.priceFS:SetTextColor(0.92, 0.92, 0.92, 1.0)
                 row.breakEvenFS:SetTextColor(0.84, 0.84, 0.84, 1.0)
-                row.bg:SetColorTexture(0.10, 0.10, 0.10, (i % 2 == 1) and 0.55 or 0.28)
+                row.bg:SetColorTexture(
+                    i % 2 == 1 and 0.155 or 0.125,
+                    i % 2 == 1 and 0.155 or 0.125,
+                    i % 2 == 1 and 0.168 or 0.138,
+                    1.0
+                )
                 row.stageAccent:Hide()
                 row.topRule:Hide()
             end
@@ -273,7 +277,7 @@ local function EnsureCrushingWindow()
         return crushingWindow
     end
 
-    crushingWindow = CreateFrame("Frame", "GAMCrushingAnalyzer", UIParent, "BackdropTemplate")
+    crushingWindow = CreateFrame("Frame", GAM.RuntimeName("GAMCrushingAnalyzer"), UIParent, "BackdropTemplate")
     crushingWindow:SetSize(CRUSHING_WINDOW_W, CRUSHING_WINDOW_H)
     crushingWindow:SetPoint("CENTER")
     crushingWindow:SetResizable(true)
@@ -293,10 +297,11 @@ local function EnsureCrushingWindow()
         tile = true, tileSize = 8, edgeSize = 2,
         insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
-    crushingWindow:SetBackdropColor(0, 0, 0, 1)
-    crushingWindow:SetBackdropBorderColor(0.7, 0.57, 0.0, 0.62)
+    crushingWindow:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    crushingWindow:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
     crushingWindow:Hide()
     WindowManager.Register(crushingWindow, "dialog")
+    crushingWindow:SetScript("OnShow", function(self) ApplyCrushingWindowLayout(self) end)
     crushingWindow:SetScript("OnSizeChanged", function(self)
         ClampCrushingWindowSize(self)
         if not self.subtitleFS then
@@ -311,18 +316,18 @@ local function EnsureCrushingWindow()
 
     local bgTex = crushingWindow:CreateTexture(nil, "BACKGROUND", nil, -8)
     bgTex:SetAllPoints()
-    bgTex:SetColorTexture(0, 0, 0, 1)
+    bgTex:SetColorTexture(0.055, 0.055, 0.062, 1)
 
     local title = crushingWindow:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", crushingWindow, "TOP", 0, -14)
+    title:SetPoint("TOPLEFT", crushingWindow, "TOPLEFT", 16, -14)
     title:SetText(GAM.L["CRUSHING_TITLE"])
     title:SetTextColor(DEFAULT_GOLD[1], DEFAULT_GOLD[2], DEFAULT_GOLD[3])
     crushingWindow.titleFS = title
 
     local subtitle = crushingWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    subtitle:SetPoint("TOP", title, "BOTTOM", 0, -4)
+    subtitle:SetPoint("LEFT", title, "RIGHT", 12, 0)
     subtitle:SetWidth(CRUSHING_WINDOW_W - 40)
-    subtitle:SetJustifyH("CENTER")
+    subtitle:SetJustifyH("LEFT")
     subtitle:SetTextColor(0.75, 0.72, 0.64, 1)
     crushingWindow.subtitleFS = subtitle
 
@@ -333,8 +338,9 @@ local function EnsureCrushingWindow()
         tile = true, tileSize = 8, edgeSize = 1,
         insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    summaryCard:SetBackdropColor(0.09, 0.07, 0.04, 0.96)
-    summaryCard:SetBackdropBorderColor(DEFAULT_RULE[1], DEFAULT_RULE[2], DEFAULT_RULE[3], 0.46)
+    summaryCard:SetBackdropColor(0.105, 0.105, 0.115, 1)
+    summaryCard:SetBackdropBorderColor(0.30, 0.28, 0.22, 0.75)
+    summaryCard._gamComfortSurface = true
     crushingWindow.summaryCard = summaryCard
 
     local summary = summaryCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -420,7 +426,12 @@ local function EnsureCrushingWindow()
         local bg = row:CreateTexture(nil, "BACKGROUND")
         bg:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
         bg:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -6, 1)
-        bg:SetColorTexture(0.10, 0.10, 0.10, (i % 2 == 1) and 0.55 or 0.28)
+        bg:SetColorTexture(
+            i % 2 == 1 and 0.155 or 0.125,
+            i % 2 == 1 and 0.155 or 0.125,
+            i % 2 == 1 and 0.168 or 0.138,
+            1.0
+        )
 
         local topRule = row:CreateTexture(nil, "ARTWORK")
         topRule:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)

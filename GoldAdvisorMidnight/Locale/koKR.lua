@@ -8,6 +8,11 @@
 if GetLocale() ~= "koKR" then return end
 local _, GAM = ...
 local L = GAM.L  -- base table already created by Locale.lua; override keys below
+L["BTN_GET_CRAFT_PRICE"] = "제작 가격 가져오기"
+L["TT_GET_CRAFT_PRICE_TITLE"] = "선택한 제작 가격 가져오기"
+L["TT_GET_CRAFT_PRICE_BODY"] = "선택한 제조법과 재료의 경매장 가격을 업데이트합니다. Shift-클릭하면 표시된 즐겨찾기를 스캔합니다."
+L["BTN_QUEUE_CRAFTSIM"] = "CraftSim 대기열에 추가"
+L["TT_QUEUE_CRAFTSIM"] = "전체 실행 계획을 확인한 뒤 CraftSim에 추가합니다."
 
 -- 검토 완료: 설정, 재사용 대기시간, 보조 도구
 L["BTN_COMPACT_DETAIL"] = "세부"
@@ -225,7 +230,7 @@ L["V2_TOOLS_TITLE"]        = "전략 도구"
 L["V2_BEST_TITLE"]         = "최고 전략"
 L["V2_ALL_STRATS"]         = "모든 전략"
 L["V2_MY_PROFS"]           = "내 전문기술"
-L["V2_ALL_FILTER"]         = "전체"
+L["V2_ALL_FILTER"]         = "모든 전문 기술"
 L["V2_FILL_QTY"]           = "목표 수량"
 L["V2_CRAFT_STATS"]        = "제작 수치"
 L["V2_MATERIAL_RANK"]      = "재료 등급"
@@ -436,3 +441,6 @@ L["VI_TT_ROW"] = "제작 또는 구매 단계 하나"
 L["VI_TT_USED_CHAIN_COST"] = "제작 경로 비용: %s"
 L["VI_TT_USED_TOTAL_COST"] = "사용된 총비용: %s"
 L["VI_TT_USED_UNIT_PRICE"] = "사용된 개당 가격: %s"
+
+L["VI_TT_OUTPUT_ESTIMATE"] = "생산량은 예상치입니다. 다음 단계를 시작하기 전에 결과를 확인하세요."
+L["VI_HDR_CRAFT_QTY"] = "제작 횟수"

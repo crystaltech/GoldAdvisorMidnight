@@ -8,6 +8,11 @@
 if GetLocale() ~= "esES" then return end
 local _, GAM = ...
 local L = GAM.L  -- base table already created by Locale.lua; override keys below
+L["BTN_GET_CRAFT_PRICE"] = "Obtener precio de fabricación"
+L["TT_GET_CRAFT_PRICE_TITLE"] = "Obtener el precio de la fabricación seleccionada"
+L["TT_GET_CRAFT_PRICE_BODY"] = "Actualiza los precios de la casa de subastas para la receta seleccionada y sus materiales. Mantén Mayús y haz clic para escanear los favoritos visibles."
+L["BTN_QUEUE_CRAFTSIM"] = "Añadir a CraftSim"
+L["TT_QUEUE_CRAFTSIM"] = "Valida el plan completo y añádelo a CraftSim."
 
 -- Revisión completada: ajustes, reutilizaciones y herramientas auxiliares
 L["BTN_COMPACT_DETAIL"] = "DETALLE"
@@ -225,7 +230,7 @@ L["V2_TOOLS_TITLE"]        = "Herramientas"
 L["V2_BEST_TITLE"]         = "Mejor estrategia"
 L["V2_ALL_STRATS"]         = "Todas las estrategias"
 L["V2_MY_PROFS"]           = "Mis profesiones"
-L["V2_ALL_FILTER"]         = "Todas"
+L["V2_ALL_FILTER"]         = "Todas las profesiones"
 L["V2_FILL_QTY"]           = "Cantidad"
 L["V2_CRAFT_STATS"]        = "Estadísticas"
 L["V2_MATERIAL_RANK"]      = "Rango de materiales"
@@ -436,3 +441,6 @@ L["VI_TT_ROW"] = "Un paso de fabricación o compra"
 L["VI_TT_USED_CHAIN_COST"] = "Coste de la ruta de fabricación: %s"
 L["VI_TT_USED_TOTAL_COST"] = "Coste total usado: %s"
 L["VI_TT_USED_UNIT_PRICE"] = "Precio unitario usado: %s"
+
+L["VI_TT_OUTPUT_ESTIMATE"] = "La cantidad producida es una estimación. Comprueba el resultado antes de empezar el siguiente paso."
+L["VI_HDR_CRAFT_QTY"] = "Fabricaciones"
