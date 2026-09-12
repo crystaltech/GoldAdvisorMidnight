@@ -1,0 +1,3 @@
+-- Development compatibility loader; canonical implementation ships with the addon.
+local name, GAM = ...
+return assert(loadfile("RecipeAudit.lua"))(name, GAM)

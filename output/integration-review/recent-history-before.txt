@@ -1,0 +1,18 @@
+* ac21fe9 (tag: v2.0.10, tag: safety/main-before-2.1.0-integration, origin/main, origin/HEAD, main) Release Gold Advisor Midnight 2.0.10
+* cd3577a (tag: v2.0.9) Fix ranked crafting plans and harden addon data
+* f3cf52a (tag: v2.0.8) Release Gold Advisor Midnight 2.0.8
+* 044837e (tag: v2.0.7) Release Gold Advisor Midnight 2.0.7
+* 2e48236 (tag: v2.0.6) Release Gold Advisor Midnight 2.0.6
+* d71da6b Update ignore rules for local development files
+* e21df82 Remove development links from README
+* 74caf91 (tag: v2.0.5) Release Gold Advisor Midnight 2.0.5
+* 663c846 (tag: v2.0.4) Update GoldAdvisorMidnight.toc
+* d10201c Update Constants.lua
+* 2f621b0 Add .gitignore for docs/tests/tools
+* 78daa1b Stop tracking docs/tests/tools in addon folder
+* 4f3e458 Update Patch12_1.lua
+* 88ffe99 (tag: v2.0.3) Remove local install script from repo tracking
+* 897ee6c Add files via upload
+* 0d38ab5 Fix OK button not committing transient edit-box values
+* 8900b47 (tag: v2.0.2) Release 2.0.2
+* 07170e0 (tag: v2.0.1) Release 2.0.1

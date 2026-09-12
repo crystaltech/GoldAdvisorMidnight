@@ -1,0 +1,316 @@
+
+== syntax GoldAdvisorMidnight\AuctionHouseQuery.lua ==
+
+== syntax GoldAdvisorMidnight\AuctionHouseResults.lua ==
+
+== syntax GoldAdvisorMidnight\AuctionHouseScan.lua ==
+
+== syntax GoldAdvisorMidnight\CommodityCatalog.lua ==
+
+== syntax GoldAdvisorMidnight\Constants.lua ==
+
+== syntax GoldAdvisorMidnight\CooldownTracker.lua ==
+
+== syntax GoldAdvisorMidnight\Core.lua ==
+
+== syntax GoldAdvisorMidnight\CraftingStats.lua ==
+
+== syntax GoldAdvisorMidnight\CraftingStatsCache.lua ==
+
+== syntax GoldAdvisorMidnight\CraftingStatsCapture.lua ==
+
+== syntax GoldAdvisorMidnight\CraftingStatsDiagnostics.lua ==
+
+== syntax GoldAdvisorMidnight\CraftingStatsGear.lua ==
+
+== syntax GoldAdvisorMidnight\CraftingStatsResolution.lua ==
+
+== syntax GoldAdvisorMidnight\CraftingStatsSpecialization.lua ==
+
+== syntax GoldAdvisorMidnight\CraftSimBridge.lua ==
+
+== syntax GoldAdvisorMidnight\CraftSimPriceOverrides.lua ==
+
+== syntax GoldAdvisorMidnight\CraftSimQueue.lua ==
+
+== syntax GoldAdvisorMidnight\Data\CommodityManifest.lua ==
+
+== syntax GoldAdvisorMidnight\Data\ProfessionCrafts.lua ==
+
+== syntax GoldAdvisorMidnight\Data\ProfessionCraftsPatch12_1.lua ==
+
+== syntax GoldAdvisorMidnight\Data\Recipes\Patch12_1.lua ==
+
+== syntax GoldAdvisorMidnight\Data\RecipesGenerated.lua ==
+
+== syntax GoldAdvisorMidnight\Data\SpecializationData\Midnight\Alchemy.lua ==
+
+== syntax GoldAdvisorMidnight\Data\SpecializationData\Midnight\Blacksmithing.lua ==
+
+== syntax GoldAdvisorMidnight\Data\SpecializationData\Midnight\Enchanting.lua ==
+
+== syntax GoldAdvisorMidnight\Data\SpecializationData\Midnight\Engineering.lua ==
+
+== syntax GoldAdvisorMidnight\Data\SpecializationData\Midnight\Inscription.lua ==
+
+== syntax GoldAdvisorMidnight\Data\SpecializationData\Midnight\Jewelcrafting.lua ==
+
+== syntax GoldAdvisorMidnight\Data\SpecializationData\Midnight\Leatherworking.lua ==
+
+== syntax GoldAdvisorMidnight\Data\SpecializationData\Midnight\Tailoring.lua ==
+
+== syntax GoldAdvisorMidnight\Data\WorkbookGenerated.lua ==
+
+== syntax GoldAdvisorMidnight\DataBroker.lua ==
+
+== syntax GoldAdvisorMidnight\Importer.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\deDE.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\esES.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\esMX.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\frFR.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\itIT.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\koKR.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\ptBR.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\ruRU.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\zhCN.lua ==
+
+== syntax GoldAdvisorMidnight\Locale\zhTW.lua ==
+
+== syntax GoldAdvisorMidnight\Locale.lua ==
+
+== syntax GoldAdvisorMidnight\Log.lua ==
+
+== syntax GoldAdvisorMidnight\Minimap.lua ==
+
+== syntax GoldAdvisorMidnight\Pricing.lua ==
+
+== syntax GoldAdvisorMidnight\PricingContract.lua ==
+
+== syntax GoldAdvisorMidnight\PricingDerivation.lua ==
+
+== syntax GoldAdvisorMidnight\PricingEngine.lua ==
+
+== syntax GoldAdvisorMidnight\PricingFacade.lua ==
+
+== syntax GoldAdvisorMidnight\PricingFormula.lua ==
+
+== syntax GoldAdvisorMidnight\PricingPriceSource.lua ==
+
+== syntax GoldAdvisorMidnight\PricingRecipe.lua ==
+
+== syntax GoldAdvisorMidnight\PricingVerticalIntegration.lua ==
+
+== syntax GoldAdvisorMidnight\ProfessionNodeDisplay.lua ==
+
+== syntax GoldAdvisorMidnight\QuickBuy.lua ==
+
+== syntax GoldAdvisorMidnight\ReagentMixOptimizer.lua ==
+
+== syntax GoldAdvisorMidnight\RecipeAudit.lua ==
+
+== syntax GoldAdvisorMidnight\Settings.lua ==
+
+== syntax GoldAdvisorMidnight\State.lua ==
+
+== syntax GoldAdvisorMidnight\StrategyModel.lua ==
+
+== syntax GoldAdvisorMidnight\UI\CooldownTrackerWindow.lua ==
+
+== syntax GoldAdvisorMidnight\UI\CrushingAnalyzerWindow.lua ==
+
+== syntax GoldAdvisorMidnight\UI\DebugLog.lua ==
+
+== syntax GoldAdvisorMidnight\UI\MainWindow.lua ==
+
+== syntax GoldAdvisorMidnight\UI\MainWindowCenter.lua ==
+
+== syntax GoldAdvisorMidnight\UI\MainWindowCommon.lua ==
+
+== syntax GoldAdvisorMidnight\UI\MainWindowDetail.lua ==
+
+== syntax GoldAdvisorMidnight\UI\MainWindowLeftPanel.lua ==
+
+== syntax GoldAdvisorMidnight\UI\MainWindowShopping.lua ==
+
+== syntax GoldAdvisorMidnight\UI\StrategyDetail.lua ==
+
+== syntax GoldAdvisorMidnight\UI\StrategyDetailModel.lua ==
+
+== syntax GoldAdvisorMidnight\UI\StrategyListModel.lua ==
+
+== syntax GoldAdvisorMidnight\UI\VIBreakdownPlan.lua ==
+
+== syntax GoldAdvisorMidnight\UI\VIBreakdownWindow.lua ==
+
+== syntax GoldAdvisorMidnight\UI\WindowManager.lua ==
+
+== syntax GoldAdvisorMidnight\VendorPrices.lua ==
+
+== syntax tools\RecipeAudit.lua ==
+
+== test run.lua ==
+PASS: commodity catalog and importer regression checks
+
+== test pricing_formula.lua ==
+PASS: Exhaust Materials and Fixed Crafts golden calculations
+
+== test pricing_contract.lua ==
+PASS: commodity pricing request/result contract
+
+== test pricing_facade.lua ==
+PASS: authoritative pricing facade parity fixtures
+
+== test strategy_list.lua ==
+PASS: canonical strategy-list cache, visibility, and sorting
+
+== test strategy_detail.lua ==
+PASS: canonical base-detail projection and visible-value parity
+
+== test pricing_derivation.lua ==
+PASS: vertical integration profession and display-plan policies
+
+== test core_migrations.lua ==
+PASS: SavedVariables migrations run before defaults and preserve user data
+
+== test state.lua ==
+PASS: rank-scoped state and legacy favorite migration
+
+== test vendor_prices.lua ==
+PASS: live merchant prices are normalized, character-scoped, and cached
+
+== test crafting_stats.lua ==
+PASS: shared profession registry and crafting-stat resolution
+
+== test profession_node_display.lua ==
+PASS: profession node display metadata
+
+== test cooldown_tracker.lua ==
+PASS: craft cooldown tracker
+
+== test craftsim_bridge.lua ==
+PASS: CraftSim bridge uses the shared profession registry
+
+== test ah_scan.lua ==
+PASS: AH scan covers stale/duplicate events, throttle recovery, cache polling, confirmed empties, pagination, retries, pause, and browse fallback
+
+== test quick_buy.lua ==
+PASS: Quick Buy quote, guard, retry, skip, and completion states
+PASS: Quick Buy dismissal preserves submitted purchases and rejects stale timeouts
+
+== test recipe_audit.lua ==
+PASS: live recipe schematic audit classification and report
+
+== test pricing_inventory.lua ==
+PASS: VI execution inventory is consumed before producer expansion
+
+== test reagent_mix_optimizer.lua ==
+PASS: reagent mix optimizer regression checks
+
+== test vi_breakdown_plan.lua ==
+PASS: grouped VI shopping and dependency-safe crafting plan
+PASS: empty execution shopping plans remain empty
+
+== test production_identity.lua ==
+PASS: production identity retains Comfortable and private catalog data
+
+== test settings_startup.lua ==
+PASS: settings dependencies, registration failure/retry, and category entry points
+
+== test theme_profiles.lua ==
+PASS: theme profiles preserve duplicate names and clear deleted character selections
+
+== test craftsim_queue.lua ==
+PASS: CraftSim queue preflight and atomic writes
+
+== test crushing_layout.lua ==
+PASS: Crushing headers reflow with fractional scaled dimensions
+
+== test detail_layout.lua ==
+PASS: actual Comfortable detail builder reflows disclosure, tables and short windows
+
+== test quick_buy_window.lua ==
+PASS: Quick Buy initial hide precedes callbacks and normal close resets
+
+== test rocky_yield.lua ==
+PASS: R0CKY base output and bonus-adjusted average remain distinct
+
+== test scan_shortcuts.lua ==
+|cffff8800[GAM]|r Select a strategy before Shift-clicking Scan.
+PASS: real scan dispatch handles four scopes, hidden favorites, modifiers and stop
+
+== test secondary_theme.lua ==
+PASS: secondary theme preserves icons and existing primary buttons
+PASS: disabled button state and Settings-safe secondary lifecycle
+
+== test settings_scale.lua ==
+PASS: UI scale reaches open windows even when the main frame is unopened
+
+== test window_geometry.lua ==
+PASS: saved geometry validation and reentrant Detail-mode resize
+
+== retained recipe catalog audit ==
+Gold Advisor Midnight retained recipe audit
+retained=283 issues=0
+
+Issue counts:
+
+severity	code	profession	strategy_id	strategy_name	detail
+
+== CraftSim specialization pricing-node parity ==
+Alchemy: upstream=122 local=22 hidden=6/6 omitted-stat-kinds=craftingspeed,dummyeffectfor#tokenization(dnt),ingenuity,ingenuityrefundincrease,reduceconcentrationcost,resourcefulness,skill,unlockreagentslot
+Blacksmithing: upstream=166 local=18 hidden=0/0 omitted-stat-kinds=ingenuity,reduceconcentrationcost,skill,unlockreagentslot
+Enchanting: upstream=141 local=10 hidden=8/8 omitted-stat-kinds=craftingspeed,ingenuity,ingenuityrefundincrease,multicraft,reduceconcentrationcost,resourcefulness,skill,traitranksbypoints-modifierlabel(dnt),unlockreagentslot
+Engineering: upstream=133 local=12 hidden=8/8 omitted-stat-kinds=ingenuity,ingenuityrefundincrease,multicraft,resourcefulness,skill,unlockreagentslot
+Inscription: upstream=223 local=15 hidden=10/10 omitted-stat-kinds=ingenuity,ingenuityrefundincrease,skill,unlockreagentslot
+Jewelcrafting: upstream=178 local=16 hidden=8/8 omitted-stat-kinds=craftingspeed,ingenuity,ingenuityrefundincrease,multicraft,reduceconcentrationcost,resourcefulness,skill,unlockreagentslot
+Leatherworking: upstream=179 local=16 hidden=8/8 omitted-stat-kinds=craftingspeed,ingenuity,ingenuityrefundincrease,reduceconcentrationcost,resourcefulness,skill,unlockreagentslot
+Tailoring: upstream=139 local=12 hidden=4/4 omitted-stat-kinds=craftingspeed,ingenuity,multicraft,reduceconcentrationcost,resourcefulness,skill,unlockreagentslot
+PASS: every CraftSim pricing-hidden node and recipe mapping is represented
+
+== commodity manifest source parity ==
+Strategies: raw=607 retained=283 excluded=324 items=514
+  Alchemy: 30
+  Blacksmithing: 8
+  Cooking: 42
+  Enchanting: 77
+  Engineering: 26
+  Inscription: 31
+  Jewelcrafting: 48
+  Leatherworking: 11
+  Tailoring: 10
+AUDIT: alchemy__vicious_thalassian_flask_of_honor__midnight_1 group base:1: rejected item IDs 241335
+PASS: Data\CommodityManifest.lua matches the pinned source data
+
+== pinned Wago recipe parity ==
+Wrote ..\output\spreadsheet\recipe_catalog_audit.csv
+Wrote ..\output\spreadsheet\recipe_catalog_audit_summary.md
+Identity: {'catalog_name_mismatch': 2, 'confirmed': 281}
+Fixed reagents: {'confirmed': 218, 'no_fixed_reagents_in_db2': 65}
+Outputs: {'confirmed': 223, 'requires_schematic_or_salvage_check': 60}
+PASS: pinned Wago reagent and ranked-output data match the catalog
+
+== TOC runtime boundary ==
+PASS: TOC covers 78 runtime Lua files
+
+== locale coverage ==
+PASS: all 309 runtime keys have base definitions and translations; deDE=309/309 translated, esES=309/309 translated, esMX=309/309 translated, frFR=309/309 translated, itIT=309/309 translated, koKR=309/309 translated, ptBR=309/309 translated, ruRU=309/309 translated, zhCN=309/309 translated, zhTW=309/309 translated
+
+== transient OK button event binding ==
+PASS: transient OK buttons preserve and submit drafts before focus loss
+
+== release package boundary ==
+PASS: release set 2.1.0 contains 80 files
+
+== GitHub publish boundary ==
+PASS: GitHub boundary contains README.md, LICENSE, and 80 addon files only
+
+PASS: complete Gold Advisor Midnight verification gate
