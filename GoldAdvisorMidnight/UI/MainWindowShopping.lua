@@ -35,10 +35,23 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
     local searchStrings = {}
     local signatureParts = {}
     local items = {}
+    local vendorItems = {}
 
     for _, rm in ipairs(canonicalResult.shoppingReagents or {}) do
         local qty = math.floor(rm.needToBuy or 0)
         if qty > 0 then
+            local source, price, basis
+            if GAM.VendorPrices and GAM.VendorPrices.ResolvePurchase then
+                source, price, basis = GAM.VendorPrices.ResolvePurchase(rm.itemID, qty)
+            end
+            if source == "vendor" then
+                vendorItems[#vendorItems + 1] = {
+                    itemID = rm.itemID, name = rm.name, quantity = qty,
+                    unitPrice = price, vendorPriceBasis = basis,
+                }
+                signatureParts[#signatureParts + 1] = string.format("vendor:%s:%d:%s:%s",
+                    tostring(rm.itemID), qty, tostring(price), tostring(basis))
+            else
             local entry
             local searchData = GAM.Pricing.GetShoppingSearchData(rm.itemID, rm.name)
             if hasConvert then
@@ -62,8 +75,9 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
                     itemID = rm.itemID,
                     name = searchData.displayName,
                     quantity = qty,
-                    unitPrice = rm.unitPrice,
+                    unitPrice = price or rm.unitPrice,
                 }
+            end
             end
         end
     end
@@ -76,6 +90,7 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
         canonicalResult = canonicalResult,
         searchStrings = searchStrings,
         items = items,
+        vendorItems = vendorItems,
         signature = signature,
     }
 end
@@ -92,6 +107,7 @@ local function CreateAuctionatorShoppingList(strat, patchTag, quiet)
     local quickBuyList = {
         listName = payload.listName,
         entries = payload.items,
+        vendorEntries = payload.vendorItems,
         signature = payload.signature,
     }
     if GAM.QuickBuy and GAM.QuickBuy.SetList then
@@ -141,6 +157,7 @@ local function RefreshShoppingSync()
     local quickBuyList = {
         listName = payload.listName,
         entries = payload.items,
+        vendorEntries = payload.vendorItems,
         signature = payload.signature,
     }
     if GAM.QuickBuy and GAM.QuickBuy.SetList then

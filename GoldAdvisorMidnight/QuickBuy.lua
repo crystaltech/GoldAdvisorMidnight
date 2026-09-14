@@ -77,8 +77,27 @@ function QuickBuy.CreateController(deps)
         return false, message
     end
 
+    local function RouteVendor(entry, quotedTotal)
+        if not (entry and GAM.VendorPrices and GAM.VendorPrices.ResolvePurchase) then return false end
+        local source, price, basis = GAM.VendorPrices.ResolvePurchase(entry.itemID, entry.quantity, quotedTotal)
+        if source ~= "vendor" then return false end
+        CancelQuote()
+        local list = controller.list
+        list.vendorEntries = list.vendorEntries or {}
+        entry.unitPrice, entry.vendorPriceBasis = price, basis
+        list.vendorEntries[#list.vendorEntries + 1] = entry
+        RemoveEntry(list, entry)
+        if deps.onVendor then deps.onVendor(entry, list) end
+        ClearPending()
+        controller.state.phase = "idle"
+        controller.state.lastError = nil
+        Changed()
+        return true
+    end
+
     local function ConfirmPending()
         local state = controller.state
+        if RouteVendor(state.pendingEntry, state.quoteTotalPrice) then return false, "vendor" end
         if not state.pendingItemID or not state.pendingQty then
             return Fail(L("QB_ERR_NO_QUOTE", "No commodity quote is ready."))
         end
@@ -143,6 +162,9 @@ function QuickBuy.CreateController(deps)
         end
 
         local entry = FirstEntry(self.list)
+        while entry and RouteVendor(entry) do
+            entry = FirstEntry(self.list)
+        end
         if not entry then
             state.active = false
             state.phase = "complete"
@@ -194,6 +216,7 @@ function QuickBuy.CreateController(deps)
 
         state.quoteUnitPrice = unitPrice
         state.quoteTotalPrice = totalPrice
+        if RouteVendor(state.pendingEntry, totalPrice) then return false, "vendor" end
 
         local money = deps.getMoney and tonumber(deps.getMoney()) or nil
         if money and totalPrice > money then
@@ -322,12 +345,22 @@ local function RefreshWindow()
     local list = controller:GetList()
     local entries = (list and list.entries) or {}
     local entry = CurrentEntry()
+    local vendorLines = {}
+    for _, vendor in ipairs((list and list.vendorEntries) or {}) do
+        vendorLines[#vendorLines + 1] = string.format("%d x %s — %s each%s",
+            vendor.quantity or 0, vendor.name or tostring(vendor.itemID), FormatMoney(vendor.unitPrice),
+            vendor.vendorPriceBasis == "static" and " (estimate; visit vendor to refresh)" or "")
+    end
+    if refs.vendor then
+        refs.vendor:SetText(#vendorLines > 0 and ("Buy from vendor\n" .. table.concat(vendorLines, "\n")) or "")
+        window:SetHeight(230 + (#vendorLines > 0 and 40 + #vendorLines * 30 or 0))
+    end
     refs.progress:SetText(#entries == 1
         and L("QB_PROGRESS_ONE", "%d item remaining", #entries)
         or L("QB_PROGRESS_MANY", "%d items remaining", #entries))
     refs.item:SetText(entry
         and (entry.name or L("QB_ITEM_FALLBACK", "Item %s", tostring(entry.itemID)))
-        or L("QB_LIST_COMPLETE", "Shopping list complete"))
+        or (#vendorLines > 0 and "Vendor purchases remaining" or L("QB_LIST_COMPLETE", "Shopping list complete")))
     refs.quantity:SetText(entry
         and L("QB_QUANTITY", "Quantity: %d", math.floor(tonumber(entry.quantity) or 0)) or "")
     refs.expected:SetText(entry
@@ -354,7 +387,8 @@ local function RefreshWindow()
         buttonText = L("QB_PURCHASING", "Purchasing…")
         enabled = false
     elseif state.phase == "complete" then
-        status = L("QB_STATUS_COMPLETE", "All shopping-list items have been purchased.")
+        status = #vendorLines > 0 and "Auction House list complete. Vendor purchases remain below."
+            or L("QB_STATUS_COMPLETE", "All shopping-list items have been purchased.")
         buttonText = L("QB_COMPLETE", "Complete")
         enabled = false
     elseif state.lastError then
@@ -444,6 +478,11 @@ local function BuildWindow()
     refs.quote = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     refs.quote:SetPoint("TOPLEFT", refs.expected, "BOTTOMLEFT", 0, -5)
 
+    refs.vendor = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    refs.vendor:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -210)
+    refs.vendor:SetPoint("RIGHT", window, "RIGHT", -18, 0)
+    refs.vendor:SetJustifyH("LEFT")
+
     refs.status = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     refs.status:SetPoint("TOPLEFT", refs.quote, "BOTTOMLEFT", 0, -11)
     refs.status:SetPoint("RIGHT", window, "RIGHT", -20, 0)
@@ -508,7 +547,10 @@ function QuickBuy.Init()
         onPurchased = function(entry, _, list)
             RemoveAuctionatorEntry(entry, list)
         end,
+        onVendor = RemoveAuctionatorEntry,
         onComplete = function()
+            local list = controller:GetList()
+            if list and list.vendorEntries and #list.vendorEntries > 0 then return end
             if window and window:IsShown() then
                 window._gamConfirmedComplete = true
                 window:Hide()

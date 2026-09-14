@@ -927,7 +927,14 @@ function Stats.OpenRecipeForStrat(strat, onRefresh, onFailure)
         else
             local snapshot, captureReason = Stats.CaptureOpenRecipe(recipeID)
             if snapshot then
-                local nodeState, nodeReason = Stats.CaptureOpenProfessionNodes(profession.name)
+                -- Cooking has recipe stats but no specialization tree. Other
+                -- professions still require verified node capture.
+                local nodeState, nodeReason
+                if profession.name == "Cooking" then
+                    nodeState = true
+                else
+                    nodeState, nodeReason = Stats.CaptureOpenProfessionNodes(profession.name)
+                end
                 if nodeState then
                     completed = true
                     FinishRequest()

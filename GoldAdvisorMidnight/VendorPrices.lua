@@ -131,6 +131,40 @@ function VendorPrices.GetResolvedCatalog()
     return resolved
 end
 
+-- Compare actual purchase sources, excluding manual and CraftSim valuations.
+function VendorPrices.ResolvePurchase(itemID, quantity, quotedTotal)
+    local vendor, basis = VendorPrices.GetPrice(itemID)
+    if not vendor then return "auction", nil end
+    quantity = math.max(1, math.ceil(tonumber(quantity) or 1))
+    local auction, stale
+    if quotedTotal then
+        auction = tonumber(quotedTotal) / quantity
+    elseif GAM.AHScan and GAM.AHScan.GetRawScanSnapshot then
+        local snapshot = GAM.AHScan.GetRawScanSnapshot(itemID)
+        if snapshot then
+            -- Compare the full fill cost, without the pricing model's outlier trim.
+            local remaining, total = quantity, 0
+            for _, row in ipairs(snapshot.prices or {}) do
+                local take = math.min(remaining, math.max(0, tonumber(row.quantity) or 0))
+                if tonumber(row.unitPrice) and row.unitPrice > 0 then
+                    total = total + take * row.unitPrice
+                    remaining = remaining - take
+                end
+                if remaining <= 0 then break end
+            end
+            if remaining > 0 then return "vendor", vendor, basis end
+            auction = total / quantity
+        end
+    end
+    if not auction and not quotedTotal and GAM.Pricing and GAM.Pricing.GetUnitPrice then
+        auction, stale = GAM.Pricing.GetUnitPrice(itemID, quantity <= 1)
+    end
+    if auction and auction > 0 and not stale and auction < vendor then
+        return "auction", auction, basis
+    end
+    return "vendor", vendor, basis
+end
+
 function VendorPrices.CaptureMerchant()
     if type(GetMerchantNumItems) ~= "function" then
         return 0, 0
