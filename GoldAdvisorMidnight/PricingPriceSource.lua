@@ -435,6 +435,10 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
         and GAM.VendorPrices.GetPrice(itemID)
         or (GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID])
     if vendorPrice then
+        if GAM.VendorPrices and GAM.VendorPrices.ResolvePurchase then
+            local _, purchasePrice = GAM.VendorPrices.ResolvePurchase(itemID, qty)
+            return purchasePrice, false
+        end
         return vendorPrice, false
     end
 

@@ -258,6 +258,10 @@ function Plan.Build(breakdown, vendorPrices, labels)
     for _, entry in ipairs(purchaseEntries) do
         if entry.kind ~= "craft" then
             local isVendor = entry.itemID and vendorPrices[entry.itemID] ~= nil
+            if isVendor and GAM.VendorPrices and GAM.VendorPrices.ResolvePurchase then
+                isVendor = GAM.VendorPrices.ResolvePurchase(entry.itemID,
+                    entry.needToBuy or entry.quantity) == "vendor"
+            end
             if isVendor then
                 AddPurchase(vendorGroups, vendorOrder, entry, "vendor", vendorPrices[entry.itemID])
             else
