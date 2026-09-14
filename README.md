@@ -23,7 +23,8 @@ It includes 283 commodity strategies across nine professions. Equipment, profess
 2. Launch the game or run `/reload`, then enable **Gold Advisor Midnight**.
 3. Use `/gam` to open the addon.
 
-Version **2.1.0** includes the Comfortable interface and appearance profiles. Existing
+Version **2.1.1** improves profession selection, scan controls, and crafting settings
+in the Comfortable interface, alongside appearance profiles. Existing
 `GoldAdvisorMidnightDB` settings are retained and upgraded in place. The separate
 development addon's settings are not imported.
 

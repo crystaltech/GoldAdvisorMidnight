@@ -143,7 +143,6 @@ function LeftPanelUI.Build(args)
     local setOption = args.setOption or Noop
     local clampFillQtyValue = args.clampFillQtyValue or tonumber
     local buildPlayerProfessionSet = args.buildPlayerProfessionSet or function() return {} end
-    local hasAnyEntries = args.hasAnyEntries or function(set) return set and next(set) ~= nil end
     local rebuildList = args.rebuildList or Noop
     local refreshRows = args.refreshRows or Noop
     local relayoutPanels = args.relayoutPanels or Noop
@@ -161,10 +160,8 @@ function LeftPanelUI.Build(args)
     local setGearMode = args.setGearMode or Noop
     local captureGearPreset = args.captureGearPreset or Noop
     local getFilterPatch = args.getFilterPatch or function() return GAM.C.DEFAULT_PATCH end
-    local getFilterMode = args.getFilterMode or function() return "all" end
     local setFilterMode = args.setFilterMode or Noop
     local setFilterProf = args.setFilterProf or Noop
-    local getFilterProfSet = args.getFilterProfSet or function() return nil end
     local setFilterProfSet = args.setFilterProfSet or Noop
     local getFilterProfSingleSet = args.getFilterProfSingleSet or function() return {} end
     local setFilterProfSingleSet = args.setFilterProfSingleSet or Noop
@@ -172,7 +169,6 @@ function LeftPanelUI.Build(args)
     local softInk = layoutMode == "soft"
     local labelColor = softInk and bodyTextColor or { 0.9, 0.9, 0.9, 1.0 }
     local helperColor = softInk and mutedTextColor or { 0.65, 0.65, 0.65, 1.0 }
-    local allFilterText = (L and L["V2_ALL_FILTER"]) or "All"
 
     local charNameFS = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     charNameFS:SetPoint("TOP", panel, "TOP", 0, -40)
@@ -206,20 +202,6 @@ function LeftPanelUI.Build(args)
     filterLbl:SetTextColor(gold[1], gold[2], gold[3])
     applyFontSize(filterLbl, 11)
 
-    local segW = math.floor((panelWidth - LP * 2 - 4) / 2)
-    local btnFilterMine = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    btnFilterMine:SetSize(segW, 22)
-    btnFilterMine:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -94)
-    btnFilterMine:SetText((L and L["V2_MY_PROFS"]) or "My Profs")
-
-    local btnFilterAll = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    btnFilterAll:SetSize(segW, 22)
-    btnFilterAll:SetPoint("TOPLEFT", panel, "TOPLEFT", LP + segW + 4, -94)
-    btnFilterAll:SetText((L and L["V2_ALL_FILTER"]) or "All")
-
-    panel.btnFilterAll = btnFilterAll
-    panel.btnFilterMine = btnFilterMine
-
     -- Keep this menu entirely addon-owned.  UIDropDownMenu uses shared global
     -- DropDownList frames; changing those frames from addon code can taint
     -- unrelated protected Blizzard UI (for example the Game Menu).
@@ -242,120 +224,121 @@ function LeftPanelUI.Build(args)
     profMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
     profMenu:Hide()
 
-    local function UpdateProfDDText()
-        local currentSet = getFilterProfSingleSet()
-        if next(currentSet) == nil then
-            ddProf:SetText(allFilterText .. "  v")
-        else
-            local names = {}
-            for prof in pairs(currentSet) do
-                names[#names + 1] = prof
-            end
-            table.sort(names)
-            local text = (#names <= 2) and table.concat(names, ", ") or (#names .. " Profs")
-            ddProf:SetText(text .. "  v")
-        end
-    end
-
-    local CHECK_ON  = "|TInterface\\Buttons\\UI-CheckBox-Check:14:14|t "
+    local ddPool, profRows = {}, {}
+    local selectionPreset = "mine"
+    local learned = {}
+    local CHECK_ON = "|TInterface\\Buttons\\UI-CheckBox-Check:14:14|t "
     local CHECK_OFF = "|TInterface\\Buttons\\UI-CheckBox-Highlight:14:14|t "
 
-    local ddPool = {}
-    local profRows = {}
+    local function UpdateProfDDText()
+        local names = {}
+        for prof in pairs(getFilterProfSingleSet()) do names[#names + 1] = prof end
+        table.sort(names)
+        local label = "Choose professions"
+        if #names > 0 then
+            if selectionPreset == "mine" then label = "My professions"
+            elseif selectionPreset == "all" then label = "All professions"
+            elseif #names == 1 then label = names[1]
+            else label = #names .. " professions" end
+        end
+        ddProf:SetText(label .. "  v")
+        attachButtonTooltip(ddProf, "Professions",
+            (#names > 0 and table.concat(names, ", ") or "No professions selected.")
+            .. "\nChoose one or more professions to filter the list and its price scan.")
+    end
 
     local function RefreshProfMenuRows()
-        local currentSet = getFilterProfSingleSet()
+        local selected = getFilterProfSingleSet()
         for i, row in ipairs(profRows) do
-            local profession = i == 1 and nil or ddPool[i - 1]
-            if i <= #ddPool + 1 then
-                row.profession = profession
-                if profession then
-                    row.text:SetText((currentSet[profession] and CHECK_ON or CHECK_OFF) .. profession)
-                else
-                    row.text:SetText((next(currentSet) == nil and CHECK_ON or CHECK_OFF) .. allFilterText)
-                end
-                row:Show()
-            else
-                row:Hide()
-            end
+            local prof = ddPool[i - 2]
+            if i == 1 then row.text:SetText("My professions")
+            elseif i == 2 then row.text:SetText("All professions")
+            elseif prof then
+                row.text:SetText((selected[prof] and CHECK_ON or CHECK_OFF) .. prof
+                    .. (learned[prof] and " (learned)" or ""))
+            else row.text:SetText("Done") end
         end
     end
 
-    local function EnsureProfMenuRows()
-        local rowCount = #ddPool + 1
-        for i = #profRows + 1, rowCount do
-            local row = CreateFrame("Button", nil, profMenu)
-            row:SetHeight(20)
-            row:SetPoint("TOPLEFT", profMenu, "TOPLEFT", 2, -2 - ((i - 1) * 20))
-            row:SetPoint("TOPRIGHT", profMenu, "TOPRIGHT", -2, -2 - ((i - 1) * 20))
-
-            local highlight = row:CreateTexture(nil, "HIGHLIGHT")
-            highlight:SetAllPoints()
-            highlight:SetColorTexture(gold[1], gold[2], gold[3], 0.18)
-
-            row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            row.text:SetPoint("LEFT", row, "LEFT", 5, 0)
-            row.text:SetPoint("RIGHT", row, "RIGHT", -5, 0)
-            row.text:SetJustifyH("LEFT")
-            applyFontSize(row.text, 10)
-
-            row:SetScript("OnClick", function(self)
-                local profession = self.profession
-                if profession then
-                    local selected = getFilterProfSingleSet()
-                    if selected[profession] then
-                        selected[profession] = nil
-                    else
-                        selected[profession] = true
-                    end
-                else
-                    setFilterProfSingleSet({})
-                end
-                UpdateProfDDText()
-                rebuildList()
-                refreshRows()
-                RefreshProfMenuRows()
-            end)
-            profRows[i] = row
+    local function SelectPreset(preset)
+        learned = buildPlayerProfessionSet() or {}
+        local selected = {}
+        for _, prof in ipairs(ddPool) do
+            if preset == "all" or learned[prof] then selected[prof] = true end
         end
-        profMenu:SetHeight(4 + (rowCount * 20))
-        RefreshProfMenuRows()
+        selectionPreset = preset
+        setFilterMode("selected")
+        setFilterProf("All")
+        setFilterProfSet(nil)
+        setFilterProfSingleSet(selected)
     end
 
     local function InitProfDD()
         wipe(ddPool)
-        local filterMode = getFilterMode()
-        local filterProfSet = getFilterProfSet()
-        if filterMode == "mine" and hasAnyEntries(filterProfSet) then
-            for prof in pairs(filterProfSet) do
-                ddPool[#ddPool + 1] = prof
-            end
-            table.sort(ddPool)
-        else
-            for _, p in ipairs(GAM.Importer.GetAllProfessions(getFilterPatch()) or {}) do
-                ddPool[#ddPool + 1] = p
-            end
+        for _, prof in ipairs(GAM.Importer.GetAllProfessions(getFilterPatch()) or {}) do
+            ddPool[#ddPool + 1] = prof
         end
-
-        EnsureProfMenuRows()
+        table.sort(ddPool)
+        learned = buildPlayerProfessionSet() or {}
+        for i = 1, #ddPool + 3 do
+            local row = profRows[i]
+            if not row then
+                row = CreateFrame("Button", nil, profMenu)
+                row:SetHeight(26)
+                row:SetPoint("TOPLEFT", profMenu, "TOPLEFT", 2, -4 - ((i - 1) * 26))
+                row:SetPoint("TOPRIGHT", profMenu, "TOPRIGHT", -2, -4 - ((i - 1) * 26))
+                local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+                highlight:SetAllPoints()
+                highlight:SetColorTexture(gold[1], gold[2], gold[3], 0.18)
+                row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+                row.text:SetPoint("LEFT", row, "LEFT", 6, 0)
+                row.text:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+                row.text:SetJustifyH("LEFT")
+                applyFontSize(row.text, 11)
+                profRows[i] = row
+            end
+            local index = i
+            row:SetScript("OnClick", function()
+                if index == #ddPool + 3 then profMenu:Hide(); return end
+                if index <= 2 then
+                    SelectPreset(index == 1 and "mine" or "all")
+                else
+                    selectionPreset = nil
+                    local selected = getFilterProfSingleSet()
+                    local prof = ddPool[index - 2]
+                    selected[prof] = not selected[prof] or nil
+                end
+                UpdateProfDDText()
+                RefreshProfMenuRows()
+                rebuildList()
+                refreshRows()
+                relayoutPanels()
+            end)
+            row:Show()
+        end
+        for i = #ddPool + 4, #profRows do profRows[i]:Hide() end
+        profMenu:SetHeight(8 + (#ddPool + 3) * 26)
+        RefreshProfMenuRows()
         UpdateProfDDText()
     end
 
     ddProf:SetScript("OnClick", function()
-        if profMenu:IsShown() then
-            profMenu:Hide()
-        else
-            RefreshProfMenuRows()
-            profMenu:Show()
-        end
+        if profMenu:IsShown() then profMenu:Hide()
+        else InitProfDD(); profMenu:Show() end
     end)
-    panel:HookScript("OnHide", function()
-        profMenu:Hide()
-    end)
-
+    panel:HookScript("OnHide", function() profMenu:Hide() end)
     panel.ddProf = ddProf
     panel.initProfDD = InitProfDD
+    panel.refreshProfessions = function()
+        InitProfDD()
+        if selectionPreset then SelectPreset(selectionPreset) end
+        UpdateProfDDText()
+        RefreshProfMenuRows()
+    end
     InitProfDD()
+    SelectPreset("mine")
+    UpdateProfDDText()
+    RefreshProfMenuRows()
 
     local fillLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     fillLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -158)
@@ -676,64 +659,12 @@ function LeftPanelUI.Build(args)
     RefreshVIBreakdownToggle()
     RefreshGearPlan()
 
-    local function UpdateSegBtnColors()
-        local isAll = getFilterMode() == "all"
-        local goldR = isAll and gold[1] or 0.5
-        local goldG = isAll and gold[2] or 0.5
-        local goldB = isAll and gold[3] or 0.5
-        local mineR = isAll and 0.5 or gold[1]
-        local mineG = isAll and 0.5 or gold[2]
-        local mineB = isAll and 0.5 or gold[3]
-        if btnFilterAll:GetFontString() then
-            btnFilterAll:GetFontString():SetTextColor(goldR, goldG, goldB)
-        end
-        if btnFilterMine:GetFontString() then
-            btnFilterMine:GetFontString():SetTextColor(mineR, mineG, mineB)
-        end
-    end
-    UpdateSegBtnColors()
-
-    btnFilterAll:SetScript("OnClick", function()
-        setFilterMode("all")
-        setFilterProf("All")
-        setFilterProfSet(nil)
-        setFilterProfSingleSet({})
-        if panel.initProfDD then
-            panel.initProfDD()
-        elseif panel.ddProf then
-            panel.ddProf:SetText(allFilterText .. "  v")
-        end
-        UpdateSegBtnColors()
-        rebuildList()
-        relayoutPanels()
-    end)
-
-    btnFilterMine:SetScript("OnClick", function()
-        setFilterMode("mine")
-        local filterProfSet = buildPlayerProfessionSet()
-        setFilterProfSet(filterProfSet)
-        setFilterProf(hasAnyEntries(filterProfSet) and "__mine__" or "All")
-        if not hasAnyEntries(filterProfSet) then
-            setFilterMode("all")
-            setFilterProfSet(nil)
-        end
-        setFilterProfSingleSet({})
-        if panel.initProfDD then
-            panel.initProfDD()
-        elseif panel.ddProf then
-            panel.ddProf:SetText(allFilterText .. "  v")
-        end
-        UpdateSegBtnColors()
-        rebuildList()
-        relayoutPanels()
-    end)
-
     local scanBtnLeft = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     scanBtnLeft:SetHeight(primaryScanH)
     scanBtnLeft:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", LP, scanRowTop)
     scanBtnLeft:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -LP, scanRowTop)
     scanBtnLeft:SetText(L["BTN_SCAN_ALL"])
-    scanBtnLeft:SetScript("OnClick", doScan)
+    scanBtnLeft:SetScript("OnClick", function() doScan() end)
     attachButtonTooltip(
         scanBtnLeft,
         (L and L["TT_SCAN_ALL_TITLE"]) or "Scan Current Strategy List",
@@ -842,68 +773,157 @@ function LeftPanelUI.Build(args)
         actionsLbl:Hide()
         selectedScanBtn:Hide()
 
-        local showLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        showLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 10, -15)
-        showLabel:SetText("Show")
-        showLabel:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
-        applyFontSize(showLabel, 11)
-
-        btnFilterMine:ClearAllPoints()
-        btnFilterMine:SetPoint("TOPLEFT", panel, "TOPLEFT", 48, -8)
-        btnFilterMine:SetSize(90, 28)
-        btnFilterMine:SetText((L and L["V2_MY_PROFS"]) or "My professions")
-
-        btnFilterAll:ClearAllPoints()
-        btnFilterAll:SetPoint("LEFT", btnFilterMine, "RIGHT", 4, 0)
-        btnFilterAll:SetSize(84, 28)
-
         local professionLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        professionLabel:SetPoint("LEFT", btnFilterAll, "RIGHT", 16, 0)
-        professionLabel:SetText("Profession")
-        professionLabel:SetTextColor(labelColor[1], labelColor[2], labelColor[3], labelColor[4] or 1)
+        professionLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -17)
+        professionLabel:SetText("Professions")
+        professionLabel:SetTextColor(unpack(labelColor))
         applyFontSize(professionLabel, 11)
-
         ddProf:ClearAllPoints()
-        ddProf:SetPoint("LEFT", professionLabel, "RIGHT", 12, 0)
-        ddProf:SetSize(150, 28)
+        ddProf:SetPoint("TOPLEFT", panel, "TOPLEFT", 100, -8)
+        ddProf:SetSize(250, 28)
         profMenu:ClearAllPoints()
         profMenu:SetPoint("TOPLEFT", ddProf, "BOTTOMLEFT", 0, -2)
-        profMenu:SetWidth(200)
+        profMenu:SetWidth(280)
 
         scanBtnLeft:ClearAllPoints()
         scanBtnLeft:SetPoint("LEFT", ddProf, "RIGHT", 8, 0)
         scanBtnLeft:SetSize(158, 28)
-        scanBtnLeft:SetText((L and L["BTN_SCAN_ALL"]) or "Scan Current List")
+        scanBtnLeft:SetText("Scan prices")
 
         moreToolsBtn:ClearAllPoints()
-        moreToolsBtn:SetPoint("LEFT", scanBtnLeft, "RIGHT", 8, 0)
+        moreToolsBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -8)
         moreToolsBtn:SetSize(118, 28)
-        moreToolsBtn:SetText((L and L["BTN_MORE_TOOLS"]) or "More Tools")
+        moreToolsBtn:SetText("Tools  v")
 
-        -- This is a disclosure control rather than a primary action. Keep it
-        -- as a roomy clickable text link on the right edge of the toolbar;
-        -- the expanded controls remain above it when the toolbar grows.
+        local scanMenuBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+        scanMenuBtn:SetSize(28, 28)
+        scanMenuBtn:SetPoint("LEFT", scanBtnLeft, "RIGHT", 1, 0)
+        scanMenuBtn:SetText("v")
+        styleButton(scanMenuBtn, true)
+        attachButtonTooltip(scanMenuBtn, "Scan options", "Choose a price scan to start. Your profession selection stays unchanged.")
+        local scanMenu = CreateFrame("Frame", nil, panel, "BackdropTemplate")
+        panel.scanMenu = scanMenu
+        panel.scanMenuBtn = scanMenuBtn
+        scanMenu:SetPoint("TOPLEFT", scanBtnLeft, "BOTTOMLEFT", 0, -2)
+        scanMenu:SetSize(220, 112)
+        scanMenu:SetFrameStrata("DIALOG")
+        scanMenu:SetFrameLevel(panel:GetFrameLevel() + 20)
+        scanMenu:SetBackdrop(profMenu:GetBackdrop())
+        scanMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
+        scanMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+        scanMenu:Hide()
+        local scanRows = {}
+        panel.scanMenuRows = scanRows
+        local scopes = {
+            { "list", "Current list", "Scan strategies matching your current filters." },
+            { "all", "All professions", "Scan every supported strategy in this patch, regardless of filters." },
+            { "favorites", "Favorites", "Scan all favorites in this patch, regardless of profession filters." },
+            { "selected", "Selected strategy", "Select a strategy first. Scan only that strategy and its materials." },
+        }
+        for i, entry in ipairs(scopes) do
+            local row = CreateFrame("Button", nil, scanMenu, "UIPanelButtonTemplate")
+            row:SetPoint("TOPLEFT", scanMenu, "TOPLEFT", 4, -4 - (i - 1) * 26)
+            row:SetSize(212, 26)
+            row:SetText(entry[2])
+            styleButton(row, false)
+            attachButtonTooltip(row, entry[2], entry[3])
+            row:SetScript("OnClick", function()
+                scanMenu:Hide()
+                if args.scanScope then args.scanScope(entry[1]) end
+            end)
+            scanRows[i] = row
+        end
+        local function RefreshScanMenu()
+            local count, selected = 0, false
+            if args.getScanContext then count, selected = args.getScanContext() end
+            local active = GAM.AHScan and GAM.AHScan.IsScanning and GAM.AHScan.IsScanning()
+            scanRows[1]:SetEnabled(not active and count > 0)
+            scanRows[2]:SetEnabled(not active)
+            scanRows[3]:SetEnabled(not active)
+            scanRows[4]:SetEnabled(not active and selected)
+        end
+        scanMenuBtn:SetScript("OnClick", function()
+            profMenu:Hide(); gearMenu:Hide(); toolsMenu:Hide()
+            RefreshScanMenu()
+            scanMenu:SetShown(not scanMenu:IsShown())
+        end)
+        scanBtnLeft:HookScript("OnClick", function() scanMenu:Hide(); profMenu:Hide() end)
+        ddProf:HookScript("OnClick", function() scanMenu:Hide(); gearMenu:Hide(); toolsMenu:Hide() end)
+        moreToolsBtn:HookScript("OnClick", function() scanMenu:Hide() end)
+
+        -- Addon-owned menus close on Escape and outside mouse-down, without
+        -- consuming the click or using Blizzard's shared dropdown frames.
+        for _, pair in ipairs({{profMenu, ddProf}, {scanMenu, scanMenuBtn, scanBtnLeft}}) do
+            local menu = pair[1]
+            menu:EnableKeyboard(true)
+            menu:SetPropagateKeyboardInput(true)
+            menu:SetScript("OnKeyDown", function(self, key)
+                if InCombatLockdown and InCombatLockdown() then self:Hide(); return end
+                self:SetPropagateKeyboardInput(key ~= "ESCAPE")
+                if key == "ESCAPE" then self:Hide() end
+            end)
+            menu:RegisterEvent("GLOBAL_MOUSE_DOWN")
+            menu:SetScript("OnEvent", function(self)
+                if not self:IsShown() or self:IsMouseOver() or pair[2]:IsMouseOver()
+                    or (pair[3] and pair[3]:IsMouseOver()) then return end
+                self:Hide()
+            end)
+            panel:HookScript("OnHide", function() menu:Hide() end)
+        end
+
         local optionsBtn = CreateFrame("Button", nil, panel)
-        optionsBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -8)
-        optionsBtn:SetSize(172, 24)
+        optionsBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 10, -68)
+        optionsBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -68)
+        optionsBtn:SetHeight(28)
         local optionsText = optionsBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        optionsText:SetAllPoints()
-        optionsText:SetJustifyH("RIGHT")
+        optionsText:SetPoint("LEFT", optionsBtn, "LEFT", 2, 0)
+        optionsText:SetWidth(240)
+        optionsText:SetJustifyH("LEFT")
         optionsText:SetTextColor(gold[1], gold[2], gold[3], 1)
         applyFontSize(optionsText, 11)
+        local highlight = optionsBtn:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints()
+        highlight:SetColorTexture(gold[1], gold[2], gold[3], 0.08)
+        local divider = optionsBtn:CreateTexture(nil, "ARTWORK")
+        divider:SetPoint("TOPLEFT"); divider:SetPoint("TOPRIGHT"); divider:SetHeight(1)
+        divider:SetColorTexture(rule[1], rule[2], rule[3], 0.25)
 
         local workflowHint = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        panel.scanScopeText = workflowHint
         workflowHint:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -45)
-        workflowHint:SetText("Scan prices  ->  choose a strategy  ->  review its materials and estimated profit.")
-        workflowHint:SetTextColor(helperColor[1], helperColor[2], helperColor[3], helperColor[4] or 1)
-        applyFontSize(workflowHint, 10)
-
-        local summary = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        summary:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -76)
-        summary:SetPoint("TOPRIGHT", optionsBtn, "TOPLEFT", -8, 0)
-        summary:SetJustifyH("LEFT")
+        workflowHint:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -45)
+        workflowHint:SetJustifyH("LEFT")
+        workflowHint:SetWordWrap(false)
+        workflowHint:SetTextColor(unpack(labelColor))
+        applyFontSize(workflowHint, 11)
+        local scanProgress
+        panel.setScanProgress = function(done, total, complete)
+            scanProgress = not complete and total and total > 0
+                and string.format("Scanning prices: %d / %d items. Click Stop scan to cancel.", done or 0, total) or nil
+        end
+        panel.refreshScanScope = function()
+            local count = args.getScanContext and args.getScanContext() or 0
+            local active = GAM.AHScan and GAM.AHScan.IsScanning and GAM.AHScan.IsScanning()
+            if active then
+                workflowHint:SetText(scanProgress or "Queuing prices... Click Stop scan to cancel.")
+                scanMenu:Hide()
+            elseif not next(getFilterProfSingleSet()) then
+                workflowHint:SetText(selectionPreset == "mine"
+                    and "No supported professions detected. Choose professions to scan."
+                    or "Choose at least one profession to scan.")
+            else
+                workflowHint:SetText(string.format("Scans prices for %d matching strategies.%s", count,
+                    GAM.ahOpen and "" or "  Open the Auction House to scan."))
+            end
+            RefreshScanMenu()
+        end
+        panel.refreshScanScope()
+        local summary = optionsBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        summary:SetPoint("LEFT", optionsText, "RIGHT", 10, 0)
+        summary:SetPoint("RIGHT", optionsBtn, "RIGHT", -4, 0)
+        summary:SetJustifyH("RIGHT")
         summary:SetWordWrap(false)
-        summary:SetTextColor(helperColor[1], helperColor[2], helperColor[3], helperColor[4] or 1)
+        summary:SetTextColor(unpack(helperColor))
         applyFontSize(summary, 10)
 
         fillLbl:ClearAllPoints()
@@ -946,13 +966,15 @@ function LeftPanelUI.Build(args)
 
         viOwn:ClearAllPoints()
         viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", 600, -122)
-        viLbl:SetWidth(140)
+        viLbl:SetWidth(200)
+        viOwn:SetHitRectInsets(0, -200, 0, 0)
         viBreakdownOwn:ClearAllPoints()
-        viBreakdownOwn:SetPoint("LEFT", viLbl, "RIGHT", 8, 0)
-        viBreakdownLbl:SetWidth(math.max(150, panelWidth - 600 - 140 - 48))
+        viBreakdownOwn:SetPoint("TOPLEFT", viOwn, "BOTTOMLEFT", 0, 2)
+        viBreakdownLbl:SetWidth(200)
+        viBreakdownOwn:SetHitRectInsets(0, -200, 0, 0)
 
         toolsMenu:ClearAllPoints()
-        toolsMenu:SetPoint("TOPLEFT", moreToolsBtn, "BOTTOMLEFT", 0, -2)
+        toolsMenu:SetPoint("TOPRIGHT", moreToolsBtn, "BOTTOMRIGHT", 0, -2)
         toolsMenu:SetSize(286, 83)
         local toolButtons = {
             { selectedShoppingBtn, 1, 1 }, { quickBuyBtn, 2, 1 },
@@ -969,7 +991,7 @@ function LeftPanelUI.Build(args)
         end
 
         for _, button in ipairs({
-            btnFilterMine, btnFilterAll, ddProf, moreToolsBtn,
+            ddProf, moreToolsBtn,
             ddRank, gearPlanBtn, selectedShoppingBtn, quickBuyBtn, cooldownsBtn,
             selectedCraftSimBtn, selectedScanBtn, btnARP, captureMCBtn, captureResBtn,
         }) do
@@ -977,11 +999,11 @@ function LeftPanelUI.Build(args)
         end
         styleButton(scanBtnLeft, true)
         for _, button in pairs(gearButtons) do styleButton(button, false) end
-        UpdateSegBtnColors()
 
         local function SetOptionsShown(shown)
             getOpts().craftingOptionsExpanded = shown and true or false
-            optionsText:SetText(shown and "Crafting options  ^" or "Crafting options  v")
+            optionsText:SetText(shown and "v  Price & crafting settings" or ">  Price & crafting settings")
+            summary:SetShown(not shown)
             for _, widget in ipairs({
                 fillLbl, fillQtyBox, rankLbl, ddRank,
                 gearLbl, gearPlanBtn, viOwn, viLbl, viBreakdownOwn, viBreakdownLbl,
@@ -1000,17 +1022,15 @@ function LeftPanelUI.Build(args)
 
         refreshComfortableSummary = function()
             local opts = getOpts()
-            local rank = ({ lowest = "R1 mats", highest = "R2 mats", optimal = "Best mix" })[opts.rankPolicy or "lowest"]
+            local rank = ({ lowest = "Rank 1", highest = "Rank 2", optimal = "Best mix" })[opts.rankPolicy or "lowest"]
                 or tostring(opts.rankPolicy or "R1 mats")
             local gearStatus = getGearStatus()
             local gear = gearStatus and gearStatus.selected or "Auto"
             if gear == "multicraft" then gear = "Multicraft" end
             if gear == "resourcefulness" then gear = "Resourcefulness" end
             if gear == "auto" then gear = "Auto" end
-            local vi = ((opts.pigmentCostSource == "mill") or (opts.boltCostSource == "craft")
-                or (opts.ingotCostSource == "craft")) and "VI on" or "VI off"
-            summary:SetText(string.format("AH qty %s   -   %s   -   Gear %s   -   %s",
-                tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY), rank, gear, vi))
+            summary:SetText(string.format("Price quantity: %s  |  Materials: %s  |  Gear: %s",
+                tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY), rank, gear))
         end
 
         optionsBtn:SetScript("OnClick", function()
@@ -1024,32 +1044,20 @@ function LeftPanelUI.Build(args)
         end)
         attachButtonTooltip(
             optionsBtn,
-            "Crafting Options",
-            "Show or hide the quantity, material rank, stat gear, and vertical-integration settings."
+            "Price & crafting settings",
+            "Show or hide price quantity, material quality, profession gear, and intermediate crafting settings."
         )
         panel.getPreferredHeight = function()
-            return getOpts().craftingOptionsExpanded and 160 or 100
+            return getOpts().craftingOptionsExpanded and 184 or 100
         end
         panel.setCraftingOptionsExpanded = SetOptionsShown
         refreshComfortableSummary()
         SetOptionsShown(getOpts().craftingOptionsExpanded and true or false)
     end
 
-    local filterProfSet = buildPlayerProfessionSet()
-    if hasAnyEntries(filterProfSet) then
-        setFilterMode("mine")
-        setFilterProf("__mine__")
-    else
-        setFilterMode("all")
-        setFilterProf("All")
-        filterProfSet = nil
-    end
-    setFilterProfSet(filterProfSet)
-    if panel.initProfDD then
-        panel.initProfDD()
-    end
-
     return {
+        professionMenu = profMenu,
+        professionRows = profRows,
         scanBtnLeft = scanBtnLeft,
         selectedCraftSimBtn = selectedCraftSimBtn,
         selectedShoppingBtn = selectedShoppingBtn,
