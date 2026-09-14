@@ -204,7 +204,7 @@ local filterPatch      = GAM.C.DEFAULT_PATCH
 local filterProf       = "All"
 local filterProfSet    = nil
 local filterMode       = "mine"
-local filterProfSingleSet = {}   -- checked professions; empty table = show all in current pool
+local filterProfSingleSet = {}   -- explicit checked professions; selected mode keeps empty empty
 local sortKey       = "roi"
 local sortAsc       = true
 local scanning      = false
@@ -927,6 +927,7 @@ local function FinalizeBuildOnShow(sb)
         sb:ClearAllPoints()
         sb:SetPoint("TOPRIGHT",    centerPanel, "TOPRIGHT",    -6,  -scrollBarTopOffset)
         sb:SetPoint("BOTTOMRIGHT", centerPanel, "BOTTOMRIGHT", -6,  0)
+        if leftPanel and leftPanel.refreshProfessions then leftPanel.refreshProfessions() end
         RebuildList()
         MainWindow.RefreshRows()
         RefreshBestStratCard()
@@ -1278,7 +1279,7 @@ RebuildList = function()
 end
 
 -- ===== DoScan =====
-local function DoScan(selectedOverride, patchOverride)
+local function DoScan(selectedOverride, patchOverride, explicitMode)
     local L = GetL()
     if GAM.AHScan and GAM.AHScan.IsScanning and GAM.AHScan.IsScanning() then
         GAM.AHScan.StopScan()
@@ -1288,12 +1289,13 @@ local function DoScan(selectedOverride, patchOverride)
         print("|cffff8800[GAM]|r " .. (L and L["ERR_NO_AH"] or "Open the Auction House first."))
         return
     end
-    local mode = Common.GetScanMode(IsControlKeyDown and IsControlKeyDown(),
+    local mode = explicitMode or Common.GetScanMode(IsControlKeyDown and IsControlKeyDown(),
         IsAltKeyDown and IsAltKeyDown(), IsShiftKeyDown and IsShiftKeyDown())
+    if mode ~= "list" and mode ~= "all" and mode ~= "favorites" and mode ~= "selected" then return end
     if mode == "selected" then
         local target = (type(selectedOverride) == "table" and selectedOverride.id and selectedOverride) or (rpDetail and rpDetail.currentStrat)
         if not target then
-            print("|cffff8800[GAM]|r Select a strategy before Shift-clicking Scan.")
+            print("|cffff8800[GAM]|r Select a strategy before scanning it.")
             return
         end
         ScanSingleStrategy(target, patchOverride or rpDetail.currentPatch or filterPatch)
@@ -1320,6 +1322,9 @@ local function DoScan(selectedOverride, patchOverride)
 end
 
 MainWindow.ScanWithModifiers = DoScan
+function MainWindow.ScanScope(mode)
+    DoScan(nil, nil, mode)
+end
 
 local function GetVisibleFavoriteStrats()
     local favorites = {}
@@ -1368,6 +1373,7 @@ RefreshScanButtonLabels = function()
         IsAltKeyDown and IsAltKeyDown(), IsShiftKeyDown and IsShiftKeyDown())
     if scanning then label = (L and L["BTN_SCAN_STOP"]) or "Stop Scan" end
     if scanBtnLeft then scanBtnLeft:SetText(label) end
+    if leftPanel and leftPanel.refreshScanScope then leftPanel.refreshScanScope() end
     if rpDetail and rpDetail.btnScanStrat then
         rpDetail.btnScanStrat:SetText(scanning
             and ((L and L["BTN_SCAN_STOP"]) or "Stop Scan")
@@ -2102,6 +2108,10 @@ local function BuildLeftPanelContent(L, C, LP)
             end
         end,
         doScan = DoScan,
+        scanScope = MainWindow.ScanScope,
+        getScanContext = function()
+            return #filteredList, rpDetail.currentStrat ~= nil
+        end,
         scanSelectedStrat = function()
             ScanSelectedStrategyAction(
                 rpDetail.currentStrat,
@@ -2235,6 +2245,8 @@ local function InitializeMainFrame(L, C, layout)
     end
     frame:EnableMouse(true)
     frame:RegisterEvent("MODIFIER_STATE_CHANGED")
+    frame:RegisterEvent("AUCTION_HOUSE_SHOW")
+    frame:RegisterEvent("AUCTION_HOUSE_CLOSED")
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", function(self)
@@ -2248,6 +2260,11 @@ local function InitializeMainFrame(L, C, layout)
     frame:SetScript("OnEvent", function(_, event)
         if event == "MODIFIER_STATE_CHANGED" and RefreshScanButtonLabels then
             RefreshScanButtonLabels()
+        elseif event == "AUCTION_HOUSE_SHOW" or event == "AUCTION_HOUSE_CLOSED" then
+            -- Core owns ahOpen; defer until all handlers have seen the event.
+            C_Timer.After(0, function()
+                if leftPanel and leftPanel.refreshScanScope then leftPanel.refreshScanScope() end
+            end)
         end
     end)
     frame:SetClampedToScreen(true)
@@ -2559,11 +2576,18 @@ end
 -- ===== Public API =====
 
 function MainWindow.RefreshProfessionDropdown()
-    -- V2 uses segmented buttons; no dropdown to refresh
+    if leftPanel and leftPanel.refreshProfessions then
+        leftPanel.refreshProfessions()
+        RebuildList()
+        MainWindow.RefreshRows()
+    end
 end
 
 function MainWindow.OnScanProgress(done, total, isComplete)
     if not frame then return end
+    if leftPanel and leftPanel.setScanProgress then
+        leftPanel.setScanProgress(done, total, isComplete)
+    end
     if isComplete then
         frame.progBar:Hide()
         frame.progLabel:SetText("")

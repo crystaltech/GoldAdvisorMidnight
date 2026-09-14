@@ -1049,6 +1049,10 @@ function Common.HasAnyEntries(set)
 end
 
 function Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingleSet, rankPolicy)
+    -- Explicit selection keeps an empty picker empty instead of widening to all.
+    if filterMode == "selected" and not (filterProfSingleSet and filterProfSingleSet[strat.profession]) then
+        return false
+    end
     local poolOK
     if filterMode == "mine" and Common.HasAnyEntries(filterProfSet) then
         poolOK = filterProfSet[strat.profession] == true
@@ -1174,7 +1178,7 @@ function Common.GetScanMode(ctrl, alt, shift)
     if ctrl then return "all", "Scan Everything" end
     if alt then return "favorites", "Scan Favorites" end
     if shift then return "selected", "Scan Selected" end
-    return "list", "Scan Current List"
+    return "list", "Scan prices"
 end
 Common.SCAN_HELP = "Click: current list\nCtrl-click: everything\nAlt-click: all favorites\nShift-click: selected strategy\nWhile scanning: click to stop.\nCombined keys: Ctrl takes priority, then Alt, then Shift."
 
