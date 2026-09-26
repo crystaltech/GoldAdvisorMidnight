@@ -1181,10 +1181,19 @@ function LeftPanelUI.Build(args)
         captureButtons.resourcefulness:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
         captureButtons.resourcefulness:SetSize(115, 22)
 
+        -- Same heading-over-control pattern as the other settings columns;
+        -- the checkbox lines up with the dropdown buttons beside it.
+        local viHeading = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        viHeading:SetPoint("TOPLEFT", panel, "TOPLEFT", 600, -108)
+        viHeading:SetText(Lx("V2_VI_HEADING", "Intermediates"))
+        viHeading:SetTextColor(gold[1], gold[2], gold[3])
+        applyFontSize(viHeading, 11)
         viOwn:ClearAllPoints()
-        viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", 600, -122)
-        viLbl:SetWidth(200)
-        viOwn:SetHitRectInsets(0, -200, 0, 0)
+        viOwn:SetSize(24, 24)
+        viOwn:SetPoint("TOPLEFT", viHeading, "BOTTOMLEFT", -3, -4)
+        viLbl:SetText(Lx("V2_VI_SHORT", "Craft them myself"))
+        viLbl:SetWidth(170)
+        viOwn:SetHitRectInsets(0, -170, 0, 0)
         viBreakdownOwn:ClearAllPoints()
         viBreakdownOwn:SetPoint("TOPLEFT", viOwn, "BOTTOMLEFT", 0, 2)
         viBreakdownLbl:SetWidth(200)
@@ -1225,7 +1234,7 @@ function LeftPanelUI.Build(args)
             summary:SetShown(not shown)
             for _, widget in ipairs({
                 fillLbl, fillQtyBox, rankLbl, ddRank,
-                gearLbl, gearPlanBtn, viOwn, viLbl,
+                gearLbl, gearPlanBtn, viOwn, viLbl, viHeading,
             }) do
                 widget:SetShown(shown)
             end

@@ -351,6 +351,9 @@ local function BuildLogPage(page, Layout, styleButton)
         search:SetPoint("LEFT", areaButton, "RIGHT", 14, 0)
         search:SetPoint("RIGHT", filterBar, "RIGHT", -4, 0)
         filterBar:SetHeight(used + 8 + 22)
+        if ui.logBox then
+            ui.logBox:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -(used + 8 + 22 + 8))
+        end
     end
     filterBar:SetScript("OnSizeChanged", LayoutFilterBar)
     page:HookScript("OnShow", LayoutFilterBar)
@@ -396,16 +399,24 @@ local function BuildLogPage(page, Layout, styleButton)
     copyBtn:SetScript("OnClick", ShowFullLogExport)
 
     -- Log text: an EditBox keeps it selectable; typing is discarded.
-    local logBox = CreateFrame("Frame", nil, page, "BackdropTemplate")
-    logBox:SetPoint("TOPLEFT", filterBar, "BOTTOMLEFT", 0, -8)
-    logBox:SetPoint("BOTTOMRIGHT", footer, "TOPRIGHT", 0, 8)
-    logBox:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    -- Anchored to the page only (not between sibling frames, which the client
+    -- did not resolve); the top offset follows the filter bar's height.
+    -- Named so it can be inspected in game with /run or /fstack.
+    local logBox = CreateFrame("Frame", GAM.RuntimeName("GAMDebugLogBox"), page, "BackdropTemplate")
+    logBox:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -(filterBar:GetHeight() + 8))
+    logBox:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", 0, 34)
+    logBox:SetFrameLevel(page:GetFrameLevel() + 1)
+    logBox:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
     logBox:SetBackdropColor(0.03, 0.03, 0.035, 0.9)
-    logBox:SetBackdropBorderColor(0.4, 0.4, 0.43, 0.45)
-    local scroll = CreateFrame("ScrollFrame", nil, logBox, "UIPanelScrollFrameTemplate")
+    logBox:SetBackdropBorderColor(0.4, 0.4, 0.43, 0.6)
+    ui.logBox = logBox
+    local scroll = CreateFrame("ScrollFrame", GAM.RuntimeName("GAMDebugLogScroll"), logBox, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", logBox, "TOPLEFT", 8, -6)
     scroll:SetPoint("BOTTOMRIGHT", logBox, "BOTTOMRIGHT", -28, 6)
-    local editBox = CreateFrame("EditBox", nil, scroll)
+    local editBox = CreateFrame("EditBox", GAM.RuntimeName("GAMDebugLogText"), scroll)
     editBox:SetMultiLine(true)
     editBox:SetFontObject(GameFontHighlightSmall)
     editBox:SetAutoFocus(false)
