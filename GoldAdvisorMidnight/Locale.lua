@@ -712,3 +712,10 @@ L["DBG_CAPTURE_OFF"] = "Off"
 L["DBG_CAPTURE_INFO"] = "Info"
 L["DBG_CAPTURE_DEBUG"] = "Debug"
 L["DBG_CAPTURE_VERBOSE"] = "Verbose"
+
+-- Debug Log window (English only until translations are reviewed)
+L["DBG_COPY_HINT"] = "Text is selected; press Ctrl+C to copy."
+L["DBG_AUDIT_REPORT"] = "Recipe audit report"
+L["DBG_NO_AUDIT"] = "Run a recipe audit first."
+L["DBG_AUDIT_COPY"] = "Copy last audit"
+L["DBG_AUDIT_COPY_HELP"] = "Opens the full table from the last recipe audit as plain text."

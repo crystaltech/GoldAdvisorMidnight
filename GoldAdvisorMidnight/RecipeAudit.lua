@@ -504,7 +504,8 @@ local function PrintSummary(result)
     end
 end
 
-function Audit.Run(args)
+-- opts.inLog: the Debug Log shows the result, so skip the report popup.
+function Audit.Run(args, opts)
     if not (GAM.Importer and GAM.Importer.GetAllStrats) then
         print("|cffff8800[GAM]|r Recipe audit unavailable: importer not ready.")
         return nil, "importer not ready"
@@ -518,6 +519,7 @@ function Audit.Run(args)
         local profession = Audit.GetOpenProfessionName(deps)
         if not profession then
             print("|cffff8800[GAM]|r Open a supported profession before running the live recipe audit harness.")
+            if GAM.Log then GAM.Log.Warn("RecipeAudit: open a supported profession window first.") end
             return nil, "no supported profession open"
         end
         scope = profession
@@ -529,7 +531,9 @@ function Audit.Run(args)
     Audit.lastReport = Audit.BuildReport(result)
     PrintSummary(result)
 
-    if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.ShowTextExport then
+    if opts and opts.inLog then
+        return result
+    elseif GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.ShowTextExport then
         GAM.UI.DebugLog.ShowTextExport("Recipe Audit - " .. scope, Audit.lastReport)
     elseif GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.Show then
         GAM.UI.DebugLog.Show()

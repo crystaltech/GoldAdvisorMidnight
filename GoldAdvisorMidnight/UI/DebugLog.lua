@@ -63,23 +63,29 @@ local function BuildARPExportPopup()
     arpPopup:SetScript("OnDragStart", arpPopup.StartMoving)
     arpPopup:SetScript("OnDragStop",  arpPopup.StopMovingOrSizing)
     arpPopup:SetClampedToScreen(true)
-    arpPopup:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        tile = true, tileSize = 8, edgeSize = 2,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    -- Same chrome as the Debug Log window.
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    arpPopup:SetBackdrop((common and common.THIN_BACKDROP) or {
+        bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    arpPopup:SetBackdropColor(0.055, 0.055, 0.062, 0.99)
-    arpPopup:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.90)
+    arpPopup:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    arpPopup:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.95)
     arpPopup:Hide()
     WindowManager.Register(arpPopup, "debug", { owner = frame, levelOffset = 8 })
 
     -- Title
     local title = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOP", arpPopup, "TOP", 0, -14)
+    title:SetPoint("TOPLEFT", arpPopup, "TOPLEFT", 18, -14)
+    title:SetPoint("RIGHT", arpPopup, "RIGHT", -36, 0)
+    title:SetJustifyH("LEFT")
     title:SetText((GAM.L and GAM.L["BTN_ARP_EXPORT"]) or "ARP Export")
-    title:SetTextColor(0.96, 0.82, 0.36, 1)
+    title:SetTextColor(1, 0.82, 0, 1)
     arpPopupTitle = title
+    local hint = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    hint:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    hint:SetText(T("DBG_COPY_HINT", "Text is selected; press Ctrl+C to copy."))
+    hint:SetTextColor(0.65, 0.65, 0.7)
 
     -- Close button (top-right X)
     local closeBtn = CreateFrame("Button", nil, arpPopup, "UIPanelCloseButton")
@@ -88,7 +94,7 @@ local function BuildARPExportPopup()
 
     -- Scroll frame
     local sf = CreateFrame("ScrollFrame", nil, arpPopup, "UIPanelScrollFrameTemplate")
-    sf:SetPoint("TOPLEFT",     arpPopup, "TOPLEFT",     14, -40)
+    sf:SetPoint("TOPLEFT",     arpPopup, "TOPLEFT",     14, -58)
     sf:SetPoint("BOTTOMRIGHT", arpPopup, "BOTTOMRIGHT", -30, 14)
     sf:EnableMouseWheel(true)
     sf:SetScript("OnMouseWheel", function(self, delta)
@@ -203,6 +209,18 @@ local function RefreshFilterLabels(summary)
     end
 end
 
+-- A multi-line EditBox in a ScrollFrame does not size itself: give it the
+-- viewport width and the measured text height (as the export popup does),
+-- otherwise the text is laid out in a zero-sized box and nothing shows.
+local function SizeLogText()
+    if not (ui.scroll and ui.editBox and ui.sizer) then return end
+    local width = math.max(100, (ui.scroll:GetWidth() or 0) - 4)
+    ui.editBox:SetWidth(width)
+    ui.sizer:SetWidth(width)
+    ui.sizer:SetText(ui.editBox:GetText() or "")
+    ui.editBox:SetHeight(math.max(ui.scroll:GetHeight() or 0, (ui.sizer:GetStringHeight() or 0) + 16))
+end
+
 local function RenderLog()
     view.renderQueued = false
     if not (frame and frame:IsShown() and ui.editBox) then return end
@@ -215,6 +233,7 @@ local function RenderLog()
     local atBottom = range <= 0 or ui.scroll:GetVerticalScroll() >= range - 4
     ui.editBox:SetText(#lines > 0 and table.concat(lines, "\n")
         or ("|cff888888" .. T("DBG_NO_MATCHES", "No log entries match the current filters.") .. "|r"))
+    SizeLogText()
     RefreshFilterLabels(GAM.Log.GetSummary())
     local status = string.format(T("DBG_STATUS_SHOWING", "Showing %d of %d entries"), #lines, #entries)
     if view.frozen then
@@ -395,10 +414,12 @@ local function BuildLogPage(page, Layout, styleButton)
         if userInput then RenderLog() end
     end)
     scroll:SetScrollChild(editBox)
-    scroll:SetScript("OnSizeChanged", function(self)
-        editBox:SetWidth(math.max(1, self:GetWidth() - 4))
-    end)
-    ui.scroll, ui.editBox = scroll, editBox
+    local sizer = scroll:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    sizer:SetJustifyH("LEFT")
+    sizer:SetJustifyV("TOP")
+    sizer:Hide()
+    ui.scroll, ui.editBox, ui.sizer = scroll, editBox, sizer
+    scroll:SetScript("OnSizeChanged", SizeLogText)
 end
 
 -- ===== Troubleshooting page =====
@@ -462,14 +483,25 @@ local function BuildToolsPage(content, Layout, shell, styleButton)
         function() GAM.CraftingStats.DumpProfiles() end)
 
     Layout.MakeSectionHeader(content, T("DBG_SECTION_RECIPES", "Recipe data"))
-    local auditOpen = ActionButton(T("DBG_RUN_AUDIT", "Run audit"))
-    auditOpen:SetScript("OnClick", function() GAM.Diagnostics.Run(GAM.RecipeAudit.Run, "") end)
-    Layout.AddRow(content, T("DBG_AUDIT_OPEN", "Recipe audit: open profession"), auditOpen,
-        T("DBG_AUDIT_OPEN_HELP", "Compares every strategy of the open profession with the live recipe. Open the profession window first."), 150)
-    local auditAll = ActionButton(T("DBG_RUN_AUDIT", "Run audit"))
-    auditAll:SetScript("OnClick", function() GAM.Diagnostics.Run(GAM.RecipeAudit.Run, "all") end)
-    Layout.AddRow(content, T("DBG_AUDIT_ALL", "Recipe audit: all professions"), auditAll,
-        T("DBG_AUDIT_ALL_HELP", "Same check for every strategy; recipes this character has not learned are reported as such."), 150)
+    -- Audits write their summary and every problem row to the log; the full
+    -- table stays available from "Copy last audit".
+    Report(T("DBG_RUN_AUDIT", "Run audit"), T("DBG_AUDIT_OPEN", "Recipe audit: open profession"),
+        T("DBG_AUDIT_OPEN_HELP", "Compares every strategy of the open profession with the live recipe. Open the profession window first."),
+        function() GAM.RecipeAudit.Run("", { inLog = true }) end)
+    Report(T("DBG_RUN_AUDIT", "Run audit"), T("DBG_AUDIT_ALL", "Recipe audit: all professions"),
+        T("DBG_AUDIT_ALL_HELP", "Same check for every strategy; recipes this character has not learned are reported as such."),
+        function() GAM.RecipeAudit.Run("all", { inLog = true }) end)
+    local copyAudit = ActionButton(T("BTN_COPY_LOG", "Copy All"))
+    copyAudit:SetScript("OnClick", function()
+        local report = GAM.RecipeAudit.GetLastReport and GAM.RecipeAudit.GetLastReport()
+        if report then
+            ShowTextExportPopup(T("DBG_AUDIT_REPORT", "Recipe audit report"), report)
+        else
+            print("|cffff8800[GAM]|r " .. T("DBG_NO_AUDIT", "Run a recipe audit first."))
+        end
+    end)
+    Layout.AddRow(content, T("DBG_AUDIT_COPY", "Copy last audit"), copyAudit,
+        T("DBG_AUDIT_COPY_HELP", "Opens the full table from the last recipe audit as plain text."), 150)
     Report(writeLabel, T("DBG_ITEM_IDS", "Item IDs"),
         T("DBG_ITEM_IDS_HELP", "Checks every item ID against its name. ??? means the item is not loaded yet; visit the Auction House and try again."),
         GAM.Diagnostics.DumpItemIDs)
@@ -569,7 +601,8 @@ Build = function()
         WindowManager.Present(frame)
         if ui.refreshCapture then ui.refreshCapture() end
         shell.Select(shell.selected)
-        ScrollLogToBottom()
+        -- Sizes settle after the first frame; lay the text out again then.
+        C_Timer.After(0, function() RenderLog(); ScrollLogToBottom() end)
     end)
 end
 
