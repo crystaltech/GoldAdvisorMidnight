@@ -124,7 +124,6 @@ L["BTN_CLEAR_LOG"]         = "Leeren"
 L["BTN_COPY_LOG"]          = "Alles kopieren"
 L["BTN_PAUSE_LOG"]         = "Pause"
 L["BTN_RESUME_LOG"]        = "Fortsetzen"
-L["BTN_DUMP_IDS"]          = "IDs ausgeben"
 L["BTN_ARP_EXPORT"]        = "Tabellenexport"
 L["LOG_CLEARED"]           = "[Protokoll geleert]"
 

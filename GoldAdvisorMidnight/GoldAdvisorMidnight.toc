@@ -80,9 +80,11 @@ CraftPlan.lua
 CraftPlanTypes.lua
 CraftPlanMail.lua
 CraftPlanActions.lua
+Diagnostics.lua
 UI\DebugLog.lua
 TSMSaleRate.lua
 UI\MainWindowCommon.lua
+UI\SettingsLayout.lua
 Settings.lua
 UI\VIBreakdownPlan.lua
 UI\CraftPlanWindow.lua

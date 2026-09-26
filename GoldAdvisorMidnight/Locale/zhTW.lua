@@ -124,7 +124,6 @@ L["BTN_CLEAR_LOG"]         = "清除"
 L["BTN_COPY_LOG"]          = "全部複製"
 L["BTN_PAUSE_LOG"]         = "暫停"
 L["BTN_RESUME_LOG"]        = "繼續"
-L["BTN_DUMP_IDS"]          = "匯出ID"
 L["BTN_ARP_EXPORT"]        = "匯出至試算表"
 L["LOG_CLEARED"]           = "[日誌已清除]"
 

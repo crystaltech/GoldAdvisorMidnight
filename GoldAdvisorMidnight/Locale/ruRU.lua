@@ -124,7 +124,6 @@ L["BTN_CLEAR_LOG"]         = "Очистить"
 L["BTN_COPY_LOG"]          = "Копировать всё"
 L["BTN_PAUSE_LOG"]         = "Пауза"
 L["BTN_RESUME_LOG"]        = "Продолжить"
-L["BTN_DUMP_IDS"]          = "Экспорт ID"
 L["BTN_ARP_EXPORT"]        = "Экспорт таблицы"
 L["LOG_CLEARED"]           = "[Журнал очищен]"
 
