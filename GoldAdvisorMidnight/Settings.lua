@@ -477,7 +477,6 @@ local function BuildPanel()
     content = pages.pricing.content
     MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"])
 
-    local ebFillQty
     local ebGlobalStartingCrafts
 
     local startingCraftsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -540,37 +539,11 @@ local function BuildPanel()
     modeHelp:SetTextColor(0.72, 0.72, 0.72, 1)
     AddRow(content, modeLabel, modeBtn, modeHelp, 180)
 
-    local lblFillQty = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblFillQty:SetText(L["OPT_SHALLOW_FILL_QTY"])
-
-    ebFillQty = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-    ebFillQty:SetSize(90, 26)
-    ebFillQty:SetAutoFocus(false)
-    ebFillQty:SetNumeric(true)
-    ebFillQty:SetText(tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
-
-    local lblRange = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    lblRange:SetText(L["OPT_SHALLOW_FILL_RANGE"])
-    lblRange:SetTextColor(0.55, 0.55, 0.55)
-    AddRow(content, lblFillQty, ebFillQty, lblRange, 90)
-
-    local function ClampFillQty()
-        local raw = tonumber(ebFillQty:GetText())
-        local val = raw
-            and math.max(GAM.C.MIN_FILL_QTY,
-                math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
-            or GAM.C.DEFAULT_FILL_QTY
-        ebFillQty:SetText(tostring(val))
-        ebFillQty:ClearFocus()
-    end
-    ebFillQty:SetScript("OnEnterPressed", ClampFillQty)
-    ebFillQty:SetScript("OnEditFocusLost", ClampFillQty)
-    ebFillQty:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L["OPT_SHALLOW_FILL_TIP"], 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    ebFillQty:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- Market depth is automatic; explain it instead of asking for a number.
+    AddText(content, "Material costs use the Auction House listings for the exact quantity each "
+        .. "strategy needs. Unusually cheap bait listings are ignored, and units the market does "
+        .. "not list are priced at the highest listed price, so estimates err toward higher costs. "
+        .. "Crafted items are valued at the lowest listing.")
 
     -- Shopping budget check: share of gold kept unspent.
     local function ClampReserve(value)
@@ -1344,7 +1317,6 @@ local function BuildPanel()
     -- ── Apply logic ────────────────────────────────────────────────────────
     local function ApplySettings()
         local currentOpts = GetOpts()
-        local prevQty = GetOptionValue(currentOpts, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)
         local prevStartingCrafts = GAM.State.GetGlobalStartingCrafts()
         currentOpts.scanDelay = slScanDelay:GetValue()
         currentOpts.debugVerbosity = slVerbosity:GetValue()
@@ -1386,12 +1358,6 @@ local function BuildPanel()
         local globalStartingCrafts = NormalizeGlobalStartingCraftsBox()
         GAM.State.SetGlobalStartingCrafts(globalStartingCrafts)
 
-        local raw = tonumber(ebFillQty:GetText())
-        currentOpts.shallowFillQty = raw
-            and math.max(GAM.C.MIN_FILL_QTY,
-                math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
-            or GAM.C.DEFAULT_FILL_QTY
-        ebFillQty:SetText(tostring(currentOpts.shallowFillQty))
         currentOpts.goldReservePct = NormalizeGoldReserve()
 
         GAM.Log.SetLevel(currentOpts.debugVerbosity)
@@ -1400,21 +1366,11 @@ local function BuildPanel()
         end
         GAM.Minimap.SetShown(not currentOpts.minimapHidden)
 
-        local qtyChanged = currentOpts.shallowFillQty ~= prevQty
-        if qtyChanged then
-            ClearPriceCache()
-            local msg = string.format("Fill qty changed (%s -> %s units). Price cache cleared — re-scan.",
-                FmtQty(prevQty), FmtQty(currentOpts.shallowFillQty))
-            GAM.Log.Info(msg)
-            print("|cffff8800[GAM]|r " .. msg)
-        end
-
         if globalStartingCrafts ~= prevStartingCrafts then
             GAM.Log.Info("Global starting crafts changed: %d -> %d",
                 prevStartingCrafts, globalStartingCrafts)
         end
 
-        GAM.Log.Info("Fill qty: %d", currentOpts.shallowFillQty)
         GAM.Log.Info("V2 pricing mode: %s", tostring(currentOpts.v2PricingMode or NormalizeV2PricingMode(nil)))
 
         if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.Refresh then
@@ -1440,7 +1396,6 @@ local function BuildPanel()
         cbMinimap:SetChecked(not o.minimapHidden)
         cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
         slScale:SetValue(GetOptionValue(o, "uiScale", GAM.C.DEFAULT_UI_SCALE))
-        ebFillQty:SetText(tostring(GetOptionValue(o, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)))
         ebGoldReserve:SetText(tostring(ClampReserve(o.goldReservePct)))
         ebGlobalStartingCrafts:SetText(tostring(
             (GAM.State and GAM.State.GetGlobalStartingCrafts

@@ -149,9 +149,6 @@ L["BTN_RELOAD_DATA"]       = "Neu laden"
 L["BTN_CLEAR_CACHE"]       = "Cache leeren"
 L["BTN_OPEN_LOG"]          = "Protokoll öffnen"
 L["BTN_APPLY_CLOSE"]       = "Übernehmen"
-L["OPT_SHALLOW_FILL_TIP"]  = "Preise werden berechnet, indem der Kauf dieser Menge Einheiten aus dem AH-Auftragsbuch simuliert wird. Niedrigere Werte spiegeln die Kosten kleiner Mengen wider; höhere Werte mitteln über mehr Angebot. Bereich: 10–10.000."
-L["OPT_SHALLOW_FILL_QTY"]  = "Füllmenge:"
-L["OPT_SHALLOW_FILL_RANGE"] = "(10 - 10.000)"
 
 -- ── Strategy Creator ─────────────────────────────────────────────────────
 
@@ -169,7 +166,6 @@ L["ERR_NO_AH"]             = "Öffne zuerst das Auktionshaus."
 L["WARN_PRICE_STALE"]      = "Preise könnten veraltet sein (>%d Min.)."
 L["V2_TOOLS_TITLE"]        = "Strategie-Werkzeuge"
 L["V2_ALL_STRATS"]         = "Alle Strategien"
-L["V2_FILL_QTY"]           = "Füllmenge"
 L["V2_MATERIAL_RANK"]      = "Materialrang"
 L["BTN_SCAN_SELECTED"]     = "Ausgewählte Strategie scannen"
 L["BTN_CRAFTSIM_SHORT"]    = "CraftSim"
@@ -177,8 +173,6 @@ L["BTN_SHOPPING_SHORT"]    = "Shopping"
 
 -- Tooltip strings (v1.4.4)
 L["COL_AH_SELL_PRICE"]       = "AH-Verkaufspreis"
-L["TT_FILL_QTY_TITLE"]       = "Füllmenge"
-L["TT_FILL_QTY_BODY"] = "Wie tief GAM Auktionsangebote nach Menge gewichtet auswertet. Extreme Preissprünge begrenzen die Schätzung; die Einkaufsliste warnt bei unzureichendem Angebot. Bereich: 10–10.000."
 L["TT_SCAN_ALL_TITLE"]       = "Aktuelle Strategieliste scannen"
 L["TT_LBL_COST_TITLE"]       = "Gesamtkosten"
 L["TT_LBL_COST_BODY"]        = "Vollständige Reagenzienkosten zu AH-Preisen, inkl. bereits in deinen Taschen befindlicher Gegenstände."

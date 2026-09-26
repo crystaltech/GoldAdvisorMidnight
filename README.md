@@ -49,7 +49,7 @@ Click `Scan` to refresh the filtered list; Ctrl-click scans all strategies, Alt-
 
 ## Important Controls
 
-- `AH Price Qty` controls how deeply GAM samples the Auction House order book.
+- Material costs use the Auction House listings for the exact quantity each strategy needs. Unusually cheap bait listings are ignored, and units the market does not list are priced at the highest listed price, so estimates err toward higher costs. Crafted items are valued at the lowest listing, matching how the Auction House sells the newest listing first at equal prices.
 - `Material quality` opens a menu to choose R1, R2, or the cheapest verified mix for the reachable output rank.
 - `Profession gear` chooses `Auto`, `Multicraft`, or `Resourcefulness` for the selected strategy.
 - `Refresh Recipe` recaptures the selected recipe from the current crafter.

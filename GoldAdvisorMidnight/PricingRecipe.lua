@@ -196,7 +196,7 @@ BuildCalcContext = function(strat, active, patchTag, craftQty, opts, pdb, ahCut,
         opts = opts,
         pdb = pdb,
         ahCut = ahCut,
-        fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY,
+        fillQty = GAM.C.MARKET_SAMPLE_UNITS or 50,
         -- The UI's single VI toggle flips the legacy source knobs together; pricing
         -- treats that combined state as the authoritative recurse-or-buy decision.
         chainActive = IsVerticalIntegrationEnabled(opts),

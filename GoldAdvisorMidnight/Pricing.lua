@@ -535,8 +535,9 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics, calculate
     }
 end
 
--- StorePrice(itemID, price, minPrice) — called by AHScan after scan
-function Pricing.StorePrice(itemID, price, minPrice)
+-- StorePrice(itemID, price, minPrice, curve) — called by AHScan after scan.
+-- `curve` is the compact price-by-quantity summary from BuildDepthCurve.
+function Pricing.StorePrice(itemID, price, minPrice, curve)
     if not itemID or not price then return end
     local cache = GAM:GetRealmCache()
     -- Store only price + timestamp; raw order-book arrays are no longer persisted
@@ -544,6 +545,7 @@ function Pricing.StorePrice(itemID, price, minPrice)
     cache[itemID] = {
         price = price,
         minPrice = tonumber(minPrice) or price,
+        curve = type(curve) == "table" and curve or nil,
         ts    = time(),
     }
     if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end

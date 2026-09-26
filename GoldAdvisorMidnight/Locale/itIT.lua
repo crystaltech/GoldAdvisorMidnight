@@ -149,9 +149,6 @@ L["BTN_RELOAD_DATA"]       = "Ricarica"
 L["BTN_CLEAR_CACHE"]       = "Svuota cache"
 L["BTN_OPEN_LOG"]          = "Apri log"
 L["BTN_APPLY_CLOSE"]       = "Applica"
-L["OPT_SHALLOW_FILL_TIP"]  = "I prezzi vengono calcolati simulando l'acquisto di questo numero di unità dal libro ordini della CA. Valori bassi riflettono il costo di piccoli lotti; valori alti mediano su più offerta. Intervallo: 10–10.000."
-L["OPT_SHALLOW_FILL_QTY"]  = "Qt. riempimento:"
-L["OPT_SHALLOW_FILL_RANGE"] = "(10 - 10.000)"
 
 -- ── Strategy Creator ─────────────────────────────────────────────────────
 
@@ -169,7 +166,6 @@ L["ERR_NO_AH"]             = "Apri prima la Casa d'aste."
 L["WARN_PRICE_STALE"]      = "I prezzi potrebbero non essere aggiornati (>%d min)."
 L["V2_TOOLS_TITLE"]        = "Strumenti strategia"
 L["V2_ALL_STRATS"]         = "Tutte le strategie"
-L["V2_FILL_QTY"]           = "Quantità"
 L["V2_MATERIAL_RANK"]      = "Grado materiali"
 L["BTN_SCAN_SELECTED"]     = "Scansiona strategia"
 L["BTN_CRAFTSIM_SHORT"]    = "CraftSim"
@@ -177,8 +173,6 @@ L["BTN_SHOPPING_SHORT"]    = "Shopping"
 
 -- Tooltip strings (v1.4.4)
 L["COL_AH_SELL_PRICE"]       = "Prezzo vendita CA"
-L["TT_FILL_QTY_TITLE"]       = "Quantità di acquisto"
-L["TT_FILL_QTY_BODY"] = "Profondità delle aste valutate da GAM, ponderata per quantità. I salti estremi di prezzo limitano la stima; Acquisti avvisa se la disponibilità a prezzi ragionevoli è insufficiente. Intervallo: 10–10.000."
 L["TT_SCAN_ALL_TITLE"]       = "Scansiona elenco strategie"
 L["TT_LBL_COST_TITLE"]       = "Costo totale"
 L["TT_LBL_COST_BODY"]        = "Costo completo dei reagenti ai prezzi della CA, inclusi gli oggetti già nelle tue borse."

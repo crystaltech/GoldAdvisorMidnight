@@ -24,7 +24,7 @@ local function GetItemKeyDB()
 end
 
 local function NormalizeTargetQty(targetQty)
-    local qty = tonumber(targetQty) or GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+    local qty = tonumber(targetQty) or GAM.C.MARKET_SAMPLE_UNITS or 50
     return math.max(1, math.floor(qty + 0.5))
 end
 
@@ -36,64 +36,126 @@ local function EnsureResultsSorted(results)
     results._gamSortedByUnitPrice = true
 end
 
--- Fill from the cheapest listing buckets, then remove GAM's configured top
--- percentage. This intentionally preserves GAM pricing semantics.
+-- Lower quartile fence (Q1 - 1.5 x IQR, as in CraftSimEnhancer) over the
+-- first `window` units, computed on price buckets instead of one entry per
+-- unit. When most units share one price (IQR 0) anything cheaper is bait.
+-- Returns nil when there are too few units to judge.
+local function LowerFence(rows, window)
+    local buckets, total = {}, 0
+    for _, row in ipairs(rows) do
+        local price = row and tonumber(row.unitPrice)
+        local available = row and (tonumber(row.quantity) or 0) or 0
+        if price and price > 0 and available > 0 then
+            local take = math.min(available, window - total)
+            if take <= 0 then break end
+            buckets[#buckets + 1] = { price, take }
+            total = total + take
+        end
+    end
+    if total < (GAM.C.MARKET_FENCE_MIN_UNITS or 8) then return nil end
+    local function Quantile(p)
+        local target, seen = math.max(1, math.floor((total + 1) * p)), 0
+        for _, bucket in ipairs(buckets) do
+            seen = seen + bucket[2]
+            if seen >= target then return bucket[1] end
+        end
+        return buckets[#buckets][1]
+    end
+    local q1, q3 = Quantile(0.25), Quantile(0.75)
+    local iqr = q3 - q1
+    if iqr <= 0 then return q1 end
+    return math.max(0, q1 - 1.5 * iqr)
+end
+
+-- Cost of buying `targetQty` units, erring toward the higher price:
+--   * bait below the lower fence is skipped, so it cannot make inputs look cheap;
+--   * expensive units inside the quantity are kept, because they would be paid;
+--   * units the market does not list are priced at the highest listed price.
+-- One unit is the sell-side quote: the lowest listing, bait included, so sale
+-- prices are never raised by filtering. The second return is always that raw
+-- lowest listing. Returns avg, lowest, highest, filledUnits, depth.
 function Results.ComputeStatsFromRows(rows, targetQty)
     if not rows or #rows == 0 then return nil end
     targetQty = NormalizeTargetQty(targetQty)
     EnsureResultsSorted(rows)
 
-    local totalUnits, totalSum = 0, 0
-    local minPrice, maxPrice, lastIndex, lastTake
-    for index, row in ipairs(rows) do
+    local lowest
+    for _, row in ipairs(rows) do
         local price = row and tonumber(row.unitPrice)
-        local available = row and (tonumber(row.quantity) or 0) or 0
-        if price and price > 0 and available > 0 then
-            local take = math.min(available, targetQty - totalUnits)
-            if take > 0 then
-                minPrice = minPrice or price
-                maxPrice = price
-                totalUnits = totalUnits + take
-                totalSum = totalSum + (price * take)
-                lastIndex = index
-                lastTake = take
-            end
-            if totalUnits >= targetQty then break end
-        end
+        if price and price > 0 and (tonumber(row.quantity) or 0) > 0 then lowest = price; break end
     end
-    if totalUnits == 0 then return nil end
+    if not lowest then return nil end
 
-    local trimCount = math.floor(totalUnits * ((GAM.C.TRIM_PCT or 2) / 100))
-    if trimCount >= totalUnits then trimCount = totalUnits - 1 end
-
-    local removedSum, remainingTrim = 0, trimCount
-    local keptMaxPrice = maxPrice
-    if remainingTrim > 0 and lastIndex then
-        keptMaxPrice = nil
-        for index = lastIndex, 1, -1 do
-            local row = rows[index]
+    local fence = targetQty > 1 and LowerFence(rows, math.max(targetQty, GAM.C.MARKET_SAMPLE_UNITS or 50)) or nil
+    local function Fill(skipBelow)
+        local filled, sum, highest, bait = 0, 0, nil, 0
+        for _, row in ipairs(rows) do
             local price = row and tonumber(row.unitPrice)
-            local rowTake = index == lastIndex and lastTake or (row and (tonumber(row.quantity) or 0) or 0)
-            if price and price > 0 and rowTake > 0 then
-                if remainingTrim <= 0 then
-                    keptMaxPrice = price
-                    break
-                end
-                local remove = math.min(rowTake, remainingTrim)
-                removedSum = removedSum + (remove * price)
-                remainingTrim = remainingTrim - remove
-                if remove < rowTake then
-                    keptMaxPrice = price
-                    break
+            local available = row and (tonumber(row.quantity) or 0) or 0
+            if price and price > 0 and available > 0 then
+                if skipBelow and price < skipBelow then
+                    bait = bait + available
+                else
+                    local take = math.min(available, targetQty - filled)
+                    if take > 0 then
+                        filled, sum, highest = filled + take, sum + price * take, price
+                    end
+                    if filled >= targetQty then break end
                 end
             end
         end
+        return filled, sum, highest, bait
+    end
+    local filled, sum, highest, bait = Fill(fence)
+    if filled == 0 then
+        -- Everything was below the fence: too odd a market to call bait.
+        fence = nil
+        filled, sum, highest, bait = Fill(nil)
     end
 
-    local kept = totalUnits - trimCount
-    return (totalSum - removedSum) / kept, minPrice, keptMaxPrice or minPrice, kept,
-        -- Listed depth only; a short market is reported, never repriced.
-        { requested = targetQty, filled = totalUnits, incomplete = totalUnits < targetQty }
+    -- Every unit not filled from real-price listings costs the highest listed
+    -- price. Skipped bait still exists, so it counts toward availability (at
+    -- that higher price) rather than making the market look thin.
+    local shortfall = targetQty - filled
+    local avg = (sum + shortfall * highest) / targetQty
+    local available = filled + math.min(shortfall, bait)
+    return avg, lowest, highest, available, {
+        requested = targetQty,
+        filled = available,
+        incomplete = available < targetQty,
+        baitUnits = bait,
+        lowerFence = fence,
+    }
+end
+
+-- Compact price-by-quantity summary saved with each scanned price, so the
+-- needed-quantity cost (bait rule and short-market rule included) is still
+-- known after /reload, when the live listings are gone.
+function Results.BuildDepthCurve(rows)
+    if not rows or #rows == 0 then return nil end
+    local points = {}
+    for _, qty in ipairs(GAM.C.DEPTH_CURVE_POINTS or {}) do
+        local avg = Results.ComputeStatsFromRows(rows, qty)
+        if avg then points[#points + 1] = { qty, math.floor(avg + 0.5) } end
+    end
+    return #points > 0 and { listed = Results.GetListedQuantity(rows), points = points } or nil
+end
+
+-- Needed-quantity cost from a saved curve. Quantities between saved points
+-- are interpolated; smaller ones use the first point (never cheaper than
+-- that sample); larger ones use the last point.
+function Results.PriceFromCurve(curve, qty)
+    local points = curve and curve.points
+    if not (points and #points > 0 and qty and qty > 0) then return nil end
+    if qty <= points[1][1] then return points[1][2] end
+    for index = 2, #points do
+        local lowQty, lowAvg = points[index - 1][1], points[index - 1][2]
+        local highQty, highAvg = points[index][1], points[index][2]
+        if qty <= highQty then
+            return lowAvg + (highAvg - lowAvg) * (qty - lowQty) / (highQty - lowQty)
+        end
+    end
+    return points[#points][2]
 end
 
 function Results.ComputeStatsForCache(cached, targetQty)

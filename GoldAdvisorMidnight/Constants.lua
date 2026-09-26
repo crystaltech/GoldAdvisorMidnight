@@ -133,19 +133,23 @@ GAM.C = {
     MAX_UI_SCALE         = 1.5,
 
     -- Fill-price simulation quantities
-    DEFAULT_FILL_QTY = 50,     -- default fill qty for AH price simulation
-    MIN_FILL_QTY     = 10,     -- minimum configurable fill qty
-    MAX_FILL_QTY     = 10000,  -- maximum configurable fill qty
+    DEFAULT_FILL_QTY = 50,     -- legacy saved option default; pricing no longer reads it
 
     -- Share of the player's gold the Shopping budget check keeps unspent
     DEFAULT_GOLD_RESERVE_PCT = 20,
     MIN_GOLD_RESERVE_PCT     = 0,
     MAX_GOLD_RESERVE_PCT     = 90,
 
-    -- Price trimming: ARP-style percentage trim from the expensive end
-    -- After filling to targetQty, the top TRIM_PCT% most expensive units are dropped.
-    -- Matches ARP Tracker default (Trim: 2). Range 0–100; 0 = no trim.
-    TRIM_PCT                 = 2,
+    -- Market pricing (errs toward higher costs and lower sale prices).
+    -- Bait: listings below the lower quartile fence (Q1 - 1.5 x IQR) of the
+    -- first max(needed, MARKET_SAMPLE_UNITS) units are ignored when buying.
+    -- Expensive units inside the needed quantity are kept: they would be paid.
+    -- A short market prices the missing units at the highest listed price.
+    MARKET_SAMPLE_UNITS      = 50,     -- bait-detection window and saved reference price depth
+    MARKET_FENCE_MIN_UNITS   = 8,      -- fewer units: too little data to call anything bait
+    SCAN_DEPTH_UNITS         = 25000,  -- scans page deeper until this many units are listed
+    -- Saved per item after a scan, so needed-quantity pricing survives /reload.
+    DEPTH_CURVE_POINTS       = { 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000 },
 
     -- ── New UI (MainWindow) layout constants ────────────────────────────
     MAIN_WIN_W              = 1080,  -- total frame width

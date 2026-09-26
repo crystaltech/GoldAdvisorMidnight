@@ -139,9 +139,6 @@ L["MSG_PRICES_PUSHED"]     = "Pushed %d price(s) to CraftSim."
 L["WARN_PRICE_STALE"]      = "Prices may be stale (>%d min)."
 
 -- Fill Qty setting
-L["OPT_SHALLOW_FILL_TIP"]  = "Prices are calculated by simulating the purchase of this many units from the AH order book. Lower values reflect the cost of smaller batches; higher values average across more supply. Range: 10–10,000."
-L["OPT_SHALLOW_FILL_QTY"]  = "Fill Qty:"
-L["OPT_SHALLOW_FILL_RANGE"] = "(10 - 10,000)"
 
 -- Strat Detail (section headers / rank toggle)
 L["DETAIL_INPUT_HDR"]      = "Materials"
@@ -164,8 +161,6 @@ L["STATUS_STRAT_COUNT"]    = "%d strategies"
 L["COL_AH_SELL_PRICE"]     = "AH Sell Price"
 
 -- Tooltips — Main Window left panel
-L["TT_FILL_QTY_TITLE"]     = "Auction Price Quantity"
-L["TT_FILL_QTY_BODY"] = "How deeply GAM prices into auction listings, weighted by quantity. Extreme price walls stop the estimate early; Shopping warns when reasonable depth is insufficient. Range: 10-10,000."
 L["TT_VI_TITLE"]           = "Craft Intermediate Items"
 L["TT_VI_BODY"]            = "Include the cost of crafting intermediate materials instead of assuming they are bought from the Auction House."
 L["TT_SCAN_ALL_TITLE"]     = "Scan Current Strategy List"
@@ -229,7 +224,6 @@ L["LBL_GEAR_PLAN"]         = "Gear Plan:"
 L["TT_LBL_GEAR_PLAN_TITLE"] = "Stat Gear Plan"
 L["TT_LBL_GEAR_PLAN_BODY"] = "Auto uses the saved Multicraft or Resourcefulness setup that gives more profit for this recipe."
 L["V2_ALL_STRATS"]         = "All Strategies"
-L["V2_FILL_QTY"]           = "Price quantity"
 L["V2_VERTICAL_INTEGRATION"] = "Craft intermediate materials"
 L["V2_VI_BREAKDOWN"]       = "Show craft steps"
 L["V2_MATERIAL_RANK"]      = "Material quality"
@@ -652,7 +646,6 @@ L["ERR_RECIPE_GENERIC"] = "Could not open the selected recipe (%s)."
 L["UI_SUMMARY_RANK1"] = "Rank 1"
 L["UI_SUMMARY_RANK2"] = "Rank 2"
 L["UI_SUMMARY_BEST_MIX"] = "Best mix"
-L["UI_SETTINGS_SUMMARY"] = "Price quantity: %s  |  Materials: %s  |  Gear: %s"
 
 -- Debug Log window (English only until translations are reviewed)
 L["DBG_ALL_AREAS"] = "All areas"
@@ -736,3 +729,4 @@ L["WF_BUDGET_COST"] = "Estimated cost: %s"
 L["WF_BUDGET_SPEND"] = "You can spend: %s (keeping %d%% of %s)"
 L["WF_BUDGET_OK_TITLE"] = "Within your gold budget"
 L["WF_BUDGET_SHORT_TITLE"] = "Not enough gold for these materials"
+L["UI_SETTINGS_SUMMARY_V2"] = "Materials: %s  |  Gear: %s"

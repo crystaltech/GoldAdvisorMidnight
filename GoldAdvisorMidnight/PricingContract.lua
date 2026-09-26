@@ -152,7 +152,7 @@ function Contract.BuildRequest(args)
         inventoryPolicy = args.inventoryPolicy or "opportunity_cost",
         pricePolicy = args.pricePolicy or "runtime_market",
         useVerticalIntegration = args.useVerticalIntegration and true or false,
-        fillQuantity = args.fillQuantity or DefaultConstant("DEFAULT_FILL_QTY", 50),
+        fillQuantity = args.fillQuantity or DefaultConstant("MARKET_SAMPLE_UNITS", 50),
         auctionHouseCut = args.auctionHouseCut,
     }
     if request.auctionHouseCut == nil then

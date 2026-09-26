@@ -269,7 +269,7 @@ local function DumpSelectedStrategyScans()
     end
 
     local opts = (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
-    local fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+    local fillQty = GAM.C.MARKET_SAMPLE_UNITS or 50
     local rankPolicy = opts.rankPolicy or "lowest"
     local output = (metrics.outputs and metrics.outputs[1]) or metrics.output or {}
     local outputQtyRaw = tonumber(output.expectedQtyRaw) or 0
@@ -315,18 +315,28 @@ local function DumpSelectedStrategyScans()
             storedStale and " (stale)" or "")
 
         if raw and raw.prices and #raw.prices > 0 then
-            local avgHint = qtyHint and GAM.AHScan and GAM.AHScan.ComputePriceForQty
-                and GAM.AHScan.ComputePriceForQty(itemID, math.max(1, math.floor((qtyHint or 1) + 0.5)))
-                or nil
+            local hintQty = math.max(1, math.floor((qtyHint or 1) + 0.5))
+            local avgHint, _, _, _, _, depth
+            if qtyHint and GAM.AHScan and GAM.AHScan.ComputePriceForQty then
+                avgHint, _, _, _, _, depth = GAM.AHScan.ComputePriceForQty(itemID, hintQty)
+            end
             local avgFill = GAM.AHScan and GAM.AHScan.ComputePriceForQty
                 and GAM.AHScan.ComputePriceForQty(itemID, fillQty)
                 or nil
-            GAM.Log.Info("  source=%s rows=%d avg@qty=%s avg@fill(%d)=%s",
+            GAM.Log.Info("  source=%s rows=%d avg@qty=%s avg@sample(%d)=%s",
                 tostring(raw.source),
                 #raw.prices,
                 FormatPriceSafe(avgHint),
                 fillQty,
                 FormatPriceSafe(avgFill))
+            if depth then
+                -- Why this price: bait skipped, and units priced at the top
+                -- listing because the market does not list them.
+                GAM.Log.Info("  bait skipped=%d (below %s) listed=%d of %d%s",
+                    depth.baitUnits or 0, FormatPriceSafe(depth.lowerFence),
+                    depth.filled or 0, depth.requested or hintQty,
+                    depth.incomplete and " (thin market: missing units at highest listed price)" or "")
+            end
 
             local maxRows = 12
             for i, row in ipairs(raw.prices) do

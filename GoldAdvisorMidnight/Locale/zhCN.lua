@@ -149,9 +149,6 @@ L["BTN_RELOAD_DATA"]       = "重新加载"
 L["BTN_CLEAR_CACHE"]       = "清除缓存"
 L["BTN_OPEN_LOG"]          = "打开日志"
 L["BTN_APPLY_CLOSE"]       = "确认"
-L["OPT_SHALLOW_FILL_TIP"]  = "通过模拟从拍卖行订单簿购买此数量的物品来计算价格。较低的值反映小批量购买的成本；较高的值对更多供应取平均。范围：10–10,000。"
-L["OPT_SHALLOW_FILL_QTY"]  = "填充数量："
-L["OPT_SHALLOW_FILL_RANGE"] = "（10 - 10,000）"
 
 -- ── Strategy Creator ─────────────────────────────────────────────────────
 
@@ -169,7 +166,6 @@ L["ERR_NO_AH"]             = "请先打开拍卖行。"
 L["WARN_PRICE_STALE"]      = "价格可能已过时（>%d 分钟）。"
 L["V2_TOOLS_TITLE"]        = "策略工具"
 L["V2_ALL_STRATS"]         = "全部策略"
-L["V2_FILL_QTY"]           = "填充数量"
 L["V2_MATERIAL_RANK"]      = "材料等级"
 L["BTN_SCAN_SELECTED"]     = "扫描所选策略"
 L["BTN_CRAFTSIM_SHORT"]    = "CraftSim"
@@ -177,8 +173,6 @@ L["BTN_SHOPPING_SHORT"]    = "购物"
 
 -- Tooltip strings (v1.4.4)
 L["COL_AH_SELL_PRICE"]       = "拍卖行卖价"
-L["TT_FILL_QTY_TITLE"]       = "成交数量"
-L["TT_FILL_QTY_BODY"] = "控制GAM按数量加权评估拍卖列表的深度。遇到极端价格陡增时提前停止估算；合理价格数量不足时，购物列表会显示警告。范围：10–10,000。"
 L["TT_SCAN_ALL_TITLE"]       = "扫描当前策略列表"
 L["TT_LBL_COST_TITLE"]       = "总费用"
 L["TT_LBL_COST_BODY"]        = "按拍卖行价格计算的完整材料成本，包括背包中已有的物品。"

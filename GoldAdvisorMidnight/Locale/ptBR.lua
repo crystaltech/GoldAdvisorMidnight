@@ -149,9 +149,6 @@ L["BTN_RELOAD_DATA"]       = "Recarregar"
 L["BTN_CLEAR_CACHE"]       = "Limpar cache"
 L["BTN_OPEN_LOG"]          = "Abrir log"
 L["BTN_APPLY_CLOSE"]       = "Aplicar"
-L["OPT_SHALLOW_FILL_TIP"]  = "Os preços são calculados simulando a compra deste número de unidades no livro de ordens da CA. Valores baixos refletem o custo de lotes pequenos; valores altos fazem a média com mais oferta. Intervalo: 10–10.000."
-L["OPT_SHALLOW_FILL_QTY"]  = "Fill Qty:"
-L["OPT_SHALLOW_FILL_RANGE"] = "(10 - 10.000)"
 
 -- ── Strategy Creator ─────────────────────────────────────────────────────
 
@@ -169,7 +166,6 @@ L["ERR_NO_AH"]             = "Abra a Casa de Leilões primeiro."
 L["WARN_PRICE_STALE"]      = "Os preços podem estar desatualizados (>%d min)."
 L["V2_TOOLS_TITLE"]        = "Tools"
 L["V2_ALL_STRATS"]         = "All Strats"
-L["V2_FILL_QTY"]           = "Fill Qty"
 L["V2_MATERIAL_RANK"]      = "Mat Rank"
 L["BTN_SCAN_SELECTED"]     = "Scan Strat"
 L["BTN_CRAFTSIM_SHORT"]    = "CraftSim"
@@ -177,8 +173,6 @@ L["BTN_SHOPPING_SHORT"]    = "Compras"
 
 -- Tooltip strings (v1.4.4)
 L["COL_AH_SELL_PRICE"]       = "Preço venda CA"
-L["TT_FILL_QTY_TITLE"]       = "Quantidade de compra"
-L["TT_FILL_QTY_BODY"] = "Profundidade dos anúncios avaliados pelo GAM, ponderada por quantidade. Saltos extremos de preço limitam a estimativa; Compras avisa quando a oferta razoável é insuficiente. Intervalo: 10–10.000."
 L["TT_SCAN_ALL_TITLE"]       = "Escanear lista de estratégias"
 L["TT_LBL_COST_TITLE"]       = "Custo total"
 L["TT_LBL_COST_BODY"]        = "Custo completo dos reagentes nos preços da CA, incluindo itens já nas suas bolsas."

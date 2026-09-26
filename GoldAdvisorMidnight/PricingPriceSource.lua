@@ -468,7 +468,18 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
         end
     end
 
-    -- 5. AH cache fallback — used when only cached/export data exists.
+    -- 5. Saved scan without live listings (e.g. after /reload): cost the
+    -- needed quantity from the saved depth curve, so a large purchase is not
+    -- priced from a small sample. One unit uses the saved lowest listing.
+    if targetQty and targetQty > 1 and GAM.AuctionHouseResults and GAM.AuctionHouseResults.PriceFromCurve then
+        local entry = GAM:GetRealmCache()[itemID]
+        local curvePrice = entry and GAM.AuctionHouseResults.PriceFromCurve(entry.curve, targetQty)
+        if curvePrice then
+            return math.floor(curvePrice), (time() - (entry.ts or 0)) > GAM.C.PRICE_STALE_SECONDS
+        end
+    end
+
+    -- 6. AH cache fallback — used when only cached/export data exists.
     local cachedPrice, stale = Pricing.GetUnitPrice(itemID, targetQty and targetQty <= 1)
     return cachedPrice, stale
 end

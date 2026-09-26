@@ -77,8 +77,7 @@ function Overrides.Install(Bridge, deps)
     end
 
     local function GetOutputPushQty()
-        local fillQty = tonumber(GetOpts().shallowFillQty) or GAM.C.DEFAULT_FILL_QTY
-        return math.max(1, math.floor(fillQty + 0.5))
+        return GAM.C.MARKET_SAMPLE_UNITS or 50
     end
 
     local function BuildPushOverrideEntries(strat, patchTag, metrics)

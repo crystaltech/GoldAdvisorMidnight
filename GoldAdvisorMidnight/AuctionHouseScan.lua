@@ -251,7 +251,8 @@ local SchedulePendingPoll
 local BeginBrowseFallback
 
 local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
-    local targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+    -- Reference price: the fixed sample depth with bait removed.
+    local targetQty = GAM.C.MARKET_SAMPLE_UNITS or 50
     local avg, minPrice, maxPrice, count
     if resultType == "commodity" then
         avg, minPrice, maxPrice, count = Results.StoreCommodityRows(entry.itemID, rows, targetQty)
@@ -261,7 +262,7 @@ local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
     end
     if not avg then return false end
 
-    GAM.Pricing.StorePrice(entry.itemID, avg, minPrice)
+    GAM.Pricing.StorePrice(entry.itemID, avg, minPrice, Results.BuildDepthCurve(rows))
     if entry.callback then
         pcall(entry.callback, entry.itemID, avg, minPrice, maxPrice, count)
     end
@@ -281,7 +282,8 @@ local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
 end
 
 local function RequestMoreIfNeeded(entry, attempt, resultType, rows)
-    local targetQty = GetOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY
+    -- Page deep enough for large crafts; pricing never invents unlisted units.
+    local targetQty = GAM.C.SCAN_DEPTH_UNITS or 25000
     local listed = Results.GetListedQuantity(rows)
     local full = Query.HasFullResults(resultType, entry.itemID, entry.resultItemKey or entry.queryItemKey)
     if listed >= targetQty or full == true or (entry.moreRequests or 0) >= MAX_MORE_REQUESTS then

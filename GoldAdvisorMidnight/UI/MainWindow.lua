@@ -313,7 +313,6 @@ local function BuildListMetricSignature()
     local parts = {}
 
     AddMetricSignaturePart(parts, "patch", filterPatch)
-    AddMetricSignaturePart(parts, "fill", opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY)
     AddMetricSignaturePart(parts, "startingCrafts",
         opts.globalStartingCrafts or GAM.C.DEFAULT_STARTING_CRAFTS)
     AddMetricSignaturePart(parts, "rank", opts.rankPolicy or GAM.C.DEFAULT_RANK_POLICY)
@@ -1014,11 +1013,6 @@ local function SetCraftsOverride(stratID, patchTag, value)
         pdb.craftsOverrides[stratID] = nil
     end
     InvalidateListMetric(stratID, patchTag)
-end
-
-local function ClampFillQtyValue(value)
-    return Common.ClampFillQtyValue(
-        value, GAM.C.MIN_FILL_QTY, GAM.C.MAX_FILL_QTY, GAM.C.DEFAULT_FILL_QTY)
 end
 
 local function ClampStatPercentValue(value, fallback)
@@ -2150,7 +2144,6 @@ local function BuildLeftPanelContent(L, C, LP)
         attachButtonTooltip = AttachButtonTooltip,
         getOpts = GetOpts,
         setOption = SetOption,
-        clampFillQtyValue = ClampFillQtyValue,
         clampStatPercentValue = ClampStatPercentValue,
         formatStatPercentValue = FormatStatPercentValue,
         buildPlayerProfessionSet = BuildPlayerProfessionSet,

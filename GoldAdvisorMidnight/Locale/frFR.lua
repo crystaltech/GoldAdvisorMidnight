@@ -149,9 +149,6 @@ L["BTN_RELOAD_DATA"]       = "Recharger"
 L["BTN_CLEAR_CACHE"]       = "Vider le cache"
 L["BTN_OPEN_LOG"]          = "Voir journal"
 L["BTN_APPLY_CLOSE"]       = "Appliquer"
-L["OPT_SHALLOW_FILL_TIP"]  = "Les prix sont calculés en simulant l'achat de ce nombre d'unités dans le carnet d'ordres de l'HV. Des valeurs basses reflètent le coût de petites quantités ; des valeurs élevées moyennent sur plus d'offre. Plage : 10–10 000."
-L["OPT_SHALLOW_FILL_QTY"]  = "Qté de remplissage :"
-L["OPT_SHALLOW_FILL_RANGE"] = "(10 - 10 000)"
 
 -- ── Strategy Creator ─────────────────────────────────────────────────────
 
@@ -169,7 +166,6 @@ L["ERR_NO_AH"]             = "Ouvrez d'abord la Maison des ventes."
 L["WARN_PRICE_STALE"]      = "Les prix peuvent être obsolètes (>%d min)."
 L["V2_TOOLS_TITLE"]        = "Outils de stratégie"
 L["V2_ALL_STRATS"]         = "Toutes les stratégies"
-L["V2_FILL_QTY"]           = "Qté ciblée"
 L["V2_MATERIAL_RANK"]      = "Rang des matériaux"
 L["BTN_SCAN_SELECTED"]     = "Scanner la stratégie"
 L["BTN_CRAFTSIM_SHORT"]    = "CraftSim"
@@ -177,8 +173,6 @@ L["BTN_SHOPPING_SHORT"]    = "Shopping"
 
 -- Tooltip strings (v1.4.4)
 L["COL_AH_SELL_PRICE"]       = "Prix de vente HV"
-L["TT_FILL_QTY_TITLE"]       = "Quantité de remplissage"
-L["TT_FILL_QTY_BODY"] = "Profondeur des offres analysées par GAM, pondérée par quantité. Les hausses extrêmes limitent l’estimation ; les achats signalent une offre raisonnable insuffisante. Plage : 10–10 000."
 L["TT_SCAN_ALL_TITLE"]       = "Scanner la liste de stratégies"
 L["TT_LBL_COST_TITLE"]       = "Coût total"
 L["TT_LBL_COST_BODY"]        = "Coût complet des réactifs aux prix HV, y compris les objets déjà dans vos sacs."

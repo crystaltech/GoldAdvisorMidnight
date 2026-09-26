@@ -1031,14 +1031,6 @@ function Common.IsClickInFavoriteGutter(frameObj, gutterWidth)
     return localX >= 0 and localX <= (gutterWidth or 0)
 end
 
-function Common.ClampFillQtyValue(value, minValue, maxValue, defaultValue)
-    local n = tonumber(value)
-    if not n then
-        return defaultValue
-    end
-    return math.max(minValue, math.min(maxValue, math.floor(n)))
-end
-
 function Common.ClampStatPercentValue(value, fallback)
     local n = tonumber(value)
     if not n then

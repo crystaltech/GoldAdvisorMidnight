@@ -12,118 +12,6 @@ GAM.UI.MainWindowV2LeftPanel = LeftPanelUI -- Compatibility alias for pre-refocu
 local function Noop()
 end
 
-local function GetCommitButtonText()
-    return "OK"
-end
-
-local function RefreshCommitButton(editBox)
-    local button = editBox and editBox._gamCommitButton
-    if not button then
-        return
-    end
-    local committed = tostring(editBox._gamCommittedText or "")
-    local current = tostring(editBox:GetText() or "")
-    local keepVisible = editBox._gamCommitFromButton or editBox._gamCommitInProgress
-    local shouldShow = editBox:IsShown() and current ~= committed and (editBox:HasFocus() or keepVisible)
-    button:SetShown(shouldShow)
-end
-
-local function AttachTransientCommitButton(editBox, button, commitFn)
-    if not (editBox and button and commitFn) then
-        return
-    end
-
-    editBox._gamCommitButton = button
-    editBox._gamCommittedText = tostring(editBox:GetText() or "")
-    editBox._gamPendingText = editBox._gamCommittedText
-
-    local function SetTextWithoutChangingDraft(text)
-        editBox._gamRestoringText = true
-        editBox:SetText(tostring(text or ""))
-        editBox._gamRestoringText = nil
-    end
-
-    local function CommitCurrentValue(fromButton)
-        if editBox._gamCommitInProgress then
-            return
-        end
-        local text = tostring(editBox._gamPendingText or editBox:GetText() or "")
-        editBox._gamCommitInProgress = true
-        if fromButton then
-            editBox._gamCommitFromButton = true
-        end
-        local normalizedText = commitFn(text)
-        local committedText = normalizedText ~= nil and tostring(normalizedText) or text
-        editBox._gamCommittedText = committedText
-        editBox._gamPendingText = committedText
-        if tostring(editBox:GetText() or "") ~= committedText then
-            SetTextWithoutChangingDraft(committedText)
-        end
-        if editBox:HasFocus() then
-            editBox:ClearFocus()
-        end
-        editBox._gamCommitInProgress = nil
-        editBox._gamCommitFromButton = nil
-        RefreshCommitButton(editBox)
-    end
-
-    button:SetScript("OnMouseDown", function()
-        -- Commit before the edit box loses focus. The pending draft survives
-        -- any focus-loss redraw that happens during the mouse event.
-        CommitCurrentValue(true)
-    end)
-    button:SetScript("OnHide", function()
-        editBox._gamCommitFromButton = nil
-    end)
-
-    editBox:SetScript("OnEnterPressed", function()
-        CommitCurrentValue(false)
-    end)
-    editBox:SetScript("OnEscapePressed", function(self)
-        SetTextWithoutChangingDraft(self._gamCommittedText or "")
-        self._gamPendingText = tostring(self._gamCommittedText or "")
-        self._gamCommitFromButton = nil
-        self:ClearFocus()
-        RefreshCommitButton(self)
-    end)
-    editBox:SetScript("OnEditFocusGained", function(self)
-        RefreshCommitButton(self)
-    end)
-    editBox:SetScript("OnTextChanged", function(self)
-        if not self._gamRestoringText and not self._gamCommitInProgress then
-            self._gamPendingText = tostring(self:GetText() or "")
-        end
-        RefreshCommitButton(self)
-    end)
-    editBox:SetScript("OnEditFocusLost", function(self)
-        if self._gamCommitFromButton or self._gamCommitInProgress
-            or (self._gamCommitButton and MouseIsOver and MouseIsOver(self._gamCommitButton)) then
-            self._gamCommitFromButton = self._gamCommitFromButton or true
-            return
-        end
-        local function RestoreCommittedText()
-            if self:HasFocus() or self._gamCommitFromButton or self._gamCommitInProgress then
-                return
-            end
-            local committed = tostring(self._gamCommittedText or "")
-            if tostring(self:GetText() or "") ~= committed then
-                SetTextWithoutChangingDraft(committed)
-            end
-            self._gamPendingText = committed
-            RefreshCommitButton(self)
-        end
-        if C_Timer and type(C_Timer.After) == "function" then
-            -- Let a button mouse-down commit the draft before a normal focus
-            -- loss is treated as cancellation.
-            C_Timer.After(0, RestoreCommittedText)
-        else
-            RestoreCommittedText()
-        end
-    end)
-
-    button:Hide()
-end
-
 function LeftPanelUI.Build(args)
     local panel = args.panel
     local themeRefs = args.themeRefs or {}
@@ -141,7 +29,6 @@ function LeftPanelUI.Build(args)
     local attachButtonTooltip = args.attachButtonTooltip or Noop
     local getOpts = args.getOpts or function() return {} end
     local setOption = args.setOption or Noop
-    local clampFillQtyValue = args.clampFillQtyValue or tonumber
     local buildPlayerProfessionSet = args.buildPlayerProfessionSet or function() return {} end
     local rebuildList = args.rebuildList or Noop
     local refreshRows = args.refreshRows or Noop
@@ -349,48 +236,10 @@ function LeftPanelUI.Build(args)
     UpdateProfDDText()
     RefreshProfMenuRows()
 
-    local fillLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    fillLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -158)
-    fillLbl:SetText((L and L["V2_FILL_QTY"]) or "Fill Qty")
-    fillLbl:SetTextColor(gold[1], gold[2], gold[3])
-    applyFontSize(fillLbl, 11)
-
-    local fillQtyBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
-    fillQtyBox:SetHeight(20)
-    fillQtyBox:SetAutoFocus(false)
-    fillQtyBox:SetNumeric(true)
-    fillQtyBox:SetText(tostring(getOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
-    fillQtyBox:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText((L and L["TT_FILL_QTY_TITLE"]) or "Auction Price Quantity", 1, 1, 1)
-        GameTooltip:AddLine((L and L["TT_FILL_QTY_BODY"]) or "Number of auction units sampled for market prices. Use a larger number for large batches. Range: 10-10,000.", 1, 0.82, 0, true)
-        GameTooltip:Show()
-    end)
-    fillQtyBox:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
-
-    local fillQtyOKBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    fillQtyOKBtn:SetSize(28, 22)
-    fillQtyOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -154)
-    fillQtyOKBtn:SetText(GetCommitButtonText())
-    fillQtyOKBtn:Hide()
-    fillQtyBox:SetPoint("LEFT", fillLbl, "RIGHT", 8, 0)
-    fillQtyBox:SetPoint("RIGHT", fillQtyOKBtn, "LEFT", -4, 0)
-
-    local fillRangeFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fillRangeFS:SetPoint("TOPLEFT", fillLbl, "BOTTOMLEFT", 0, -4)
-    fillRangeFS:SetWidth(panelWidth - LP * 2)
-    fillRangeFS:SetJustifyH("LEFT")
-    fillRangeFS:SetText(string.format("%d-%d", GAM.C.MIN_FILL_QTY, GAM.C.MAX_FILL_QTY))
-    fillRangeFS:SetTextColor(helperColor[1], helperColor[2], helperColor[3], helperColor[4] or 1)
-    applyFontSize(fillRangeFS, softInk and 10 or 9)
-    fillRangeFS:Hide()
-
     -- Single vertical integration toggle: enables all derivation paths atomically
     -- (herbs → pigments, ore → ingots, linen → bolts)
     local viOwn = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-    viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP - 4, -184)
+    viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP - 4, -158)
     local viActive = (getOpts().pigmentCostSource == "mill")
         or (getOpts().boltCostSource == "craft")
         or (getOpts().ingotCostSource == "craft")
@@ -410,7 +259,7 @@ function LeftPanelUI.Build(args)
     )
 
     local viBreakdownOwn = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-    viBreakdownOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP + 10, -208)
+    viBreakdownOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP + 10, -182)
 
     local viBreakdownLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     viBreakdownLbl:SetPoint("LEFT", viBreakdownOwn, "RIGHT", 0, 0)
@@ -446,7 +295,7 @@ function LeftPanelUI.Build(args)
         )
         if rankLbl and layoutMode ~= "comfortable" then
             rankLbl:ClearAllPoints()
-            rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, viEnabled and -250 or -218)
+            rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, viEnabled and -224 or -192)
         end
     end
 
@@ -467,7 +316,7 @@ function LeftPanelUI.Build(args)
     local selectedRowTop = scanRowTop + primaryScanH + bottomBtnGap
     local toolsRowTop = selectedRowTop + bottomBtnH + bottomBtnGap
 
-    rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -218)
+    rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -192)
 
     local ddRank = CreateFrame("Button", GAM.RuntimeName("GAMMainV2RankDD"), panel, "UIPanelButtonTemplate")
     ddRank:SetPoint("TOPLEFT", rankLbl, "BOTTOMLEFT", 0, -4)
@@ -767,16 +616,6 @@ function LeftPanelUI.Build(args)
     end
     panel.refreshVisiblePanels = RefreshVisiblePanels
 
-    local function CommitFillQty(text)
-        local opts = getOpts()
-        opts.shallowFillQty = clampFillQtyValue(text)
-        fillQtyBox:SetText(tostring(opts.shallowFillQty))
-        fillQtyBox._gamCommittedText = tostring(fillQtyBox:GetText() or "")
-        RefreshVisiblePanels()
-        return tostring(opts.shallowFillQty)
-    end
-    AttachTransientCommitButton(fillQtyBox, fillQtyOKBtn, CommitFillQty)
-
     leftPanelChecks.viOwn = viOwn
     leftPanelChecks.viBreakdownOwn = viBreakdownOwn
 
@@ -925,7 +764,6 @@ function LeftPanelUI.Build(args)
         realmFS:Hide()
         lpRule:Hide()
         filterLbl:Hide()
-        fillRangeFS:Hide()
         actionsLbl:Hide()
         selectedScanBtn:Hide()
 
@@ -1142,23 +980,17 @@ function LeftPanelUI.Build(args)
         summary:SetTextColor(unpack(helperColor))
         applyFontSize(summary, 10)
 
-        fillLbl:ClearAllPoints()
-        fillLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -108)
-        fillQtyBox:ClearAllPoints()
-        fillQtyBox:SetPoint("TOPLEFT", fillLbl, "BOTTOMLEFT", 4, -8)
-        fillQtyBox:SetSize(100, 24)
-        fillQtyOKBtn:ClearAllPoints()
-        fillQtyOKBtn:SetPoint("LEFT", fillQtyBox, "RIGHT", 4, 0)
-
+        -- Market depth is automatic (needed quantity, bait and thin-market
+        -- rules), so the settings row starts with Material quality.
         rankLbl:ClearAllPoints()
-        rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 170, -108)
+        rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -108)
         ddRank:ClearAllPoints()
         ddRank:SetPoint("TOPLEFT", rankLbl, "BOTTOMLEFT", 0, -4)
         ddRank:SetSize(194, 24)
         rankMenu:SetWidth(194)
 
         gearLbl:ClearAllPoints()
-        gearLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 382, -108)
+        gearLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 224, -108)
         gearPlanBtn:ClearAllPoints()
         gearPlanBtn:SetPoint("TOPLEFT", gearLbl, "BOTTOMLEFT", 0, -4)
         gearPlanBtn:SetSize(194, 24)
@@ -1184,7 +1016,7 @@ function LeftPanelUI.Build(args)
         -- Same heading-over-control pattern as the other settings columns;
         -- the checkbox lines up with the dropdown buttons beside it.
         local viHeading = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        viHeading:SetPoint("TOPLEFT", panel, "TOPLEFT", 600, -108)
+        viHeading:SetPoint("TOPLEFT", panel, "TOPLEFT", 436, -108)
         viHeading:SetText(Lx("V2_VI_HEADING", "Intermediates"))
         viHeading:SetTextColor(gold[1], gold[2], gold[3])
         applyFontSize(viHeading, 11)
@@ -1233,19 +1065,14 @@ function LeftPanelUI.Build(args)
             optionsText:SetText(shown and "v  Price & crafting settings" or ">  Price & crafting settings")
             summary:SetShown(not shown)
             for _, widget in ipairs({
-                fillLbl, fillQtyBox, rankLbl, ddRank,
+                rankLbl, ddRank,
                 gearLbl, gearPlanBtn, viOwn, viLbl, viHeading,
             }) do
                 widget:SetShown(shown)
             end
             viBreakdownOwn:Hide()
             viBreakdownLbl:Hide()
-            if shown then
-                RefreshCommitButton(fillQtyBox)
-                RefreshVIBreakdownToggle()
-            else
-                fillQtyOKBtn:Hide()
-            end
+            if shown then RefreshVIBreakdownToggle() end
             gearMenu:Hide()
             rankMenu:Hide()
             relayoutPanels()
@@ -1264,8 +1091,7 @@ function LeftPanelUI.Build(args)
                 multicraft = Lx("GEAR_MODE_MC", "Multicraft"),
                 resourcefulness = Lx("GEAR_MODE_RES", "Resourcefulness"),
             })[gearStatus and gearStatus.selected or "auto"] or Lx("GEAR_MODE_AUTO", "Auto")
-            summary:SetText(string.format(Lx("UI_SETTINGS_SUMMARY", "Price quantity: %s  |  Materials: %s  |  Gear: %s"),
-                tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY), rank, gear))
+            summary:SetText(string.format(Lx("UI_SETTINGS_SUMMARY_V2", "Materials: %s  |  Gear: %s"), rank, gear))
         end
 
         optionsBtn:SetScript("OnClick", function()

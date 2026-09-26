@@ -149,9 +149,6 @@ L["BTN_RELOAD_DATA"]       = "새로고침"
 L["BTN_CLEAR_CACHE"]       = "캐시 지우기"
 L["BTN_OPEN_LOG"]          = "로그 열기"
 L["BTN_APPLY_CLOSE"]       = "확인"
-L["OPT_SHALLOW_FILL_TIP"]  = "경매장 주문서에서 이 수량만큼 구매하는 시뮬레이션으로 가격을 계산합니다. 낮은 값은 소량 구매 비용을, 높은 값은 더 많은 공급량을 평균합니다. 범위: 10–10,000."
-L["OPT_SHALLOW_FILL_QTY"]  = "채움 수량:"
-L["OPT_SHALLOW_FILL_RANGE"] = "(10 - 10,000)"
 
 -- ── Strategy Creator ─────────────────────────────────────────────────────
 
@@ -169,7 +166,6 @@ L["ERR_NO_AH"]             = "먼저 경매장을 여세요."
 L["WARN_PRICE_STALE"]      = "가격이 오래되었을 수 있습니다 (>%d분)."
 L["V2_TOOLS_TITLE"]        = "전략 도구"
 L["V2_ALL_STRATS"]         = "모든 전략"
-L["V2_FILL_QTY"]           = "목표 수량"
 L["V2_MATERIAL_RANK"]      = "재료 등급"
 L["BTN_SCAN_SELECTED"]     = "선택 전략 스캔"
 L["BTN_CRAFTSIM_SHORT"]    = "CraftSim"
@@ -177,8 +173,6 @@ L["BTN_SHOPPING_SHORT"]    = "쇼핑"
 
 -- Tooltip strings (v1.4.4)
 L["COL_AH_SELL_PRICE"]       = "경매장 판매가"
-L["TT_FILL_QTY_TITLE"]       = "구매 수량"
-L["TT_FILL_QTY_BODY"] = "수량 가중치로 경매 매물을 얼마나 깊이 평가할지 정합니다. 가격이 급등하면 추정을 중단하며 적정 가격 물량이 부족하면 쇼핑 목록에 경고합니다. 범위: 10–10,000."
 L["TT_SCAN_ALL_TITLE"]       = "현재 전략 목록 스캔"
 L["TT_LBL_COST_TITLE"]       = "총 비용"
 L["TT_LBL_COST_BODY"]        = "경매장 가격 기준 전체 재료 비용 (가방에 있는 아이템 포함)."

@@ -82,8 +82,7 @@ function Facade.BuildCurrentRequest(strategy, patchTag, craftScale)
         inventoryPolicy = "opportunity_cost",
         pricePolicy = NormalizePricePolicy(opts.priceSource),
         useVerticalIntegration = IsVerticalIntegrationEnabled(opts),
-        fillQuantity = opts.shallowFillQty
-            or ((GAM.C and GAM.C.DEFAULT_FILL_QTY) or 50),
+        fillQuantity = (GAM.C and GAM.C.MARKET_SAMPLE_UNITS) or 50,
         auctionHouseCut = opts.ahCut,
     })
 end
