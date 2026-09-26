@@ -135,29 +135,32 @@ local function BuildGearCaption(result)
     local requested = tostring(result and result.gearModeRequested or "auto")
     local resolved = tostring(result and result.gearModeResolved or "current")
     local labels = {
-        auto = "Auto",
-        multicraft = "Multicraft",
-        resourcefulness = "Resourcefulness",
+        auto = GAM.L and GAM.L["GEAR_MODE_AUTO"] or "Auto",
+        multicraft = GAM.L and GAM.L["GEAR_MODE_MC"] or "Multicraft",
+        resourcefulness = GAM.L and GAM.L["GEAR_MODE_RES"] or "Resourcefulness",
         current = "Current setup",
     }
-    if result and result.gearPresetMissing then
-        return (labels[requested] or requested) .. " setup not saved"
+    if result and (result.gearPresetMissing or result.gearStatValidity == "unobserved") then
+        return string.format((GAM.L and GAM.L["UI_GEAR_FALLBACK"] or "%s (fallback stats)"), labels[requested] or requested)
     end
     if requested == "auto" then
         if resolved == "current" then
             return "Auto (current gear)"
         end
-        return "Auto: " .. (labels[resolved] or resolved)
+        return labels.auto .. " → " .. (labels[resolved] or resolved)
     end
     return labels[resolved] or resolved
 end
 
 local function BuildGearTooltip(result)
-    if result and result.gearPresetMissing then
-        return "This gear setup has not been saved for the recipe. Equip it, open the recipe, and use Stat Gear to save it. Current saved stats are used until then."
+    if result and (result.gearPresetMissing or result.gearStatValidity == "unobserved") then
+        return (GAM.L and GAM.L["UI_GEAR_FALLBACK_TIP"] or "No saved set for this profession and gear mode. Equip the set, open any recipe of this profession, and save it from Stat Gear. This estimate uses fallback stats until then.")
+    end
+    if result and result.gearStatValidity == "legacy" then
+        return (GAM.L and GAM.L["UI_GEAR_LEGACY_TIP"] or "This estimate uses a legacy recipe capture whose equipment identity is unknown. Save the profession set before queue execution.")
     end
     if result and result.gearModeRequested == "auto" then
-        return "Auto compares the saved Multicraft and Resourcefulness setups and uses the one with more profit."
+        return BuildGearCaption(result) .. "\n" .. (GAM.L and GAM.L["UI_GEAR_AUTO_TIP"] or "Auto compares the saved Multicraft and Resourcefulness setups and uses the one with more profit.")
     end
     return "This estimate uses the selected saved gear setup for this recipe."
 end
@@ -263,9 +266,29 @@ local function BuildNodeBonusTooltip(result)
     return table.concat(lines, "\n")
 end
 
+-- Stale when any material or output price is older than the freshness window.
+function Model.GetStalePriceNotice(projection)
+    if not (projection and projection.hasStale) then return nil end
+    local minutes = math.floor(((GAM.C and GAM.C.PRICE_STALE_SECONDS) or 600) / 60)
+    local text = (GAM.L and GAM.L["WARN_PRICE_STALE"]) or "Prices may be stale (>%d min)."
+    return string.format(text, minutes) .. " " .. ((GAM.L and GAM.L["UI_SCAN_TO_REFRESH"]) or "Scan to refresh.")
+end
+
 function Model.GetRankMixNotice(projection)
     if not projection then return nil end
     local reason = tostring(projection.rankMixReason or "live recipe data unavailable")
+    if projection.rankMixMaterialPolicy == "highest" and projection.rankMixStatus then
+        local reachable = tonumber(projection.rankMixOutputQuality)
+        if reason == "target-quality-unreachable" and reachable then
+            local deficit = tonumber(projection.rankMixSkillDeficit)
+            local extra = deficit and deficit > 0 and string.format((GAM.L and GAM.L["UI_RANK_SKILL_NEEDED"] or " Needs %.0f more skill for max rank."), deficit) or ""
+            return string.format((GAM.L and GAM.L["UI_RANK2_UNREACHABLE"] or "Rank 2 materials only produce rank %d without Concentration.%s Pricing uses rank %d output."), reachable, extra, reachable)
+        end
+        if projection.rankMixStatus == "verified" and reachable then
+            return string.format((GAM.L and GAM.L["UI_RANK2_VERIFIED"] or "Rank 2 materials: rank %d output verified by Blizzard (no Concentration)."), reachable)
+        end
+        return string.format((GAM.L and GAM.L["UI_RANK2_UNVERIFIED"] or "Rank 2 output not verified (%s). Open the exact recipe and click Refresh Recipe."), reason)
+    end
     if reason == "target-quality-unreachable" then
         local reachable = tonumber(projection.rankMixOutputQuality)
         if projection.rankMixStatus == "reachable" and reachable and reachable > 0 then
@@ -325,6 +348,7 @@ function Model.Project(result)
         selectionNotes = result.selectionNotes,
         rankMixStatus = result.rankMixStatus,
         rankMixReason = result.rankMixReason,
+        rankMixMaterialPolicy = result.rankMixMaterialPolicy,
         rankMixTargetQuality = result.rankMixTargetQuality,
         rankMixOutputQuality = result.rankMixOutputQuality,
         rankMixHighSkill = result.rankMixHighSkill,
@@ -338,8 +362,70 @@ function Model.Project(result)
         nodeBonusTooltip = BuildNodeBonusTooltip(result),
         gearCaption = BuildGearCaption(result),
         gearTooltip = BuildGearTooltip(result),
-        gearPresetMissing = result.gearPresetMissing and true or false,
+        gearPresetMissing = (result.gearPresetMissing or result.gearStatValidity == "unobserved") and true or false,
     }
+end
+
+-- Display a minimum whole-copper posting price, with an explicit full-stack
+-- size. Never divide combined outputs into an artificial single-item price.
+local pendingStackItems, stackItemEvents = {}, nil
+local function RequestStackItem(itemID)
+    if not (itemID and C_Item and C_Item.RequestLoadItemDataByID and CreateFrame) then return end
+    if pendingStackItems[itemID] then return end
+    if not stackItemEvents then
+        stackItemEvents = CreateFrame("Frame")
+        stackItemEvents:RegisterEvent("ITEM_DATA_LOAD_RESULT")
+        stackItemEvents:SetScript("OnEvent", function(_, _, loadedID, success)
+            if not pendingStackItems[loadedID] then return end
+            pendingStackItems[loadedID] = nil
+            if not success then return end
+            for _, view in ipairs({ GAM.UI.MainWindow or {}, GAM.UI.StrategyDetail or {} }) do
+                if view.IsShown and view.IsShown() and view.Refresh then view.Refresh() end
+            end
+        end)
+    end
+    pendingStackItems[itemID] = true
+    C_Item.RequestLoadItemDataByID(itemID)
+end
+
+function Model.FormatBreakEven(projection, formatPrice)
+    local outputs = projection.outputs or {}
+    if #outputs > 1 then
+        local mixed = (GAM.L and GAM.L["UI_MIXED_OUTPUTS"] or "Mixed outputs")
+        return mixed, mixed
+    end
+    local price = tonumber(projection.breakEvenSell)
+    if not price or price ~= price or price < 0 or price == math.huge then return "—", "—" end
+    price = math.ceil(price)
+    local unitText = formatPrice(price)
+    local itemID = outputs[1] and outputs[1].itemID
+    local getInfo = C_Item and C_Item.GetItemInfo or GetItemInfo
+    local stackSize
+    if itemID and getInfo then stackSize = select(8, getInfo(itemID)) end
+    stackSize = tonumber(stackSize)
+    if not stackSize or stackSize <= 0 then
+        RequestStackItem(itemID)
+        return unitText, (GAM.L and GAM.L["UI_ITEM_DATA_UNAVAILABLE"] or "Item data unavailable")
+    end
+    stackSize = math.floor(stackSize)
+    if stackSize == 1 then return unitText, (GAM.L and GAM.L["UI_NOT_STACKABLE"] or "Not stackable") end
+    return unitText, string.format((GAM.L and GAM.L["UI_STACK_ITEMS"] or "%s (%d items)"), formatPrice(price * stackSize), stackSize)
+end
+
+function Model.FormatBatchBreakEven(projection, formatPrice)
+    local outputs = projection.outputs or {}
+    if #outputs > 1 then
+        local mixed = (GAM.L and GAM.L["UI_MIXED_OUTPUTS"] or "Mixed outputs")
+        return mixed, mixed
+    end
+    local price = tonumber(projection.breakEvenSell)
+    if not price or price ~= price or price < 0 or price == math.huge then return "—", "—" end
+    local unit = formatPrice(math.ceil(price))
+    local output = outputs[1]
+    local quantity = output and tonumber(output.expectedQtyRaw or output.expectedQty)
+    if not quantity or quantity ~= quantity or quantity <= 0 or quantity == math.huge then return unit, "—" end
+    return unit, string.format((GAM.L and GAM.L["UI_BATCH_EXPECTED"] or "%s (%s expected items)"),
+        formatPrice(math.ceil(price * quantity)), string.format("%.2f", quantity):gsub("0+$", ""):gsub("%.$", ""))
 end
 
 function Model.CreateSnapshot(canonicalResult)

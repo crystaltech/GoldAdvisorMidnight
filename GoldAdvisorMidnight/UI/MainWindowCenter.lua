@@ -101,6 +101,13 @@ function CenterUI.MakeRowFrame(args, parent, idx)
     applyTextShadow(roiText)
     row.roiText = roiText
 
+    local saleRateText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    saleRateText:SetJustifyH("RIGHT")
+    saleRateText:SetWordWrap(false)
+    applyFontSize(saleRateText, 10)
+    applyTextShadow(saleRateText)
+    row.saleRateText = saleRateText
+
     row.missingPriceList = {}
 
     row:SetScript("OnClick", function(self, btn)
@@ -130,6 +137,17 @@ function CenterUI.MakeRowFrame(args, parent, idx)
                 0.65, 0.65, 0.65,
                 1, 0.82, 0
             )
+        end
+        if GAM.TSMSaleRate and GAM.TSMSaleRate.IsAvailable() then
+            GameTooltip:AddLine((GAM.L and GAM.L["UI_SALE_RATE_TITLE"] or "TSM region sale rate"), 1, 0.82, 0)
+            for _, output in ipairs(self.saleRateItems or {}) do
+                GameTooltip:AddDoubleLine(output.name,
+                    output.rate and string.format("%.1f%%", output.rate * 100) or (GAM.L and GAM.L["UI_SALE_RATE_NONE"] or "No TSM data"))
+            end
+            GameTooltip:AddLine((GAM.L and GAM.L["UI_SALE_RATE_NOTE"] or "Regional sales history for each output; not a guarantee of a sale."), 0.7, 0.7, 0.7, true)
+        end
+        if self.staleNotice then
+            GameTooltip:AddLine(self.staleNotice, 1, 0.33, 0.33, true)
         end
         if hasMissing then
             GameTooltip:AddLine((L and L["MISSING_PRICES"] or "Missing prices") .. ":", 1, 0.6, 0)
@@ -163,6 +181,15 @@ function CenterUI.PopulateRow(args, row, strat)
     row.nameText:SetText(strat.stratName)
 
     local metrics = getListMetric(strat)
+    if row.saleRateText then
+        local text, items = "—", {}
+        if GAM.TSMSaleRate and GAM.TSMSaleRate.IsAvailable() then
+            local _
+            _, text, items = GAM.TSMSaleRate.ForOutputs(metrics and metrics.outputs)
+        end
+        row.saleRateText:SetText(text)
+        row.saleRateItems = items
+    end
     local noPrice = "|cff888888" .. (L and L["NO_PRICE"] or "—") .. "|r"
     if metrics then
         row.profitText:SetText(metrics.profit
@@ -181,6 +208,11 @@ function CenterUI.PopulateRow(args, row, strat)
         row.roiText:SetText("|cff888888—|r")
         row.missingPriceList = {}
     end
+    -- Dim estimates built on old scan data so they cannot pass for current.
+    row.staleNotice = metrics and GAM.UI.StrategyDetailModel
+        and GAM.UI.StrategyDetailModel.GetStalePriceNotice(metrics) or nil
+    row.profitText:SetAlpha(row.staleNotice and 0.45 or 1)
+    row.roiText:SetAlpha(row.staleNotice and 0.45 or 1)
 
     if row.bg and theme then
         local color = selected and theme.listRowSelected
@@ -230,6 +262,8 @@ function CenterUI.RefreshRows(args)
     end
     if rowsAdded and args.onRowsAdded then args.onRowsAdded() end
 
+    local max = math.max(0, #filteredList - visibleRows)
+    scrollOffset = math.max(0, math.min(scrollOffset, max))
     for i, row in ipairs(rowFrames) do
         local strat = filteredList[scrollOffset + i]
         if strat and i <= visibleRows then
@@ -241,12 +275,8 @@ function CenterUI.RefreshRows(args)
     end
 
     if frame.scrollBar then
-        local max = math.max(0, #filteredList - visibleRows)
-        if scrollOffset > max then
-            scrollOffset = max
-        end
-        frame.scrollBar:SetMinMaxValues(0, max)
         setSuppressScrollCallback(true)
+        frame.scrollBar:SetMinMaxValues(0, max)
         frame.scrollBar:SetValue(scrollOffset)
         setSuppressScrollCallback(false)
         frame.scrollBar:SetShown(max > 0)
@@ -399,7 +429,7 @@ function CenterUI.Build(args)
     end
 
     local colHeaderBtns = {}
-    for i = 1, 3 do
+    for i = 1, 4 do
         local btn = CreateFrame("Button", nil, listPanel)
         btn:SetHeight(headerHeight)
         local lbl = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -522,6 +552,7 @@ function CenterUI.Build(args)
         bestStratCard = bestStratCard,
         colHeaderBtns = colHeaderBtns,
         listHost = listHost,
+        listSectionTitle = listSectionTitle,
         rowFrames = rowFrames,
         scrollBar = scrollBar,
         onboardingOverlay = onboardingOverlay,

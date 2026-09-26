@@ -396,6 +396,19 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        -- dataVersion 21: The Thalassian Lumber manual price setting was
+        -- removed. Clear any saved value so an invisible, frozen price cannot
+        -- keep overriding live Auction House data for lumber recipes.
+        dataVersion = 21,
+        migrate = function(db)
+            for _, patch in pairs(type(db.patch) == "table" and db.patch or {}) do
+                if type(patch) == "table" and type(patch.priceOverrides) == "table" then
+                    patch.priceOverrides[256963] = nil
+                end
+            end
+        end,
+    },
 }
 
 local function RunMigrations(db)

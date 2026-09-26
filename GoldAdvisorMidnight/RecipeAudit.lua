@@ -35,6 +35,12 @@ local function Intersects(left, right)
     return false
 end
 
+local function JoinOrdered(values)
+    local result = {}
+    for _, value in ipairs(values or {}) do result[#result + 1] = tostring(value) end
+    return table.concat(result, ",")
+end
+
 local function JoinNumbers(values)
     local result = {}
     for _, value in ipairs(values or {}) do
@@ -42,6 +48,33 @@ local function JoinNumbers(values)
     end
     table.sort(result)
     return table.concat(result, ",")
+end
+
+-- Live reagent-quality rank, else Blizzard's shipped table (Data/ItemRanks.lua).
+local function GetItemRank(itemID)
+    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
+    if type(api) == "function" then
+        local ok, rank = pcall(api, itemID)
+        rank = ok and tonumber(rank) or nil
+        if rank and rank > 0 then return rank end
+    end
+    return GAM.ItemRanks and GAM.ItemRanks[tonumber(itemID)] or nil
+end
+
+-- Stored itemIDs lists must be rank 1 first. Returns a description when not.
+local function DescribeRankOrderProblem(itemIDs)
+    local previous
+    for index, itemID in ipairs(itemIDs or {}) do
+        local rank = GetItemRank(itemID)
+        if not rank then return nil end
+        if previous and rank <= previous then
+            local ranks = {}
+            for _, id in ipairs(itemIDs) do ranks[#ranks + 1] = tostring(GetItemRank(id)) end
+            return string.format("[%s] has ranks [%s]", JoinOrdered(itemIDs), table.concat(ranks, ","))
+        end
+        previous = rank
+    end
+    return nil
 end
 
 local function GetCatalogReagents(strat)
@@ -143,7 +176,7 @@ local function GetLiveRequiredSlots(schematic, enumTable)
                 local itemID = tonumber(reagent.itemID)
                 if itemID then itemIDs[#itemIDs + 1] = itemID end
             end
-            table.sort(itemIDs)
+            -- Keep Blizzard's order: it is rank order, which numeric sorting loses.
             if #itemIDs > 0 then
                 result[#result + 1] = {
                     itemIDs = itemIDs,
@@ -301,6 +334,14 @@ local function AuditOne(strat, deps)
                     if JoinNumbers(liveSlot.itemIDs) ~= JoinNumbers(catalog.itemIDs) then
                         AddFinding(row, "reagent_rank_ids", string.format("%s live=[%s] catalog=[%s]",
                             tostring(catalog.name), JoinNumbers(liveSlot.itemIDs), JoinNumbers(catalog.itemIDs)))
+                    else
+                        -- Same IDs, but rank order matters: a reversed pair prices
+                        -- the wrong rank wherever list order is used.
+                        local problem = DescribeRankOrderProblem(catalog.itemIDs)
+                        if problem then
+                            AddFinding(row, "reagent_rank_order", string.format("%s %s",
+                                tostring(catalog.name), problem))
+                        end
                     end
                     if liveSlot.quantity and catalog.quantity
                             and math.abs(liveSlot.quantity - catalog.quantity) > EPSILON then

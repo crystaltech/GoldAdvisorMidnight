@@ -38,6 +38,7 @@ local function ResolveForStrat(strat, opts)
     local hasManualProfile = false
 
     local requestedGearMode = NormalizeGearMode(opts and opts._gamGearModeOverride)
+    local gear = GAM.CraftingStatsGear
     if requestedGearMode ~= "auto" and recipeID then
         local presetCharacter, presetUID = character, currentUID
         local preset = GetGearPreset(character, recipeID, profileKey, requestedGearMode)
@@ -61,9 +62,21 @@ local function ResolveForStrat(strat, opts)
                 result, profileKey, presetCharacter, recipeID)
             result.gearModeRequested = requestedGearMode
             result.gearModeResolved = requestedGearMode
+            result.gearRequirement = gear.Requirement(presetCharacter, recipeID, profileKey, requestedGearMode)
+            result.gearStatValidity = result.gearRequirement and "observed" or "legacy"
+            result.gearStatScaling = preset.gearStatScaling
             return AnnotateCrafter(
                 result, presetCharacter, presetUID, crossCharacter)
         end
+        -- No saved set for this profession and mode: never borrow the other
+        -- set's stats. Keep the existing manual/workbook fallback explicit.
+        local manual = character and character.manualProfiles and character.manualProfiles[profileKey]
+        local result = type(manual) == "table" and ApplySnapshotToDefaults(defaults, manual, "manual") or defaults
+        result = ApplySpecializationNodeState(result, profileKey, character, recipeID)
+        result.gearRequirement = gear.Requirement(character, recipeID, profileKey, requestedGearMode)
+        result.gearModeRequested, result.gearModeResolved = requestedGearMode, requestedGearMode
+        result.gearStatValidity, result.fallbackReason = "unobserved", "gear-set-missing"
+        return AnnotateCrafter(result, character, currentUID, false)
     end
 
     if type(character) == "table" then

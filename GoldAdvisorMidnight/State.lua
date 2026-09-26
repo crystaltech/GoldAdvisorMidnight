@@ -16,11 +16,6 @@ local PATCH_TABLE_KEYS = {
     "gearModes",
 }
 
-local FAVORITE_POLICIES = {
-    lowest = true,
-    highest = true,
-}
-
 local function StartingCraftsBounds()
     local constants = GAM.C or {}
     return constants.MIN_STARTING_CRAFTS or 1,
@@ -48,38 +43,19 @@ function State.NormalizeStartingCrafts(value)
     return number
 end
 
-local function NormalizeRankPolicy(rankPolicy)
-    return (rankPolicy == "highest" or rankPolicy == "optimal") and "highest" or "lowest"
-end
-
 local function NormalizeFavoritesTable(favorites)
-    if type(favorites) ~= "table" then
-        favorites = {}
-    end
-
-    local lowest = type(favorites.lowest) == "table" and favorites.lowest or {}
-    local highest = type(favorites.highest) == "table" and favorites.highest or {}
-    local legacyKeys = nil
-
-    for key, value in pairs(favorites) do
-        if not FAVORITE_POLICIES[key] then
-            if value then
-                lowest[key] = true
-                highest[key] = true
+    if type(favorites) ~= "table" then return {} end
+    -- Merge old rank-specific sets once, then remove them so unfavoriting
+    -- cannot resurrect a saved favorite on the next read or reload.
+    for _, policy in ipairs({"lowest", "highest", "optimal"}) do
+        local bucket = favorites[policy]
+        favorites[policy] = nil
+        if type(bucket) == "table" then
+            for id, enabled in pairs(bucket) do
+                if enabled == true then favorites[id] = true end
             end
-            legacyKeys = legacyKeys or {}
-            legacyKeys[#legacyKeys + 1] = key
         end
     end
-
-    if legacyKeys then
-        for _, key in ipairs(legacyKeys) do
-            favorites[key] = nil
-        end
-    end
-
-    favorites.lowest = lowest
-    favorites.highest = highest
     return favorites
 end
 
@@ -92,8 +68,7 @@ local function GetFavoritesForPatch(patch)
 end
 
 local function GetFavoriteBucketForPatch(patch, rankPolicy)
-    local favorites = GetFavoritesForPatch(patch)
-    return favorites[NormalizeRankPolicy(rankPolicy)]
+    return GetFavoritesForPatch(patch)
 end
 
 local function ToggleFavoriteForPatch(patch, stratID, rankPolicy)

@@ -133,7 +133,6 @@ end
 -- Gold accent color used throughout
 local GOLD_R, GOLD_G, GOLD_B         = 1.0, 0.82, 0.0
 local GOLD_DIM_R, GOLD_DIM_G, GOLD_DIM_B = 0.7, 0.57, 0.0
-local THALASSIAN_LUMBER_ITEM_ID = 256963
 
 -- Unique name counter so _G[name.."Low"] / _G[name.."Text"] always resolve.
 local _widgetCount = 0
@@ -498,28 +497,6 @@ local function FormatStatPercentValue(value)
     return string.format("%.1f", n)
 end
 
-local function FormatGoldInput(copper)
-    local n = tonumber(copper)
-    if not n or n <= 0 then
-        return ""
-    end
-    local text = string.format("%.4f", n / 10000)
-    text = text:gsub("0+$", ""):gsub("%.$", "")
-    return text
-end
-
-local function ParseGoldInput(text)
-    local clean = tostring(text or ""):gsub(",", ""):match("^%s*(.-)%s*$")
-    if clean == "" then
-        return nil
-    end
-    local gold = tonumber(clean)
-    if not gold or gold <= 0 then
-        return nil
-    end
-    return math.floor((gold * 10000) + 0.5)
-end
-
 local function NormalizeV2PricingMode(mode)
     local value = tostring(mode or ""):lower()
     if value == "fixed_crafts" or value == "fixedcrafts" or value == "craftsim" then
@@ -853,7 +830,6 @@ local function BuildPanel()
     MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"])
 
     local ebFillQty
-    local ebLumberPrice
     local ebGlobalStartingCrafts
 
     local startingCraftsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -948,41 +924,6 @@ local function BuildPanel()
     end)
     ebFillQty:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    MakeSectionHeader(content, "Material prices")
-
-    local lblLumberPrice = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblLumberPrice:SetText(L["OPT_LUMBER_PRICE"])
-
-    ebLumberPrice = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-    ebLumberPrice:SetSize(90, 26)
-    ebLumberPrice:SetAutoFocus(false)
-    ebLumberPrice:SetMaxLetters(12)
-    do
-        local pdb = GAM.GetPatchDB and GAM:GetPatchDB(GAM.C.DEFAULT_PATCH)
-        ebLumberPrice:SetText(FormatGoldInput(pdb and pdb.priceOverrides and pdb.priceOverrides[THALASSIAN_LUMBER_ITEM_ID]))
-    end
-
-    local lblLumberUnit = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    lblLumberUnit:SetText(L["OPT_GOLD_EACH"])
-    lblLumberUnit:SetTextColor(0.55, 0.55, 0.55)
-    AddRow(content, lblLumberPrice, ebLumberPrice, lblLumberUnit, 90)
-
-    local function NormalizeLumberPrice()
-        local copper = ParseGoldInput(ebLumberPrice:GetText())
-        ebLumberPrice:SetText(FormatGoldInput(copper))
-        ebLumberPrice:ClearFocus()
-    end
-    ebLumberPrice:SetScript("OnEnterPressed", NormalizeLumberPrice)
-    ebLumberPrice:SetScript("OnEditFocusLost", NormalizeLumberPrice)
-    ebLumberPrice:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L["OPT_LUMBER_PRICE_TITLE"], 1, 1, 1)
-        GameTooltip:AddLine(L["OPT_LUMBER_PRICE_TIP"], 1, 0.82, 0, true)
-        GameTooltip:Show()
-    end)
-    ebLumberPrice:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-    -- ── Advanced manual stat fallbacks ─────────────────────────────────────
     FinalizeContentLayout()
     content = pages.crafting.content
     MakeSectionHeader(content, "Manual stat fallbacks")
@@ -1793,18 +1734,6 @@ local function BuildPanel()
             or GAM.C.DEFAULT_FILL_QTY
         ebFillQty:SetText(tostring(currentOpts.shallowFillQty))
 
-        local lumberCopper = ParseGoldInput(ebLumberPrice and ebLumberPrice:GetText())
-        if GAM.Pricing then
-            if lumberCopper and lumberCopper > 0 then
-                GAM.Pricing.SetPriceOverride(THALASSIAN_LUMBER_ITEM_ID, lumberCopper, GAM.C.DEFAULT_PATCH)
-            else
-                GAM.Pricing.ClearPriceOverride(THALASSIAN_LUMBER_ITEM_ID, GAM.C.DEFAULT_PATCH)
-            end
-        end
-        if ebLumberPrice then
-            ebLumberPrice:SetText(FormatGoldInput(lumberCopper))
-        end
-
         GAM.Log.SetLevel(currentOpts.debugVerbosity)
         if GAM.AHScan then
             GAM.AHScan.SetScanDelay(currentOpts.scanDelay)
@@ -1826,11 +1755,6 @@ local function BuildPanel()
         end
 
         GAM.Log.Info("Fill qty: %d", currentOpts.shallowFillQty)
-        local lumberPriceText = "unset"
-        if lumberCopper and GAM.Pricing and GAM.Pricing.FormatPrice then
-            lumberPriceText = GAM.Pricing.FormatPrice(lumberCopper)
-        end
-        GAM.Log.Info("Thalassian Lumber manual price: %s", lumberPriceText)
         GAM.Log.Info("V2 pricing mode: %s", tostring(currentOpts.v2PricingMode or NormalizeV2PricingMode(nil)))
 
         if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.Refresh then
@@ -1857,12 +1781,6 @@ local function BuildPanel()
         ebGlobalStartingCrafts:SetText(tostring(
             (GAM.State and GAM.State.GetGlobalStartingCrafts
                 and GAM.State.GetGlobalStartingCrafts()) or GAM.C.DEFAULT_STARTING_CRAFTS))
-        do
-            local pdb = GAM.GetPatchDB and GAM:GetPatchDB(GAM.C.DEFAULT_PATCH)
-            ebLumberPrice:SetText(FormatGoldInput(
-                pdb and pdb.priceOverrides and pdb.priceOverrides[THALASSIAN_LUMBER_ITEM_ID]
-            ))
-        end
         rankCurrent = rankTexts[o.rankPolicy] and o.rankPolicy or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
         modeCurrent = "exhaust_materials"

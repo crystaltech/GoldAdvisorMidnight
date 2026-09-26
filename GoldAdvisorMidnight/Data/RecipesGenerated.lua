@@ -201,7 +201,6 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       qtyPerCraft = 3.000000,
       qtyPerStart = 0.150000,
       workbookTotalQty = 1593.946758,
-      excludeFromCost = true,
     },
   },
 }
@@ -259,7 +258,6 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
       qtyPerCraft = 3.000000,
       qtyPerStart = 0.150000,
       workbookTotalQty = 1593.946758,
-      excludeFromCost = true,
     },
   },
 }
@@ -404,7 +402,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Composite Flora",
-      itemIDs = { 241280, 241281 },
+      itemIDs = { 241281, 241280 },
       baseYieldPerCraft = 2.000000,
       baseYield = 0.500000,
       workbookExpectedQty = 3036.649215,
@@ -470,7 +468,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   reagents = {
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 2.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 2000.000000,
@@ -518,7 +516,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Flask of the Blood Knights",
-      itemIDs = { 241324, 241325 },
+      itemIDs = { 241325, 241324 },
       baseYieldPerCraft = 2.000000,
       baseYield = 2.000000,
       workbookExpectedQty = 3036.649215,
@@ -541,7 +539,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 2.000000,
       qtyPerStart = 2.000000,
       workbookTotalQty = 2000.000000,
@@ -582,7 +580,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Haranir Phial of Perception",
-      itemIDs = { 241316, 241317 },
+      itemIDs = { 241317, 241316 },
       baseYieldPerCraft = 4.000000,
       baseYield = 2.000000,
       workbookExpectedQty = 6073.298429,
@@ -598,7 +596,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 2.000000,
       workbookTotalQty = 4000.000000,
@@ -646,7 +644,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Haranir Phial of Finesse",
-      itemIDs = { 241310, 241311 },
+      itemIDs = { 241311, 241310 },
       baseYieldPerCraft = 4.000000,
       baseYield = 2.000000,
       workbookExpectedQty = 6073.298429,
@@ -662,7 +660,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 2.000000,
       workbookTotalQty = 4000.000000,
@@ -710,7 +708,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Flask of the Shattered Sun",
-      itemIDs = { 241326, 241327 },
+      itemIDs = { 241327, 241326 },
       baseYieldPerCraft = 2.000000,
       baseYield = 2.000000,
       workbookExpectedQty = 3036.649215,
@@ -733,7 +731,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 2.000000,
       qtyPerStart = 2.000000,
       workbookTotalQty = 2000.000000,
@@ -774,7 +772,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Amani Extract",
-      itemIDs = { 241298, 241299 },
+      itemIDs = { 241299, 241298 },
       baseYieldPerCraft = 5.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 7591.623037,
@@ -783,7 +781,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   reagents = {
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
@@ -824,7 +822,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Potion of Recklessness",
-      itemIDs = { 241288, 241289 },
+      itemIDs = { 241289, 241288 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623037,
@@ -840,7 +838,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
@@ -881,7 +879,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Void-Shrouded Tincture",
-      itemIDs = { 241302, 241303 },
+      itemIDs = { 241303, 241302 },
       baseYieldPerCraft = 5.000000,
       baseYield = 2.500000,
       workbookExpectedQty = 7591.623037,
@@ -897,7 +895,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 2.500000,
       workbookTotalQty = 5000.000000,
@@ -938,7 +936,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Silvermoon Health Potion",
-      itemIDs = { 241304, 241305 },
+      itemIDs = { 241305, 241304 },
       baseYieldPerCraft = 5.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 7591.623037,
@@ -947,7 +945,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   reagents = {
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
@@ -981,7 +979,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Potion of Zealotry",
-      itemIDs = { 241296, 241297 },
+      itemIDs = { 241297, 241296 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623037,
@@ -997,7 +995,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
@@ -1038,7 +1036,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Lightfused Mana Potion",
-      itemIDs = { 241300, 241301 },
+      itemIDs = { 241301, 241300 },
       baseYieldPerCraft = 5.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 7591.623037,
@@ -1047,7 +1045,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   reagents = {
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 5000.000000,
@@ -1088,7 +1086,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Draught of Rampant Abandon",
-      itemIDs = { 241292, 241293 },
+      itemIDs = { 241293, 241292 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623037,
@@ -1104,7 +1102,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
@@ -1152,7 +1150,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Light's Potential",
-      itemIDs = { 241308, 241309 },
+      itemIDs = { 241309, 241308 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623037,
@@ -1168,7 +1166,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
@@ -1301,7 +1299,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Crystalline Glass",
-      itemIDs = { 242786, 242787 },
+      itemIDs = { 242787, 242786 },
       baseYieldPerCraft = 0.647951,
       baseYield = 0.647951,
       workbookExpectedQty = 304.380911,
@@ -1379,7 +1377,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Crystalline Glass",
-      itemIDs = { 242786, 242787 },
+      itemIDs = { 242787, 242786 },
       baseYieldPerCraft = 0.705341,
       baseYield = 0.705341,
       workbookExpectedQty = 2485.052723,
@@ -1457,7 +1455,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Crystalline Glass",
-      itemIDs = { 242786, 242787 },
+      itemIDs = { 242787, 242786 },
       baseYieldPerCraft = 0.705341,
       baseYield = 0.705341,
       workbookExpectedQty = 2485.052723,
@@ -1535,7 +1533,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Crystalline Glass",
-      itemIDs = { 242786, 242787 },
+      itemIDs = { 242787, 242786 },
       baseYieldPerCraft = 0.800000,
       baseYield = 0.800000,
       workbookExpectedQty = 800.000000,
@@ -1634,7 +1632,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   reagents = {
     {
       itemRef = "Crystalline Glass",
-      itemIDs = { 242786, 242787 },
+      itemIDs = { 242787, 242786 },
       qtyPerCraft = 3.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 3000.000000,
@@ -1668,7 +1666,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       baseYieldPerCraft = 1.000000,
       baseYield = 0.200000,
       workbookExpectedQty = 441.963800,
@@ -1677,7 +1675,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   reagents = {
     {
       itemRef = "Crystalline Glass",
-      itemIDs = { 242786, 242787 },
+      itemIDs = { 242787, 242786 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.000000,
       workbookTotalQty = 1250.000000,
@@ -1784,7 +1782,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 1.000000,
       qtyPerStart = 0.200000,
       workbookTotalQty = 1000.000000,
@@ -1834,7 +1832,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 1.000000,
       qtyPerStart = 0.200000,
       workbookTotalQty = 1000.000000,
@@ -1891,7 +1889,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 1.000000,
       qtyPerStart = 0.200000,
       workbookTotalQty = 1000.000000,
@@ -4149,7 +4147,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 2.000000,
       qtyPerStart = 2.000000,
       workbookTotalQty = 2000.000000,
@@ -7869,7 +7867,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Refreshing Serum",
-      itemIDs = { 241306, 241307 },
+      itemIDs = { 241307, 241306 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623038,
@@ -7892,7 +7890,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 0.625000,
       workbookTotalQty = 5000.000000,
@@ -7920,7 +7918,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Enlightenment Tonic",
-      itemIDs = { 241338, 241339 },
+      itemIDs = { 241339, 241338 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623038,
@@ -7936,7 +7934,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.666667,
       workbookTotalQty = 5000.000000,
@@ -7964,7 +7962,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Entropic Extract",
-      itemIDs = { 268955, 268954 },
+      itemIDs = { 268954, 268955 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623038,
@@ -7980,7 +7978,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 1.666667,
       workbookTotalQty = 5000.000000,
@@ -8008,7 +8006,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Potion of Devoured Dreams",
-      itemIDs = { 241294, 241295 },
+      itemIDs = { 241295, 241294 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623038,
@@ -8038,7 +8036,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 2.500000,
       workbookTotalQty = 5000.000000,
@@ -8066,7 +8064,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Light's Preservation",
-      itemIDs = { 241286, 241287 },
+      itemIDs = { 241287, 241286 },
       baseYieldPerCraft = 5.000000,
       baseYield = 5.000000,
       workbookExpectedQty = 7591.623038,
@@ -8096,7 +8094,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
@@ -8124,7 +8122,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Haranir Phial of Ingenuity",
-      itemIDs = { 241312, 241313 },
+      itemIDs = { 241313, 241312 },
       baseYieldPerCraft = 4.000000,
       baseYield = 4.000000,
       workbookExpectedQty = 6073.298430,
@@ -8161,7 +8159,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 2.000000,
       workbookTotalQty = 4000.000000,
@@ -8189,7 +8187,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Flask of Thalassian Resistance",
-      itemIDs = { 241320, 241321 },
+      itemIDs = { 241321, 241320 },
       baseYieldPerCraft = 2.000000,
       baseYield = 2.000000,
       workbookExpectedQty = 3036.649215,
@@ -8226,7 +8224,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 2.000000,
       qtyPerStart = 2.000000,
       workbookTotalQty = 2000.000000,
@@ -8254,7 +8252,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Voidlight Potion Cauldron",
-      itemIDs = { 241284, 241285 },
+      itemIDs = { 241285, 241284 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -8284,14 +8282,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 20.000000,
       qtyPerStart = 20.000000,
       workbookTotalQty = 20000.000000,
     },
     {
       itemRef = "Wondrous Synergist",
-      itemIDs = { 241282, 241283 },
+      itemIDs = { 241283, 241282 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 4.000000,
       workbookTotalQty = 4000.000000,
@@ -8319,7 +8317,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Cauldron of Sin'dorei Flasks",
-      itemIDs = { 241318, 241319 },
+      itemIDs = { 241319, 241318 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -8349,14 +8347,14 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Sunglass Vial",
-      itemIDs = { 240990, 240991 },
+      itemIDs = { 240991, 240990 },
       qtyPerCraft = 20.000000,
       qtyPerStart = 20.000000,
       workbookTotalQty = 20000.000000,
     },
     {
       itemRef = "Wondrous Synergist",
-      itemIDs = { 241282, 241283 },
+      itemIDs = { 241283, 241282 },
       qtyPerCraft = 4.000000,
       qtyPerStart = 4.000000,
       workbookTotalQty = 4000.000000,
@@ -8384,7 +8382,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
   outputs = {
     {
       itemRef = "Wondrous Synergist",
-      itemIDs = { 241282, 241283 },
+      itemIDs = { 241283, 241282 },
       baseYieldPerCraft = 1.000000,
       baseYield = 1.000000,
       workbookExpectedQty = 1518.324608,
@@ -14628,7 +14626,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Crystalline Glass",
-      itemIDs = { 242786, 242787 },
+      itemIDs = { 242787, 242786 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 0.277778,
       workbookTotalQty = 5000.000000,
@@ -28945,7 +28943,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 5.000000,
       qtyPerStart = 5.000000,
       workbookTotalQty = 5000.000000,
@@ -30178,7 +30176,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 6.000000,
       qtyPerStart = 6.000000,
       workbookTotalQty = 6000.000000,
@@ -30955,7 +30953,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 12.000000,
       qtyPerStart = 12.000000,
       workbookTotalQty = 12000.000000,
@@ -31169,7 +31167,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 32.000000,
       qtyPerStart = 32.000000,
       workbookTotalQty = 32000.000000,
@@ -31510,7 +31508,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 20.000000,
       qtyPerStart = 20.000000,
       workbookTotalQty = 20000.000000,
@@ -31652,7 +31650,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 10.000000,
       qtyPerStart = 10.000000,
       workbookTotalQty = 10000.000000,
@@ -31787,7 +31785,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 15.000000,
       qtyPerStart = 15.000000,
       workbookTotalQty = 15000.000000,
@@ -33025,7 +33023,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 10.000000,
       qtyPerStart = 10.000000,
       workbookTotalQty = 10000.000000,
@@ -33141,7 +33139,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 10.000000,
       qtyPerStart = 10.000000,
       workbookTotalQty = 10000.000000,
@@ -33257,7 +33255,7 @@ GAM_RECIPES_GENERATED[#GAM_RECIPES_GENERATED+1] = {
     },
     {
       itemRef = "Arcanoweave",
-      itemIDs = { 237017, 237018 },
+      itemIDs = { 237018, 237017 },
       qtyPerCraft = 10.000000,
       qtyPerStart = 10.000000,
       workbookTotalQty = 10000.000000,

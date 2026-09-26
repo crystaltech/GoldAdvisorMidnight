@@ -138,6 +138,10 @@ end
 
 local function RefreshShoppingSync()
     if not shoppingSync.active then return end
+    -- A background refresh of one strategy must not replace the combined plan
+    -- or discard its purchase-confirmation callback. Explicit Shopping still
+    -- switches back to that strategy's list.
+    if GAM.quickBuyList and GAM.quickBuyList.craftPlan then return end
     local strat = shoppingSync.stratID and GAM.Importer.GetStratByID(shoppingSync.stratID) or nil
     if not strat then
         DisableShoppingSync(true)

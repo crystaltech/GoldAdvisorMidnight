@@ -154,6 +154,7 @@ local function CopySnapshot(snapshot)
         "nodeHash",
         "nodeCount",
         "gearPreset",
+        "gearStatContext",
     }
     for _, field in ipairs(fields) do
         if snapshot[field] ~= nil then
@@ -170,6 +171,7 @@ local function CopySnapshot(snapshot)
         "buffStats",
         "modifierStats",
         "nodeRanks",
+        "operationStats",
     }
     for _, field in ipairs(nestedFields) do
         out[field] = CopySerializableTable(snapshot[field])
@@ -649,13 +651,20 @@ function Stats.GetGearPresetStatus(strat, patchTag)
     local available, crafters = Stats.GetAvailableGearPresetModes(strat)
     local selected = Stats.GetGearModeForStrat(strat, patchTag)
     local openSnapshot = GetOpenNativeRecipeSnapshot()
-    local canCapture = GetSnapshotMatchKind(
-        openSnapshot, strat, GetProfileKeyForStrat(strat)) == "recipe"
+    local openProfession = openSnapshot and Gear.Profession(openSnapshot.recipeID, openSnapshot.profileKey)
+    local canCapture = openProfession ~= nil and (not strat or
+        openProfession == Gear.Profession(strat.recipeID, GetProfileKeyForStrat(strat)))
+    local character = EnsureCache()
+    local sets = {}
+    for _, mode in ipairs({ "multicraft", "resourcefulness" }) do
+        sets[mode] = Gear.GetSet(character, strat and strat.recipeID, GetProfileKeyForStrat(strat), mode) ~= nil
+    end
     return {
         selected = selected,
         available = available,
         crafters = crafters,
         canCapture = canCapture,
+        sets = sets,
         selectedMissing = selected ~= "auto" and not available[selected] or false,
     }
 end
@@ -667,20 +676,22 @@ function Stats.CaptureOpenRecipeAsGearPreset(mode)
     if not snapshot or not snapshot.recipeID then
         return nil, "no-open-native-recipe"
     end
-    local ok, err = Stats.SaveSnapshot(snapshot)
-    if not ok then return nil, err end
+    local set, err = Gear.CaptureSet(snapshot, mode)
+    if not set then return nil, err end
+    Stats.SaveSnapshot(snapshot)
+    return set, nil
+end
 
-    local character, _, cache = EnsureCache()
-    if not character then return nil, "no-db" end
-    local recipeKey = tostring(snapshot.recipeID)
-    character.gearPresets[recipeKey] = character.gearPresets[recipeKey] or {}
-    local preset = CopySnapshot(snapshot)
-    preset.gearPreset = mode
-    preset.source = "gear-preset-" .. mode
-    preset.capturedAt = GetCurrentTimestamp()
-    character.gearPresets[recipeKey][mode] = preset
-    TouchRevision(character, cache)
-    return preset, nil
+function Stats.ReadPlannedOperation(recipeID, allocation, targetGUID)
+    local snapshot, operation = NativeCapture.GetOperationSnapshot(recipeID, allocation, targetGUID)
+    if snapshot then
+        local defaults = GetProfileDefaults(snapshot.profileKey, (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {})
+        snapshot.multiExtra, snapshot.resExtra = defaults.multiExtra, defaults.resExtra
+        if snapshot.supportsMulticraft == false then snapshot.multiExtra = 0 end
+        if snapshot.supportsResourcefulness == false then snapshot.resExtra = 0 end
+        snapshot = ApplySpecializationNodeState(snapshot, snapshot.profileKey, EnsureCache(), recipeID)
+    end
+    return snapshot, operation
 end
 
 local Resolution = assert(

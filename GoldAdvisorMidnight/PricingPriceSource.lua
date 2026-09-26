@@ -44,7 +44,10 @@ local function GetPositiveReagentQualityRank(itemID)
     RequestItemData(itemID)
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
     local quality = tonumber(CallItemInfoAPI(api, itemID))
-    return quality and quality > 0 and quality or nil
+    if quality and quality > 0 then return quality end
+    -- Before item data loads, use Blizzard's crafting-quality tables shipped in
+    -- Data/ItemRanks.lua instead of trusting the order of an itemIDs list.
+    return GAM.ItemRanks and GAM.ItemRanks[tonumber(itemID)] or nil
 end
 
 -- Crafted outputs and recipe reagents use different Blizzard quality APIs.
@@ -303,6 +306,10 @@ PickItemID = function(itemIDs, patchTag, policyOverride)
             -- Non-tiered item loaded → treat as rank 1
             anyKnown = true
             tinsert(sorted, { id = id, q = 1 })
+        elseif GAM.ItemRanks and GAM.ItemRanks[tonumber(id)] then
+            -- Uncached: Blizzard's shipped rank table, never list position.
+            anyKnown = true
+            tinsert(sorted, { id = id, q = GAM.ItemRanks[tonumber(id)] })
         else
             -- Uncached: push to end so known ranks are preferred
             tinsert(sorted, { id = id, q = 999 })
@@ -453,9 +460,9 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     -- 4. Live AH depth repricing when we have raw in-session scan data.
     local targetQty = tonumber(qty)
     if targetQty and targetQty > 0 and GAM.AHScan and GAM.AHScan.ComputePriceForQty then
-        local liveAvg = GAM.AHScan.ComputePriceForQty(itemID, math.max(1, math.floor(targetQty + 0.5)))
+        local liveAvg, _, _, _, stale = GAM.AHScan.ComputePriceForQty(itemID, math.max(1, math.floor(targetQty + 0.5)))
         if liveAvg then
-            return math.floor(liveAvg), false
+            return math.floor(liveAvg), stale == true
         end
     end
 

@@ -220,12 +220,21 @@ function LeftPanelUI.Build(args)
         edgeSize = 1,
         insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    profMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
+    profMenu._gamOpaqueBackground = true
+    profMenu:SetBackdropColor(0.035, 0.035, 0.035, 1)
+    profMenu:SetScript("OnShow", function(self)
+        -- Reparenting between Mini and Full may reset inherited frame ordering.
+        self:SetFrameStrata("DIALOG")
+        self:SetFrameLevel(math.max(panel:GetFrameLevel(), ddProf:GetFrameLevel()) + 20)
+        self:SetAlpha(1)
+        self:SetBackdropColor(0.035, 0.035, 0.035, 1)
+    end)
     profMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
     profMenu:Hide()
 
     local ddPool, profRows = {}, {}
     local selectionPreset = "mine"
+    local miniFilters = false
     local learned = {}
     local CHECK_ON = "|TInterface\\Buttons\\UI-CheckBox-Check:14:14|t "
     local CHECK_OFF = "|TInterface\\Buttons\\UI-CheckBox-Highlight:14:14|t "
@@ -237,7 +246,7 @@ function LeftPanelUI.Build(args)
         local label = "Choose professions"
         if #names > 0 then
             if selectionPreset == "mine" then label = "My professions"
-            elseif selectionPreset == "all" then label = "All professions"
+            elseif selectionPreset == "all" then label = miniFilters and (GAM.L and GAM.L["UI_ALL_STRATEGIES"] or "All Strategies") or "All professions"
             elseif #names == 1 then label = names[1]
             else label = #names .. " professions" end
         end
@@ -425,8 +434,10 @@ function LeftPanelUI.Build(args)
         local showBreakdown = opts.showVIBreakdown and true or false
         viBreakdownOwn:SetChecked(viEnabled and showBreakdown)
         viBreakdownOwn:SetEnabled(viEnabled)
-        viBreakdownOwn:SetShown(viEnabled)
-        viBreakdownLbl:SetShown(viEnabled)
+        -- The VI breakdown surface was repurposed as the Craft Queue; keep the
+        -- toggle hidden until it has a new home.
+        viBreakdownOwn:Hide()
+        viBreakdownLbl:Hide()
         viBreakdownLbl:SetTextColor(
             labelColor[1],
             labelColor[2],
@@ -548,7 +559,7 @@ function LeftPanelUI.Build(args)
         RefreshVisiblePanels()
     end)
     attachButtonTooltip(captureMCBtn, "Save Multicraft",
-        "Save the equipped stats from the open recipe as its Multicraft setup.")
+        (GAM.L and GAM.L["UI_SAVE_MC_TIP"] or "Save this profession's equipped Multicraft set. Every strategy in the profession uses it; save again after changing gear."))
 
     local captureResBtn = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
     captureResBtn:SetSize(halfBtnW - 2, 22)
@@ -560,7 +571,7 @@ function LeftPanelUI.Build(args)
         RefreshVisiblePanels()
     end)
     attachButtonTooltip(captureResBtn, "Save Resourcefulness",
-        "Save the equipped stats from the open recipe as its Resourcefulness setup.")
+        (GAM.L and GAM.L["UI_SAVE_RES_TIP"] or "Save this profession's equipped Resourcefulness set. Every strategy in the profession uses it; save again after changing gear."))
 
     gearPlanBtn:SetScript("OnClick", function()
         profMenu:Hide()
@@ -571,7 +582,7 @@ function LeftPanelUI.Build(args)
     local function RefreshGearPlan()
         local status = getGearStatus()
         local selected = status and status.selected or "auto"
-        local available = status and status.available or {}
+        local available = status and status.sets or {}
         local modeLabels = {
             auto = (L and L["GEAR_MODE_AUTO"]) or "Auto",
             multicraft = (L and L["GEAR_MODE_MC"]) or "Multicraft",
@@ -728,7 +739,7 @@ function LeftPanelUI.Build(args)
     end
 
     selectedShoppingBtn = MakeToolsButton(
-        (L and L["BTN_SHOPPING_SHORT"]) or "Shopping", 1, 1, toggleShoppingSync)
+        (L and L["BTN_SHOPPING_SHORT"]) or (GAM.L and GAM.L["WF_SHOPPING"] or "Shopping"), 1, 1, toggleShoppingSync)
     local quickBuyBtn = MakeToolsButton(
         (L and L["BTN_QUICK_BUY_SHORT"]) or "Quick Buy", 2, 1, showQuickBuy)
     cooldownsBtn = MakeToolsButton(
@@ -737,7 +748,9 @@ function LeftPanelUI.Build(args)
         (L and L["BTN_CRAFTSIM_SHORT"]) or "CraftSim", 2, 2, pushSelectedToCraftSim)
     local btnARP = MakeToolsButton(
         (L and L["BTN_EXPORT_SHORT"]) or "Export", 1, 3, showARPExport)
-    btnARP:SetWidth(innerW - 4)
+    local craftPlanBtn = MakeToolsButton((GAM.L and GAM.L["WF_QUEUE"] or "Craft Queue"), 2, 3, function()
+        if GAM.UI.CraftPlanWindow then GAM.UI.CraftPlanWindow.Show() end
+    end)
     selectedCraftSimBtn:Disable()
     selectedShoppingBtn:Disable()
     attachButtonTooltip(
@@ -888,9 +901,69 @@ function LeftPanelUI.Build(args)
         divider:SetPoint("TOPLEFT"); divider:SetPoint("TOPRIGHT"); divider:SetHeight(1)
         divider:SetColorTexture(rule[1], rule[2], rule[3], 0.25)
 
+        local favoritesOnly = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+        favoritesOnly:SetSize(24, 24)
+        favoritesOnly:SetPoint("TOPLEFT", ddProf, "BOTTOMLEFT", 0, -3)
+        favoritesOnly:SetChecked(getOpts().favoritesOnly == true)
+        local favoritesLabel = favoritesOnly:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        favoritesLabel:SetPoint("LEFT", favoritesOnly, "RIGHT", 2, 0)
+        favoritesLabel:SetText((GAM.L and GAM.L["UI_FAVORITES_ONLY"] or "Favorites only"))
+        favoritesOnly:SetScript("OnClick", function(self)
+            getOpts().favoritesOnly = self:GetChecked() and true or false
+            rebuildList()
+            refreshRows()
+            relayoutPanels()
+            if panel.refreshScanScope then panel.refreshScanScope() end
+        end)
+        panel.favoritesOnly = favoritesOnly
+        favoritesOnly:HookScript("OnHide", function() profMenu:Hide() end)
+        scanBtnLeft:HookScript("OnHide", function() scanMenu:Hide() end)
+        -- Move the existing controls into the mini list header so both modes
+        -- share the selection, menu behavior, and favorites setting.
+        panel.setMiniFilters = function(host)
+            local mini = host ~= nil
+            if mini ~= miniFilters then
+                miniFilters = mini
+                profMenu:Hide()
+                scanMenu:Hide()
+                ddProf:SetParent(host or panel)
+                ddProf:ClearAllPoints()
+                ddProf:SetPoint("TOPLEFT", host or panel, "TOPLEFT", mini and 8 or 100, mini and -4 or -8)
+                ddProf:SetSize(250, mini and 24 or 28)
+                profMenu:SetParent(mini and ddProf or panel)
+                favoritesOnly:SetParent(host or panel)
+                favoritesOnly:ClearAllPoints()
+                if mini then
+                    favoritesOnly:SetPoint("LEFT", ddProf, "RIGHT", 6, 0)
+                else
+                    favoritesOnly:SetPoint("TOPLEFT", ddProf, "BOTTOMLEFT", 0, -3)
+                end
+                scanBtnLeft:SetParent(host or panel)
+                scanMenuBtn:SetParent(host or panel)
+                scanMenu:SetParent(mini and scanMenuBtn or panel)
+                scanBtnLeft:ClearAllPoints()
+                scanMenuBtn:ClearAllPoints()
+                scanMenu:ClearAllPoints()
+                scanBtnLeft:SetSize(mini and 90 or 158, mini and 24 or 28)
+                scanMenuBtn:SetSize(mini and 22 or 28, mini and 24 or 28)
+                if mini then
+                    scanMenuBtn:SetPoint("TOPRIGHT", host, "TOPRIGHT", -8, -4)
+                    scanBtnLeft:SetPoint("RIGHT", scanMenuBtn, "LEFT", -1, 0)
+                    scanMenu:SetPoint("TOPRIGHT", scanMenuBtn, "BOTTOMRIGHT", 0, -2)
+                else
+                    scanBtnLeft:SetPoint("LEFT", ddProf, "RIGHT", 8, 0)
+                    scanMenuBtn:SetPoint("LEFT", scanBtnLeft, "RIGHT", 1, 0)
+                    scanMenu:SetPoint("TOPLEFT", scanBtnLeft, "BOTTOMLEFT", 0, -2)
+                end
+            end
+            if mini then ddProf:SetWidth(math.max(110, math.min(190, host:GetWidth() - 258))) end
+            favoritesOnly:SetChecked(getOpts().favoritesOnly == true)
+            UpdateProfDDText()
+        end
+
         local workflowHint = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         panel.scanScopeText = workflowHint
-        workflowHint:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -45)
+        workflowHint:SetPoint("TOPLEFT", panel, "TOPLEFT", 270, -45)
         workflowHint:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -45)
         workflowHint:SetJustifyH("LEFT")
         workflowHint:SetWordWrap(false)
@@ -979,7 +1052,7 @@ function LeftPanelUI.Build(args)
         local toolButtons = {
             { selectedShoppingBtn, 1, 1 }, { quickBuyBtn, 2, 1 },
             { cooldownsBtn, 1, 2 }, { selectedCraftSimBtn, 2, 2 },
-            { btnARP, 1, 3 },
+            { btnARP, 1, 3 }, { craftPlanBtn, 2, 3 },
         }
         for _, entry in ipairs(toolButtons) do
             entry[1]:SetParent(toolsMenu)
@@ -993,7 +1066,7 @@ function LeftPanelUI.Build(args)
         for _, button in ipairs({
             ddProf, moreToolsBtn,
             ddRank, gearPlanBtn, selectedShoppingBtn, quickBuyBtn, cooldownsBtn,
-            selectedCraftSimBtn, selectedScanBtn, btnARP, captureMCBtn, captureResBtn,
+            selectedCraftSimBtn, selectedScanBtn, btnARP, craftPlanBtn, captureMCBtn, captureResBtn,
         }) do
             styleButton(button, false)
         end
@@ -1006,10 +1079,12 @@ function LeftPanelUI.Build(args)
             summary:SetShown(not shown)
             for _, widget in ipairs({
                 fillLbl, fillQtyBox, rankLbl, ddRank,
-                gearLbl, gearPlanBtn, viOwn, viLbl, viBreakdownOwn, viBreakdownLbl,
+                gearLbl, gearPlanBtn, viOwn, viLbl,
             }) do
                 widget:SetShown(shown)
             end
+            viBreakdownOwn:Hide()
+            viBreakdownLbl:Hide()
             if shown then
                 RefreshCommitButton(fillQtyBox)
                 RefreshVIBreakdownToggle()

@@ -25,6 +25,7 @@ end
 function Capture.Create(deps)
     assert(type(deps) == "table", "CraftingStatsCapture dependencies are required")
     assert(type(deps.InferProfileKey) == "function", "InferProfileKey dependency is required")
+local GetOpenNativeRecipeSnapshot
 
 local function ReadPercentFromBonusStat(statInfo)
     if type(statInfo) ~= "table" then
@@ -46,20 +47,42 @@ local function ReadPercentFromBonusStat(statInfo)
 end
 
 local function ApplyOperationBonusStats(snapshot, operationInfo)
+    snapshot.operationStats = operationInfo
     local bonusStats = operationInfo and operationInfo.bonusStats
     if type(bonusStats) ~= "table" then
         return
     end
+    local names = {
+        deDE = { "Mehrfachherstellung", "Einfallsreichtum" },
+        esES = { "Multifabricación", "Inventiva" }, esMX = { "Fabricación múltiple", "Inventiva" },
+        frFR = { "Fabrication multiple", "Ingéniosité" }, itIT = { "Creazione multipla", "Parsimonia" },
+        koKR = { "복수 제작", "지혜" }, ptBR = { "Multicriação", "Devolução de recursos" },
+        ruRU = { "Перепроизводство", "Находчивость" }, zhCN = { "产能", "充裕" }, zhTW = { "複數製造", "精明" },
+    }
+    local localized = names[GetLocale and GetLocale()] or { "Multicraft", "Resourcefulness" }
 
+    local unrecognized = 0
     for _, statInfo in ipairs(bonusStats) do
         local name = tostring(statInfo.bonusStatName or statInfo.name or ""):lower()
-        if name:find("multicraft", 1, true) then
+        if name == localized[1]:lower() or name:find("multicraft", 1, true) then
             snapshot.multiPercent = ReadPercentFromBonusStat(statInfo)
+            snapshot.multiRating = tonumber(statInfo.bonusStatValue)
             snapshot.supportsMulticraft = snapshot.multiPercent ~= nil
-        elseif name:find("resourcefulness", 1, true) then
+        elseif name == localized[2]:lower() or name:find("resourcefulness", 1, true) then
             snapshot.resPercent = ReadPercentFromBonusStat(statInfo)
+            snapshot.resRating = tonumber(statInfo.bonusStatValue)
             snapshot.supportsResourcefulness = snapshot.resPercent ~= nil
+        else
+            unrecognized = unrecognized + 1
         end
+    end
+    -- Missing proc types are unsupported, not an invitation to invent a chance
+    -- from defaults. An entirely unreadable stat array is not a valid capture.
+    -- An unrecognized stat name may be an untranslated proc, so only a fully
+    -- recognized array may declare the other proc type unsupported.
+    if unrecognized == 0 and (snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil) then
+        snapshot.supportsMulticraft = snapshot.multiPercent ~= nil
+        snapshot.supportsResourcefulness = snapshot.resPercent ~= nil
     end
 end
 
@@ -378,7 +401,7 @@ local function GetOpenNativeProfessionNodeRanks(profession)
     }
 end
 
-local function GetOpenNativeRecipeSnapshot()
+GetOpenNativeRecipeSnapshot = function()
     local testSnapshot = deps.GetTestOpenSnapshot and deps.GetTestOpenSnapshot() or nil
     if testSnapshot ~= nil then
         return testSnapshot
@@ -417,7 +440,40 @@ local function GetOpenNativeRecipeSnapshot()
         ApplyOperationBonusStats(snapshot, operationInfo)
     end
 
-    if C_TradeSkillUI and type(C_TradeSkillUI.GetTradeSkillLineForRecipe) == "function" then
+    -- Observe ordinary recipe stats without optional/finishing reagents left
+    -- in the native form. Queue verification passes its exact allocation below.
+    local api = C_TradeSkillUI
+    if api and api.GetRecipeSchematic and api.GetCraftingOperationInfo then
+        local ok, schematic = pcall(api.GetRecipeSchematic, snapshot.recipeID, false)
+        if ok and schematic then
+            local allocation = {}
+            for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+                if slot.required and slot.dataSlotType == 2 and slot.reagents and slot.reagents[1] then
+                    allocation[#allocation + 1] = { reagent = slot.reagents[1],
+                        dataSlotIndex = slot.dataSlotIndex, quantity = slot.quantityRequired }
+                end
+            end
+            local read, operation = pcall(api.GetCraftingOperationInfo, snapshot.recipeID, allocation, nil, false)
+            if read and operation and (not operation.recipeID or operation.recipeID == snapshot.recipeID) then
+                snapshot.multiPercent, snapshot.resPercent = nil, nil
+                snapshot.multiRating, snapshot.resRating = nil, nil
+                snapshot.supportsMulticraft, snapshot.supportsResourcefulness = nil, nil
+                ApplyOperationBonusStats(snapshot, operation)
+                snapshot.gearStatContext = "base-reagents"
+            end
+        end
+    end
+
+    if api and api.GetProfessionInfoByRecipeID then
+        local ok, info = pcall(api.GetProfessionInfoByRecipeID, snapshot.recipeID)
+        local def = ok and ResolveProfessionDefFromInfo(info)
+        if def then
+            snapshot.profession = def.name
+            snapshot.skillLineID = info.professionID
+            snapshot.parentSkillLineID = info.parentProfessionID
+        end
+    end
+    if not snapshot.profession and C_TradeSkillUI and type(C_TradeSkillUI.GetTradeSkillLineForRecipe) == "function" then
         local okSkill, skillLineID, skillLineName, parentSkillLineID = pcall(function()
             return C_TradeSkillUI.GetTradeSkillLineForRecipe(snapshot.recipeID)
         end)
@@ -428,15 +484,39 @@ local function GetOpenNativeRecipeSnapshot()
         end
     end
 
-    snapshot.profileKey = deps.InferProfileKey(
+    -- Prefer the existing strategy registry over translated recipe-name guesses.
+    if GAM.Importer and GAM.Importer.GetAllStrats then
+        for _, strat in ipairs(GAM.Importer.GetAllStrats() or {}) do
+            if tonumber(strat.recipeID) == snapshot.recipeID then
+                snapshot.profileKey = strat.statProfileKey or strat.formulaProfile
+                if snapshot.profileKey then break end
+            end
+        end
+    end
+    snapshot.profileKey = snapshot.profileKey or deps.InferProfileKey(
         snapshot.recipeName,
         snapshot.profession,
         snapshot.supportsMulticraft)
     return snapshot.profileKey and snapshot or nil
 end
 
+local function GetOperationSnapshot(recipeID, allocation, targetGUID)
+    local snapshot = GetOpenNativeRecipeSnapshot()
+    if not snapshot or snapshot.recipeID ~= recipeID then return nil end
+    local operation = C_TradeSkillUI.GetCraftingOperationInfo(recipeID, allocation, targetGUID, false)
+    if not operation or (operation.recipeID and operation.recipeID ~= recipeID) then return nil end
+    snapshot.multiPercent, snapshot.resPercent = nil, nil
+    snapshot.multiRating, snapshot.resRating = nil, nil
+    snapshot.supportsMulticraft, snapshot.supportsResourcefulness = nil, nil
+    ApplyOperationBonusStats(snapshot, operation)
+    -- Do not overwrite the ordinary planning cache with finishing-reagent stats.
+    snapshot.gearStatContext = nil
+    return snapshot, operation
+end
+
     return {
         GetOpenRecipeSnapshot = GetOpenNativeRecipeSnapshot,
+        GetOperationSnapshot = GetOperationSnapshot,
         GetOpenProfessionContext = GetOpenProfessionContext,
         GetOpenProfessionDef = GetOpenProfessionDef,
         OpenProfessionMatches = OpenProfessionMatches,

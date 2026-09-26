@@ -233,6 +233,7 @@ function Contract.FromV2Metrics(request, metrics)
         selectionNotes = metrics.selectionNotes,
         rankMixStatus = metrics.rankMixStatus,
         rankMixReason = metrics.rankMixReason,
+        rankMixMaterialPolicy = metrics.rankMixMaterialPolicy,
         rankMixTargetQuality = metrics.rankMixTargetQuality,
         rankMixOutputQuality = metrics.rankMixOutputQuality,
         rankMixHighSkill = metrics.rankMixHighSkill,
@@ -242,6 +243,7 @@ function Contract.FromV2Metrics(request, metrics)
         gearModeRequested = metrics.gearModeRequested,
         gearModeResolved = metrics.gearModeResolved,
         gearPresetMissing = metrics.gearPresetMissing and true or false,
+        gearStatValidity = metrics.formula and metrics.formula.gearStatValidity,
 
         diagnostics = {
             formula = metrics.formula,

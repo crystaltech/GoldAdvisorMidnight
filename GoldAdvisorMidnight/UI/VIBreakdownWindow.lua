@@ -1008,5 +1008,12 @@ local function ShowVIBreakdownWindow(strat, patchTag, metrics)
     WindowManager.Present(win)
 end
 
-VIBreakdownWindow.Show = ShowVIBreakdownWindow
-VIBreakdownWindow.Hide = HideVIBreakdownWindow
+VIBreakdownWindow.Show = function(...)
+    if GAM.UI.CraftPlanWindow then return GAM.UI.CraftPlanWindow.Show(...) end
+    return ShowVIBreakdownWindow(...)
+end
+VIBreakdownWindow.Hide = function()
+    -- The saved plan is independent of strategy selection; do not close it
+    -- when the main detail panel changes or is hidden.
+    HideVIBreakdownWindow()
+end

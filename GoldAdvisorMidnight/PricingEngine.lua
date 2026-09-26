@@ -158,7 +158,7 @@ function Engine.Install(Pricing, deps)
         return "exhaust_materials"
     end
 
-    local function GetV2StatsForStrat(strat, opts, ctx)
+    local function GetV2StatsForStrat(strat, opts, ctx, modeOverride)
         local stats = GAM.CraftingStats
         local resolver = stats and stats.ResolveForStrat
         if type(resolver) ~= "function" then
@@ -168,7 +168,7 @@ function Engine.Install(Pricing, deps)
         -- The selected strategy can override its own gear while Auto compares
         -- root results. Every nested VI producer must still honor the gear plan
         -- saved on that producer (for example Res milling feeding MC ink).
-        local gearMode = Engine.ResolveStageGearMode(
+        local gearMode = modeOverride or Engine.ResolveStageGearMode(
             stats,
             strat,
             ctx and ctx.patchTag,
@@ -216,9 +216,9 @@ function Engine.Install(Pricing, deps)
             and stats.GetAvailableGearPresetModes(strat)
             or {}
         annotated.gearModeRequested = gearMode
-        annotated.gearModeResolved = gearMode ~= "auto" and available[gearMode]
+        annotated.gearModeResolved = snapshot.gearModeResolved or (gearMode ~= "auto" and available[gearMode]
             and gearMode
-            or "current"
+            or "current")
         annotated.gearPresetMissing = gearMode ~= "auto" and not available[gearMode] or false
         snapshot = annotated
 
@@ -336,6 +336,8 @@ function Engine.Install(Pricing, deps)
         result.gearModeRequested = statSnapshot and statSnapshot.gearModeRequested or "auto"
         result.gearModeResolved = statSnapshot and statSnapshot.gearModeResolved or "current"
         result.gearPresetMissing = statSnapshot and statSnapshot.gearPresetMissing and true or false
+        result.gearRequirement = statSnapshot and statSnapshot.gearRequirement
+        result.gearStatValidity = statSnapshot and statSnapshot.gearStatValidity
         result.pricingMode = input.pricingMode
         result.nodeStats = statSnapshot and statSnapshot.nodeStats or nil
         result.nodeBonusDetails = statSnapshot and statSnapshot.nodeBonusDetails or nil
@@ -362,7 +364,7 @@ function Engine.Install(Pricing, deps)
         return qtyRaw, math.floor(qtyRaw + 0.5), formulaResult
     end
 
-    local function GetV2ExpectedOutputPerCraft(strat, active, ctx)
+    local function GetV2ExpectedOutputPerCraft(strat, active, ctx, statSnapshot)
         if not strat or not active then
             return nil
         end
@@ -378,7 +380,7 @@ function Engine.Install(Pricing, deps)
             1,
             0,
             nil,
-            GetV2StatsForStrat(strat, (ctx and ctx.opts) or GetOpts(), ctx))
+            statSnapshot or GetV2StatsForStrat(strat, (ctx and ctx.opts) or GetOpts(), ctx))
         -- The first result is deliberately the output expected from one
         -- material pool.  Execution planning also needs the formula metadata:
         -- exhaust-materials profiles can turn one pool into more than one
@@ -515,6 +517,8 @@ function Engine.Install(Pricing, deps)
         ctx.v2EconomicChoices[tostring(itemID)] = {
             source = source,
             producerName = producer and producer.strat and producer.strat.stratName or nil,
+            producerRecipeView = producer and producer.active or nil,
+            producerFormula = producerCost and producerCost.formula or nil,
             directExpectedCost = directCost and directCost.expectedConsumedCostFull or nil,
             producerExpectedCost = producerCost and producerCost.expectedConsumedCostFull or nil,
             directRequiredCost = directCost and directCost.requiredCostFull or nil,
@@ -590,6 +594,8 @@ function Engine.Install(Pricing, deps)
             gearModeRequested = formulaResult.gearModeRequested,
             gearModeResolved = formulaResult.gearModeResolved,
             gearPresetMissing = formulaResult.gearPresetMissing,
+            gearRequirement = formulaResult.gearRequirement,
+            gearStatValidity = formulaResult.gearStatValidity,
         }
     end
 
@@ -634,6 +640,64 @@ function Engine.Install(Pricing, deps)
         }
     end
 
+    local function CopyMap(source)
+        local copy = {}
+        for key, value in pairs(source or {}) do copy[key] = value end
+        return copy
+    end
+
+    -- Compare equal starting batches, just as root Auto does. Price the exact
+    -- requested intermediate, using its own allocation and recursive input cost.
+    -- Trial branches must not consume charges or publish losing gear/VI choices.
+    local function SelectProducerAutoStats(ctx, producer, requiredQty, state)
+        local strat = producer.strat
+        local stats = GAM.CraftingStats
+        if Engine.ResolveStageGearMode(stats, strat, ctx.patchTag, ctx.strat, ctx.gearModeOverride) ~= "auto"
+                or not GetV2ProfileDef(strat) then return nil end
+        local available = stats and stats.GetAvailableGearPresetModes
+            and stats.GetAvailableGearPresetModes(strat) or {}
+        local snapshots = {}
+        for _, mode in ipairs({ "multicraft", "resourcefulness" }) do
+            if available[mode] then
+                local snapshot = GetV2StatsForStrat(strat, ctx.opts, ctx, mode)
+                if snapshot and snapshot.gearStatValidity == "observed" and snapshot.gearRequirement
+                        and (snapshot.supportsMulticraft or snapshot.supportsResourcefulness) then
+                    snapshots[mode] = CopyMap(snapshot)
+                    snapshots[mode].gearModeRequested = "auto"
+                end
+            end
+        end
+        if not snapshots.multicraft then return snapshots.resourcefulness end
+        if not snapshots.resourcefulness then return snapshots.multicraft end
+
+        local output = (producer.active.outputs and producer.active.outputs[1]) or producer.active.output
+        local baseYield = GetOutputBaseYield(output) or 0
+        if baseYield <= 0 then return nil end
+        local crafts = GetProducerCraftAllowance(state, producer, requiredQty / baseYield)
+        if crafts <= 0 then return nil end
+        local candidates = {}
+        for _, mode in ipairs({ "multicraft", "resourcefulness" }) do
+            local trial = CopyMap(ctx)
+            trial.v2StatResolutions = CopyMap(ctx.v2StatResolutions)
+            trial.v2StatUsages, trial.v2EconomicChoices = {}, {}
+            local trialState = { activeProducerKeys = CopyMap(state.activeProducerKeys),
+                producerCraftsRemaining = CopyMap(state.producerCraftsRemaining) }
+            trialState.activeProducerKeys[producer.key] = true
+            local active = PrepareOptimizedRecipeView(trial, strat, producer.active, crafts, producer.outputItemID)
+                or producer.active
+            local cost = BuildV2RecipeEconomicCost(trial, strat, active, crafts, trialState, snapshots[mode])
+            local price = GetOutputPriceForItem({ itemIDs = { producer.outputItemID } },
+                ctx.patchTag, nil, GetOutputPriceQty(trial), strat.recipeID)
+            if price and not HasMissingEconomicCost(cost) then
+                cost.profit = math.floor((cost.formula.expectedOutput or 0) * price * (1 - ctx.ahCut))
+                    - cost.expectedConsumedCostFull
+            end
+            candidates[mode] = cost
+        end
+        local _, mode = Engine.SelectGearMetrics(candidates.multicraft, candidates.resourcefulness)
+        return snapshots[mode]
+    end
+
     local function BuildV2ReagentEconomicCost(ctx, node, requiredQty, state)
         if not node or not requiredQty or requiredQty <= 0 then
             return {
@@ -666,10 +730,11 @@ function Engine.Install(Pricing, deps)
             return directCost
         end
 
+        local selectedStats = SelectProducerAutoStats(ctx, producer, requiredQty, state)
         local expectedOutputPerCraft = GetV2ExpectedOutputPerCraft(
             producer.strat,
             producer.active,
-            ctx)
+            ctx, selectedStats)
         if not expectedOutputPerCraft or expectedOutputPerCraft <= 0 then
             return directCost
         end
@@ -691,7 +756,7 @@ function Engine.Install(Pricing, deps)
         end
         local key = producer.key
         state.activeProducerKeys[key] = true
-        local producerCost = BuildV2RecipeEconomicCost(ctx, producer.strat, producer.active, craftsAllowed, state)
+        local producerCost = BuildV2RecipeEconomicCost(ctx, producer.strat, producer.active, craftsAllowed, state, selectedStats)
         state.activeProducerKeys[key] = nil
         local craftedOutputQty = math.min(requiredQty, craftsAllowed * expectedOutputPerCraft)
         local comparableDirectCost = BuildV2LeafEconomicCost(ctx, resolvedEntry, craftedOutputQty)
@@ -704,6 +769,7 @@ function Engine.Install(Pricing, deps)
                 selectedCost = CombineEconomicCosts(
                     producerCost,
                     BuildV2LeafEconomicCost(ctx, resolvedEntry, directOutputQty))
+                selectedCost.formula = producerCost.formula
             end
             StoreV2EconomicChoice(ctx, resolvedEntry.itemID, source, producer, directCost, selectedCost, {
                 craftsPlanned = craftsAllowed,
@@ -716,7 +782,7 @@ function Engine.Install(Pricing, deps)
         return directCost
     end
 
-    BuildV2RecipeEconomicCost = function(ctx, strat, active, crafts, state)
+    BuildV2RecipeEconomicCost = function(ctx, strat, active, crafts, state, statSnapshot)
         local startingAmt = GetScaledStartingAmountForCrafts(active, crafts)
         local requiredCostFull = 0
         local childExpectedCost = 0
@@ -741,7 +807,7 @@ function Engine.Install(Pricing, deps)
             crafts,
             childExpectedCost,
             nil,
-            GetV2StatsForStrat(strat, ctx.opts, ctx))
+            statSnapshot or GetV2StatsForStrat(strat, ctx.opts, ctx))
         RecordV2StatUsage(ctx, strat, formulaResult)
 
         return {
@@ -828,6 +894,7 @@ function Engine.Install(Pricing, deps)
                 and (ctx.rankMixReason == "target-quality-unreachable" and "reachable" or "verified")
                 or ctx.rankMixReason and "fallback" or nil,
             rankMixReason = ctx.rankMixReason,
+            rankMixMaterialPolicy = GetInputRankPolicy(ctx.strat),
             rankMixTargetQuality = ctx.targetOutputQuality,
             rankMixOutputQuality = ctx.reachableOutputQuality,
             rankMixHighSkill = ctx.rankMixPlan and ctx.rankMixPlan.highSkill or nil,
@@ -892,9 +959,9 @@ function Engine.Install(Pricing, deps)
         local metrics
 
         if requested == "multicraft" or requested == "resourcefulness" then
-            resolved = available[requested] and requested or "current"
+            resolved = requested
             metrics = CalculateStratMetricsV2Once(
-                strat, patchTag, craftQty, available[requested] and requested or nil,
+                strat, patchTag, craftQty, requested,
                 runtimeOverrides, globalStartingCrafts)
         elseif available.multicraft and available.resourcefulness then
             local multicraft = CalculateStratMetricsV2Once(

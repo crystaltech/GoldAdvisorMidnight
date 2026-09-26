@@ -91,7 +91,9 @@ function Results.ComputeStatsFromRows(rows, targetQty)
     end
 
     local kept = totalUnits - trimCount
-    return (totalSum - removedSum) / kept, minPrice, keptMaxPrice or minPrice, kept
+    return (totalSum - removedSum) / kept, minPrice, keptMaxPrice or minPrice, kept,
+        -- Listed depth only; a short market is reported, never repriced.
+        { requested = targetQty, filled = totalUnits, incomplete = totalUnits < targetQty }
 end
 
 function Results.ComputeStatsForCache(cached, targetQty)
@@ -100,12 +102,12 @@ function Results.ComputeStatsForCache(cached, targetQty)
     cached.statsByQty = cached.statsByQty or {}
     local stats = cached.statsByQty[normalizedQty]
     if not stats then
-        local avg, minPrice, maxPrice, count = Results.ComputeStatsFromRows(cached.prices, normalizedQty)
+        local avg, minPrice, maxPrice, count, depth = Results.ComputeStatsFromRows(cached.prices, normalizedQty)
         if not avg then return nil end
-        stats = { avg = avg, minP = minPrice, maxP = maxPrice, count = count }
+        stats = { avg = avg, minP = minPrice, maxP = maxPrice, count = count, depth = depth }
         cached.statsByQty[normalizedQty] = stats
     end
-    return stats.avg, stats.minP, stats.maxP, stats.count
+    return stats.avg, stats.minP, stats.maxP, stats.count, stats.depth
 end
 
 function Results.GetCachedItemKey(itemID)
@@ -206,16 +208,24 @@ end
 
 function Results.ComputePriceForQty(itemID, requiredQty)
     if not itemID or not requiredQty or requiredQty <= 0 then return nil end
+    local cached
     if commodityCache[itemID] and #commodityCache[itemID].prices > 0 then
-        return Results.ComputeStatsForCache(commodityCache[itemID], requiredQty)
+        cached = commodityCache[itemID]
+    elseif itemCache[itemID] and #itemCache[itemID].prices > 0 then
+        cached = itemCache[itemID]
     end
-    if itemCache[itemID] and #itemCache[itemID].prices > 0 then
-        return Results.ComputeStatsForCache(itemCache[itemID], requiredQty)
+    if cached then
+        local avg, minPrice, maxPrice, count, depth = Results.ComputeStatsForCache(cached, requiredQty)
+        local stale = not cached.ts or (time() - cached.ts) > (GAM.C.PRICE_STALE_SECONDS or 600)
+        return avg, minPrice, maxPrice, count, stale, depth
     end
     if GAM.Pricing and GAM.Pricing.GetRawCache then
         local raw = GAM.Pricing.GetRawCache(itemID)
         if raw and #raw > 0 then
-            return Results.ComputeStatsFromRows(raw, requiredQty)
+            local avg, minPrice, maxPrice, count, depth = Results.ComputeStatsFromRows(raw, requiredQty)
+            -- Legacy raw rows have no timestamp of their own.
+            local _, stale = GAM.Pricing.GetUnitPrice(itemID)
+            return avg, minPrice, maxPrice, count, stale ~= false, depth
         end
     end
     return nil

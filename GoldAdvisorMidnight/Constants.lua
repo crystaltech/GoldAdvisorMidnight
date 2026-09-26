@@ -41,8 +41,8 @@ GAM.C = {
     USE_COMFORTABLE_UI   = true,
     ADDON_DISPLAY_NAME   = "Gold Advisor Midnight",
     PRIMARY_SLASH_COMMAND = "/gam",
-    ADDON_VERSION        = "2.1.2",
-    DATA_VERSION         = 20,
+    ADDON_VERSION        = "2.2.0",
+    DATA_VERSION         = 21,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",
 

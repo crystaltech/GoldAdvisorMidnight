@@ -33,6 +33,25 @@ local function RemoveEntry(list, target)
     return false
 end
 
+local function ApplyPurchasedQuantity(list, itemID, quantity)
+    -- Refreshed search strings can include a different quantity. Match the
+    -- exact item ID and subtract the receipt once, across both source lists.
+    for _, entries in ipairs({ list.entries or {}, list.vendorEntries or {} }) do
+        local index = 1
+        while index <= #entries and quantity > 0 do
+            local entry = entries[index]
+            if entry.itemID == itemID then
+                local used = math.min(quantity, math.max(0, tonumber(entry.quantity) or 0))
+                entry.quantity = entry.quantity - used
+                quantity = quantity - used
+                if entry.quantity <= 0 then table.remove(entries, index) else index = index + 1 end
+            else
+                index = index + 1
+            end
+        end
+    end
+end
+
 function QuickBuy.CreateController(deps)
     deps = deps or {}
     local controller = {
@@ -97,12 +116,16 @@ function QuickBuy.CreateController(deps)
 
     local function ConfirmPending()
         local state = controller.state
+        if controller.list and controller.list.validatePurchase then
+            local valid, reason = controller.list.validatePurchase(state.pendingEntry, state.pendingQty)
+            if not valid then return Fail(reason) end
+        end
         if RouteVendor(state.pendingEntry, state.quoteTotalPrice) then return false, "vendor" end
         if not state.pendingItemID or not state.pendingQty then
             return Fail(L("QB_ERR_NO_QUOTE", "No commodity quote is ready."))
         end
         if deps.getQuoteRemaining and (tonumber(deps.getQuoteRemaining()) or 0) <= 0 then
-            return Fail(L("QB_ERR_EXPIRED", "The quote expired. Click Buy Next to request a new one."))
+            return Fail(L("WF_QUOTE_EXPIRED", "The quote expired. Click Buy to request a new one."))
         end
         local ok, err = pcall(deps.confirm, state.pendingItemID, state.pendingQty)
         if not ok then
@@ -114,9 +137,120 @@ function QuickBuy.CreateController(deps)
         return true
     end
 
+    function controller:GetVendorEntry()
+        if not deps.merchantOffer then return nil end
+        for _, entries in ipairs({ (self.list and self.list.vendorEntries) or {},
+                (self.list and self.list.entries) or {} }) do
+            for _, entry in ipairs(entries) do
+                local offer = deps.merchantOffer(entry.itemID)
+                local policy = GAM.VendorPrices and GAM.VendorPrices.ShouldBuyAtMerchant
+                if (tonumber(entry.quantity) or 0) > 0 and offer
+                        and (not policy or policy(entry.itemID, entry.quantity, offer)) then
+                    return entry, offer, entries
+                end
+            end
+        end
+    end
+
+    local function FinishVendor(message)
+        local state = controller.state
+        state.vendorPending = nil
+        local list = controller.list or {}
+        state.phase = not FirstEntry(list) and #(list.vendorEntries or {}) == 0 and "complete" or "idle"
+        state.active = false
+        state.lastError = message
+        -- A sync generated during delivery can contain pre-delivery quantities.
+        controller.deferredList = nil
+        Changed()
+    end
+
+    local function SubmitVendorBatch(pending)
+        if controller.list and controller.list.validatePurchase then
+            local valid, reason = controller.list.validatePurchase(pending.entry, pending.entry.quantity)
+            if not valid then FinishVendor(reason); return false end
+        end
+        local offer = deps.merchantOffer(pending.entry.itemID)
+        if not offer then
+            FinishVendor(L("WF_VENDOR_UNAVAILABLE", "This vendor no longer has the item available."))
+            return false
+        end
+        local policy = GAM.VendorPrices and GAM.VendorPrices.ShouldBuyAtMerchant
+        if policy and not policy(pending.entry.itemID, pending.entry.quantity, offer) then
+            FinishVendor(L("WF_AH_CHEAPER", "The Auction House is cheaper. Buy this material there."))
+            return false
+        end
+        local quantity = math.ceil(pending.entry.quantity / offer.bundle) * offer.bundle
+        quantity = math.min(quantity, offer.maxStack)
+        if offer.available >= 0 then quantity = math.min(quantity, offer.available) end
+        if offer.unitPrice > 0 then
+            quantity = math.min(quantity, math.floor((deps.getMoney() or 0) / offer.unitPrice))
+        end
+        quantity = math.floor(quantity / offer.bundle) * offer.bundle
+        if quantity <= 0 then
+            FinishVendor(L("WF_VENDOR_LIMIT", "Not enough gold or vendor stock for another bundle. Remaining items stay on the list."))
+            return false
+        end
+        pending.before = deps.getItemCount(pending.entry.itemID)
+        pending.quantity = quantity
+        controller.state.attemptID = controller.state.attemptID + 1
+        local attempt = controller.state.attemptID
+        local ok, err = pcall(deps.buyMerchant, offer.index, quantity)
+        if not ok then FinishVendor(tostring(err)); return false end
+        if deps.after then
+            deps.after(8, function()
+                if controller.state.vendorPending == pending and controller.state.attemptID == attempt then
+                    controller:OnVendorBagUpdate()
+                    if controller.state.vendorPending == pending and controller.state.attemptID == attempt then
+                        FinishVendor(L("WF_VENDOR_NOT_RECEIVED", "Vendor purchase was not fully received. Check bag space and try again."))
+                    end
+                end
+            end)
+        end
+        Changed()
+        return true
+    end
+
+    function controller:ClickVendor()
+        if self.state.phase ~= "idle" and self.state.phase ~= "complete" then return false end
+        local entry, _, entries = self:GetVendorEntry()
+        if not entry then return false end
+        self.state.phase = "vendorPurchasing"
+        self.state.active = true
+        self.state.lastError = nil
+        local pending = { entry = entry, entries = entries }
+        self.state.vendorPending = pending
+        return SubmitVendorBatch(pending)
+    end
+
+    function controller:OnVendorBagUpdate()
+        local pending = self.state.vendorPending
+        if not pending then return false end
+        local received = math.min(pending.quantity,
+            math.max(0, deps.getItemCount(pending.entry.itemID) - pending.before))
+        if received <= 0 then return false end
+        pending.entry.quantity = math.max(0, pending.entry.quantity - received)
+        pending.before = pending.before + received
+        pending.quantity = pending.quantity - received
+        if pending.entry.quantity <= 0 then
+            if deps.onPurchased then deps.onPurchased(pending.entry, received, self.list) end
+            for i, entry in ipairs(pending.entries) do
+                if entry == pending.entry then table.remove(pending.entries, i); break end
+            end
+            FinishVendor()
+        elseif pending.quantity == 0 and not self.state.active then
+            FinishVendor()
+        elseif pending.quantity == 0 then
+            -- Each stack is confirmed before requesting the next one.
+            SubmitVendorBatch(pending)
+        else
+            Changed()
+        end
+        return true
+    end
+
     function controller:SetList(list)
         local phase = self.state.phase
-        if phase == "quoting" or phase == "approval" or phase == "purchasing" then
+        if phase == "quoting" or phase == "approval" or phase == "purchasing" or phase == "vendorPurchasing" then
             self.deferredList = list
         else
             self.list = list
@@ -135,7 +269,7 @@ function QuickBuy.CreateController(deps)
     function controller:Reset()
         -- Hiding the UI cannot revoke a purchase already submitted to the AH.
         -- Keep its identity until success/failure so reopening cannot buy it twice.
-        if self.state.phase == "purchasing" then
+        if self.state.phase == "purchasing" or self.state.phase == "vendorPurchasing" then
             self.state.active = false
             Changed()
             return
@@ -157,7 +291,7 @@ function QuickBuy.CreateController(deps)
         if state.phase == "approval" then
             return ConfirmPending()
         end
-        if state.phase == "quoting" or state.phase == "purchasing" then
+        if state.phase == "quoting" or state.phase == "purchasing" or state.phase == "vendorPurchasing" then
             return false, L("QB_ERR_BUSY", "The current purchase is still being processed.")
         end
 
@@ -236,12 +370,12 @@ function QuickBuy.CreateController(deps)
 
     function controller:OnPriceUnavailable()
         if self.state.phase ~= "quoting" and self.state.phase ~= "approval" then return false end
-        return Fail(L("QB_ERR_UNAVAILABLE", "The requested quantity is not currently available. Retry or skip this item."))
+        return Fail(L("WF_QUANTITY_UNAVAILABLE", "This quantity is unavailable. Select another material in Shopping, or retry Buy."))
     end
 
     function controller:OnPurchaseFailed()
         if self.state.phase ~= "purchasing" then return false end
-        return Fail(L("QB_ERR_PURCHASE_FAILED", "The purchase failed. The item was kept in the list so you can retry or skip it."))
+        return Fail(L("WF_PURCHASE_FAILED", "The purchase failed. Retry Buy or select another material in Shopping."))
     end
 
     function controller:OnPurchaseSucceeded()
@@ -249,14 +383,18 @@ function QuickBuy.CreateController(deps)
         if state.phase ~= "purchasing" or not state.pendingEntry then return false end
         local purchasedEntry = state.pendingEntry
         local purchasedQty = state.pendingQty
+        local deferred = self.deferredList
+        self.deferredList = nil
+        if deferred and deferred ~= self.list then
+            ApplyPurchasedQuantity(deferred, purchasedEntry.itemID, purchasedQty)
+        end
         if deps.onPurchased then
             deps.onPurchased(purchasedEntry, purchasedQty, self.list)
         end
         RemoveEntry(self.list, purchasedEntry)
-        if self.deferredList then
-            self.list = self.deferredList
-            self.deferredList = nil
-        end
+        -- A list rebuilt by the receipt callback already includes the purchase.
+        self.list = self.deferredList or deferred or self.list
+        self.deferredList = nil
         ClearPending()
         state.lastError = nil
         if FirstEntry(self.list) then
@@ -274,10 +412,10 @@ function QuickBuy.CreateController(deps)
     end
 
     function controller:Skip()
-        if self.state.phase == "purchasing" then
+        if self.state.phase == "purchasing" or self.state.phase == "vendorPurchasing" then
             return false, L("QB_ERR_BUSY", "The current purchase is still being processed.")
         end
-        if self.state.phase == "quoting" or self.state.phase == "approval" or self.state.phase == "purchasing" then
+        if self.state.phase == "quoting" or self.state.phase == "approval" then
             CancelQuote()
             ClearPending()
         end
@@ -299,8 +437,20 @@ end
 local controller
 local window
 local refs = {}
+local vendorOpen, auctionOpen, dismissedContext
+local RefreshContext
+
+function QuickBuy.GetContext()
+    local merchant = vendorOpen
+    if merchant == nil then merchant = MerchantFrame and MerchantFrame:IsShown() end
+    if merchant then return "vendor" end
+    local auction = auctionOpen
+    if auction == nil then auction = GAM.ahOpen end
+    if auction then return "auction" end
+end
 
 local function DismissWindow()
+    dismissedContext = QuickBuy.GetContext()
     if controller then controller:Reset() end
     if window and window:IsShown() then
         window._gamDismissInProgress = true
@@ -334,190 +484,149 @@ local function RemoveAuctionatorEntry(entry, list)
     end
 end
 
-local function CurrentEntry()
+function QuickBuy.GetPresentation()
     if not controller then return nil end
-    return controller.state.pendingEntry or FirstEntry(controller:GetList())
+    local state, list = controller.state, controller:GetList() or {}
+    local context = QuickBuy.GetContext()
+    local vendorEntry, offer = controller:GetVendorEntry()
+    local entry = state.pendingEntry or (state.vendorPending and state.vendorPending.entry)
+        or (context == "vendor" and vendorEntry) or (context ~= "vendor" and FirstEntry(list))
+    local title = context == "vendor" and L("WF_QUICK_BUY_VENDOR", "Quick Buy - Vendor") or L("WF_QUICK_BUY_AH", "Quick Buy - Auction House")
+    local progress = L("WF_BUY_REMAINING", "%d remaining", #(list.entries or {}) + #(list.vendorEntries or {}))
+    local itemText = entry and (entry.name or tostring(entry.itemID)) or L("WF_NO_MATERIALS_HERE", "No materials needed here")
+    local quantity = entry and math.max(0, tonumber(entry.quantity) or 0) or 0
+    local total = state.quoteTotalPrice or (entry and entry.unitPrice and quantity * entry.unitPrice)
+    if context == "vendor" and offer and entry then
+        quantity = math.ceil(quantity / offer.bundle) * offer.bundle
+        total = quantity * offer.unitPrice
+    end
+    local quantityFormat = state.quoteTotalPrice
+        and (GAM.L and GAM.L["WF_BUY_TOTAL"] or "Quantity: %d · Total: %s")
+        or (GAM.L and GAM.L["WF_BUY_ESTIMATE"] or "Quantity: %d · Est. total: %s")
+    local quantityText = entry and string.format(quantityFormat, quantity, FormatMoney(total)) or ""
+    local label, message = (GAM.L and GAM.L["WF_BUY"] or "Buy"), state.lastError
+    local enabled = entry ~= nil and context ~= nil
+    if state.phase == "quoting" then
+        label, message, enabled = (GAM.L and GAM.L["WF_CHECKING"] or "Checking price…"), (GAM.L and GAM.L["WF_WAIT_QUOTE"] or "Waiting for the Auction House quote."), false
+    elseif state.phase == "purchasing" or state.phase == "vendorPurchasing" then
+        label, message, enabled = (GAM.L and GAM.L["WF_PURCHASING"] or "Purchasing…"), (GAM.L and GAM.L["WF_WAIT_PURCHASE"] or "Waiting for purchase confirmation."), false
+    elseif state.phase == "approval" then
+        label, message = (GAM.L and GAM.L["WF_ACCEPT_PRICE"] or "Accept price"), (GAM.L and GAM.L["WF_REVIEW_PRICE"] or "Review the live total before buying.")
+    elseif not context then
+        message = L("WF_VISIT_PURCHASE", "Visit a vendor or the Auction House.")
+    elseif not entry then
+        label, message, enabled = (GAM.L and GAM.L["WF_COMPLETE"] or "Complete"), L("WF_LOCATION_COMPLETE", "No materials needed at this location."), false
+    elseif not message then
+        message = context == "vendor" and L("WF_BUY_BUNDLES", "Buy the required bundles from this vendor.")
+            or L("WF_LIVE_PRICE_POLICY", "Buy at the live price. Increases over 5% require confirmation.")
+    end
+    return {title=title, progress=progress, item=itemText, quantity=quantityText,
+        message=message or "", label=label, enabled=enabled, phase=state.phase, entry=entry}
+end
+
+local function InlineVisible()
+    local ui = GAM.UI and GAM.UI.CraftPlanWindow
+    return ui and ui.IsShoppingVisible and ui.IsShoppingVisible()
 end
 
 local function RefreshWindow()
     if not window then return end
-    local state = controller.state
-    local list = controller:GetList()
-    local entries = (list and list.entries) or {}
-    local entry = CurrentEntry()
-    local vendorLines = {}
-    for _, vendor in ipairs((list and list.vendorEntries) or {}) do
-        vendorLines[#vendorLines + 1] = string.format("%d x %s — %s each%s",
-            vendor.quantity or 0, vendor.name or tostring(vendor.itemID), FormatMoney(vendor.unitPrice),
-            vendor.vendorPriceBasis == "static" and " (estimate; visit vendor to refresh)" or "")
-    end
-    if refs.vendor then
-        refs.vendor:SetText(#vendorLines > 0 and ("Buy from vendor\n" .. table.concat(vendorLines, "\n")) or "")
-        window:SetHeight(230 + (#vendorLines > 0 and 40 + #vendorLines * 30 or 0))
-    end
-    refs.progress:SetText(#entries == 1
-        and L("QB_PROGRESS_ONE", "%d item remaining", #entries)
-        or L("QB_PROGRESS_MANY", "%d items remaining", #entries))
-    refs.item:SetText(entry
-        and (entry.name or L("QB_ITEM_FALLBACK", "Item %s", tostring(entry.itemID)))
-        or (#vendorLines > 0 and "Vendor purchases remaining" or L("QB_LIST_COMPLETE", "Shopping list complete")))
-    refs.quantity:SetText(entry
-        and L("QB_QUANTITY", "Quantity: %d", math.floor(tonumber(entry.quantity) or 0)) or "")
-    refs.expected:SetText(entry
-        and L("QB_EXPECTED_PRICE", "Expected unit price: %s", FormatMoney(entry.unitPrice)) or "")
-    refs.quote:SetText(state.quoteTotalPrice
-        and L("QB_LIVE_QUOTE", "Live quote: %s total (%s each)",
-            FormatMoney(state.quoteTotalPrice), FormatMoney(state.quoteUnitPrice))
-        or "")
+    local view = QuickBuy.GetPresentation()
+    refs.title:SetText(view.title); refs.progress:SetText(view.progress)
+    refs.item:SetText(view.item); refs.quantity:SetText(view.quantity)
+    refs.status:SetText(view.message)
+    refs.buy:SetText(view.label); refs.buy:SetEnabled(view.enabled); refs.buy:SetAlpha(view.enabled and 1 or 0.5)
+end
 
-    local status
-    -- An acceptable quote is confirmed by the existing controller. The button
-    -- must disclose that this starts a purchase, not just a price lookup.
-    local buttonText = L("QB_BUY_NEXT", "Buy Next")
-    local enabled = true
-    if state.phase == "quoting" then
-        status = L("QB_STATUS_QUOTING", "Waiting for the live Auction House quote…")
-        buttonText = L("QB_CHECKING_PRICE", "Checking Price…")
-        enabled = false
-    elseif state.phase == "approval" then
-        status = L("QB_STATUS_APPROVAL", "The live unit price is more than 5% above the estimate. Review it before buying.")
-        buttonText = L("QB_ACCEPT_HIGHER", "Accept Higher Price")
-    elseif state.phase == "purchasing" then
-        status = L("QB_STATUS_PURCHASING", "Purchase submitted. Waiting for the Auction House…")
-        buttonText = L("QB_PURCHASING", "Purchasing…")
-        enabled = false
-    elseif state.phase == "complete" then
-        status = #vendorLines > 0 and "Auction House list complete. Vendor purchases remain below."
-            or L("QB_STATUS_COMPLETE", "All shopping-list items have been purchased.")
-        buttonText = L("QB_COMPLETE", "Complete")
-        enabled = false
-    elseif state.lastError then
-        status = state.lastError
-        buttonText = L("QB_RETRY", "Retry")
-    else
-        status = L("QB_STATUS_IDLE", "Buy one commodity at a time using a current price quote.")
+RefreshContext = function(syncList)
+    if not controller or not window then return end
+    local context = QuickBuy.GetContext()
+    local idle = controller.state.phase == "idle" or controller.state.phase == "complete"
+    local plan = GAM.CraftPlan
+    if context and syncList and idle and plan and plan.CreateShoppingList and not plan.IsBusy()
+            and #plan.GetData().plans > 0 then
+        plan.Init()
+        controller:SetList(plan.CreateShoppingList())
     end
-    refs.status:SetText(status)
-    refs.buy:SetText(buttonText)
-    refs.buy:SetEnabled(enabled and entry ~= nil)
-    refs.buy:SetAlpha((enabled and entry ~= nil) and 1 or 0.5)
-    local canSkip = #entries > 0 and state.phase ~= "purchasing"
-    refs.skip:SetEnabled(canSkip)
-    refs.skip:SetAlpha(canSkip and 1 or 0.5)
+    local list = controller:GetList() or {}
+    local relevant = context == "vendor" and controller:GetVendorEntry()
+        or context == "auction" and FirstEntry(list)
+    if not InlineVisible() and context and (relevant or not idle) and dismissedContext ~= context then
+        if not window:IsShown() then
+            local owner = context == "vendor" and MerchantFrame or AuctionHouseFrame
+            window:ClearAllPoints()
+            if owner and owner:IsShown() then
+                window:SetPoint("TOPLEFT", owner, "TOPRIGHT", 8, 0)
+            else
+                window:SetPoint("CENTER", UIParent, "CENTER", 180, 0)
+            end
+            window:Show()
+        end
+    elseif window:IsShown() and (InlineVisible() or not context or idle) then
+        window._gamDismissInProgress = true
+        window:Hide()
+        window._gamDismissInProgress = nil
+    end
+    RefreshWindow()
 end
 
 local function BuildWindow()
     if window then return end
     window = CreateFrame("Frame", GAM.RuntimeName("GAMQuickBuyWindow"), UIParent, "BackdropTemplate")
-    window:SetSize(500, 230)
+    window._gamOpaqueBackground = true
+    window:SetSize(390, 174)
     window:SetScale((GAM.GetOption and GAM:GetOption("uiScale", 1.0)) or 1.0)
     window:SetClampedToScreen(true)
     window:SetPoint("CENTER", UIParent, "CENTER", 180, 40)
     window:SetFrameStrata("DIALOG")
-    window:SetMovable(true)
-    window:EnableMouse(true)
+    window:SetMovable(true); window:EnableMouse(true)
     window:RegisterForDrag("LeftButton")
     window:SetScript("OnDragStart", window.StartMoving)
     window:SetScript("OnDragStop", window.StopMovingOrSizing)
-    window:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
+    window:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
     window:SetBackdropColor(0.055, 0.055, 0.062, 0.99)
     window:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
-    -- Initial hide must not notify the controller before UI refs exist.
+    -- Initial hide precedes any callback that accesses the controls below.
     window:Hide()
     window:SetScript("OnHide", function(self)
         if not self._gamDismissInProgress and not self._gamConfirmedComplete then
+            dismissedContext = QuickBuy.GetContext()
             controller:Reset()
         end
         self._gamConfirmedComplete = nil
     end)
-    -- Register after the OnHide contract is installed.  WindowManager only
-    -- hooks lifecycle events, so the initial Hide below remains callback-safe
-    -- and subsequent shows reapply the shared secondary chrome.
-    local windowManager = GAM.UI and GAM.UI.WindowManager
-    if windowManager and windowManager.Register then
-        windowManager.Register(window, "dialog")
+    local manager = GAM.UI and GAM.UI.WindowManager
+    if manager and manager.Register then manager.Register(window, "dialog") end
+    if UISpecialFrames then table.insert(UISpecialFrames, window:GetName()) end
+    local function Field(font, y)
+        local text = window:CreateFontString(nil, "OVERLAY", font)
+        text:SetPoint("TOPLEFT", 12, y); text:SetPoint("RIGHT", window, "RIGHT", -12, 0)
+        text:SetJustifyH("LEFT")
+        return text
     end
-    if UISpecialFrames then
-        table.insert(UISpecialFrames, window:GetName())
-    end
-
-    local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", window, "TOPLEFT", 16, -14)
-    title:SetText(L("BTN_QUICK_BUY_SHORT", "Quick Buy"))
-    title:SetTextColor(0.96, 0.82, 0.36, 1)
-
-    local headerRule = window:CreateTexture(nil, "ARTWORK")
-    headerRule:SetHeight(1)
-    headerRule:SetPoint("TOPLEFT", window, "TOPLEFT", 0, -40)
-    headerRule:SetPoint("TOPRIGHT", window, "TOPRIGHT", 0, -40)
-    headerRule:SetColorTexture(0.38, 0.32, 0.14, 0.65)
-
-    local close = CreateFrame("Button", nil, window, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", window, "TOPRIGHT", -2, -2)
-    close:SetScript("OnClick", DismissWindow)
-
+    refs.title = Field("GameFontNormal", -10)
+    refs.title:ClearAllPoints(); refs.title:SetPoint("TOPLEFT", 12, -10)
+    refs.title:SetTextColor(0.96, 0.82, 0.36, 1)
     refs.progress = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    refs.progress:SetPoint("LEFT", title, "RIGHT", 12, 0)
-    refs.progress:SetTextColor(0.7, 0.7, 0.7)
-
-    refs.item = window:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    refs.item:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -58)
-    refs.item:SetPoint("RIGHT", window, "RIGHT", -20, 0)
-    refs.item:SetJustifyH("LEFT")
-    refs.item:SetTextColor(0.96, 0.82, 0.36, 1)
-
-    refs.quantity = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    refs.quantity:SetPoint("TOPLEFT", refs.item, "BOTTOMLEFT", 0, -9)
-    refs.expected = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    refs.expected:SetPoint("TOPLEFT", refs.quantity, "BOTTOMLEFT", 0, -6)
-    refs.quote = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    refs.quote:SetPoint("TOPLEFT", refs.expected, "BOTTOMLEFT", 0, -5)
-
-    refs.vendor = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    refs.vendor:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -210)
-    refs.vendor:SetPoint("RIGHT", window, "RIGHT", -18, 0)
-    refs.vendor:SetJustifyH("LEFT")
-
-    refs.status = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    refs.status:SetPoint("TOPLEFT", refs.quote, "BOTTOMLEFT", 0, -11)
-    refs.status:SetPoint("RIGHT", window, "RIGHT", -20, 0)
-    refs.status:SetJustifyH("LEFT")
-    refs.status:SetWordWrap(true)
-    refs.status:SetTextColor(0.9, 0.9, 0.9)
-
+    refs.progress:SetPoint("TOPRIGHT", -36, -11)
+    local rule = window:CreateTexture(nil, "ARTWORK")
+    rule:SetHeight(1); rule:SetPoint("TOPLEFT", 0, -32); rule:SetPoint("TOPRIGHT", 0, -32)
+    rule:SetColorTexture(0.38, 0.32, 0.14, 0.65)
+    local close = CreateFrame("Button", nil, window, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -2, -2); close:SetScript("OnClick", DismissWindow)
+    refs.item = Field("GameFontNormal", -43)
+    refs.item:SetWordWrap(false)
+    refs.quantity = Field("GameFontHighlightSmall", -64)
+    refs.status = Field("GameFontHighlightSmall", -87)
+    refs.status:SetHeight(36); refs.status:SetWordWrap(true)
     refs.buy = CreateFrame("Button", GAM.RuntimeName("GAMQuickBuyBtn"), window, "UIPanelButtonTemplate")
-    refs.buy:SetSize(176, 28)
-    refs.buy:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -18, 14)
-    refs.buy:SetScript("OnClick", function() controller:Click() end)
-
-    refs.skip = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
-    refs.skip:SetSize(120, 26)
-    refs.skip:SetPoint("RIGHT", refs.buy, "LEFT", -8, 0)
-    refs.skip:SetText(L("QB_SKIP", "Skip"))
-    refs.skip:SetScript("OnClick", function() controller:Skip() end)
-
-    local footerRule = window:CreateTexture(nil, "ARTWORK")
-    footerRule:SetHeight(1)
-    footerRule:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", 0, 54)
-    footerRule:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", 0, 54)
-    footerRule:SetColorTexture(0.38, 0.32, 0.14, 0.65)
-
-    local footer = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    footer:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", 18, 23)
-    footer:SetText("Purchases remain explicit")
-    footer:SetTextColor(0.68, 0.68, 0.72, 1)
-
+    refs.buy:SetSize(154, 26); refs.buy:SetPoint("BOTTOMRIGHT", -12, 10)
+    refs.buy:SetScript("OnClick", function()
+        if QuickBuy.GetContext() == "vendor" then controller:ClickVendor() else controller:Click() end
+    end)
     local common = GAM.UI and GAM.UI.MainWindowCommon
-    if common and common.StyleComfortableButton then
-        common.StyleComfortableButton(refs.buy, true)
-        common.StyleComfortableButton(refs.skip, false)
-    end
-
+    if common and common.StyleComfortableButton then common.StyleComfortableButton(refs.buy, true) end
     if common and common.StyleSecondaryWindow then common.StyleSecondaryWindow(window) end
     RefreshWindow()
 end
@@ -540,11 +649,19 @@ function QuickBuy.Init()
         getQuoteRemaining = function()
             return C_AuctionHouse.GetQuoteDurationRemaining()
         end,
+        merchantOffer = function(itemID)
+            return GAM.VendorPrices and GAM.VendorPrices.GetMerchantOffer(itemID)
+        end,
+        buyMerchant = function(index, quantity) BuyMerchantItem(index, quantity) end,
+        getItemCount = function(itemID) return C_Item.GetItemCount(itemID, false, false, false) end,
         getMoney = GetMoney,
         after = function(delay, callback)
             C_Timer.After(delay, callback)
         end,
-        onPurchased = function(entry, _, list)
+        onPurchased = function(entry, quantity, list)
+            if list and list.onPurchased then
+                list.onPurchased(entry, quantity, controller.state.phase == "vendorPurchasing")
+            end
             RemoveAuctionatorEntry(entry, list)
         end,
         onVendor = RemoveAuctionatorEntry,
@@ -560,12 +677,32 @@ function QuickBuy.Init()
             GAM.quickBuyState = activeController.state
             GAM.quickBuyList = activeController:GetList()
             RefreshSignature(GAM.quickBuyList)
-            RefreshWindow()
+            RefreshContext(false)
+            if GAM.CraftPlan then GAM.CraftPlan.Notify() end
         end,
     })
     controller:SetList(GAM.quickBuyList)
     GAM.quickBuyState = controller.state
     BuildWindow()
+    -- Core's event registry has one handler per event. Use a separate listener
+    -- so vendor price capture and existing inventory handlers remain installed.
+    local events = CreateFrame("Frame")
+    for _, event in ipairs({ "BAG_UPDATE_DELAYED", "MERCHANT_SHOW", "MERCHANT_UPDATE",
+            "MERCHANT_CLOSED", "PLAYER_MONEY", "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED" }) do
+        events:RegisterEvent(event)
+    end
+    events:SetScript("OnEvent", function(_, event)
+        if event == "MERCHANT_SHOW" then vendorOpen = true; dismissedContext = nil end
+        if event == "AUCTION_HOUSE_SHOW" then auctionOpen = true; dismissedContext = nil end
+        if event == "MERCHANT_CLOSED" then vendorOpen = false; controller:Reset() end
+        if event == "AUCTION_HOUSE_CLOSED" then auctionOpen = false; controller:Reset() end
+        if event == "BAG_UPDATE_DELAYED" then controller:OnVendorBagUpdate() end
+        local function refresh()
+            RefreshContext(true)
+            if GAM.CraftPlan then GAM.CraftPlan.Notify() end
+        end
+        if C_Timer and C_Timer.After then C_Timer.After(0, refresh) else refresh() end
+    end)
 end
 
 function QuickBuy.SetList(list)
@@ -575,9 +712,10 @@ end
 
 function QuickBuy.Show()
     QuickBuy.Init()
-    window:Show()
-    window:Raise()
+    dismissedContext = nil
+    if not InlineVisible() then window:Show(); window:Raise() end
     RefreshWindow()
+    if QuickBuy.GetContext() then RefreshContext(false) end
 end
 
 function QuickBuy.Toggle()
@@ -587,6 +725,13 @@ function QuickBuy.Toggle()
     else
         QuickBuy.Show()
     end
+end
+
+-- Shopping's Buy action is itself the user's purchase click.
+function QuickBuy.Buy()
+    QuickBuy.Show()
+    if QuickBuy.GetContext() == "vendor" then return controller:ClickVendor() end
+    if QuickBuy.GetContext() == "auction" then return controller:Click() end
 end
 
 function QuickBuy.Reset()
@@ -615,4 +760,8 @@ end
 
 function QuickBuy.GetController()
     return controller
+end
+
+function QuickBuy.RefreshPresentation()
+    RefreshContext(true)
 end

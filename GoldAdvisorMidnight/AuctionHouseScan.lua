@@ -85,7 +85,7 @@ end
 
 -- ComputePriceForQty: average unit price for `requiredQty` units using live
 -- session caches (commodity → item) then persisted raw as fallback.
--- Returns avg in copper, or nil if no raw data is available.
+-- Returns avg, min, max, count, isStale; nil if no raw data is available.
 function AHScan.ComputePriceForQty(itemID, requiredQty)
     return Results.ComputePriceForQty(itemID, requiredQty)
 end

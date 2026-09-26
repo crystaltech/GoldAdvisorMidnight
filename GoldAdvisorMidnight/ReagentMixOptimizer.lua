@@ -414,7 +414,7 @@ function Optimizer.BuildLivePlan(args)
             if baseSkill == nil or skillPerHigh == nil then
                 return nil, profileReason or "rank-family-skill-unavailable"
             end
-            for highCount = 0, slot.quantity do
+            for highCount = args.highestOnly and slot.quantity or 0, slot.quantity do
                 local lowCount = slot.quantity - highCount
                 local lowPrice, lowStale = 0, false
                 local highPrice, highStale = 0, false

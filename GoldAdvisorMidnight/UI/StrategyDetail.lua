@@ -341,10 +341,16 @@ local function RefreshMetrics()
         frame.metROI:SetText("|cff888888—|r")
     end
 
-    frame.metBreakeven:SetText(projection.breakEvenSell and GAM.Pricing.FormatPrice(projection.breakEvenSell) or "|cff888888—|r")
+    local unitBreakEven = GAM.UI.StrategyDetailModel.FormatBreakEven(projection, GAM.Pricing.FormatPrice)
+    frame.metBreakeven:SetText(unitBreakEven)
     if frame.expNotice then
-        local buyNow = projection.buyNowCost and GAM.Pricing.FormatPrice(projection.buyNowCost) or GAM.L["NO_PRICE"]
-        frame.expNotice:SetText((GAM.L["LBL_BUY_NOW_COST"] or "Buy Now Cost:") .. " " .. buyNow)
+        local plan = GAM.CraftPlan
+        local upfront = plan and plan.EstimatePurchaseCost
+            and plan.EstimatePurchaseCost(currentStrat, currentPatch, canonicalResult)
+        local buyNow = upfront and GAM.Pricing.FormatPrice(upfront) or GAM.L["NO_PRICE"]
+        local stale = GAM.UI.StrategyDetailModel.GetStalePriceNotice(projection)
+        frame.expNotice:SetText((GAM.L["LBL_BUY_NOW_COST"] or "Buy Now Cost:") .. " " .. buyNow
+            .. (stale and ("  |cffff5555" .. stale .. "|r") or ""))
         frame.expNotice:Show()
     end
 end
@@ -478,7 +484,8 @@ local function PopulateReagentRow(row, reagentMetric, isPrimary)
         name = reagentMetric.name,
     }
     local display = GAM.Pricing.GetItemDisplayData(reagentMetric.itemID, reagentMetric.name)
-    row.nameText:SetText(display.displayText)
+    row.nameText:SetText(display.displayText .. (reagentMetric.sourceNote
+        and (" |cff888888(" .. reagentMetric.sourceNote .. ")|r") or ""))
     BindItemRow(row, display)
 
     local qtyStr = string.format("%.0f", reagentMetric.required or 0)
@@ -507,7 +514,9 @@ local function PopulateReagentRow(row, reagentMetric, isPrimary)
         totalCostFull = reagentMetric.totalCostFull,
     }
 
-    if reagentMetric.unitPrice then
+    if reagentMetric.crafted then
+        row.priceText:SetText("|cff888888—|r")
+    elseif reagentMetric.unitPrice then
         row.priceText:SetText(GAM.Pricing.FormatPrice(reagentMetric.unitPrice))
     else
         row.priceText:SetText("|cffff8800" .. GAM.L["NO_PRICE"] .. "|r")
@@ -845,6 +854,11 @@ local function Build()
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText(GAM.L[titleKey] or titleKey, 1, 1, 1)
             GameTooltip:AddLine(GAM.L[bodyKey] or bodyKey, 1, 0.82, 0, true)
+            if bodyKey == "TT_LBL_BREAKEVEN_BODY" and detailProjection then
+                local unit, stack = StrategyDetailModel.FormatBatchBreakEven(detailProjection, GAM.Pricing.FormatPrice)
+                GameTooltip:AddDoubleLine((GAM.L and GAM.L["UI_PER_ITEM"] or "Per item:"), unit)
+                GameTooltip:AddDoubleLine((GAM.L and GAM.L["UI_SELECTED_BATCH"] or "Selected batch:"), stack)
+            end
             GameTooltip:Show()
         end)
         anchor:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -853,7 +867,7 @@ local function Build()
     frame.metCost      = MakeMetricPair(L["LBL_COST"],       14,  95, 200)
     frame.metRevenue   = MakeMetricPair(L["LBL_REVENUE"],    14,  75, 200)
     frame.metROI       = MakeMetricPair(L["LBL_ROI"],       364,  95, 180)
-    frame.metBreakeven = MakeMetricPair(L["LBL_BREAKEVEN"], 364,  75, 180)
+    frame.metBreakeven = MakeMetricPair((GAM.L and GAM.L["WF_DETAIL_BREAK_EVEN_ITEM"] or "Break-even / item:"), 364,  75, 180)
     frame.metProfit    = MakeCenteredMetric(L["LBL_PROFIT"],      PROFIT_BASE_Y)
 
     -- Tooltip anchors over metric label pairs

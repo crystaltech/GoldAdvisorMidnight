@@ -6,7 +6,7 @@ local ADDON_NAME, GAM = ...
 local Cache = {}
 GAM.CraftingStatsCache = Cache
 
-Cache.VERSION = 2
+Cache.VERSION = 3
 
 function Cache.CopyNumericTable(source)
     if type(source) ~= "table" then return nil end
@@ -74,6 +74,8 @@ local function EnsureCharacterShape(character, uid, name, realm)
     character.manualProfiles = character.manualProfiles or {}
     character.nodeState = character.nodeState or {}
     character.gearPresets = character.gearPresets or {}
+    -- Additive only: recipe-only presets remain untouched as legacy data.
+    character.professionGear = character.professionGear or {}
     if uid then character.uid = uid end
     if name then character.name = name end
     if realm then character.realm = realm end

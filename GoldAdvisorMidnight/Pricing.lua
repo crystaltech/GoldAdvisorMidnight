@@ -255,10 +255,10 @@ local function GetPrimaryOutput(ctx)
 end
 
 local function GetPrimaryInputQuality(ctx)
-    if ctx and ctx.reachableOutputQuality and GetInputRankPolicy(ctx.strat) == "optimal" then
+    if ctx and ctx.reachableOutputQuality and (GetInputRankPolicy(ctx.strat) == "optimal" or GetInputRankPolicy(ctx.strat) == "highest") then
         return ctx.reachableOutputQuality
     end
-    if ctx and ctx.targetOutputQuality and GetInputRankPolicy(ctx.strat) == "optimal" then
+    if ctx and ctx.targetOutputQuality and (GetInputRankPolicy(ctx.strat) == "optimal" or GetInputRankPolicy(ctx.strat) == "highest") then
         return ctx.targetOutputQuality
     end
     if ctx.strat.qualityPolicy == "force_q1_inputs" then

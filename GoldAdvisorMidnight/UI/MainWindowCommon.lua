@@ -1073,7 +1073,7 @@ function Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf,
     return true
 end
 
-function Common.BuildRuntimeColumns(rowW)
+function Common.BuildRuntimeColumns(rowW, mini)
     -- Keep the comparison model stable as panels open and close. Profession is
     -- already represented by the filter and row tooltip; missing prices use the
     -- existing dash plus tooltip instead of consuming a mostly-empty Status column.
@@ -1083,7 +1083,16 @@ function Common.BuildRuntimeColumns(rowW)
     local usable = math.max(300, rowW - 40)
     local roiW = 68
     local profitW = math.min(156, math.max(118, math.floor(usable * 0.24)))
-    local nameW = usable - profitW - roiW - gap * 2
+    if mini and rowW < 600 then
+        local nameW = usable - profitW - gap
+        return {
+            {id="stratName", x=10, w=nameW, hKey="COL_STRAT", sKey="stratName", j="LEFT"},
+            {id="profit", x=10+nameW+gap, w=profitW, hKey="COL_PROFIT", sKey="profit", j="RIGHT"},
+        }
+    end
+    local showSaleRate = GAM.TSMSaleRate and GAM.TSMSaleRate.IsAvailable()
+    local saleW = showSaleRate and 76 or 0
+    local nameW = usable - profitW - roiW - gap * 2 - (showSaleRate and saleW + gap or 0)
     local x = 10
     local cols = {
         { id="stratName", x=x, w=nameW, hKey="COL_STRAT", sKey="stratName", j="LEFT" },
@@ -1093,6 +1102,10 @@ function Common.BuildRuntimeColumns(rowW)
     x = x + profitW + gap
     cols[#cols + 1] = { id="roi", x=x, w=roiW, hKey="COL_ROI", sKey="roi", j="RIGHT" }
 
+    if showSaleRate then
+        x = x + roiW + gap
+        cols[#cols + 1] = { id="saleRate", x=x, w=saleW, label=(GAM.L and GAM.L["UI_SALE_RATE"] or "Sale rate"), sKey="saleRate", j="RIGHT" }
+    end
     return cols
 end
 
@@ -1108,7 +1121,7 @@ function Common.GetVisibleListRows(listHost, rowHeight, maxRows)
 end
 
 function Common.ApplyColumnLayout(args)
-    local runtimeCols = Common.BuildRuntimeColumns(args.rowW or 0)
+    local runtimeCols = Common.BuildRuntimeColumns(args.rowW or 0, args.mini)
     local L = args.localizer
     local colHeaderBtns = args.colHeaderBtns or {}
     local rowFrames = args.rowFrames or {}
@@ -1122,7 +1135,7 @@ function Common.ApplyColumnLayout(args)
             btn:ClearAllPoints()
             btn:SetPoint("TOPLEFT", centerPanel, "TOPLEFT", col.x, -topOffset)
             btn:SetWidth(col.w)
-            btn.labelFS:SetText(L and L[col.hKey] or col.hKey)
+            btn.labelFS:SetText(col.label or (L and L[col.hKey]) or col.hKey)
             btn.labelFS:ClearAllPoints()
             btn.labelFS:SetPoint("TOPLEFT", btn, "TOPLEFT", i == 1 and stratIconWidth + 8 or 0, 0)
             btn.labelFS:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -6, 0)
@@ -1146,6 +1159,7 @@ function Common.ApplyColumnLayout(args)
         row.nameText:Hide()
         row.profitText:Hide()
         row.roiText:Hide()
+        if row.saleRateText then row.saleRateText:Hide() end
 
         for _, col in ipairs(runtimeCols) do
             local fs
@@ -1155,6 +1169,8 @@ function Common.ApplyColumnLayout(args)
                 fs = row.profitText
             elseif col.id == "roi" then
                 fs = row.roiText
+            elseif col.id == "saleRate" then
+                fs = row.saleRateText
             end
 
             if fs then
@@ -1185,7 +1201,10 @@ Common.SCAN_HELP = "Click: current list\nCtrl-click: everything\nAlt-click: all 
 function Common.StyleSecondaryWindow(frame)
     if not frame or not ((GAM.C and GAM.C.USE_COMFORTABLE_UI) or Common.IsCustomThemeActive()) then return end
     local theme = Common.GetThemeDef()
-    if frame.SetBackdropColor then frame:SetBackdropColor(unpack(theme.frame.bgColor)) end
+    if frame.SetBackdropColor then
+        local color = theme.frame.bgColor
+        frame:SetBackdropColor(color[1], color[2], color[3], frame._gamOpaqueBackground and 1 or color[4])
+    end
     if frame.SetBackdropBorderColor then frame:SetBackdropBorderColor(unpack(theme.frame.borderColor)) end
     if not frame._gamComfortHeader then
         local header = frame:CreateTexture(nil, "BACKGROUND", nil, -6)

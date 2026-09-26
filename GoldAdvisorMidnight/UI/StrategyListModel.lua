@@ -108,6 +108,14 @@ function ListModel.BuildVisibleList(args)
         if sortKey == "stratName" or sortKey == "profession" then
             before = CompareText(a, b, sortKey)
             reverse = CompareText(b, a, sortKey)
+        elseif sortKey == "saleRate" then
+            local aValue = args.getSaleRate and args.getSaleRate(a) or nil
+            local bValue = args.getSaleRate and args.getSaleRate(b) or nil
+            if (aValue == nil) ~= (bValue == nil) then return aValue ~= nil end
+            if aValue ~= bValue then
+                if sortAscending then return aValue > bValue end
+                return aValue < bValue
+            end
         else
             local metricField = sortKey == "profit" and "profit" or "roi"
             before = CompareMetric(a, b, metricField, getMetric)
