@@ -543,8 +543,12 @@ RefreshContext = function(syncList)
     local context = QuickBuy.GetContext()
     local idle = controller.state.phase == "idle" or controller.state.phase == "complete"
     local plan = GAM.CraftPlan
+    -- Rebuild from the queue while it has plans, and also when the last plan
+    -- was removed so a previous queue list cannot resurface. Lists from other
+    -- sources (strategy shopping sync) are left alone when the queue is empty.
+    local current = controller:GetList()
     if context and syncList and idle and plan and plan.CreateShoppingList and not plan.IsBusy()
-            and #plan.GetData().plans > 0 then
+            and (#plan.GetData().plans > 0 or (current and current.craftPlan)) then
         plan.Init()
         controller:SetList(plan.CreateShoppingList())
     end
