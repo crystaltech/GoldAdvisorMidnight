@@ -19,6 +19,8 @@ function PriceSource.Install(Pricing, deps)
 
 local function CallItemInfoAPI(api, itemID)
     if type(api) ~= "function" or not itemID then return nil end
+    -- Quality tiers never change; the shared cache answers repeat questions.
+    if GAM.ItemInfoCache then return GAM.ItemInfoCache.ItemInfo(api, itemID) end
     -- Retail's ItemInfo APIs expect the structured payload. Keep the numeric
     -- retry for older clients and lightweight test/API shims.
     local ok, value = pcall(api, { itemID = itemID })
@@ -44,7 +46,10 @@ local function GetPositiveReagentQualityRank(itemID)
     RequestItemData(itemID)
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
     local quality = tonumber(CallItemInfoAPI(api, itemID))
-    return quality and quality > 0 and quality or nil
+    if quality and quality > 0 then return quality end
+    -- Before item data loads, use Blizzard's crafting-quality tables shipped in
+    -- Data/ItemRanks.lua instead of trusting the order of an itemIDs list.
+    return GAM.ItemRanks and GAM.ItemRanks[tonumber(itemID)] or nil
 end
 
 -- Crafted outputs and recipe reagents use different Blizzard quality APIs.
@@ -303,6 +308,10 @@ PickItemID = function(itemIDs, patchTag, policyOverride)
             -- Non-tiered item loaded → treat as rank 1
             anyKnown = true
             tinsert(sorted, { id = id, q = 1 })
+        elseif GAM.ItemRanks and GAM.ItemRanks[tonumber(id)] then
+            -- Uncached: Blizzard's shipped rank table, never list position.
+            anyKnown = true
+            tinsert(sorted, { id = id, q = GAM.ItemRanks[tonumber(id)] })
         else
             -- Uncached: push to end so known ranks are preferred
             tinsert(sorted, { id = id, q = 999 })
@@ -453,13 +462,24 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     -- 4. Live AH depth repricing when we have raw in-session scan data.
     local targetQty = tonumber(qty)
     if targetQty and targetQty > 0 and GAM.AHScan and GAM.AHScan.ComputePriceForQty then
-        local liveAvg = GAM.AHScan.ComputePriceForQty(itemID, math.max(1, math.floor(targetQty + 0.5)))
+        local liveAvg, _, _, _, stale = GAM.AHScan.ComputePriceForQty(itemID, math.max(1, math.floor(targetQty + 0.5)))
         if liveAvg then
-            return math.floor(liveAvg), false
+            return math.floor(liveAvg), stale == true
         end
     end
 
-    -- 5. AH cache fallback — used when only cached/export data exists.
+    -- 5. Saved scan without live listings (e.g. after /reload): cost the
+    -- needed quantity from the saved depth curve, so a large purchase is not
+    -- priced from a small sample. One unit uses the saved lowest listing.
+    if targetQty and targetQty > 1 and GAM.AuctionHouseResults and GAM.AuctionHouseResults.PriceFromCurve then
+        local entry = GAM:GetRealmCache()[itemID]
+        local curvePrice = entry and GAM.AuctionHouseResults.PriceFromCurve(entry.curve, targetQty)
+        if curvePrice then
+            return math.floor(curvePrice), (time() - (entry.ts or 0)) > GAM.C.PRICE_STALE_SECONDS
+        end
+    end
+
+    -- 6. AH cache fallback — used when only cached/export data exists.
     local cachedPrice, stale = Pricing.GetUnitPrice(itemID, targetQty and targetQty <= 1)
     return cachedPrice, stale
 end

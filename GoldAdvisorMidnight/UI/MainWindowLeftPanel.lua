@@ -12,118 +12,6 @@ GAM.UI.MainWindowV2LeftPanel = LeftPanelUI -- Compatibility alias for pre-refocu
 local function Noop()
 end
 
-local function GetCommitButtonText()
-    return "OK"
-end
-
-local function RefreshCommitButton(editBox)
-    local button = editBox and editBox._gamCommitButton
-    if not button then
-        return
-    end
-    local committed = tostring(editBox._gamCommittedText or "")
-    local current = tostring(editBox:GetText() or "")
-    local keepVisible = editBox._gamCommitFromButton or editBox._gamCommitInProgress
-    local shouldShow = editBox:IsShown() and current ~= committed and (editBox:HasFocus() or keepVisible)
-    button:SetShown(shouldShow)
-end
-
-local function AttachTransientCommitButton(editBox, button, commitFn)
-    if not (editBox and button and commitFn) then
-        return
-    end
-
-    editBox._gamCommitButton = button
-    editBox._gamCommittedText = tostring(editBox:GetText() or "")
-    editBox._gamPendingText = editBox._gamCommittedText
-
-    local function SetTextWithoutChangingDraft(text)
-        editBox._gamRestoringText = true
-        editBox:SetText(tostring(text or ""))
-        editBox._gamRestoringText = nil
-    end
-
-    local function CommitCurrentValue(fromButton)
-        if editBox._gamCommitInProgress then
-            return
-        end
-        local text = tostring(editBox._gamPendingText or editBox:GetText() or "")
-        editBox._gamCommitInProgress = true
-        if fromButton then
-            editBox._gamCommitFromButton = true
-        end
-        local normalizedText = commitFn(text)
-        local committedText = normalizedText ~= nil and tostring(normalizedText) or text
-        editBox._gamCommittedText = committedText
-        editBox._gamPendingText = committedText
-        if tostring(editBox:GetText() or "") ~= committedText then
-            SetTextWithoutChangingDraft(committedText)
-        end
-        if editBox:HasFocus() then
-            editBox:ClearFocus()
-        end
-        editBox._gamCommitInProgress = nil
-        editBox._gamCommitFromButton = nil
-        RefreshCommitButton(editBox)
-    end
-
-    button:SetScript("OnMouseDown", function()
-        -- Commit before the edit box loses focus. The pending draft survives
-        -- any focus-loss redraw that happens during the mouse event.
-        CommitCurrentValue(true)
-    end)
-    button:SetScript("OnHide", function()
-        editBox._gamCommitFromButton = nil
-    end)
-
-    editBox:SetScript("OnEnterPressed", function()
-        CommitCurrentValue(false)
-    end)
-    editBox:SetScript("OnEscapePressed", function(self)
-        SetTextWithoutChangingDraft(self._gamCommittedText or "")
-        self._gamPendingText = tostring(self._gamCommittedText or "")
-        self._gamCommitFromButton = nil
-        self:ClearFocus()
-        RefreshCommitButton(self)
-    end)
-    editBox:SetScript("OnEditFocusGained", function(self)
-        RefreshCommitButton(self)
-    end)
-    editBox:SetScript("OnTextChanged", function(self)
-        if not self._gamRestoringText and not self._gamCommitInProgress then
-            self._gamPendingText = tostring(self:GetText() or "")
-        end
-        RefreshCommitButton(self)
-    end)
-    editBox:SetScript("OnEditFocusLost", function(self)
-        if self._gamCommitFromButton or self._gamCommitInProgress
-            or (self._gamCommitButton and MouseIsOver and MouseIsOver(self._gamCommitButton)) then
-            self._gamCommitFromButton = self._gamCommitFromButton or true
-            return
-        end
-        local function RestoreCommittedText()
-            if self:HasFocus() or self._gamCommitFromButton or self._gamCommitInProgress then
-                return
-            end
-            local committed = tostring(self._gamCommittedText or "")
-            if tostring(self:GetText() or "") ~= committed then
-                SetTextWithoutChangingDraft(committed)
-            end
-            self._gamPendingText = committed
-            RefreshCommitButton(self)
-        end
-        if C_Timer and type(C_Timer.After) == "function" then
-            -- Let a button mouse-down commit the draft before a normal focus
-            -- loss is treated as cancellation.
-            C_Timer.After(0, RestoreCommittedText)
-        else
-            RestoreCommittedText()
-        end
-    end)
-
-    button:Hide()
-end
-
 function LeftPanelUI.Build(args)
     local panel = args.panel
     local themeRefs = args.themeRefs or {}
@@ -141,7 +29,6 @@ function LeftPanelUI.Build(args)
     local attachButtonTooltip = args.attachButtonTooltip or Noop
     local getOpts = args.getOpts or function() return {} end
     local setOption = args.setOption or Noop
-    local clampFillQtyValue = args.clampFillQtyValue or tonumber
     local buildPlayerProfessionSet = args.buildPlayerProfessionSet or function() return {} end
     local rebuildList = args.rebuildList or Noop
     local refreshRows = args.refreshRows or Noop
@@ -220,12 +107,21 @@ function LeftPanelUI.Build(args)
         edgeSize = 1,
         insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    profMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
+    profMenu._gamOpaqueBackground = true
+    profMenu:SetBackdropColor(0.035, 0.035, 0.035, 1)
+    profMenu:SetScript("OnShow", function(self)
+        -- Reparenting between Mini and Full may reset inherited frame ordering.
+        self:SetFrameStrata("DIALOG")
+        self:SetFrameLevel(math.max(panel:GetFrameLevel(), ddProf:GetFrameLevel()) + 20)
+        self:SetAlpha(1)
+        self:SetBackdropColor(0.035, 0.035, 0.035, 1)
+    end)
     profMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
     profMenu:Hide()
 
     local ddPool, profRows = {}, {}
     local selectionPreset = "mine"
+    local miniFilters = false
     local learned = {}
     local CHECK_ON = "|TInterface\\Buttons\\UI-CheckBox-Check:14:14|t "
     local CHECK_OFF = "|TInterface\\Buttons\\UI-CheckBox-Highlight:14:14|t "
@@ -237,7 +133,7 @@ function LeftPanelUI.Build(args)
         local label = "Choose professions"
         if #names > 0 then
             if selectionPreset == "mine" then label = "My professions"
-            elseif selectionPreset == "all" then label = "All professions"
+            elseif selectionPreset == "all" then label = miniFilters and (GAM.L and GAM.L["UI_ALL_STRATEGIES"] or "All Strategies") or "All professions"
             elseif #names == 1 then label = names[1]
             else label = #names .. " professions" end
         end
@@ -340,48 +236,10 @@ function LeftPanelUI.Build(args)
     UpdateProfDDText()
     RefreshProfMenuRows()
 
-    local fillLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    fillLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -158)
-    fillLbl:SetText((L and L["V2_FILL_QTY"]) or "Fill Qty")
-    fillLbl:SetTextColor(gold[1], gold[2], gold[3])
-    applyFontSize(fillLbl, 11)
-
-    local fillQtyBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
-    fillQtyBox:SetHeight(20)
-    fillQtyBox:SetAutoFocus(false)
-    fillQtyBox:SetNumeric(true)
-    fillQtyBox:SetText(tostring(getOpts().shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
-    fillQtyBox:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText((L and L["TT_FILL_QTY_TITLE"]) or "Auction Price Quantity", 1, 1, 1)
-        GameTooltip:AddLine((L and L["TT_FILL_QTY_BODY"]) or "Number of auction units sampled for market prices. Use a larger number for large batches. Range: 10-10,000.", 1, 0.82, 0, true)
-        GameTooltip:Show()
-    end)
-    fillQtyBox:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
-
-    local fillQtyOKBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    fillQtyOKBtn:SetSize(28, 22)
-    fillQtyOKBtn:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -LP, -154)
-    fillQtyOKBtn:SetText(GetCommitButtonText())
-    fillQtyOKBtn:Hide()
-    fillQtyBox:SetPoint("LEFT", fillLbl, "RIGHT", 8, 0)
-    fillQtyBox:SetPoint("RIGHT", fillQtyOKBtn, "LEFT", -4, 0)
-
-    local fillRangeFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    fillRangeFS:SetPoint("TOPLEFT", fillLbl, "BOTTOMLEFT", 0, -4)
-    fillRangeFS:SetWidth(panelWidth - LP * 2)
-    fillRangeFS:SetJustifyH("LEFT")
-    fillRangeFS:SetText(string.format("%d-%d", GAM.C.MIN_FILL_QTY, GAM.C.MAX_FILL_QTY))
-    fillRangeFS:SetTextColor(helperColor[1], helperColor[2], helperColor[3], helperColor[4] or 1)
-    applyFontSize(fillRangeFS, softInk and 10 or 9)
-    fillRangeFS:Hide()
-
     -- Single vertical integration toggle: enables all derivation paths atomically
     -- (herbs → pigments, ore → ingots, linen → bolts)
     local viOwn = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-    viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP - 4, -184)
+    viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP - 4, -158)
     local viActive = (getOpts().pigmentCostSource == "mill")
         or (getOpts().boltCostSource == "craft")
         or (getOpts().ingotCostSource == "craft")
@@ -401,7 +259,7 @@ function LeftPanelUI.Build(args)
     )
 
     local viBreakdownOwn = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-    viBreakdownOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP + 10, -208)
+    viBreakdownOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", LP + 10, -182)
 
     local viBreakdownLbl = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     viBreakdownLbl:SetPoint("LEFT", viBreakdownOwn, "RIGHT", 0, 0)
@@ -425,8 +283,10 @@ function LeftPanelUI.Build(args)
         local showBreakdown = opts.showVIBreakdown and true or false
         viBreakdownOwn:SetChecked(viEnabled and showBreakdown)
         viBreakdownOwn:SetEnabled(viEnabled)
-        viBreakdownOwn:SetShown(viEnabled)
-        viBreakdownLbl:SetShown(viEnabled)
+        -- The VI breakdown surface was repurposed as the Craft Queue; keep the
+        -- toggle hidden until it has a new home.
+        viBreakdownOwn:Hide()
+        viBreakdownLbl:Hide()
         viBreakdownLbl:SetTextColor(
             labelColor[1],
             labelColor[2],
@@ -435,7 +295,7 @@ function LeftPanelUI.Build(args)
         )
         if rankLbl and layoutMode ~= "comfortable" then
             rankLbl:ClearAllPoints()
-            rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, viEnabled and -250 or -218)
+            rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, viEnabled and -224 or -192)
         end
     end
 
@@ -456,7 +316,7 @@ function LeftPanelUI.Build(args)
     local selectedRowTop = scanRowTop + primaryScanH + bottomBtnGap
     local toolsRowTop = selectedRowTop + bottomBtnH + bottomBtnGap
 
-    rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -218)
+    rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", LP, -192)
 
     local ddRank = CreateFrame("Button", GAM.RuntimeName("GAMMainV2RankDD"), panel, "UIPanelButtonTemplate")
     ddRank:SetPoint("TOPLEFT", rankLbl, "BOTTOMLEFT", 0, -4)
@@ -467,19 +327,59 @@ function LeftPanelUI.Build(args)
         optimal = (L and L["RANK_DD_OPTIMAL"]) or "Best Mix -> Max Rank",
     }
 
+    -- A real menu, like Profession gear: the choices are visible before one is
+    -- applied instead of cycling on each click.
+    local gearMenu
+    local rankOrder = { "lowest", "optimal", "highest" }
+    local rankMenu = CreateFrame("Frame", nil, panel, "BackdropTemplate")
+    rankMenu:SetPoint("TOPLEFT", ddRank, "BOTTOMLEFT", 0, -2)
+    rankMenu:SetSize(innerW, 4 + (#rankOrder * 24))
+    rankMenu:SetFrameStrata("DIALOG")
+    rankMenu:SetFrameLevel(panel:GetFrameLevel() + 20)
+    rankMenu:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    rankMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
+    rankMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    rankMenu:Hide()
+    panel:HookScript("OnHide", function() rankMenu:Hide() end)
+
+    local rankButtons = {}
     local function RefreshRankDropdown()
         local rankPolicy = getOpts().rankPolicy or "lowest"
-        ddRank:SetText(rankTextMap[rankPolicy] or rankTextMap.lowest)
+        ddRank:SetText((rankTextMap[rankPolicy] or rankTextMap.lowest) .. "  v")
+        for policy, button in pairs(rankButtons) do
+            local active = policy == rankPolicy
+            if button:GetFontString() then
+                button:GetFontString():SetTextColor(
+                    active and gold[1] or 0.65, active and gold[2] or 0.65, active and gold[3] or 0.65)
+            end
+        end
+    end
+
+    for index, policy in ipairs(rankOrder) do
+        local button = CreateFrame("Button", nil, rankMenu, "UIPanelButtonTemplate")
+        button:SetHeight(22)
+        button:SetPoint("TOPLEFT", rankMenu, "TOPLEFT", 2, -2 - ((index - 1) * 24))
+        button:SetPoint("TOPRIGHT", rankMenu, "TOPRIGHT", -2, -2 - ((index - 1) * 24))
+        button:SetText(rankTextMap[policy])
+        button:SetScript("OnClick", function()
+            setOption("rankPolicy", policy)
+            rankMenu:Hide()
+            RefreshRankDropdown()
+            RefreshVisiblePanels()
+        end)
+        rankButtons[policy] = button
     end
 
     ddRank:SetScript("OnClick", function()
-        local current = getOpts().rankPolicy or "lowest"
-        local nextPolicy = current == "lowest" and "optimal"
-            or current == "optimal" and "highest"
-            or "lowest"
-        setOption("rankPolicy", nextPolicy)
+        profMenu:Hide()
+        if gearMenu then gearMenu:Hide() end
         RefreshRankDropdown()
-        RefreshVisiblePanels()
+        rankMenu:SetShown(not rankMenu:IsShown())
     end)
     RefreshRankDropdown()
     panel.refreshRankDropdown = RefreshRankDropdown
@@ -498,7 +398,7 @@ function LeftPanelUI.Build(args)
         (L and L["TT_GEAR_MENU_BODY"])
             or "Choose a saved gear setup, or save the stats from the recipe currently open in your profession window.")
 
-    local gearMenu = CreateFrame("Frame", nil, panel, "BackdropTemplate")
+    gearMenu = CreateFrame("Frame", nil, panel, "BackdropTemplate")
     gearMenu:SetPoint("TOPLEFT", gearPlanBtn, "BOTTOMLEFT", 0, -2)
     gearMenu:SetSize(innerW, 56)
     gearMenu:SetFrameStrata("DIALOG")
@@ -534,48 +434,139 @@ function LeftPanelUI.Build(args)
             RefreshVisiblePanels()
         end)
     end
-    attachButtonTooltip(gearButtons.auto, "Auto", "Use whichever saved setup gives more profit.")
-    attachButtonTooltip(gearButtons.multicraft, "Multicraft", "Always use the saved Multicraft setup.")
-    attachButtonTooltip(gearButtons.resourcefulness, "Resourcefulness", "Always use the saved Resourcefulness setup.")
+    local function Lx(key, fallback)
+        return (L and L[key]) or fallback
+    end
+    attachButtonTooltip(gearButtons.auto, Lx("GEAR_MODE_AUTO", "Auto"),
+        Lx("GEAR_MODE_AUTO_TIP", "Price this strategy with whichever saved set gives more profit."))
+    attachButtonTooltip(gearButtons.multicraft, Lx("GEAR_MODE_MC", "Multicraft"),
+        Lx("GEAR_MODE_MC_TIP", "Always price this strategy with the saved Multicraft set."))
+    attachButtonTooltip(gearButtons.resourcefulness, Lx("GEAR_MODE_RES", "Resourcefulness"),
+        Lx("GEAR_MODE_RES_TIP", "Always price this strategy with the saved Resourcefulness set."))
 
-    local captureMCBtn = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
-    captureMCBtn:SetSize(halfBtnW - 2, 22)
-    captureMCBtn:SetPoint("BOTTOMLEFT", gearMenu, "BOTTOMLEFT", 2, 2)
-    captureMCBtn:SetText((L and L["BTN_SAVE_MC"]) or "Save MC")
-    captureMCBtn:SetScript("OnClick", function()
-        captureGearPreset("multicraft")
-        gearMenu:Hide()
-        RefreshVisiblePanels()
-    end)
-    attachButtonTooltip(captureMCBtn, "Save Multicraft",
-        "Save the equipped stats from the open recipe as its Multicraft setup.")
+    -- Save and Update share one button per set. Its label says whether a set
+    -- exists, its color whether it is equipped, and the tooltip shows the
+    -- saved items and why saving is unavailable. Button sizes never change.
+    local gearSetDefs = {
+        multicraft = { save = Lx("BTN_SAVE_MC", "Save MC"), update = Lx("BTN_UPDATE_MC", "Update MC"),
+            name = Lx("GEAR_MODE_MC", "Multicraft") },
+        resourcefulness = { save = Lx("BTN_SAVE_RES", "Save Res"), update = Lx("BTN_UPDATE_RES", "Update Res"),
+            name = Lx("GEAR_MODE_RES", "Resourcefulness") },
+    }
+    local GEAR_EQUIPPED_COLOR = { 0.35, 0.9, 0.35 }
+    local GEAR_STALE_COLOR = { 1, 0.55, 0.2 }
 
-    local captureResBtn = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
-    captureResBtn:SetSize(halfBtnW - 2, 22)
-    captureResBtn:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
-    captureResBtn:SetText((L and L["BTN_SAVE_RES"]) or "Save Res")
-    captureResBtn:SetScript("OnClick", function()
-        captureGearPreset("resourcefulness")
-        gearMenu:Hide()
-        RefreshVisiblePanels()
-    end)
-    attachButtonTooltip(captureResBtn, "Save Resourcefulness",
-        "Save the equipped stats from the open recipe as its Resourcefulness setup.")
+    local function FormatSavedAge(capturedAt)
+        local now = type(time) == "function" and time() or 0
+        local age = math.max(0, now - (tonumber(capturedAt) or now))
+        if age < 60 then return Lx("GEAR_SET_SAVED_NOW", "Saved just now.") end
+        local text
+        if type(SecondsToTime) == "function" then
+            text = SecondsToTime(age, true, false, 1)
+        else
+            local days, hours = math.floor(age / 86400), math.floor(age / 3600)
+            text = days > 0 and (days .. " days") or hours > 0 and (hours .. " hours")
+                or (math.floor(age / 60) .. " minutes")
+        end
+        return string.format(Lx("GEAR_SET_SAVED_AGO", "Saved %s ago."), text)
+    end
 
+    local function AddTooltipLine(text, color)
+        GameTooltip:AddLine(text, color[1], color[2], color[3], true)
+    end
+
+    local function ShowGearSetTooltip(button, mode)
+        local def = gearSetDefs[mode]
+        local status = getGearStatus() or {}
+        local detail = status.details and status.details[mode]
+        local profession = status.profession or Lx("GEAR_THIS_PROFESSION", "this profession")
+        local muted, info, blocked = { 0.7, 0.7, 0.7 }, { 1, 0.82, 0 }, { 1, 0.35, 0.35 }
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+        GameTooltip:SetText(def.name .. " - " .. profession, 1, 1, 1)
+        AddTooltipLine(string.format(
+            Lx("GEAR_SET_SHARED", "Shared by every %s strategy on this character."), profession), muted)
+        if detail then
+            AddTooltipLine(FormatSavedAge(detail.capturedAt), info)
+            if detail.needsResave then
+                AddTooltipLine(Lx("GEAR_SET_RESAVE", "Save it again to use it."), GEAR_STALE_COLOR)
+            end
+            if detail.equipped == true then
+                AddTooltipLine(Lx("GEAR_SET_EQUIPPED", "You are wearing this set now."), GEAR_EQUIPPED_COLOR)
+            elseif detail.equipped == false then
+                AddTooltipLine(Lx("GEAR_SET_DIFFERENT",
+                    "Your equipped profession gear differs from this set."), GEAR_STALE_COLOR)
+            else
+                AddTooltipLine(Lx("GEAR_SET_EQUIP_UNKNOWN", "Equipment could not be read yet."), muted)
+            end
+            if #detail.items > 0 then
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine(Lx("GEAR_SET_ITEMS", "Saved items:"), 1, 1, 1)
+                for _, link in ipairs(detail.items) do GameTooltip:AddLine("  " .. link) end
+            else
+                AddTooltipLine(Lx("GEAR_SET_NO_ITEMS", "No profession items were equipped."), muted)
+            end
+        else
+            AddTooltipLine(string.format(Lx("GEAR_SET_NOT_SAVED",
+                "Not saved yet. Equip your %s gear, open any %s recipe, then click to save it."),
+                def.name, profession), info)
+        end
+        GameTooltip:AddLine(" ")
+        if status.canCapture then
+            AddTooltipLine(detail and Lx("GEAR_SET_CLICK_UPDATE", "Click to replace this set with your equipped gear.")
+                or Lx("GEAR_SET_CLICK_SAVE", "Click to save your equipped gear as this set."), { 0.55, 0.85, 1 })
+        elseif status.captureBlocked == "other-profession" then
+            AddTooltipLine(string.format(Lx("GEAR_BLOCK_OTHER_PROF",
+                "The open profession window is %s. Open %s to save or update this set."),
+                tostring(status.openProfession), profession), blocked)
+        else
+            AddTooltipLine(string.format(Lx("GEAR_BLOCK_NO_RECIPE",
+                "Open the %s profession window to save or update this set."), profession), blocked)
+        end
+        AddTooltipLine(Lx("GEAR_SET_LEGEND", "Green: set equipped. Orange: saved, but different gear equipped."),
+            { 0.55, 0.55, 0.55 })
+        GameTooltip:Show()
+    end
+
+    local function MakeGearSetButton(mode, point)
+        local button = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
+        button:SetSize(halfBtnW - 2, 22)
+        button:SetPoint(point, gearMenu, point, point == "BOTTOMLEFT" and 2 or -2, 2)
+        button:SetText(gearSetDefs[mode].save)
+        -- Disabled buttons still explain why they are disabled.
+        if button.SetMotionScriptsWhileDisabled then button:SetMotionScriptsWhileDisabled(true) end
+        button:SetScript("OnClick", function()
+            captureGearPreset(mode)
+            gearMenu:Hide()
+            RefreshVisiblePanels()
+        end)
+        button:SetScript("OnEnter", function(self) ShowGearSetTooltip(self, mode) end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        return button
+    end
+    local captureButtons = {
+        multicraft = MakeGearSetButton("multicraft", "BOTTOMLEFT"),
+        resourcefulness = MakeGearSetButton("resourcefulness", "BOTTOMRIGHT"),
+    }
+
+    local RefreshGearPlan
     gearPlanBtn:SetScript("OnClick", function()
         profMenu:Hide()
-        gearMenu:SetShown(not gearMenu:IsShown())
+        rankMenu:Hide()
+        local show = not gearMenu:IsShown()
+        -- Equipment may have changed since the last refresh.
+        if show then RefreshGearPlan() end
+        gearMenu:SetShown(show)
     end)
     panel:HookScript("OnHide", function() gearMenu:Hide() end)
 
-    local function RefreshGearPlan()
+    RefreshGearPlan = function()
         local status = getGearStatus()
         local selected = status and status.selected or "auto"
-        local available = status and status.available or {}
+        local details = status and status.details or {}
         local modeLabels = {
-            auto = (L and L["GEAR_MODE_AUTO"]) or "Auto",
-            multicraft = (L and L["GEAR_MODE_MC"]) or "Multicraft",
-            resourcefulness = (L and L["GEAR_MODE_RES"]) or "Resourcefulness",
+            auto = Lx("GEAR_MODE_AUTO", "Auto"),
+            multicraft = Lx("GEAR_MODE_MC", "Multicraft"),
+            resourcefulness = Lx("GEAR_MODE_RES", "Resourcefulness"),
         }
         gearPlanBtn:SetText((modeLabels[selected] or modeLabels.auto) .. "  v")
         for mode, button in pairs(gearButtons) do
@@ -587,13 +578,24 @@ function LeftPanelUI.Build(args)
                     active and gold[3] or 0.65)
             end
         end
-        captureMCBtn:SetText(available.multicraft and "MC Saved" or "Save MC")
-        captureResBtn:SetText(available.resourcefulness and "Res Saved" or "Save Res")
         local enabled = status and status.canCapture or false
-        captureMCBtn:SetEnabled(enabled)
-        captureResBtn:SetEnabled(enabled)
-        captureMCBtn:SetAlpha(enabled and 1 or 0.45)
-        captureResBtn:SetAlpha(enabled and 1 or 0.45)
+        for mode, button in pairs(captureButtons) do
+            local detail = details[mode]
+            button:SetEnabled(enabled)
+            button:SetAlpha(enabled and 1 or 0.45)
+            button:SetText(detail and gearSetDefs[mode].update or gearSetDefs[mode].save)
+            local fs = button:GetFontString()
+            local color = detail and (detail.equipped == true and GEAR_EQUIPPED_COLOR
+                or (detail.equipped == false or detail.needsResave) and GEAR_STALE_COLOR) or nil
+            if fs and color then
+                fs:SetTextColor(color[1], color[2], color[3])
+            elseif fs then
+                -- Restore the template color after a status color was shown.
+                local getFont = enabled and button.GetNormalFontObject or button.GetDisabledFontObject
+                local fontObject = getFont and getFont(button)
+                if fontObject and fontObject.GetTextColor then fs:SetTextColor(fontObject:GetTextColor()) end
+            end
+        end
     end
     panel.refreshGearPlan = RefreshGearPlan
 
@@ -613,16 +615,6 @@ function LeftPanelUI.Build(args)
         refreshComfortableSummary()
     end
     panel.refreshVisiblePanels = RefreshVisiblePanels
-
-    local function CommitFillQty(text)
-        local opts = getOpts()
-        opts.shallowFillQty = clampFillQtyValue(text)
-        fillQtyBox:SetText(tostring(opts.shallowFillQty))
-        fillQtyBox._gamCommittedText = tostring(fillQtyBox:GetText() or "")
-        RefreshVisiblePanels()
-        return tostring(opts.shallowFillQty)
-    end
-    AttachTransientCommitButton(fillQtyBox, fillQtyOKBtn, CommitFillQty)
 
     leftPanelChecks.viOwn = viOwn
     leftPanelChecks.viBreakdownOwn = viBreakdownOwn
@@ -728,7 +720,7 @@ function LeftPanelUI.Build(args)
     end
 
     selectedShoppingBtn = MakeToolsButton(
-        (L and L["BTN_SHOPPING_SHORT"]) or "Shopping", 1, 1, toggleShoppingSync)
+        (L and L["BTN_SHOPPING_SHORT"]) or (GAM.L and GAM.L["WF_SHOPPING"] or "Shopping"), 1, 1, toggleShoppingSync)
     local quickBuyBtn = MakeToolsButton(
         (L and L["BTN_QUICK_BUY_SHORT"]) or "Quick Buy", 2, 1, showQuickBuy)
     cooldownsBtn = MakeToolsButton(
@@ -737,7 +729,9 @@ function LeftPanelUI.Build(args)
         (L and L["BTN_CRAFTSIM_SHORT"]) or "CraftSim", 2, 2, pushSelectedToCraftSim)
     local btnARP = MakeToolsButton(
         (L and L["BTN_EXPORT_SHORT"]) or "Export", 1, 3, showARPExport)
-    btnARP:SetWidth(innerW - 4)
+    local craftPlanBtn = MakeToolsButton((GAM.L and GAM.L["WF_QUEUE"] or "Craft Queue"), 2, 3, function()
+        if GAM.UI.CraftPlanWindow then GAM.UI.CraftPlanWindow.Show() end
+    end)
     selectedCraftSimBtn:Disable()
     selectedShoppingBtn:Disable()
     attachButtonTooltip(
@@ -759,6 +753,7 @@ function LeftPanelUI.Build(args)
 
     moreToolsBtn:SetScript("OnClick", function()
         gearMenu:Hide()
+        rankMenu:Hide()
         profMenu:Hide()
         toolsMenu:SetShown(not toolsMenu:IsShown())
     end)
@@ -769,7 +764,6 @@ function LeftPanelUI.Build(args)
         realmFS:Hide()
         lpRule:Hide()
         filterLbl:Hide()
-        fillRangeFS:Hide()
         actionsLbl:Hide()
         selectedScanBtn:Hide()
 
@@ -843,12 +837,12 @@ function LeftPanelUI.Build(args)
             scanRows[4]:SetEnabled(not active and selected)
         end
         scanMenuBtn:SetScript("OnClick", function()
-            profMenu:Hide(); gearMenu:Hide(); toolsMenu:Hide()
+            profMenu:Hide(); gearMenu:Hide(); rankMenu:Hide(); toolsMenu:Hide()
             RefreshScanMenu()
             scanMenu:SetShown(not scanMenu:IsShown())
         end)
         scanBtnLeft:HookScript("OnClick", function() scanMenu:Hide(); profMenu:Hide() end)
-        ddProf:HookScript("OnClick", function() scanMenu:Hide(); gearMenu:Hide(); toolsMenu:Hide() end)
+        ddProf:HookScript("OnClick", function() scanMenu:Hide(); gearMenu:Hide(); rankMenu:Hide(); toolsMenu:Hide() end)
         moreToolsBtn:HookScript("OnClick", function() scanMenu:Hide() end)
 
         -- Addon-owned menus close on Escape and outside mouse-down, without
@@ -888,9 +882,69 @@ function LeftPanelUI.Build(args)
         divider:SetPoint("TOPLEFT"); divider:SetPoint("TOPRIGHT"); divider:SetHeight(1)
         divider:SetColorTexture(rule[1], rule[2], rule[3], 0.25)
 
+        local favoritesOnly = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+        favoritesOnly:SetSize(24, 24)
+        favoritesOnly:SetPoint("TOPLEFT", ddProf, "BOTTOMLEFT", 0, -3)
+        favoritesOnly:SetChecked(getOpts().favoritesOnly == true)
+        local favoritesLabel = favoritesOnly:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        favoritesLabel:SetPoint("LEFT", favoritesOnly, "RIGHT", 2, 0)
+        favoritesLabel:SetText((GAM.L and GAM.L["UI_FAVORITES_ONLY"] or "Favorites only"))
+        favoritesOnly:SetScript("OnClick", function(self)
+            getOpts().favoritesOnly = self:GetChecked() and true or false
+            rebuildList()
+            refreshRows()
+            relayoutPanels()
+            if panel.refreshScanScope then panel.refreshScanScope() end
+        end)
+        panel.favoritesOnly = favoritesOnly
+        favoritesOnly:HookScript("OnHide", function() profMenu:Hide() end)
+        scanBtnLeft:HookScript("OnHide", function() scanMenu:Hide() end)
+        -- Move the existing controls into the mini list header so both modes
+        -- share the selection, menu behavior, and favorites setting.
+        panel.setMiniFilters = function(host)
+            local mini = host ~= nil
+            if mini ~= miniFilters then
+                miniFilters = mini
+                profMenu:Hide()
+                scanMenu:Hide()
+                ddProf:SetParent(host or panel)
+                ddProf:ClearAllPoints()
+                ddProf:SetPoint("TOPLEFT", host or panel, "TOPLEFT", mini and 8 or 100, mini and -4 or -8)
+                ddProf:SetSize(250, mini and 24 or 28)
+                profMenu:SetParent(mini and ddProf or panel)
+                favoritesOnly:SetParent(host or panel)
+                favoritesOnly:ClearAllPoints()
+                if mini then
+                    favoritesOnly:SetPoint("LEFT", ddProf, "RIGHT", 6, 0)
+                else
+                    favoritesOnly:SetPoint("TOPLEFT", ddProf, "BOTTOMLEFT", 0, -3)
+                end
+                scanBtnLeft:SetParent(host or panel)
+                scanMenuBtn:SetParent(host or panel)
+                scanMenu:SetParent(mini and scanMenuBtn or panel)
+                scanBtnLeft:ClearAllPoints()
+                scanMenuBtn:ClearAllPoints()
+                scanMenu:ClearAllPoints()
+                scanBtnLeft:SetSize(mini and 90 or 158, mini and 24 or 28)
+                scanMenuBtn:SetSize(mini and 22 or 28, mini and 24 or 28)
+                if mini then
+                    scanMenuBtn:SetPoint("TOPRIGHT", host, "TOPRIGHT", -8, -4)
+                    scanBtnLeft:SetPoint("RIGHT", scanMenuBtn, "LEFT", -1, 0)
+                    scanMenu:SetPoint("TOPRIGHT", scanMenuBtn, "BOTTOMRIGHT", 0, -2)
+                else
+                    scanBtnLeft:SetPoint("LEFT", ddProf, "RIGHT", 8, 0)
+                    scanMenuBtn:SetPoint("LEFT", scanBtnLeft, "RIGHT", 1, 0)
+                    scanMenu:SetPoint("TOPLEFT", scanBtnLeft, "BOTTOMLEFT", 0, -2)
+                end
+            end
+            if mini then ddProf:SetWidth(math.max(110, math.min(190, host:GetWidth() - 258))) end
+            favoritesOnly:SetChecked(getOpts().favoritesOnly == true)
+            UpdateProfDDText()
+        end
+
         local workflowHint = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         panel.scanScopeText = workflowHint
-        workflowHint:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -45)
+        workflowHint:SetPoint("TOPLEFT", panel, "TOPLEFT", 270, -45)
         workflowHint:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -45)
         workflowHint:SetJustifyH("LEFT")
         workflowHint:SetWordWrap(false)
@@ -926,22 +980,17 @@ function LeftPanelUI.Build(args)
         summary:SetTextColor(unpack(helperColor))
         applyFontSize(summary, 10)
 
-        fillLbl:ClearAllPoints()
-        fillLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -108)
-        fillQtyBox:ClearAllPoints()
-        fillQtyBox:SetPoint("TOPLEFT", fillLbl, "BOTTOMLEFT", 4, -8)
-        fillQtyBox:SetSize(100, 24)
-        fillQtyOKBtn:ClearAllPoints()
-        fillQtyOKBtn:SetPoint("LEFT", fillQtyBox, "RIGHT", 4, 0)
-
+        -- Market depth is automatic (needed quantity, bait and thin-market
+        -- rules), so the settings row starts with Material quality.
         rankLbl:ClearAllPoints()
-        rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 170, -108)
+        rankLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -108)
         ddRank:ClearAllPoints()
         ddRank:SetPoint("TOPLEFT", rankLbl, "BOTTOMLEFT", 0, -4)
         ddRank:SetSize(194, 24)
+        rankMenu:SetWidth(194)
 
         gearLbl:ClearAllPoints()
-        gearLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 382, -108)
+        gearLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 224, -108)
         gearPlanBtn:ClearAllPoints()
         gearPlanBtn:SetPoint("TOPLEFT", gearLbl, "BOTTOMLEFT", 0, -4)
         gearPlanBtn:SetSize(194, 24)
@@ -957,17 +1006,26 @@ function LeftPanelUI.Build(args)
             button:SetPoint("TOPLEFT", gearMenu, "TOPLEFT", 2 + ((index - 1) * (compactGearW + compactGearGap)), -2)
             button:SetSize(compactGearW, 22)
         end
-        captureMCBtn:ClearAllPoints()
-        captureMCBtn:SetPoint("BOTTOMLEFT", gearMenu, "BOTTOMLEFT", 2, 2)
-        captureMCBtn:SetSize(115, 22)
-        captureResBtn:ClearAllPoints()
-        captureResBtn:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
-        captureResBtn:SetSize(115, 22)
+        captureButtons.multicraft:ClearAllPoints()
+        captureButtons.multicraft:SetPoint("BOTTOMLEFT", gearMenu, "BOTTOMLEFT", 2, 2)
+        captureButtons.multicraft:SetSize(115, 22)
+        captureButtons.resourcefulness:ClearAllPoints()
+        captureButtons.resourcefulness:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
+        captureButtons.resourcefulness:SetSize(115, 22)
 
+        -- Same heading-over-control pattern as the other settings columns;
+        -- the checkbox lines up with the dropdown buttons beside it.
+        local viHeading = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        viHeading:SetPoint("TOPLEFT", panel, "TOPLEFT", 436, -108)
+        viHeading:SetText(Lx("V2_VI_HEADING", "Intermediates"))
+        viHeading:SetTextColor(gold[1], gold[2], gold[3])
+        applyFontSize(viHeading, 11)
         viOwn:ClearAllPoints()
-        viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", 600, -122)
-        viLbl:SetWidth(200)
-        viOwn:SetHitRectInsets(0, -200, 0, 0)
+        viOwn:SetSize(24, 24)
+        viOwn:SetPoint("TOPLEFT", viHeading, "BOTTOMLEFT", -3, -4)
+        viLbl:SetText(Lx("V2_VI_SHORT", "Craft them myself"))
+        viLbl:SetWidth(170)
+        viOwn:SetHitRectInsets(0, -170, 0, 0)
         viBreakdownOwn:ClearAllPoints()
         viBreakdownOwn:SetPoint("TOPLEFT", viOwn, "BOTTOMLEFT", 0, 2)
         viBreakdownLbl:SetWidth(200)
@@ -979,7 +1037,7 @@ function LeftPanelUI.Build(args)
         local toolButtons = {
             { selectedShoppingBtn, 1, 1 }, { quickBuyBtn, 2, 1 },
             { cooldownsBtn, 1, 2 }, { selectedCraftSimBtn, 2, 2 },
-            { btnARP, 1, 3 },
+            { btnARP, 1, 3 }, { craftPlanBtn, 2, 3 },
         }
         for _, entry in ipairs(toolButtons) do
             entry[1]:SetParent(toolsMenu)
@@ -993,44 +1051,47 @@ function LeftPanelUI.Build(args)
         for _, button in ipairs({
             ddProf, moreToolsBtn,
             ddRank, gearPlanBtn, selectedShoppingBtn, quickBuyBtn, cooldownsBtn,
-            selectedCraftSimBtn, selectedScanBtn, btnARP, captureMCBtn, captureResBtn,
+            selectedCraftSimBtn, selectedScanBtn, btnARP, craftPlanBtn,
+            captureButtons.multicraft, captureButtons.resourcefulness,
         }) do
             styleButton(button, false)
         end
         styleButton(scanBtnLeft, true)
         for _, button in pairs(gearButtons) do styleButton(button, false) end
+        for _, button in pairs(rankButtons) do styleButton(button, false) end
 
         local function SetOptionsShown(shown)
             getOpts().craftingOptionsExpanded = shown and true or false
             optionsText:SetText(shown and "v  Price & crafting settings" or ">  Price & crafting settings")
             summary:SetShown(not shown)
             for _, widget in ipairs({
-                fillLbl, fillQtyBox, rankLbl, ddRank,
-                gearLbl, gearPlanBtn, viOwn, viLbl, viBreakdownOwn, viBreakdownLbl,
+                rankLbl, ddRank,
+                gearLbl, gearPlanBtn, viOwn, viLbl, viHeading,
             }) do
                 widget:SetShown(shown)
             end
-            if shown then
-                RefreshCommitButton(fillQtyBox)
-                RefreshVIBreakdownToggle()
-            else
-                fillQtyOKBtn:Hide()
-            end
+            viBreakdownOwn:Hide()
+            viBreakdownLbl:Hide()
+            if shown then RefreshVIBreakdownToggle() end
             gearMenu:Hide()
+            rankMenu:Hide()
             relayoutPanels()
         end
 
         refreshComfortableSummary = function()
             local opts = getOpts()
-            local rank = ({ lowest = "Rank 1", highest = "Rank 2", optimal = "Best mix" })[opts.rankPolicy or "lowest"]
-                or tostring(opts.rankPolicy or "R1 mats")
+            local rank = ({
+                lowest = Lx("UI_SUMMARY_RANK1", "Rank 1"),
+                highest = Lx("UI_SUMMARY_RANK2", "Rank 2"),
+                optimal = Lx("UI_SUMMARY_BEST_MIX", "Best mix"),
+            })[opts.rankPolicy or "lowest"] or tostring(opts.rankPolicy)
             local gearStatus = getGearStatus()
-            local gear = gearStatus and gearStatus.selected or "Auto"
-            if gear == "multicraft" then gear = "Multicraft" end
-            if gear == "resourcefulness" then gear = "Resourcefulness" end
-            if gear == "auto" then gear = "Auto" end
-            summary:SetText(string.format("Price quantity: %s  |  Materials: %s  |  Gear: %s",
-                tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY), rank, gear))
+            local gear = ({
+                auto = Lx("GEAR_MODE_AUTO", "Auto"),
+                multicraft = Lx("GEAR_MODE_MC", "Multicraft"),
+                resourcefulness = Lx("GEAR_MODE_RES", "Resourcefulness"),
+            })[gearStatus and gearStatus.selected or "auto"] or Lx("GEAR_MODE_AUTO", "Auto")
+            summary:SetText(string.format(Lx("UI_SETTINGS_SUMMARY_V2", "Materials: %s  |  Gear: %s"), rank, gear))
         end
 
         optionsBtn:SetScript("OnClick", function()

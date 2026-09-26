@@ -82,6 +82,7 @@ local DB_DEFAULTS = {
         engRsNode        = ProfileDefault("engineering_craft", "defaultRsNode", 45),
         globalStartingCrafts = GAM.C.DEFAULT_STARTING_CRAFTS,
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
+        goldReservePct      = GAM.C.DEFAULT_GOLD_RESERVE_PCT,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         v2PricingMode        = GAM.C.DEFAULT_V2_PRICING_MODE,
         -- Per-session panel state
@@ -393,6 +394,19 @@ local MIGRATIONS = {
             end
             if type(db.activeThemeProfile) ~= "string" or db.activeThemeProfile == "" then
                 db.activeThemeProfile = "Default"
+            end
+        end,
+    },
+    {
+        -- dataVersion 21: The Thalassian Lumber manual price setting was
+        -- removed. Clear any saved value so an invisible, frozen price cannot
+        -- keep overriding live Auction House data for lumber recipes.
+        dataVersion = 21,
+        migrate = function(db)
+            for _, patch in pairs(type(db.patch) == "table" and db.patch or {}) do
+                if type(patch) == "table" and type(patch.priceOverrides) == "table" then
+                    patch.priceOverrides[256963] = nil
+                end
             end
         end,
     },

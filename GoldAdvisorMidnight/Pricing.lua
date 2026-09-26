@@ -42,6 +42,8 @@ end
 
 local function RequestItemData(itemID)
     if not itemID or itemID == 0 then return end
+    -- One load request per item per session is enough.
+    if GAM.ItemInfoCache then return GAM.ItemInfoCache.RequestLoad(itemID) end
     if C_Item and C_Item.RequestLoadItemDataByID then
         C_Item.RequestLoadItemDataByID(itemID)
     else
@@ -255,10 +257,10 @@ local function GetPrimaryOutput(ctx)
 end
 
 local function GetPrimaryInputQuality(ctx)
-    if ctx and ctx.reachableOutputQuality and GetInputRankPolicy(ctx.strat) == "optimal" then
+    if ctx and ctx.reachableOutputQuality and (GetInputRankPolicy(ctx.strat) == "optimal" or GetInputRankPolicy(ctx.strat) == "highest") then
         return ctx.reachableOutputQuality
     end
-    if ctx and ctx.targetOutputQuality and GetInputRankPolicy(ctx.strat) == "optimal" then
+    if ctx and ctx.targetOutputQuality and (GetInputRankPolicy(ctx.strat) == "optimal" or GetInputRankPolicy(ctx.strat) == "highest") then
         return ctx.targetOutputQuality
     end
     if ctx.strat.qualityPolicy == "force_q1_inputs" then
@@ -288,7 +290,7 @@ local function GetPrimaryInputQuality(ctx)
     end
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
     if api and pickedID then
-        local quality = api(pickedID)
+        local quality = GAM.ItemInfoCache and GAM.ItemInfoCache.ItemInfo(api, pickedID) or api(pickedID)
         if quality and quality > 0 then
             return quality
         end
@@ -533,8 +535,9 @@ function Pricing.GetCrushingAnalyzerData(strat, patchTag, baseMetrics, calculate
     }
 end
 
--- StorePrice(itemID, price, minPrice) — called by AHScan after scan
-function Pricing.StorePrice(itemID, price, minPrice)
+-- StorePrice(itemID, price, minPrice, curve) — called by AHScan after scan.
+-- `curve` is the compact price-by-quantity summary from BuildDepthCurve.
+function Pricing.StorePrice(itemID, price, minPrice, curve)
     if not itemID or not price then return end
     local cache = GAM:GetRealmCache()
     -- Store only price + timestamp; raw order-book arrays are no longer persisted
@@ -542,8 +545,10 @@ function Pricing.StorePrice(itemID, price, minPrice)
     cache[itemID] = {
         price = price,
         minPrice = tonumber(minPrice) or price,
+        curve = type(curve) == "table" and curve or nil,
         ts    = time(),
     }
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
     GAM.Log.Debug("Stored price: itemID=%s price=%s", tostring(itemID), tostring(price))
 end
 
@@ -560,6 +565,7 @@ function Pricing.SetPriceOverride(itemID, price, patchTag)
     local pdb = GAM:GetPatchDB(patchTag)
     pdb.priceOverrides            = pdb.priceOverrides or {}
     pdb.priceOverrides[itemID]    = price
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
 end
 
 -- ClearPriceOverride(itemID, patchTag)
@@ -567,6 +573,7 @@ function Pricing.ClearPriceOverride(itemID, patchTag)
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local pdb = GAM:GetPatchDB(patchTag)
     if pdb.priceOverrides then
+        if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
         pdb.priceOverrides[itemID] = nil
     end
 end

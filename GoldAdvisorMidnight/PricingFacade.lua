@@ -82,8 +82,7 @@ function Facade.BuildCurrentRequest(strategy, patchTag, craftScale)
         inventoryPolicy = "opportunity_cost",
         pricePolicy = NormalizePricePolicy(opts.priceSource),
         useVerticalIntegration = IsVerticalIntegrationEnabled(opts),
-        fillQuantity = opts.shallowFillQty
-            or ((GAM.C and GAM.C.DEFAULT_FILL_QTY) or 50),
+        fillQuantity = (GAM.C and GAM.C.MARKET_SAMPLE_UNITS) or 50,
         auctionHouseCut = opts.ahCut,
     })
 end
@@ -156,6 +155,19 @@ function Facade.CalculateCurrent(strategy, patchTag, craftScale)
         return nil, err
     end
     return Facade.Calculate(request)
+end
+
+-- Saved plans have their own remaining target, independent of the main window.
+function Facade.CalculateForCrafts(strategy, patchTag, crafts)
+    if type(crafts) ~= "number" or crafts < 1 or crafts % 1 ~= 0 then
+        return nil, "A positive whole craft count is required."
+    end
+    local request, err = Facade.BuildCurrentRequest(strategy, patchTag)
+    if not request then return nil, err end
+    local metrics = GAM.Pricing.CalculateStratMetricsV2(
+        strategy, request.patchTag, 1, { crafts = crafts }, request.globalStartingCrafts)
+    if not metrics then return nil, "v2-pricing-returned-no-result" end
+    return GAM.PricingContract.FromV2Metrics(request, metrics)
 end
 
 function Facade.GetCurrentVIBreakdown(strategy, patchTag, canonicalResult)

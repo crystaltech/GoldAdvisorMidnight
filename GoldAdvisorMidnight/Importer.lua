@@ -83,8 +83,15 @@ local function AddProducerCandidate(patchTag, itemID, stratID, variantKey)
     }
 end
 
+-- Sell-only strategies are never used as VI producers. Crushing averages
+-- several ores into fractional per-craft amounts to price its gemdust for
+-- sale; strategies that consume gemdust price it at the Auction House.
+local SELL_ONLY_RECIPES = {
+    [1231132] = true, -- Jewelcrafting: Crushing
+}
+
 local function IndexProducerView(strat, view, variantKey)
-    if not IsEligibleProducerView(view) then
+    if SELL_ONLY_RECIPES[tonumber(strat.recipeID)] or not IsEligibleProducerView(view) then
         return
     end
     local output = (view.outputs and view.outputs[1]) or view.output

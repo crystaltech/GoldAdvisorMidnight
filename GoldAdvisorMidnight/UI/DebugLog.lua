@@ -1,5 +1,6 @@
 -- GoldAdvisorMidnight/UI/DebugLog.lua
--- Scrollable, copyable debug log window backed by Log.lua ring buffer.
+-- Debug Log window in the Settings layout: a filterable Log page and a
+-- Troubleshooting page whose buttons run the GAM.Diagnostics reports.
 -- Module: GAM.UI.DebugLog
 
 local ADDON_NAME, GAM = ...
@@ -7,278 +8,16 @@ local DebugLog = {}
 GAM.UI.DebugLog = DebugLog
 local WindowManager = GAM.UI.WindowManager
 
-local WIN_W, WIN_H = 620, 400
+local WIN_W, WIN_H = 820, 580
 local frame
-local scrollFrame
-local editBox
-local isPaused = false
-local Build  -- forward declaration (ShowARPExportPopup references Build before its definition)
+local Build  -- forward declaration (the export popup references Build before its definition)
+
+local function T(key, fallback)
+    return (GAM.L and GAM.L[key]) or fallback
+end
 
 local function GetUIScale()
     return (GAM.db and GAM.db.options and GAM.db.options.uiScale) or 1.0
-end
-
-local function MeasureButtonWidth(parent, text, minW, maxW, padding)
-    parent._gamMeasureFS = parent._gamMeasureFS or parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    local fs = parent._gamMeasureFS
-    fs:SetText(text or "")
-    local w = math.ceil(fs:GetStringWidth() + (padding or 24))
-    if minW and w < minW then w = minW end
-    if maxW and w > maxW then w = maxW end
-    return w
-end
-
-local function LayoutButtonRowBottom(parent, buttons, cfg)
-    local left   = cfg.left or 14
-    local right  = cfg.right or (WIN_W - 14)
-    local bottom = cfg.bottom or 10
-    local gap    = cfg.gap or 8
-    local rowGap = cfg.rowGap or 4
-    local align  = cfg.align or "left"
-    local h      = cfg.height or 22
-    local avail  = math.max(1, right - left)
-
-    local rows = { {} }
-    local rowWidths = { 0 }
-    for _, btn in ipairs(buttons) do
-        local bw = btn:GetWidth()
-        local row = rows[#rows]
-        local nextW = (#row > 0) and (rowWidths[#rows] + gap + bw) or bw
-        if #row > 0 and nextW > avail then
-            rows[#rows + 1] = { btn }
-            rowWidths[#rowWidths + 1] = bw
-        else
-            row[#row + 1] = btn
-            rowWidths[#rowWidths] = nextW
-        end
-    end
-
-    for ri, row in ipairs(rows) do
-        local rw = rowWidths[ri]
-        local x
-        if align == "right" then
-            x = right - rw
-        elseif align == "center" then
-            x = left + math.floor((avail - rw) / 2)
-        else
-            x = left
-        end
-        local y = bottom + (ri - 1) * (h + rowGap)
-        for bi, btn in ipairs(row) do
-            btn:ClearAllPoints()
-            btn:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x, y)
-            x = x + btn:GetWidth() + ((bi < #row) and gap or 0)
-        end
-    end
-
-    return {
-        rows = #rows,
-        top = bottom + (#rows - 1) * (h + rowGap) + h,
-    }
-end
-
--- ===== Item ID dump =====
--- Iterates every itemID in all loaded strats, resolves names via
--- GetItemInfo, and logs a Lua-table block to the debug log.
--- Items not yet in the client cache show "???" — visit their crafting
--- window or AH first so WoW loads them.
-local function DumpItemIDs()
-    if not (GAM.Importer and GAM.Importer.GetAllStrats) then
-        GAM.Log.Warn("DumpItemIDs: Importer not ready")
-        return
-    end
-
-    -- Collect: expectedName → { [itemID]=true, ... }
-    local nameMap = {}
-    local function addID(name, id)
-        if type(id) == "number" and id > 0 then
-            nameMap[name] = nameMap[name] or {}
-            nameMap[name][id] = true
-        end
-    end
-
-    for _, strat in ipairs(GAM.Importer.GetAllStrats()) do
-        local out = strat.output
-        if out and out.name then
-            for _, id in ipairs(out.itemIDs or {}) do addID(out.name, id) end
-        end
-        -- outputs[]: multi-output strats (JC prospecting, etc.)
-        -- Skip IDs already in strat.output to avoid internal Q1/Q2 label duplicates
-        local mainIDs = {}
-        for _, id in ipairs((out and out.itemIDs) or {}) do mainIDs[id] = true end
-        for _, o2 in ipairs(strat.outputs or {}) do
-            if o2.name then
-                for _, id in ipairs(o2.itemIDs or {}) do
-                    if not mainIDs[id] then addID(o2.name, id) end
-                end
-            end
-        end
-        for _, r in ipairs(strat.reagents or {}) do
-            if r.name then
-                for _, id in ipairs(r.itemIDs or {}) do addID(r.name, id) end
-            end
-        end
-    end
-
-    -- Sort names alphabetically
-    local names = {}
-    for name in pairs(nameMap) do names[#names+1] = name end
-    table.sort(names)
-
-    GAM.Log.Info("=== GAM Item ID Dump ===")
-    GAM.Log.Info("-- Copy to a reference file; ??? = not in client cache yet")
-
-    local totalIDs, mismatches, uncached = 0, 0, 0
-
-    local function NormalizeDumpName(name)
-        if type(name) ~= "string" then return "" end
-        local normalized = name:lower()
-        normalized = normalized:gsub("[‘’´`]", "'")
-        normalized = normalized:gsub("%s*%([qr]%d+%)", "")
-        normalized = normalized:gsub("%s+", " ")
-        return normalized
-    end
-
-    for _, expectedName in ipairs(names) do
-        local ids = {}
-        for id in pairs(nameMap[expectedName]) do ids[#ids+1] = id end
-        table.sort(ids)
-
-        local idParts   = {}
-        local nameParts = {}
-        local anyBad    = false
-
-        for _, id in ipairs(ids) do
-            totalIDs = totalIDs + 1
-            local actual = GetItemInfo(id)
-            idParts[#idParts+1] = tostring(id)
-            if actual == nil then
-                nameParts[#nameParts+1] = "???"
-                uncached = uncached + 1
-                anyBad = true
-            elseif NormalizeDumpName(actual) ~= NormalizeDumpName(expectedName) then
-                nameParts[#nameParts+1] = "MISMATCH:" .. actual
-                mismatches = mismatches + 1
-                anyBad = true
-            else
-                nameParts[#nameParts+1] = "\"" .. actual .. "\""
-            end
-        end
-
-        local flag = anyBad and "  -- !! CHECK !!" or ""
-        GAM.Log.Info('  ["%s"] = {%s},  -- %s%s',
-            expectedName,
-            table.concat(idParts, ", "),
-            table.concat(nameParts, ", "),
-            flag)
-    end
-
-    GAM.Log.Info("=== Done: %d names, %d IDs | %d mismatches | %d uncached ===",
-        #names, totalIDs, mismatches, uncached)
-end
-
--- ===== ARP Export =====
--- Produces a CSV-style block matching the AverageReagentPrice addon export format.
--- Format: ItemName, Rank 1, X.XX, Rank 2, X.XX, Rank 3, X.XX
--- Price = copper / 10000, exported to 4 decimal places so the sheet receives
--- exact copper precision and can reproduce addon Profit/ROI without rounding drift.
--- No AH cut applied.
-local function GenerateARPExport()
-    if not (GAM.Importer and GAM.Importer.GetAllStrats) then
-        return "-- Importer not ready"
-    end
-
-    local patchTag = GAM.C.DEFAULT_PATCH
-
-    -- Collect unique items by name → itemIDs array, including rank-variant-only IDs.
-    local nameToIDs = {}
-    local nameOrder = {}
-    local nameToIDSet = {}
-
-    local function addItem(name, itemIDs)
-        if type(name) ~= "string" or name == "" then return end
-        if not itemIDs or #itemIDs == 0 then return end
-        if not nameToIDs[name] then
-            nameToIDs[name] = {}
-            nameToIDSet[name] = {}
-            nameOrder[#nameOrder + 1] = name
-        end
-        for _, id in ipairs(itemIDs) do
-            if id and not nameToIDSet[name][id] then
-                nameToIDSet[name][id] = true
-                nameToIDs[name][#nameToIDs[name] + 1] = id
-            end
-        end
-    end
-
-    for _, strat in ipairs(GAM.Importer.GetAllStrats()) do
-        local active = (GAM.Pricing and GAM.Pricing.GetActiveRecipeView and GAM.Pricing.GetActiveRecipeView(strat)) or strat
-        local out = active.output
-        if out and out.name and out.itemIDs then addItem(out.name, out.itemIDs) end
-        for _, o2 in ipairs(active.outputs or {}) do
-            if o2.name and o2.itemIDs then addItem(o2.name, o2.itemIDs) end
-        end
-        for _, r in ipairs(active.reagents or {}) do
-            if r.name and r.itemIDs then addItem(r.name, r.itemIDs) end
-        end
-        for _, variant in pairs(strat.rankVariants or {}) do
-            local vOut = variant.output
-            if vOut and vOut.name and vOut.itemIDs then addItem(vOut.name, vOut.itemIDs) end
-            for _, o2 in ipairs(variant.outputs or {}) do
-                if o2.name and o2.itemIDs then addItem(o2.name, o2.itemIDs) end
-            end
-            for _, r in ipairs(variant.reagents or {}) do
-                if r.name and r.itemIDs then addItem(r.name, r.itemIDs) end
-            end
-        end
-    end
-
-    table.sort(nameOrder)
-
-    local lines = {}
-    for _, name in ipairs(nameOrder) do
-        local ids = nameToIDs[name]
-        -- Build quality-tier → itemID map using WoW API.
-        -- GetItemReagentQualityByItemInfo: nil = uncached OR non-tiered; 0 = non-tiered; 1/2/3 = tiered.
-        -- When nil, use GetItemInfo to distinguish: name returned = item is loaded (non-tiered → Rank 1);
-        -- nil returned = truly uncached → skip the whole item.
-        local rankMap = {}
-        local skip = false
-        for _, id in ipairs(ids) do
-            local q = C_TradeSkillUI.GetItemReagentQualityByItemInfo(id)
-            if q == nil then
-                if GetItemInfo(id) ~= nil then
-                    -- Item loaded but not a tiered reagent → Rank 1
-                    rankMap[1] = id
-                else
-                    -- Truly uncached → skip whole item
-                    skip = true
-                    break
-                end
-            elseif q > 0 then
-                -- If the item name already encodes the quality tier (e.g. "Eversinging Dust Q2",
-                -- "Radiant Shard Q1"), the rank column is redundant — put at Rank 1 so VLOOKUP
-                -- with column 3 always finds it. Items without a Q-suffix (e.g. "Oil of Dawn")
-                -- keep quality-based placement so Q2-mode VLOOKUP (column 5) works correctly.
-                rankMap[name:match(" Q%d$") and 1 or q] = id
-            else
-                -- q == 0: non-tiered item → Rank 1
-                rankMap[1] = id
-            end
-        end
-        if not skip then
-            local parts = { name }
-            for rankIdx = 1, 3 do
-                local itemID = rankMap[rankIdx]
-                local price = itemID and GAM.Pricing.GetEffectivePrice(itemID, patchTag)
-                parts[#parts + 1] = "Rank " .. rankIdx
-                parts[#parts + 1] = (price and price > 0) and string.format("%.4f", price / 10000) or "0.0000"
-            end
-            lines[#lines + 1] = table.concat(parts, ", ")
-        end
-    end
-
-    return #lines > 0 and table.concat(lines, "\n") or "-- No items found"
 end
 
 -- ===== ARP Export popup =====
@@ -324,23 +63,29 @@ local function BuildARPExportPopup()
     arpPopup:SetScript("OnDragStart", arpPopup.StartMoving)
     arpPopup:SetScript("OnDragStop",  arpPopup.StopMovingOrSizing)
     arpPopup:SetClampedToScreen(true)
-    arpPopup:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        tile = true, tileSize = 8, edgeSize = 2,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    -- Same chrome as the Debug Log window.
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    arpPopup:SetBackdrop((common and common.THIN_BACKDROP) or {
+        bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
-    arpPopup:SetBackdropColor(0.055, 0.055, 0.062, 0.99)
-    arpPopup:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.90)
+    arpPopup:SetBackdropColor(0.055, 0.055, 0.062, 1)
+    arpPopup:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.95)
     arpPopup:Hide()
     WindowManager.Register(arpPopup, "debug", { owner = frame, levelOffset = 8 })
 
     -- Title
     local title = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOP", arpPopup, "TOP", 0, -14)
+    title:SetPoint("TOPLEFT", arpPopup, "TOPLEFT", 18, -14)
+    title:SetPoint("RIGHT", arpPopup, "RIGHT", -36, 0)
+    title:SetJustifyH("LEFT")
     title:SetText((GAM.L and GAM.L["BTN_ARP_EXPORT"]) or "ARP Export")
-    title:SetTextColor(0.96, 0.82, 0.36, 1)
+    title:SetTextColor(1, 0.82, 0, 1)
     arpPopupTitle = title
+    local hint = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    hint:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    hint:SetText(T("DBG_COPY_HINT", "Text is selected; press Ctrl+C to copy."))
+    hint:SetTextColor(0.65, 0.65, 0.7)
 
     -- Close button (top-right X)
     local closeBtn = CreateFrame("Button", nil, arpPopup, "UIPanelCloseButton")
@@ -349,7 +94,7 @@ local function BuildARPExportPopup()
 
     -- Scroll frame
     local sf = CreateFrame("ScrollFrame", nil, arpPopup, "UIPanelScrollFrameTemplate")
-    sf:SetPoint("TOPLEFT",     arpPopup, "TOPLEFT",     14, -40)
+    sf:SetPoint("TOPLEFT",     arpPopup, "TOPLEFT",     14, -58)
     sf:SetPoint("BOTTOMRIGHT", arpPopup, "BOTTOMRIGHT", -30, 14)
     sf:EnableMouseWheel(true)
     sf:SetScript("OnMouseWheel", function(self, delta)
@@ -402,363 +147,479 @@ local function ShowARPExportPopup(text)
     ShowTextExportPopup((GAM.L and GAM.L["BTN_ARP_EXPORT"]) or "ARP Export", text)
 end
 
+-- ===== Log page state =====
+-- Filters are per session: opening the window later starts from "show all".
+local LEVEL_STYLE = {
+    ERROR = { key = "DBG_LEVEL_ERROR", label = "Errors", color = "ff5555" },
+    WARN = { key = "DBG_LEVEL_WARN", label = "Warnings", color = "ffaa33" },
+    INFO = { key = "DBG_LEVEL_INFO", label = "Info", color = "e6e6e6" },
+    DEBUG = { key = "DBG_LEVEL_DEBUG", label = "Debug", color = "8fb8de" },
+    VERBOSE = { key = "DBG_LEVEL_VERBOSE", label = "Verbose", color = "8a8a8a" },
+}
+local CAPTURE_LABELS = {
+    [0] = { "DBG_CAPTURE_OFF", "Off" }, { "DBG_CAPTURE_INFO", "Info" },
+    { "DBG_CAPTURE_DEBUG", "Debug" }, { "DBG_CAPTURE_VERBOSE", "Verbose" },
+}
+local view = {
+    levels = { ERROR = true, WARN = true, INFO = true, DEBUG = true, VERBOSE = true },
+    area = nil,       -- nil shows every area
+    search = "",
+    frozen = false,   -- Pause freezes the view; entries are still recorded
+    snapshot = nil,   -- entries shown while paused
+    pending = 0,
+    renderQueued = false,
+}
+local ui = {}
+
+local function Matches(entry)
+    if not view.levels[entry.level] then return false end
+    if view.area and entry.area ~= view.area then return false end
+    if view.search ~= "" then
+        local haystack = (entry.text .. " " .. entry.area):lower()
+        if not haystack:find(view.search, 1, true) then return false end
+    end
+    return true
+end
+
+local function ColorLine(entry)
+    local style = LEVEL_STYLE[entry.level] or LEVEL_STYLE.INFO
+    local area = entry.area ~= GAM.Log.GENERAL_AREA and ("|cffd4b44a[" .. entry.area .. "]|r ") or ""
+    return string.format("|cff777777%s|r |cff%s%s|r %s%s", entry.time, style.color, entry.level, area, entry.text)
+end
+
+local function ScrollLogToBottom()
+    if not ui.scroll then return end
+    C_Timer.After(0, function()
+        ui.scroll:SetVerticalScroll(ui.scroll:GetVerticalScrollRange())
+    end)
+end
+
+local function RefreshFilterLabels(summary)
+    for level, button in pairs(ui.levelButtons or {}) do
+        local style = LEVEL_STYLE[level]
+        local n = summary.levels[level] or 0
+        button:SetText(string.format("%s (%d)", T(style.key, style.label), n))
+        local fs = button:GetFontString()
+        if fs then
+            if view.levels[level] then fs:SetTextColor(1, 0.82, 0) else fs:SetTextColor(0.45, 0.45, 0.45) end
+        end
+    end
+    if ui.areaButton then
+        ui.areaButton:SetText((view.area or T("DBG_ALL_AREAS", "All areas")) .. "  v")
+    end
+end
+
+-- A multi-line EditBox in a ScrollFrame does not size itself: give it the
+-- viewport width and the measured text height (as the export popup does),
+-- otherwise the text is laid out in a zero-sized box and nothing shows.
+local function SizeLogText()
+    if not (ui.scroll and ui.editBox and ui.sizer) then return end
+    local width = math.max(100, (ui.scroll:GetWidth() or 0) - 4)
+    ui.editBox:SetWidth(width)
+    ui.sizer:SetWidth(width)
+    ui.sizer:SetText(ui.editBox:GetText() or "")
+    ui.editBox:SetHeight(math.max(ui.scroll:GetHeight() or 0, (ui.sizer:GetStringHeight() or 0) + 16))
+end
+
+local function RenderLog()
+    view.renderQueued = false
+    if not (frame and frame:IsShown() and ui.editBox) then return end
+    local entries = view.frozen and view.snapshot or GAM.Log.GetEntries()
+    local lines = {}
+    for _, entry in ipairs(entries) do
+        if Matches(entry) then lines[#lines + 1] = ColorLine(entry) end
+    end
+    local range = ui.scroll:GetVerticalScrollRange()
+    local atBottom = range <= 0 or ui.scroll:GetVerticalScroll() >= range - 4
+    ui.editBox:SetText(#lines > 0 and table.concat(lines, "\n")
+        or ("|cff888888" .. T("DBG_NO_MATCHES", "No log entries match the current filters.") .. "|r"))
+    SizeLogText()
+    RefreshFilterLabels(GAM.Log.GetSummary())
+    local status = string.format(T("DBG_STATUS_SHOWING", "Showing %d of %d entries"), #lines, #entries)
+    if view.frozen then
+        status = status .. "  |cffffaa33" .. string.format(T("DBG_STATUS_PAUSED", "Paused - %d new"), view.pending) .. "|r"
+    end
+    ui.status:SetText(status)
+    if atBottom then ScrollLogToBottom() end
+end
+
+-- Batches bursts of new entries (a scan writes many) into one redraw.
+local function QueueRender()
+    if view.renderQueued then return end
+    view.renderQueued = true
+    C_Timer.After(0.15, RenderLog)
+end
+
+local function ShowFullLogExport()
+    ShowTextExportPopup(T("DBG_COPY_TITLE", "Debug Log"), GAM.Log.GetAllText())
+end
+
+-- ===== Log page =====
+local function BuildLogPage(page, Layout, styleButton)
+    local filterBar = CreateFrame("Frame", nil, page)
+    filterBar:SetPoint("TOPLEFT", page, "TOPLEFT", 0, 0)
+    filterBar:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, 0)
+    filterBar:SetHeight(56)
+
+    ui.levelButtons = {}
+    local levelOrder = {}
+    for _, level in ipairs(GAM.Log.LEVELS) do
+        local button = CreateFrame("Button", nil, filterBar, "UIPanelButtonTemplate")
+        button:SetSize(104, 22)
+        button:SetScript("OnClick", function()
+            view.levels[level] = not view.levels[level]
+            RenderLog()
+        end)
+        button:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(T("DBG_LEVEL_TOGGLE_TIP", "Click to show or hide these entries."), 1, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        styleButton(button)
+        ui.levelButtons[level] = button
+        levelOrder[#levelOrder + 1] = button
+    end
+
+    -- Area picker: a small addon-owned list (Blizzard menus can open behind
+    -- this FULLSCREEN_DIALOG window).
+    local areaButton = CreateFrame("Button", nil, filterBar, "UIPanelButtonTemplate")
+    areaButton:SetSize(150, 22)
+    styleButton(areaButton)
+    ui.areaButton = areaButton
+    local areaMenu = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    areaMenu:SetPoint("TOPLEFT", areaButton, "BOTTOMLEFT", 0, -2)
+    areaMenu:SetFrameLevel(frame:GetFrameLevel() + 40)
+    areaMenu:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    areaMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
+    areaMenu:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
+    areaMenu:Hide()
+    local areaRows = {}
+    local function OpenAreaMenu()
+        local choices = { false }
+        for _, area in ipairs(GAM.Log.GetSummary().areas) do choices[#choices + 1] = area end
+        for index, area in ipairs(choices) do
+            local row = areaRows[index]
+            if not row then
+                row = CreateFrame("Button", nil, areaMenu, "UIPanelButtonTemplate")
+                row:SetSize(146, 20)
+                row:SetPoint("TOPLEFT", areaMenu, "TOPLEFT", 2, -2 - ((index - 1) * 22))
+                styleButton(row)
+                areaRows[index] = row
+            end
+            row:SetText(area or T("DBG_ALL_AREAS", "All areas"))
+            row:SetScript("OnClick", function()
+                view.area = area or nil
+                areaMenu:Hide()
+                RenderLog()
+            end)
+            row:Show()
+        end
+        for index = #choices + 1, #areaRows do areaRows[index]:Hide() end
+        areaMenu:SetSize(150, 4 + (#choices * 22))
+        areaMenu:Show()
+    end
+    areaButton:SetScript("OnClick", function()
+        if areaMenu:IsShown() then areaMenu:Hide() else OpenAreaMenu() end
+    end)
+    page:HookScript("OnHide", function() areaMenu:Hide() end)
+
+    local okSearch, search = pcall(CreateFrame, "EditBox", nil, filterBar, "SearchBoxTemplate")
+    if not okSearch or not search then
+        search = CreateFrame("EditBox", nil, filterBar, "InputBoxTemplate")
+    end
+    search:SetSize(200, 22)
+    search:SetAutoFocus(false)
+    search:HookScript("OnTextChanged", function(self)
+        view.search = tostring(self:GetText() or ""):lower():match("^%s*(.-)%s*$")
+        QueueRender()
+    end)
+    search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    if search.Instructions then search.Instructions:SetText(T("DBG_SEARCH", "Search the log")) end
+
+    local function LayoutFilterBar()
+        local width = filterBar:GetWidth()
+        if not width or width < 100 then return end
+        local used = Layout.LayoutButtonsTop(filterBar, levelOrder, 0,
+            { left = 0, right = width, gap = 6, rowGap = 6, align = "left", height = 22 }).usedHeight
+        areaButton:ClearAllPoints()
+        areaButton:SetPoint("TOPLEFT", filterBar, "TOPLEFT", 0, -used - 8)
+        search:ClearAllPoints()
+        search:SetPoint("LEFT", areaButton, "RIGHT", 14, 0)
+        search:SetPoint("RIGHT", filterBar, "RIGHT", -4, 0)
+        filterBar:SetHeight(used + 8 + 22)
+        if ui.logBox then
+            ui.logBox:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -(used + 8 + 22 + 8))
+        end
+    end
+    filterBar:SetScript("OnSizeChanged", LayoutFilterBar)
+    page:HookScript("OnShow", LayoutFilterBar)
+
+    -- Footer: view controls and the entry count.
+    local footer = CreateFrame("Frame", nil, page)
+    footer:SetPoint("BOTTOMLEFT", page, "BOTTOMLEFT", 0, 0)
+    footer:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", 0, 0)
+    footer:SetHeight(26)
+    local function FooterButton(label, width)
+        local button = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
+        button:SetSize(width, 22)
+        button:SetText(label)
+        styleButton(button)
+        return button
+    end
+    local pauseBtn = FooterButton(T("BTN_PAUSE_LOG", "Pause"), 90)
+    pauseBtn:SetPoint("LEFT", footer, "LEFT", 0, 0)
+    local clearBtn = FooterButton(T("BTN_CLEAR_LOG", "Clear"), 90)
+    clearBtn:SetPoint("LEFT", pauseBtn, "RIGHT", 6, 0)
+    local copyBtn = FooterButton(T("BTN_COPY_LOG", "Copy All"), 100)
+    copyBtn:SetPoint("LEFT", clearBtn, "RIGHT", 6, 0)
+    ui.status = Layout.NewText(footer, "", "GameFontHighlightSmall")
+    ui.status:SetPoint("LEFT", copyBtn, "RIGHT", 12, 0)
+    ui.status:SetPoint("RIGHT", footer, "RIGHT", 0, 0)
+    ui.status:SetJustifyH("RIGHT")
+    ui.status:SetWordWrap(false)
+    ui.status:SetTextColor(0.65, 0.65, 0.7)
+
+    pauseBtn:SetScript("OnClick", function()
+        view.frozen = not view.frozen
+        view.snapshot = view.frozen and GAM.Log.GetEntries() or nil
+        view.pending = 0
+        pauseBtn:SetText(view.frozen and T("BTN_RESUME_LOG", "Resume") or T("BTN_PAUSE_LOG", "Pause"))
+        RenderLog()
+    end)
+    clearBtn:SetScript("OnClick", function()
+        view.pending = 0
+        GAM.Log.Clear()
+        if view.frozen then view.snapshot = GAM.Log.GetEntries() end
+        RenderLog()
+    end)
+    copyBtn:SetScript("OnClick", ShowFullLogExport)
+
+    -- Log text: an EditBox keeps it selectable; typing is discarded.
+    -- Anchored to the page only (not between sibling frames, which the client
+    -- did not resolve); the top offset follows the filter bar's height.
+    -- Named so it can be inspected in game with /run or /fstack.
+    local logBox = CreateFrame("Frame", GAM.RuntimeName("GAMDebugLogBox"), page, "BackdropTemplate")
+    logBox:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -(filterBar:GetHeight() + 8))
+    logBox:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", 0, 34)
+    logBox:SetFrameLevel(page:GetFrameLevel() + 1)
+    logBox:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    logBox:SetBackdropColor(0.03, 0.03, 0.035, 0.9)
+    logBox:SetBackdropBorderColor(0.4, 0.4, 0.43, 0.6)
+    ui.logBox = logBox
+    local scroll = CreateFrame("ScrollFrame", GAM.RuntimeName("GAMDebugLogScroll"), logBox, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", logBox, "TOPLEFT", 8, -6)
+    scroll:SetPoint("BOTTOMRIGHT", logBox, "BOTTOMRIGHT", -28, 6)
+    local editBox = CreateFrame("EditBox", GAM.RuntimeName("GAMDebugLogText"), scroll)
+    editBox:SetMultiLine(true)
+    editBox:SetFontObject(GameFontHighlightSmall)
+    editBox:SetAutoFocus(false)
+    editBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    editBox:SetScript("OnTextChanged", function(_, userInput)
+        if userInput then RenderLog() end
+    end)
+    scroll:SetScrollChild(editBox)
+    local sizer = scroll:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    sizer:SetJustifyH("LEFT")
+    sizer:SetJustifyV("TOP")
+    sizer:Hide()
+    ui.scroll, ui.editBox, ui.sizer = scroll, editBox, sizer
+    scroll:SetScript("OnSizeChanged", SizeLogText)
+end
+
+-- ===== Troubleshooting page =====
+local function BuildToolsPage(content, Layout, shell, styleButton)
+    local function ActionButton(label)
+        local button = Layout.MakeButton(content, label, 150)
+        styleButton(button)
+        return button
+    end
+    -- Reports write to the log, then show it so the result is in view.
+    local function Report(label, name, help, fn)
+        local button = ActionButton(label)
+        button:SetScript("OnClick", function()
+            GAM.Diagnostics.Run(fn)
+            shell.Select("log")
+            RenderLog()
+            ScrollLogToBottom()
+        end)
+        Layout.AddRow(content, name, button, help, 150)
+        return button
+    end
+    local writeLabel = T("DBG_WRITE_REPORT", "Write to log")
+
+    Layout.MakeSectionHeader(content, T("DBG_SECTION_CAPTURE", "Log detail"))
+    local captureBtn = ActionButton("")
+    local function RefreshCapture()
+        local label = CAPTURE_LABELS[GAM.Log.GetLevel()] or CAPTURE_LABELS[1]
+        captureBtn:SetText(T(label[1], label[2]))
+    end
+    -- Cycle button, matching Settings: no pop-out menus inside scroll frames.
+    captureBtn:SetScript("OnClick", function()
+        local nextLevel = (GAM.Log.GetLevel() + 1) % 4
+        GAM.Log.SetLevel(nextLevel)
+        local opts = (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options)
+        if opts then opts.debugVerbosity = nextLevel end
+        RefreshCapture()
+    end)
+    Layout.AddRow(content, T("DBG_CAPTURE_LEVEL", "Capture level"), captureBtn,
+        T("DBG_CAPTURE_HELP", "Warnings and errors are always recorded. Raise this to Debug or Verbose while you reproduce a problem, then set it back to Info."), 150)
+    ui.refreshCapture = RefreshCapture
+
+    Layout.MakeSectionHeader(content, T("DBG_SECTION_STRATEGY", "Selected strategy"))
+    Report(writeLabel, T("DBG_SCAN_DUMP", "Prices and formula"),
+        T("DBG_SCAN_DUMP_HELP", "Listings, stored prices and formula inputs for the strategy selected in the main window."),
+        GAM.Diagnostics.DumpSelectedStrategyScans)
+
+    Layout.MakeSectionHeader(content, T("DBG_SECTION_AH", "Auction House"))
+    Report(writeLabel, T("DBG_SCAN_RESULTS", "Last scan results"),
+        T("DBG_SCAN_RESULTS_HELP", "Outcome, attempts and timing for each item in this session's scans, with details for anything that failed."),
+        GAM.Diagnostics.DumpScanDiagnostics)
+
+    Layout.MakeSectionHeader(content, T("DBG_SECTION_STATS", "Crafting stats"))
+    Report(writeLabel, T("DBG_GEAR_SETS", "Gear sets"),
+        T("DBG_GEAR_SETS_HELP", "Saved Multicraft and Resourcefulness sets on this character, with their items and stats."),
+        GAM.Diagnostics.DumpGearSets)
+    Report(writeLabel, T("DBG_STAT_AUDIT", "Stat sources"),
+        T("DBG_STAT_AUDIT_HELP", "Which stat profiles use captured, manual or default values, and which still need a recipe capture."),
+        function() GAM.CraftingStats.DumpAudit() end)
+    Report(writeLabel, T("DBG_STAT_PROFILES", "Stat profiles"),
+        T("DBG_STAT_PROFILES_HELP", "Every stat profile with its Multicraft and Resourcefulness values."),
+        function() GAM.CraftingStats.DumpProfiles() end)
+
+    Layout.MakeSectionHeader(content, T("DBG_SECTION_RECIPES", "Recipe data"))
+    -- Audits write their summary and every problem row to the log; the full
+    -- table stays available from "Copy last audit".
+    Report(T("DBG_RUN_AUDIT", "Run audit"), T("DBG_AUDIT_OPEN", "Recipe audit: open profession"),
+        T("DBG_AUDIT_OPEN_HELP", "Compares every strategy of the open profession with the live recipe. Open the profession window first."),
+        function() GAM.RecipeAudit.Run("", { inLog = true }) end)
+    Report(T("DBG_RUN_AUDIT", "Run audit"), T("DBG_AUDIT_ALL", "Recipe audit: all professions"),
+        T("DBG_AUDIT_ALL_HELP", "Same check for every strategy; recipes this character has not learned are reported as such."),
+        function() GAM.RecipeAudit.Run("all", { inLog = true }) end)
+    local copyAudit = ActionButton(T("BTN_COPY_LOG", "Copy All"))
+    copyAudit:SetScript("OnClick", function()
+        local report = GAM.RecipeAudit.GetLastReport and GAM.RecipeAudit.GetLastReport()
+        if report then
+            ShowTextExportPopup(T("DBG_AUDIT_REPORT", "Recipe audit report"), report)
+        else
+            print("|cffff8800[GAM]|r " .. T("DBG_NO_AUDIT", "Run a recipe audit first."))
+        end
+    end)
+    Layout.AddRow(content, T("DBG_AUDIT_COPY", "Copy last audit"), copyAudit,
+        T("DBG_AUDIT_COPY_HELP", "Opens the full table from the last recipe audit as plain text."), 150)
+    Report(writeLabel, T("DBG_ITEM_IDS", "Item IDs"),
+        T("DBG_ITEM_IDS_HELP", "Checks every item ID against its name. ??? means the item is not loaded yet; visit the Auction House and try again."),
+        GAM.Diagnostics.DumpItemIDs)
+
+    Layout.MakeSectionHeader(content, T("DBG_SECTION_SUPPORT", "Support"))
+    Report(writeLabel, T("DBG_SUPPORT_SUMMARY", "Support summary"),
+        T("DBG_SUPPORT_SUMMARY_HELP", "Addon and client versions, installed integrations and error counts, for a bug report."),
+        GAM.Diagnostics.DumpSupportSummary)
+    local copyAll = ActionButton(T("BTN_COPY_LOG", "Copy All"))
+    copyAll:SetScript("OnClick", ShowFullLogExport)
+    Layout.AddRow(content, T("DBG_COPY_LOG", "Copy the log"), copyAll,
+        T("DBG_COPY_LOG_HELP", "Opens the full log as plain text to copy with Ctrl+C."), 150)
+    local exportBtn = ActionButton(T("DBG_EXPORT", "Export"))
+    exportBtn:SetScript("OnClick", function() DebugLog.ShowARPExport() end)
+    Layout.AddRow(content, T("BTN_ARP_EXPORT", "Spreadsheet Export"), exportBtn,
+        T("DBG_EXPORT_HELP", "Current prices for every strategy item in the spreadsheet import format."), 150)
+
+    Layout.MakeSectionHeader(content, T("DBG_SECTION_MAINTENANCE", "Maintenance"))
+    local clearCache = ActionButton(T("BTN_CLEAR_CACHE", "Clear Cache"))
+    clearCache:SetScript("OnClick", function()
+        if GAM.State and GAM.State.ClearPriceCache then GAM.State.ClearPriceCache() end
+        GAM.Log.Info("Price cache cleared.")
+        print("|cffff8800[GAM]|r " .. T("MSG_CACHE_CLEARED", "Price cache cleared."))
+    end)
+    Layout.AddRow(content, T("DBG_PRICE_CACHE", "Price cache"), clearCache,
+        T("DBG_PRICE_CACHE_HELP", "Clears saved prices. Scan again afterwards for fresh results."), 150)
+    local reload = ActionButton(T("BTN_RELOAD_DATA", "Reload Data"))
+    reload:SetScript("OnClick", function()
+        GAM.Importer.Init()
+        GAM.Log.Info("Data reloaded.")
+        print("|cffff8800[GAM]|r " .. T("MSG_DATA_RELOADED", "Strategy data reloaded."))
+    end)
+    Layout.AddRow(content, T("DBG_STRATEGY_DATA", "Strategy data"), reload,
+        T("DBG_STRATEGY_DATA_HELP", "Reloads the bundled strategy data without a /reload."), 150)
+end
+
 -- ===== Build frame =====
 Build = function()
-    frame = CreateFrame("Frame", GAM.RuntimeName("GoldAdvisorMidnightDebugLog"), UIParent,
-                        "BackdropTemplate")
+    local Layout = assert(GAM.UI.SettingsLayout, "DebugLog requires SettingsLayout")
+    local common = GAM.UI and GAM.UI.MainWindowCommon
+    local function styleButton(button)
+        if common and common.StyleComfortableButton then common.StyleComfortableButton(button, false) end
+    end
+
+    frame = CreateFrame("Frame", GAM.RuntimeName("GoldAdvisorMidnightDebugLog"), UIParent, "BackdropTemplate")
     frame:SetSize(WIN_W, WIN_H)
-    frame:SetPoint("CENTER", UIParent, "CENTER", 200, -100)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 120, -40)
     frame:SetScale(GetUIScale())
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop",  frame.StopMovingOrSizing)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     frame:SetClampedToScreen(true)
-    frame:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        tile = true, tileSize = 8, edgeSize = 2,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    frame:SetBackdrop((common and common.THIN_BACKDROP) or {
+        bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = true, tileSize = 8, edgeSize = 1, insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
     frame:SetBackdropColor(0.055, 0.055, 0.062, 1)
-    frame:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
+    frame:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.95)
     frame:Hide()
     WindowManager.Register(frame, "debug")
+    if UISpecialFrames then table.insert(UISpecialFrames, frame:GetName()) end
 
-    -- Title
-    local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -12)
-    title:SetText(GAM.L["LOG_TITLE"])
-    title:SetTextColor(0.96, 0.82, 0.36, 1)
-
-    -- Close button
+    local title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -14)
+    title:SetText(T("LOG_TITLE", "Debug Log"))
+    title:SetTextColor(Layout.GOLD[1], Layout.GOLD[2], Layout.GOLD[3])
     local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
     closeBtn:SetScript("OnClick", function() frame:Hide() end)
 
-    -- Scroll frame + edit box (makes content selectable/copyable)
-    scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -32)
-    scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 40)
+    local host = CreateFrame("Frame", nil, frame)
+    host:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -40)
+    host:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, 14)
+    local shell = Layout.CreateShell(host, {
+        { key = "log", label = T("DBG_PAGE_LOG", "Log"), plain = true,
+            description = T("DBG_PAGE_LOG_DESC", "Recent addon messages. Filter by severity, area or text.") },
+        { key = "tools", label = T("DBG_PAGE_TOOLS", "Troubleshooting"),
+            description = T("DBG_PAGE_TOOLS_DESC", "Run a check; its results are written to the log.") },
+    }, {
+        onSelect = function(key) if key == "log" then RenderLog() end end,
+    })
+    BuildLogPage(shell.pages.log.content, Layout, styleButton)
+    BuildToolsPage(shell.pages.tools.content, Layout, shell, styleButton)
+    Layout.LayoutPage(shell.pages.tools)
+    AddResizeGrip(frame, function() shell.Reflow() end)
+    if frame.SetResizeBounds then frame:SetResizeBounds(700, 460, 1400, 1000) end
 
-    editBox = CreateFrame("EditBox", nil, scrollFrame)
-    editBox:SetMultiLine(true)
-    editBox:SetFontObject(GameFontHighlightSmall)
-    editBox:SetWidth(scrollFrame:GetWidth() - 10)
-    editBox:SetAutoFocus(false)
-    editBox:EnableMouse(true)
-    editBox:SetScript("OnEscapePressed", function() frame:Hide() end)
-    scrollFrame:SetScrollChild(editBox)
-
-    -- ── Button bar ──
-    local function MakeBtn(lbl, minW)
-        local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-        b:SetSize(minW, 22)
-        b:SetText(lbl)
-        return b
-    end
-
-    local btnClear = MakeBtn(GAM.L["BTN_CLEAR_LOG"],  80)
-    local btnCopy  = MakeBtn(GAM.L["BTN_COPY_LOG"],   90)
-    local btnPause = MakeBtn(GAM.L["BTN_PAUSE_LOG"],  80)
-    local btnDump  = MakeBtn(GAM.L["BTN_DUMP_IDS"],  100)
-    local common = GAM.UI and GAM.UI.MainWindowCommon
-    if common and common.StyleComfortableButton then
-        for _, button in ipairs({ btnClear, btnCopy, btnPause, btnDump }) do
-            common.StyleComfortableButton(button, false)
-        end
-    end
-
-    local function RelayoutFooter()
-        btnClear:SetWidth(MeasureButtonWidth(frame, btnClear:GetText(), 80, 180, 24))
-        btnCopy:SetWidth(MeasureButtonWidth(frame, btnCopy:GetText(), 90, 200, 24))
-        btnPause:SetWidth(MeasureButtonWidth(frame, btnPause:GetText(), 80, 200, 24))
-        btnDump:SetWidth(MeasureButtonWidth(frame, btnDump:GetText(), 100, 220, 24))
-        local info = LayoutButtonRowBottom(frame, { btnClear, btnCopy, btnPause, btnDump }, {
-            left = 14, right = frame:GetWidth() - 14, bottom = 10, gap = 8, rowGap = 4, align = "left",
-        })
-        scrollFrame:ClearAllPoints()
-        scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -32)
-        scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, info.top + 8)
-    end
-    RelayoutFooter()
-    AddResizeGrip(frame, function()
-        RelayoutFooter()
-        editBox:SetWidth(math.max(1, scrollFrame:GetWidth() - 10))
+    GAM.Log.AddListener(function()
+        if not frame:IsShown() then return end
+        if view.frozen then view.pending = view.pending + 1 end
+        QueueRender()
     end)
 
-    btnClear:SetScript("OnClick", function()
-        GAM.Log.Clear()
-        editBox:SetText("")
-    end)
-
-    btnCopy:SetScript("OnClick", function()
-        editBox:SetFocus()
-        editBox:HighlightText()
-        -- Ctrl+C is user's responsibility; we just select all
-        local txt = GAM.Log.GetAllText()
-        editBox:SetText(txt)
-    end)
-
-    btnPause:SetScript("OnClick", function()
-        isPaused = not isPaused
-        GAM.Log.SetPaused(isPaused)
-        btnPause:SetText(isPaused and GAM.L["BTN_RESUME_LOG"] or GAM.L["BTN_PAUSE_LOG"])
-        RelayoutFooter()
-    end)
-
-    btnDump:SetScript("OnClick", DumpItemIDs)
-
-    -- ── Log listener: appends new lines when frame is visible ──
-    GAM.Log.AddListener(function(entry)
-        if not frame:IsShown() or isPaused then return end
-        local cur = editBox:GetText()
-        if cur == "" then
-            editBox:SetText(entry)
-        else
-            editBox:SetText(cur .. "\n" .. entry)
-        end
-        -- Scroll to bottom
-        local max = scrollFrame:GetVerticalScrollRange()
-        scrollFrame:SetVerticalScroll(max)
-    end)
-
-    -- On show: populate from ring buffer
     frame:SetScript("OnShow", function()
         WindowManager.Present(frame)
-        local txt = GAM.Log.GetAllText()
-        editBox:SetText(txt)
-        local max = scrollFrame:GetVerticalScrollRange()
-        scrollFrame:SetVerticalScroll(max)
+        if ui.refreshCapture then ui.refreshCapture() end
+        shell.Select(shell.selected)
+        -- Sizes settle after the first frame; lay the text out again then.
+        C_Timer.After(0, function() RenderLog(); ScrollLogToBottom() end)
     end)
-end
-
-local function GetQualityTag(itemID)
-    if not itemID or itemID == 0 then return nil end
-    local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
-    local q = api and api(itemID) or nil
-    if q and q > 0 then
-        return "Q" .. tostring(q)
-    end
-    return nil
-end
-
-local function FormatPriceSafe(copper)
-    if copper == nil then
-        return "n/a"
-    end
-    if GAM.Pricing and GAM.Pricing.FormatPrice then
-        return GAM.Pricing.FormatPrice(copper)
-    end
-    return tostring(copper)
-end
-
-local function FormatNumberSafe(value, decimals)
-    local number = tonumber(value)
-    if number == nil then return "-" end
-    return string.format("%." .. tostring(decimals or 3) .. "f", number)
-end
-
-local function FormatPercentSafe(value)
-    local number = tonumber(value)
-    if number == nil then return "-" end
-    return string.format("%.2f%%", number * 100)
-end
-
-local function GetCurrentDetailContext()
-    local mw = GAM.UI and GAM.UI.MainWindow
-    if not (mw and mw.GetCurrentDetailContext) then
-        return nil, nil, nil
-    end
-    return mw.GetCurrentDetailContext()
-end
-
-local function DumpSelectedStrategyScans()
-    local strat, patchTag, metrics = GetCurrentDetailContext()
-    if not strat then
-        GAM.Log.Warn("DumpSelectedStrategyScans: no selected strategy in the main window")
-        return
-    end
-
-    patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    metrics = metrics or (GAM.PricingFacade
-        and GAM.PricingFacade.CalculateCurrent
-        and GAM.PricingFacade.CalculateCurrent(strat, patchTag))
-    if not metrics then
-        GAM.Log.Warn("DumpSelectedStrategyScans: metrics unavailable for '%s'", tostring(strat.stratName or strat.id or "?"))
-        return
-    end
-
-    local opts = (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}
-    local fillQty = opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY
-    local rankPolicy = opts.rankPolicy or "lowest"
-    local output = (metrics.outputs and metrics.outputs[1]) or metrics.output or {}
-    local outputQtyRaw = tonumber(output.expectedQtyRaw) or 0
-    local outputQtyRounded = tonumber(output.expectedQty) or math.max(1, math.floor(outputQtyRaw + 0.5))
-    -- Output revenue uses the current lowest sell listing. Fill quantity still
-    -- applies to reagent acquisition and is logged separately below.
-    local pricingQty = 1
-
-    local outputAllIDs = {}
-    local seenOutputIDs = {}
-    local displayed = GAM.Pricing and GAM.Pricing.GetDisplayedItemSet
-        and GAM.Pricing.GetDisplayedItemSet(strat, patchTag, metrics)
-        or nil
-    for _, id in ipairs((displayed and displayed.output and displayed.output.itemIDs) or {}) do
-        if id and not seenOutputIDs[id] then
-            seenOutputIDs[id] = true
-            outputAllIDs[#outputAllIDs + 1] = id
-        end
-    end
-    if output.itemID and not seenOutputIDs[output.itemID] then
-        outputAllIDs[#outputAllIDs + 1] = output.itemID
-    end
-
-    local function DumpItem(section, name, itemID, qtyHint)
-        local qTag = GetQualityTag(itemID)
-        local itemLabel = name or ("item:" .. tostring(itemID or 0))
-        local storedPrice, storedMinimum, storedStale = nil, nil, false
-        if GAM.Pricing and GAM.Pricing.GetUnitPrice then
-            storedPrice, storedStale = GAM.Pricing.GetUnitPrice(itemID)
-            storedMinimum = GAM.Pricing.GetUnitPrice(itemID, true)
-        end
-        local raw = GAM.AHScan and GAM.AHScan.GetRawScanSnapshot and GAM.AHScan.GetRawScanSnapshot(itemID) or nil
-
-        GAM.Log.Info("[%s] %s [item:%s%s]",
-            section,
-            itemLabel,
-            tostring(itemID or 0),
-            qTag and (" " .. qTag) or "")
-        GAM.Log.Info("  qty=%s storedAvg=%s storedMin=%s%s",
-            tostring(qtyHint or "-"),
-            FormatPriceSafe(storedPrice),
-            FormatPriceSafe(storedMinimum),
-            storedStale and " (stale)" or "")
-
-        if raw and raw.prices and #raw.prices > 0 then
-            local avgHint = qtyHint and GAM.AHScan and GAM.AHScan.ComputePriceForQty
-                and GAM.AHScan.ComputePriceForQty(itemID, math.max(1, math.floor((qtyHint or 1) + 0.5)))
-                or nil
-            local avgFill = GAM.AHScan and GAM.AHScan.ComputePriceForQty
-                and GAM.AHScan.ComputePriceForQty(itemID, fillQty)
-                or nil
-            GAM.Log.Info("  source=%s rows=%d avg@qty=%s avg@fill(%d)=%s",
-                tostring(raw.source),
-                #raw.prices,
-                FormatPriceSafe(avgHint),
-                fillQty,
-                FormatPriceSafe(avgFill))
-
-            local maxRows = 12
-            for i, row in ipairs(raw.prices) do
-                if i > maxRows then
-                    GAM.Log.Info("  ... %d more row(s)", #raw.prices - maxRows)
-                    break
-                end
-                GAM.Log.Info("  row %02d: %s x %d",
-                    i,
-                    FormatPriceSafe(row.unitPrice),
-                    row.quantity or 0)
-            end
-        else
-            local vendorPrice, vendorSource
-            if GAM.VendorPrices and GAM.VendorPrices.GetPrice then
-                vendorPrice, vendorSource = GAM.VendorPrices.GetPrice(itemID)
-            else
-                vendorPrice = GAM.C and GAM.C.VENDOR_PRICES and GAM.C.VENDOR_PRICES[itemID] or nil
-                vendorSource = vendorPrice and "static" or nil
-            end
-            if vendorPrice then
-                GAM.Log.Info("  source=vendor-%s unit=%s", tostring(vendorSource or "static"), FormatPriceSafe(vendorPrice))
-            else
-                GAM.Log.Info("  source=no live scan rows cached")
-            end
-        end
-    end
-
-    GAM.Log.Info("=== GAM Scan Dump: %s ===", tostring(strat.stratName or strat.id or "?"))
-    GAM.Log.Info("patch=%s rankPolicy=%s crafts=%s expectedRaw=%.3f rounded=%d pricingQty=%d fillQty=%d",
-        tostring(patchTag),
-        tostring(rankPolicy),
-        tostring(metrics.crafts or "?"),
-        outputQtyRaw,
-        outputQtyRounded,
-        pricingQty,
-        fillQty)
-
-    local diagnostics = metrics.diagnostics or {}
-    local formula = diagnostics.formula or {}
-    GAM.Log.Info("economics: mode=%s revenue=%s requiredCost=%s consumedCost=%s saved=%s profit=%s roi=%s breakEven=%s",
-        tostring(metrics.pricingMode or formula.pricingMode or "-"),
-        FormatPriceSafe(metrics.netRevenue),
-        FormatPriceSafe(metrics.requiredCostFull),
-        FormatPriceSafe(metrics.expectedConsumedCostFull),
-        FormatPriceSafe(metrics.averageSavedCost),
-        FormatPriceSafe(metrics.profit),
-        FormatNumberSafe(metrics.roi, 2),
-        FormatPriceSafe(metrics.breakEvenSell))
-    GAM.Log.Info("formula: profile=%s stats=%s nodeHash=%s baseYield=%s mc=%s mcExtra=%s mcConst=%s res=%s resExtra=%s saveFraction=%s crafts=%s effectiveCrafts=%s actualYield=%s budgetYield=%s expectedOutput=%s",
-        tostring(formula.profileKey or strat.formulaProfile or "-"),
-        tostring(formula.statSource or "options"),
-        tostring(formula.nodeHash or "-"),
-        FormatNumberSafe(formula.baseYield, 6),
-        FormatPercentSafe(formula.mcPercent),
-        FormatPercentSafe(formula.mcExtra),
-        FormatNumberSafe(formula.mcConstant, 3),
-        FormatPercentSafe(formula.resPercent),
-        FormatPercentSafe(formula.resExtra),
-        FormatPercentSafe(formula.resourceSaveFraction),
-        FormatNumberSafe(formula.crafts, 3),
-        FormatNumberSafe(formula.effectiveCrafts, 3),
-        FormatNumberSafe(formula.expectedYieldPerActualCraft, 6),
-        FormatNumberSafe(formula.expectedYieldPerCraft, 6),
-        FormatNumberSafe(formula.expectedOutput, 3))
-
-    if diagnostics.statUsages and #diagnostics.statUsages > 1 then
-        GAM.Log.Info("stat graph:")
-        for _, usage in ipairs(diagnostics.statUsages) do
-            GAM.Log.Info("  %s profile=%s stats=%s nodeHash=%s strat=%s yieldPerCraft=%s",
-                tostring(usage.role or "-"),
-                tostring(usage.profileKey or "-"),
-                tostring(usage.statSource or "options"),
-                tostring(usage.nodeHash or "-"),
-                tostring(usage.stratName or usage.stratID or "-"),
-                FormatNumberSafe(usage.expectedYieldPerCraft, 6))
-        end
-    end
-
-    if #outputAllIDs == 0 and output.itemID then
-        outputAllIDs[1] = output.itemID
-    end
-    for _, itemID in ipairs(outputAllIDs) do
-        DumpItem(itemID == output.itemID and "output" or "output-alt", output.name, itemID, pricingQty)
-    end
-    for _, row in ipairs(metrics.shoppingReagents or metrics.reagents or {}) do
-        DumpItem("input", row.name, row.itemID, row.required)
-    end
-    local queueSnapshot = GAM.AHScan and GAM.AHScan.GetQueueSnapshot and GAM.AHScan.GetQueueSnapshot() or {}
-    if #queueSnapshot > 0 then
-        GAM.Log.Info("[queued scan items]")
-        for i, entry in ipairs(queueSnapshot) do
-            if i > 30 then
-                GAM.Log.Info("  ... %d more queued item(s)", #queueSnapshot - 30)
-                break
-            end
-            GAM.Log.Info("  %s item:%s name=%s reason=%s strategies=%s",
-                entry.isNameScan and "name" or "price",
-                tostring(entry.itemID or 0),
-                tostring(entry.name or "-"),
-                table.concat(entry.reasons or {}, ", "),
-                table.concat(entry.strategyKeys or {}, ", "))
-        end
-    end
-    GAM.Log.Info("=== End Scan Dump ===")
 end
 
 -- ===== Public API =====
 function DebugLog.ShowARPExport()
-    ShowARPExportPopup(GenerateARPExport())
+    ShowARPExportPopup(GAM.Diagnostics.GenerateARPExport())
 end
 
 function DebugLog.ShowTextExport(title, text)
@@ -766,13 +627,11 @@ function DebugLog.ShowTextExport(title, text)
 end
 
 function DebugLog.DumpItemIDs()
-    if not frame then Build() end
-    DumpItemIDs()
+    GAM.Diagnostics.Run(GAM.Diagnostics.DumpItemIDs)
 end
 
 function DebugLog.DumpSelectedStrategyScans()
-    if not frame then Build() end
-    DumpSelectedStrategyScans()
+    GAM.Diagnostics.Run(GAM.Diagnostics.DumpSelectedStrategyScans)
 end
 
 function DebugLog.Show()

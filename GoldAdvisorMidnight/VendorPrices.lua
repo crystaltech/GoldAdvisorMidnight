@@ -131,17 +131,50 @@ function VendorPrices.GetResolvedCatalog()
     return resolved
 end
 
+-- Always resolve the current merchant slot; cached prices cannot identify stock.
+local merchantOpen
+function VendorPrices.GetMerchantOffer(itemID)
+    -- Merchant addons may hide Blizzard's frame while the merchant is open.
+    local open = merchantOpen
+    if open == nil then open = MerchantFrame and MerchantFrame:IsShown() end
+    if not open or type(GetMerchantNumItems) ~= "function" then return nil end
+    for index = 1, (GetMerchantNumItems() or 0) do
+        if GetMerchantItemIDSafe(index) == tonumber(itemID) then
+            local price, bundle, extended = GetMerchantItemPrice(index)
+            local available, purchasable
+            if C_MerchantFrame and C_MerchantFrame.GetItemInfo then
+                local info = C_MerchantFrame.GetItemInfo(index)
+                available, purchasable = info and info.numAvailable, info and info.isPurchasable
+            elseif GetMerchantItemInfo then
+                local _, _, _, _, stock, canBuy = GetMerchantItemInfo(index)
+                available, purchasable = stock, canBuy
+            end
+            if price and price >= 0 and bundle and bundle > 0 and not extended
+                and purchasable ~= false and available ~= 0 then
+                return {
+                    index = index, unitPrice = price / bundle, bundle = bundle,
+                    available = tonumber(available) or -1,
+                    maxStack = GetMerchantItemMaxStack(index) or bundle,
+                }
+            end
+        end
+    end
+end
+
 -- Compare actual purchase sources, excluding manual and CraftSim valuations.
-function VendorPrices.ResolvePurchase(itemID, quantity, quotedTotal)
-    local vendor, basis = VendorPrices.GetPrice(itemID)
-    if not vendor then return "auction", nil end
+function VendorPrices.ResolvePurchase(itemID, quantity, quotedTotal, offer)
+    local vendor, basis, observation = VendorPrices.GetPrice(itemID)
+    if offer then vendor, basis, observation = offer.unitPrice, "live", {stackCount = offer.bundle} end
     quantity = math.max(1, math.ceil(tonumber(quantity) or 1))
+    local bundle = math.max(1, tonumber(observation and observation.stackCount) or 1)
+    local vendorTotal = vendor and math.ceil(quantity / bundle) * bundle * vendor
     local auction, stale
     if quotedTotal then
         auction = tonumber(quotedTotal) / quantity
     elseif GAM.AHScan and GAM.AHScan.GetRawScanSnapshot then
         local snapshot = GAM.AHScan.GetRawScanSnapshot(itemID)
         if snapshot then
+            stale = not snapshot.ts or (GetTimestamp() - snapshot.ts) > (GAM.C.PRICE_STALE_SECONDS or 600)
             -- Compare the full fill cost, without the pricing model's outlier trim.
             local remaining, total = quantity, 0
             for _, row in ipairs(snapshot.prices or {}) do
@@ -152,17 +185,24 @@ function VendorPrices.ResolvePurchase(itemID, quantity, quotedTotal)
                 end
                 if remaining <= 0 then break end
             end
-            if remaining > 0 then return "vendor", vendor, basis end
+            if remaining > 0 then return vendor and "vendor" or "auction", vendor, basis end
             auction = total / quantity
         end
     end
-    if not auction and not quotedTotal and GAM.Pricing and GAM.Pricing.GetUnitPrice then
+    if not auction and not quotedTotal and quantity == 1 and GAM.Pricing and GAM.Pricing.GetUnitPrice then
         auction, stale = GAM.Pricing.GetUnitPrice(itemID, quantity <= 1)
     end
-    if auction and auction > 0 and not stale and auction < vendor then
+    if auction and auction > 0 and not stale and (not vendorTotal or auction * quantity < vendorTotal) then
         return "auction", auction, basis
     end
-    return "vendor", vendor, basis
+    return vendor and "vendor" or "auction", vendor, basis
+end
+
+-- A live merchant offer may differ from the cached vendor price. Compare its
+-- complete bundle cost against the same fresh AH baseline used by shopping.
+function VendorPrices.ShouldBuyAtMerchant(itemID, quantity, offer)
+    if not offer then return false end
+    return VendorPrices.ResolvePurchase(itemID, quantity, nil, offer) == "vendor"
 end
 
 function VendorPrices.CaptureMerchant()
@@ -187,6 +227,7 @@ function VendorPrices.CaptureMerchant()
                 local previous = character.prices[itemID]
                 if not previous or tonumber(previous.price) ~= unitPrice then
                     changedCount = changedCount + 1
+                    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
                 end
                 character.prices[itemID] = {
                     price = unitPrice,
@@ -208,8 +249,10 @@ end
 
 if GAM.RegisterEvent then
     GAM:RegisterEvent("MERCHANT_SHOW", function()
+        merchantOpen = true
         VendorPrices.CaptureMerchant()
     end)
+    GAM:RegisterEvent("MERCHANT_CLOSED", function() merchantOpen = false end)
     GAM:RegisterEvent("MERCHANT_UPDATE", function()
         VendorPrices.CaptureMerchant()
     end)

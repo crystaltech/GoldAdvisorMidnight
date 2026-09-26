@@ -3,6 +3,11 @@
 -- Module: GAM.PricingVerticalIntegration
 
 local ADDON_NAME, GAM = ...
+local function L(key, fallback, ...)
+    local value = (GAM.L and GAM.L[key]) or fallback
+    if select("#", ...) > 0 then return string.format(value, ...) end
+    return value
+end
 local VerticalIntegration = {}
 GAM.PricingVerticalIntegration = VerticalIntegration
 
@@ -35,7 +40,7 @@ function VerticalIntegration.Install(Pricing, deps)
     local PrepareOptimizedRecipeView
     local BuildEconomicReagentMetrics, BuildReagentMetrics, BuildDisplayReagentMetrics
 
-local function GetOwnedItemCount(itemID)
+local function ReadOwnedItemCount(itemID)
     local modernAPI = C_Item and C_Item.GetItemCount
     if type(modernAPI) == "function" then
         local ok, count = pcall(modernAPI, itemID, true, false, true, true)
@@ -50,6 +55,12 @@ local function GetOwnedItemCount(itemID)
         end
     end
     return 0
+end
+
+-- Bags and banks do not change within one repricing pass.
+local function GetOwnedItemCount(itemID)
+    if GAM.ItemInfoCache then return GAM.ItemInfoCache.OwnedCount(itemID, ReadOwnedItemCount) end
+    return ReadOwnedItemCount(itemID)
 end
 
 local function CountOwnedReagentItems(itemID, entryIDs)
@@ -145,7 +156,7 @@ local function GetScaledStartingAmountForCrafts(active, crafts)
 end
 
 local function AddGraphLeafEntry(leafMap, leafOrder, entry)
-    local key = entry.itemID or entry.name or tostring(#leafOrder + 1)
+    local key = entry.key or entry.itemID or entry.name or tostring(#leafOrder + 1)
     local existing = leafMap[key]
     if existing then
         existing.qty = (existing.qty or 0) + (entry.qty or 0)
@@ -162,6 +173,7 @@ local function AddGraphLeafEntry(leafMap, leafOrder, entry)
         excludeFromCost = entry.excludeFromCost and true or false,
         skipDerivation = entry.skipDerivation and true or false,
         scanItemIDs = entry.scanItemIDs,
+        crafted = entry.crafted and true or false,
     }
     leafOrder[#leafOrder + 1] = key
 end
@@ -253,7 +265,8 @@ local function GetExpectedOutputPerCraft(strat, active, opts)
 end
 
 PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputItemID)
-    if not ctx or not strat or not active or GetInputRankPolicy(strat) ~= "optimal" then
+    local policy = strat and GetInputRankPolicy(strat)
+    if not ctx or not strat or not active or (policy ~= "optimal" and policy ~= "highest") then
         return active
     end
 
@@ -275,6 +288,7 @@ PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputIt
         targetQuality = targetQuality,
         crafts = crafts,
         recipeView = active,
+        highestOnly = policy == "highest",
         priceGetter = function(itemID, quantity)
             return Pricing.GetEffectivePriceForItem({
                 itemIDs = { itemID },
@@ -297,6 +311,10 @@ PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputIt
 end
 
 local function GetPlannerExpectedOutputPerCraft(ctx, producer)
+    local choice = ctx and ctx.v2EconomicChoices and ctx.v2EconomicChoices[tostring(producer.outputItemID)]
+    if choice and choice.producerFormula then
+        return choice.producerFormula.expectedYieldPerCraft, choice.producerFormula
+    end
     if ctx and ctx.v2ExecutionPlan and GetV2ExpectedOutputPerCraft then
         return GetV2ExpectedOutputPerCraft(producer.strat, producer.active, ctx)
     end
@@ -305,7 +323,9 @@ end
 
 -- Display yield per queued recipe execution, excluding extra attempts from
 -- Resourcefulness (the economic planner also exposes yield per material pool).
-local function GetExecutionOutputPerCraft(ctx, strat, active)
+local function GetExecutionOutputPerCraft(ctx, strat, active, outputItemID)
+    local choice = ctx and ctx.v2EconomicChoices and ctx.v2EconomicChoices[tostring(outputItemID)]
+    if choice and choice.producerFormula then return choice.producerFormula.expectedYieldPerActualCraft end
     local output, formula = GetV2ExpectedOutputPerCraft(strat, active, ctx)
     return formula and formula.expectedYieldPerActualCraft or output
 end
@@ -483,11 +503,15 @@ local function BuildGraphLeafPlan(ctx, mode)
 
         local requiredToProduce = requiredQty
         if mode == "execution" then
-            requiredToProduce = math.max(0, requiredQty - ConsumeOwnedFromLedger(
+            local ownedUsed = ConsumeOwnedFromLedger(
                 state.inventoryLedger,
                 resolvedEntry.itemID,
                 resolvedEntry.itemIDs,
-                requiredQty))
+                requiredQty)
+            -- Owned intermediates stay visible (need 0) instead of vanishing
+            -- when they cover the recipe; they are still part of its cost.
+            if ownedUsed > 0 then AddResolvedLeaf(resolvedEntry, ownedUsed) end
+            requiredToProduce = math.max(0, requiredQty - ownedUsed)
         end
         if requiredToProduce <= 0 then
             return
@@ -508,6 +532,18 @@ local function BuildGraphLeafPlan(ctx, mode)
             AddResolvedLeaf(resolvedEntry, unmetQty)
         end
         if craftsToProduce <= 0 then return end
+        if mode == "execution" then
+            -- Every recipe input stays visible: the crafted intermediate is shown
+            -- (need 0, not priced) ahead of the materials used to craft it.
+            AddGraphLeafEntry(leafMap, leafOrder, {
+                key = "crafted:" .. tostring(resolvedEntry.itemID or resolvedEntry.name),
+                crafted = true,
+                itemID = resolvedEntry.itemID,
+                itemIDs = resolvedEntry.itemIDs,
+                name = resolvedEntry.name,
+                qty = math.min(requiredToProduce, producibleQty),
+            })
+        end
 
         local optimizedActive = PrepareOptimizedRecipeView(
             ctx, producer.strat, producer.active, craftsToProduce, producer.outputItemID)
@@ -520,7 +556,7 @@ local function BuildGraphLeafPlan(ctx, mode)
             producerStratName = producer.strat.stratName,
             craftsToProduce = math.floor(craftsToProduce + 1e-9),
             craftsExecution = math.floor(craftsToProduce + 1e-9),
-            expectedOutputPerCraft = GetExecutionOutputPerCraft(ctx, producer.strat, producer.active),
+            expectedOutputPerCraft = GetExecutionOutputPerCraft(ctx, producer.strat, producer.active, producer.outputItemID),
             outputItemID = producer.outputItemID,
             variantKey = producer.key,
             reagents = {},
@@ -563,6 +599,116 @@ end
 -- same-profession craft chain.  The normal strategy scan already includes the
 -- direct reagent, but V2 cannot compare direct-versus-crafted cost unless the
 -- producer's underlying materials have prices as well.
+-- A persistent crafting snapshot uses base recipe quantities, never economic
+-- proc multipliers. Capture producers even when inventory currently covers them:
+-- another queued plan may reserve that inventory before this one is executed.
+function Pricing.BuildCraftPlanSnapshot(strat, patchTag, result)
+    local opts = GetOpts()
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    local economicChoices = result and (result.economicChoices
+        or (result.diagnostics and result.diagnostics.economicChoices)) or {}
+    local crafts = math.floor(tonumber(result and result.crafts) or 0)
+    if crafts < 1 then error(L("WF_STARTING_CRAFT_REQUIRED", "Set at least one starting craft before adding this strategy.")) end
+    local nodes, visiting = {}, {}
+    local usages = result and (result.statUsages or (result.diagnostics and result.diagnostics.statUsages)) or {}
+    local usageByStrategy = {}
+    for _, usage in ipairs(usages) do usageByStrategy[usage.stratID] = usage end
+    local function Build(source, active, outputID, depth, batchCrafts, selectedChoice)
+        if depth > 12 then error(L("WF_DEPENDENCY_DEPTH", "Craft plan dependency depth exceeded.")) end
+        local key = tostring(source.id) .. ":" .. tostring(outputID or "final")
+        if visiting[key] then error(L("WF_CIRCULAR_PLAN", "Craft plan has a circular dependency.")) end
+        if nodes[key] then return key end
+        if not tonumber(source.recipeID) then error(L("WF_MISSING_RECIPE_ID", "No recipe ID for %s", tostring(source.stratName))) end
+        visiting[key] = true
+        local ctx = BuildCalcContext(source, active, patchTag, 1, opts,
+            GetPatchDB(patchTag), opts.ahCut or GAM.C.AH_CUT)
+        ctx.v2ExecutionPlan, ctx.v2StatResolutions = true, {}
+        local savedMix = depth == 0 and result and (result.rankMixPlan
+            or (result.diagnostics and result.diagnostics.rankMixPlan)) or nil
+        if selectedChoice and selectedChoice.producerRecipeView then
+            active = selectedChoice.producerRecipeView
+        elseif savedMix then
+            local optimized, reason = GAM.ReagentMixOptimizer.ApplyPlan(active, savedMix)
+            if not optimized then error(L("WF_MIX_NOT_PRESERVED", "Cannot preserve calculated reagent mix: %s", tostring(reason))) end
+            active = optimized
+        else
+            active = PrepareOptimizedRecipeView(ctx, source, active, batchCrafts, outputID) or active
+        end
+        local node = { key = key, recipeID = source.recipeID, name = source.stratName,
+            profession = source.profession, reagents = {}, outputs = {},
+            outputItemID = outputID, baseYield = 0, gearMode = "current" }
+        local usage = depth == 0 and result and (result.formula or (result.diagnostics and result.diagnostics.formula))
+            or (selectedChoice and selectedChoice.producerFormula) or usageByStrategy[source.id]
+        if usage then
+            node.gearMode = usage.gearModeResolved or "current"
+            node.gearRequirement = usage.gearRequirement and GAM.CraftingStatsCache.CopySerializableTable(usage.gearRequirement)
+            node.gearStatValidity = usage.gearStatValidity
+            node.statProfileKey = usage.profileKey
+            node.plannedStats = { multiPercent = usage.mcPercent and usage.mcPercent * 100,
+                resPercent = usage.resPercent and usage.resPercent * 100,
+                multiExtra = usage.mcExtra, resExtra = usage.resExtra, nodeHash = usage.nodeHash,
+                crafterUID = usage.crafterUID }
+        end
+        if selectedChoice and tonumber(selectedChoice.craftCapacity) then
+            node.craftLimit = math.max(0, math.floor(selectedChoice.craftCapacity))
+        end
+        for _, output in ipairs(active.outputs or {}) do
+            local ids = GetResolvedItemIDs(output, patchTag)
+            for _, id in ipairs(ids or {}) do node.outputs[#node.outputs + 1] = id end
+        end
+        local output = active.outputs and active.outputs[1]
+        if #(active.outputs or {}) == 1 then
+            node.outputItemID = outputID or PickItemID(GetResolvedItemIDs(output, patchTag), patchTag, GetInputRankPolicy(source))
+            node.baseYield = math.floor(tonumber(output.baseYieldPerCraft) or 0)
+            if C_TradeSkillUI and C_TradeSkillUI.GetRecipeSchematic then
+                local ok, schematic = pcall(C_TradeSkillUI.GetRecipeSchematic, source.recipeID, false)
+                if ok and schematic and tonumber(schematic.quantityMin) then
+                    node.baseYield = math.min(node.baseYield, math.max(0, math.floor(schematic.quantityMin)))
+                end
+            end
+        end
+        node.targetQuality = node.outputItemID and GetOutputQualityForItem(node.outputItemID, source.recipeID) or nil
+        nodes[key] = node
+        local scaled = GetScaledStartingAmountForCrafts(active, 1)
+        for _, reagent in ipairs(active.reagents or {}) do
+            local quantity = GetRequiredReagentAmountRaw(reagent, scaled, 1)
+            if quantity and quantity > 0 then
+                local resolved = ResolveGraphNodeEntry(ctx, reagent, quantity * batchCrafts)
+                if not (resolved and resolved.itemID) then error(L("WF_UNRESOLVED_REAGENT", "Unresolved reagent for %s", node.name)) end
+                if math.abs(quantity - math.floor(quantity + 0.5)) > 1e-7 then
+                    error(L("WF_WHOLE_REAGENT_REQUIRED", "Recipe needs a verified whole-craft reagent quantity: %s", node.name))
+                end
+                local row = { itemID = resolved.itemID, quantity = math.floor(quantity + 0.5), name = resolved.name }
+                local economicChoice = economicChoices[tostring(row.itemID)] or economicChoices[row.itemID]
+                -- Persist the selected purchase as a terminal reagent. Otherwise
+                -- the saved queue replaces a cheaper AH input with its producer.
+                if ctx.chainActive and not resolved.skipDerivation and not resolved.excludeFromCost
+                        and Derivation.ShouldExpandDisplayIntermediate("execution", economicChoice) then
+                    local producer = FindProducerMatch(ctx, row.itemID, { activeProducerKeys = {} })
+                    local producerOutput = producer and producer.active.outputs and producer.active.outputs[1]
+                    -- Random multi-output recipes cannot promise a specific item.
+                    if producer and producerOutput and (tonumber(producerOutput.baseYieldPerCraft) or 0) >= 1 then
+                        local producerCrafts = economicChoice and tonumber(economicChoice.craftsPlanned)
+                            or math.ceil(quantity * batchCrafts / producerOutput.baseYieldPerCraft)
+                        row.producer = Build(producer.strat, producer.active, row.itemID, depth + 1,
+                            math.max(1, producerCrafts), economicChoice)
+                    end
+                end
+                node.reagents[#node.reagents + 1] = row
+            end
+        end
+        visiting[key] = nil
+        return key
+    end
+    local rootOutput = result and ((result.outputs and result.outputs[1]) or result.output)
+    local root = Build(strat, GetActiveRecipeView(strat), rootOutput and rootOutput.itemID, 0, crafts)
+    return { name = strat.stratName, strategyID = strat.id, patchTag = patchTag,
+        root = root, nodes = nodes, target = crafts, completed = 0,
+        breakEven = result.breakEvenSell, outputs = {}, history = {},
+        vi = (opts.pigmentCostSource == "mill" or opts.ingotCostSource == "craft" or opts.boltCostSource == "craft"),
+        rankPolicy = opts.rankPolicy }
+end
+
 function Pricing.GetVerticalIntegrationScanItems(strat, patchTag)
     if not strat then return {} end
 
@@ -614,51 +760,62 @@ local function BuildGraphLeafMetrics(ctx, mode)
         local required = QuantizeRequiredAmount(requiredRaw, quantityMode)
         local itemID = entry and entry.itemID or nil
         local itemIDs = (entry and entry.itemIDs) or (itemID and { itemID }) or {}
-        -- Producer expansion has already decided which nodes are crafted and
-        -- which are terminal purchases.  Price every terminal row directly;
-        -- applying legacy derivation here can label a row as an intermediate
-        -- AH purchase while attaching its raw-material craft cost.
-        local price, stale = GetDirectEffectivePriceForItem({
-            itemIDs = itemID and { itemID } or itemIDs,
-            name = entry and entry.name or nil,
-            rankPolicyOverride = inputPolicy,
-        }, ctx.patchTag, (mode == "economic") and requiredRaw or required)
-        local userHave = CountOwnedReagentItems(itemID, itemIDs)
-        local needToBuy = math.max(0, required - userHave)
-        local totalCost = (entry and entry.excludeFromCost) and 0
-            or ((needToBuy == 0) and 0 or (price and (needToBuy * price) or nil))
-        local totalCostFull = (entry and entry.excludeFromCost) and 0
-            or (price and (required * price) or nil)
-        local missingPrice = (entry and not entry.excludeFromCost) and (needToBuy > 0) and not price
-
-        if stale then
-            hasStale = true
-        end
-
-        if missingPrice then
-            missingPrices[#missingPrices + 1] = entry.name
+        if entry and entry.crafted then
+            -- Crafted intermediate: its cost is carried by the materials below it.
+            results[#results + 1] = {
+                name = entry.name, itemID = itemID, sourceItemIDs = itemIDs,
+                scanItemIDs = itemID and { itemID } or itemIDs,
+                required = required, requiredRaw = requiredRaw, have = 0, needToBuy = 0,
+                totalCost = 0, totalCostFull = 0, crafted = true,
+                sourceNote = (GAM.L and GAM.L["UI_CRAFTED"]) or "crafted",
+            }
         else
-            totalCostToBuy = totalCostToBuy + (totalCost or 0)
-            totalCostRequired = totalCostRequired + (totalCostFull or 0)
-        end
+            -- Producer expansion has already decided which nodes are crafted and
+            -- which are terminal purchases.  Price every terminal row directly;
+            -- applying legacy derivation here can label a row as an intermediate
+            -- AH purchase while attaching its raw-material craft cost.
+            local price, stale = GetDirectEffectivePriceForItem({
+                itemIDs = itemID and { itemID } or itemIDs,
+                name = entry and entry.name or nil,
+                rankPolicyOverride = inputPolicy,
+            }, ctx.patchTag, (mode == "economic") and requiredRaw or required)
+            local userHave = CountOwnedReagentItems(itemID, itemIDs)
+            local needToBuy = math.max(0, required - userHave)
+            local totalCost = (entry and entry.excludeFromCost) and 0
+                or ((needToBuy == 0) and 0 or (price and (needToBuy * price) or nil))
+            local totalCostFull = (entry and entry.excludeFromCost) and 0
+                or (price and (required * price) or nil)
+            local missingPrice = (entry and not entry.excludeFromCost) and (needToBuy > 0) and not price
 
-        results[#results + 1] = {
-            name = entry.name,
-            itemID = itemID,
-            sourceItemIDs = itemIDs,
-            scanItemIDs = entry.scanItemIDs or (itemID and { itemID } or itemIDs),
-            unitPrice = price,
-            required = required,
-            requiredRaw = requiredRaw,
-            have = userHave,
-            needToBuy = needToBuy,
-            totalCost = totalCost,
-            totalCostFull = totalCostFull,
-            isStale = stale,
-            missingPrice = missingPrice,
-            excludeFromCost = entry.excludeFromCost and true or false,
-            skipDerivation = entry.skipDerivation and true or false,
-        }
+            if stale then
+                hasStale = true
+            end
+
+            if missingPrice then
+                missingPrices[#missingPrices + 1] = entry.name
+            else
+                totalCostToBuy = totalCostToBuy + (totalCost or 0)
+                totalCostRequired = totalCostRequired + (totalCostFull or 0)
+            end
+
+            results[#results + 1] = {
+                name = entry.name,
+                itemID = itemID,
+                sourceItemIDs = itemIDs,
+                scanItemIDs = entry.scanItemIDs or (itemID and { itemID } or itemIDs),
+                unitPrice = price,
+                required = required,
+                requiredRaw = requiredRaw,
+                have = userHave,
+                needToBuy = needToBuy,
+                totalCost = totalCost,
+                totalCostFull = totalCostFull,
+                isStale = stale,
+                missingPrice = missingPrice,
+                excludeFromCost = entry.excludeFromCost and true or false,
+                skipDerivation = entry.skipDerivation and true or false,
+            }
+        end
     end
 
     return {
@@ -1046,7 +1203,7 @@ local function BuildVIBreakdownData(ctx, metrics)
             local optimizedActive = PrepareOptimizedRecipeView(
                 ctx, producer.strat, producer.active, craftsEconomic, producer.outputItemID)
             producer.active = optimizedActive or producer.active
-            local statUsage = statUsageByStratID[producer.strat.id]
+            local statUsage = (economicChoice and economicChoice.producerFormula) or statUsageByStratID[producer.strat.id]
             entry.producerStratID = producer.strat.id
             entry.recipeID = tonumber(producer.strat.recipeID)
             entry.producerStratName = producer.strat.stratName

@@ -48,6 +48,7 @@ end
 
 local function CallItemInfoAPI(api, itemID)
     if type(api) ~= "function" or not itemID then return nil end
+    if GAM.ItemInfoCache then return GAM.ItemInfoCache.ItemInfo(api, itemID) end
     local ok, value = pcall(api, { itemID = itemID })
     if ok and value ~= nil then return value end
     ok, value = pcall(api, itemID)
@@ -414,7 +415,7 @@ function Optimizer.BuildLivePlan(args)
             if baseSkill == nil or skillPerHigh == nil then
                 return nil, profileReason or "rank-family-skill-unavailable"
             end
-            for highCount = 0, slot.quantity do
+            for highCount = args.highestOnly and slot.quantity or 0, slot.quantity do
                 local lowCount = slot.quantity - highCount
                 local lowPrice, lowStale = 0, false
                 local highPrice, highStale = 0, false

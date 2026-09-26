@@ -152,7 +152,7 @@ function Contract.BuildRequest(args)
         inventoryPolicy = args.inventoryPolicy or "opportunity_cost",
         pricePolicy = args.pricePolicy or "runtime_market",
         useVerticalIntegration = args.useVerticalIntegration and true or false,
-        fillQuantity = args.fillQuantity or DefaultConstant("DEFAULT_FILL_QTY", 50),
+        fillQuantity = args.fillQuantity or DefaultConstant("MARKET_SAMPLE_UNITS", 50),
         auctionHouseCut = args.auctionHouseCut,
     }
     if request.auctionHouseCut == nil then
@@ -233,6 +233,7 @@ function Contract.FromV2Metrics(request, metrics)
         selectionNotes = metrics.selectionNotes,
         rankMixStatus = metrics.rankMixStatus,
         rankMixReason = metrics.rankMixReason,
+        rankMixMaterialPolicy = metrics.rankMixMaterialPolicy,
         rankMixTargetQuality = metrics.rankMixTargetQuality,
         rankMixOutputQuality = metrics.rankMixOutputQuality,
         rankMixHighSkill = metrics.rankMixHighSkill,
@@ -242,6 +243,7 @@ function Contract.FromV2Metrics(request, metrics)
         gearModeRequested = metrics.gearModeRequested,
         gearModeResolved = metrics.gearModeResolved,
         gearPresetMissing = metrics.gearPresetMissing and true or false,
+        gearStatValidity = metrics.formula and metrics.formula.gearStatValidity,
 
         diagnostics = {
             formula = metrics.formula,

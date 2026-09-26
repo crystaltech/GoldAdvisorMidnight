@@ -210,6 +210,7 @@ local sortAsc       = true
 local scanning      = false
 local scanBtnLeft, scanBtnStatus
 local rpDetail      = {}   -- inline right-panel detail widget refs
+local workspace
 local suppressScrollCallback = false
 local selectedCraftSimBtn, selectedVIBreakdownBtn, selectedShoppingBtn, selectedScanBtn
 local themeRefs = NewThemeRefs()
@@ -312,7 +313,6 @@ local function BuildListMetricSignature()
     local parts = {}
 
     AddMetricSignaturePart(parts, "patch", filterPatch)
-    AddMetricSignaturePart(parts, "fill", opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY)
     AddMetricSignaturePart(parts, "startingCrafts",
         opts.globalStartingCrafts or GAM.C.DEFAULT_STARTING_CRAFTS)
     AddMetricSignaturePart(parts, "rank", opts.rankPolicy or GAM.C.DEFAULT_RANK_POLICY)
@@ -323,6 +323,12 @@ local function BuildListMetricSignature()
     AddMetricSignaturePart(parts, "bolt", opts.boltCostSource or "ah")
     AddMetricSignaturePart(parts, "ingot", opts.ingotCostSource or "ah")
     AddMetricSignaturePart(parts, "statsRev", GetCraftingStatsRevision())
+    -- Prices and owned materials: metrics recalculate only when these change,
+    -- so filtering, sorting and profession switches reuse computed values.
+    AddMetricSignaturePart(parts, "prices", GAM.State and GAM.State.GetPriceRevision
+        and GAM.State.GetPriceRevision() or 0)
+    AddMetricSignaturePart(parts, "bags", GAM.ItemInfoCache and GAM.ItemInfoCache.GetInventoryGeneration
+        and GAM.ItemInfoCache.GetInventoryGeneration() or 0)
 
     for _, key in ipairs(GetMetricStatOptionKeys()) do
         AddMetricSignaturePart(parts, key, opts[key])
@@ -789,7 +795,7 @@ local function BuildFrameHeader(L, HDR_PX)
     local cBtnLbl = compactBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     cBtnLbl:SetAllPoints()
     cBtnLbl:SetJustifyH("CENTER")
-    cBtnLbl:SetText(comfortable and "Details" or ((L and L["BTN_COMPACT_DETAIL"]) or "DETAIL"))
+    cBtnLbl:SetText(comfortable and (GAM.L and GAM.L["UI_MINI"] or "Mini") or ((L and L["BTN_COMPACT_DETAIL"]) or "DETAIL"))
     cBtnLbl:SetTextColor(C_GR * 0.4, C_GG * 0.4, C_GB * 0.4)
     ApplyFontSize(cBtnLbl, 11)
     ApplyTextShadow(cBtnLbl)
@@ -797,11 +803,21 @@ local function BuildFrameHeader(L, HDR_PX)
     compactBtn:Disable()
     compactBtn:SetScript("OnClick", ToggleCompactMode)
     AttachButtonTooltip(compactBtn,
-        (L and L["TT_BTN_COMPACT_TITLE"]) or "Compact Mode",
-        (L and L["TT_BTN_COMPACT_BODY"])  or "Show only the strategy detail panel.")
+        comfortable and (GAM.L and GAM.L["UI_MINI_MODE_TITLE"] or "Mini mode") or ((L and L["TT_BTN_COMPACT_TITLE"]) or "Compact Mode"),
+        comfortable and (GAM.L and GAM.L["UI_MINI_MODE_BODY"] or "Browse strategies, details, crafting and shopping in one small window.")
+            or ((L and L["TT_BTN_COMPACT_BODY"]) or "Show only the strategy detail panel."))
     if comfortable and Common.StyleComfortableButton then
         Common.StyleComfortableButton(compactBtn, false)
     end
+    local paneButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    paneButton:SetSize(80, 24); paneButton:SetPoint("RIGHT", compactBtn, "LEFT", -6, 0)
+    paneButton:SetText((GAM.L and GAM.L["UI_HIDE_PANE"] or "Hide pane"))
+    paneButton:SetScript("OnClick", function()
+        if not workspace then return end
+        if workspace:IsOpen() then workspace:Close() else workspace:Select(workspace:GetTab()) end
+    end)
+    if Common.StyleComfortableButton then Common.StyleComfortableButton(paneButton, false) end
+    frame.workspaceToggle = paneButton
 end
 
 local function BuildStatusAndTicker(L, C, SB_H)
@@ -860,6 +876,13 @@ local function BuildStatusAndTicker(L, C, SB_H)
     scanBtnStatus:SetPoint("RIGHT", statusBarFrame, "RIGHT", -2, 0)
     scanBtnStatus:SetScript("OnClick", DoScan)
     scanBtnStatus:Hide()
+    if frame.footerMeta then
+        scanBtnStatus:ClearAllPoints()
+        scanBtnStatus:SetPoint("RIGHT", frame.footerMeta, "LEFT", -12, 0)
+    end
+    progBar:ClearAllPoints()
+    progBar:SetPoint("LEFT", statusBarFrame, "LEFT", 118, 0)
+    progBar:SetPoint("RIGHT", scanBtnStatus, "LEFT", -8, 0)
 
     local TICK_H  = tickerHeight
     local tickerClip = CreateFrame("Frame", nil, frame)
@@ -962,6 +985,7 @@ local function SafeBuildSection(label, fn)
 end
 
 local function StratMatchesFilter(strat)
+    if GetOpts().favoritesOnly and not IsFavorite(strat.id) then return false end
     return Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf, filterProfSingleSet, GetOpts().rankPolicy)
 end
 
@@ -989,11 +1013,6 @@ local function SetCraftsOverride(stratID, patchTag, value)
         pdb.craftsOverrides[stratID] = nil
     end
     InvalidateListMetric(stratID, patchTag)
-end
-
-local function ClampFillQtyValue(value)
-    return Common.ClampFillQtyValue(
-        value, GAM.C.MIN_FILL_QTY, GAM.C.MAX_FILL_QTY, GAM.C.DEFAULT_FILL_QTY)
 end
 
 local function ClampStatPercentValue(value, fallback)
@@ -1241,7 +1260,9 @@ end
 
 RebuildList = function()
     local all = GAM.Importer.GetAllStrats(filterPatch)
-    ClearListMetricCache()
+    -- No cache clear here: the metric signature already changes with prices,
+    -- bags, stats and options. Filter/sort/profession changes reuse metrics.
+    bestStratCardDirty = true
     if selectedStratID and not GAM.Importer.GetStratByID(selectedStratID) then
         selectedStratID = nil
     end
@@ -1254,6 +1275,10 @@ RebuildList = function()
         matches = StratMatchesFilter,
         isFavorite = IsFavorite,
         getMetric = GetListMetric,
+        getSaleRate = function(strat)
+            local result = GetListMetric(strat)
+            return GAM.TSMSaleRate and GAM.TSMSaleRate.ForOutputs(result and result.outputs)
+        end,
         sortKey = sortKey,
         sortAscending = sortAsc,
     })
@@ -1410,6 +1435,7 @@ end
 
 local function EnsureInlineDetailReady()
     local opts = GetOpts()
+    if workspace then opts.workspacePaneOpen = true end
     if IsComfortableLayout() and not compactActive then
         opts.rightPanelCollapsed = false
         RelayoutPanels()
@@ -1449,9 +1475,7 @@ local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
                 tostring(requestedRecipeID or strat.recipeID or "unknown"),
                 visibleRecipeID))
         else
-            print("|cffff8800[GAM]|r " .. string.format(
-                GetL()["MSG_VERIFY_RECIPE_FAILED"] or "Could not verify the selected recipe: %s",
-                tostring(asyncReason or "unknown")))
+            print("|cffff8800[GAM]|r " .. Common.DescribeRecipeFailure(asyncReason))
         end
     end)
     if not opened and reportFailure then
@@ -1472,9 +1496,7 @@ local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
                     tostring(strat.profession or "this profession")))
             end
         else
-            print("|cffff8800[GAM]|r "
-                .. ((L and L["MSG_REFRESH_RECIPE_FAILED"]) or "Could not open the selected recipe")
-                .. ": " .. tostring(reason or "unknown"))
+            print("|cffff8800[GAM]|r " .. Common.DescribeRecipeFailure(reason))
         end
     end
     return opened and true or false
@@ -1492,13 +1514,16 @@ SelectStrategyByID = function(stratID, fromHardwareEvent)
 
     local wasSelected = selectedStratID == stratID
     selectedStratID = stratID
+    if compactActive and workspace and workspace:GetTab() == "strategies" then
+        workspace:Select("details")
+    end
     if EnsureInlineDetailReady() then
         ShowInlineDetail(strat, filterPatch)
     elseif GAM.UI.StrategyDetail then
         GAM.UI.StrategyDetail.Show(strat, filterPatch)
     end
 
-    if fromHardwareEvent then
+    if fromHardwareEvent and (not workspace or workspace:GetTab() == "details") then
         local stats = GAM.CraftingStats
         local status = stats and stats.GetRecipeCacheStatus
             and stats.GetRecipeCacheStatus(strat)
@@ -1526,6 +1551,7 @@ local function ApplyColumnLayout(rowW)
     currentRowWidth = rowW or currentRowWidth
     local columns = Common.ApplyColumnLayout({
         rowW = currentRowWidth or 0,
+        mini = compactActive,
         localizer = GetL(),
         colHeaderBtns = colHeaderBtns,
         rowFrames = rowFrames,
@@ -1547,6 +1573,10 @@ local function ApplyColumnLayout(rowW)
                 "Estimated profit as a percentage of material value. Actual crafting results can vary.")
         end
     end
+    if colHeaderBtns[4] then
+        AttachButtonTooltip(colHeaderBtns[4], (GAM.L and GAM.L["UI_SALE_RATE_TITLE"] or "TSM region sale rate"),
+            (GAM.L and GAM.L["UI_SALE_RATE_TIP"] or "Regional sale rate for the crafted output. Mixed means multiple different outputs; hover the strategy for individual rates. A dash means TSM has no data. Click to sort."))
+    end
     return columns
 end
 
@@ -1566,6 +1596,11 @@ end
 
 -- ===== RefreshRows =====
 function MainWindow.RefreshRows()
+    local showSaleRate = GAM.TSMSaleRate and GAM.TSMSaleRate.IsAvailable() or false
+    if frame and frame._gamShowSaleRate ~= showSaleRate then
+        frame._gamShowSaleRate = showSaleRate
+        ApplyColumnLayout(currentRowWidth)
+    end
     scrollOffset = CenterUI.RefreshRows({
         frame = frame,
         rowFrames = rowFrames,
@@ -1581,6 +1616,15 @@ function MainWindow.RefreshRows()
         end,
         getLocalizer = GetL,
     })
+    if listHost then
+        if not listHost.emptyFavorites then
+            listHost.emptyFavorites = listHost:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            listHost.emptyFavorites:SetPoint("TOPLEFT", listHost, "TOPLEFT", 12, -16)
+            listHost.emptyFavorites:SetPoint("RIGHT", listHost, "RIGHT", -12, 0)
+            listHost.emptyFavorites:SetText((GAM.L and GAM.L["UI_NO_FAVORITES"] or "No favorite strats for the selected professions."))
+        end
+        listHost.emptyFavorites:SetShown(GetOpts().favoritesOnly and #filteredList == 0)
+    end
 end
 
 -- ===== BestStratCard =====
@@ -1598,6 +1642,7 @@ local function ResolveCompactDetailTarget()
         local strat = GAM.Importer and GAM.Importer.GetStratByID(selectedStratID)
         if strat then return strat end
     end
+    if workspace then return workspace end
     return nil
 end
 
@@ -1605,7 +1650,11 @@ end
 -- Always enabled in compact mode so the user can always return to full layout.
 RefreshCompactButtonEnabledState = function()
     if not compactBtn then return end
-    local detailLabel = IsComfortableLayout() and "Details" or ((GetL()["BTN_COMPACT_DETAIL"]) or "DETAIL")
+    if frame and frame.workspaceToggle and workspace then
+        frame.workspaceToggle:SetText(workspace:IsOpen() and (GAM.L and GAM.L["UI_HIDE_PANE"] or "Hide pane") or (GAM.L and GAM.L["UI_OPEN_PANE"] or "Open pane"))
+        frame.workspaceToggle:SetShown(not compactActive)
+    end
+    local detailLabel = IsComfortableLayout() and (GAM.L and GAM.L["UI_MINI"] or "Mini") or ((GetL()["BTN_COMPACT_DETAIL"]) or "DETAIL")
     local fullLabel = IsComfortableLayout() and "Full" or ((GetL()["BTN_COMPACT_FULL"]) or "FULL")
     if compactActive then
         compactBtn:Enable()
@@ -1656,10 +1705,16 @@ RelayoutPanels = function(presentationOnly)
     end
 
     if compact then
+        if workspace then opts.workspacePaneOpen = true end
+        if workspace and workspace:GetTab() == "details" and not selectedStratID then
+            opts.workspaceTab = "strategies"
+        end
         -- Compact mode: show only the right (detail) panel, hide left + center
         if leftPanelShell   then leftPanelShell:Hide() end
-        if centerPanelShell then centerPanelShell:Hide() end
-        if frame and frame.scrollBar then frame.scrollBar:Hide() end
+        if not workspace then
+            if centerPanelShell then centerPanelShell:Hide() end
+            if frame and frame.scrollBar then frame.scrollBar:Hide() end
+        end
         if rightPanelShell then
             rightPanelShell:Show()
             rightPanelShell:ClearAllPoints()
@@ -1688,10 +1743,24 @@ RelayoutPanels = function(presentationOnly)
                 dimension(type(size) == "table" and size.height, 620, 360, layout.maxHeight or 980))
         end
         compactActive = true
+        if workspace then
+            workspace:SetMiniMode(true)
+            if frame and frame.scrollBar then frame.scrollBar:Show() end
+            if centerPanel then
+                local rowW = math.max(0, centerPanel:GetWidth() - 28)
+                for _, row in ipairs(rowFrames) do row:SetWidth(rowW) end
+                ApplyColumnLayout(rowW)
+                MainWindow.RefreshRows()
+            end
+        end
         UpdateCollapseTogglePositions(true)
         RefreshCompactButtonEnabledState()
         if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
-            ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+            if presentationOnly and rpDetail.reflow then
+                rpDetail.reflow()
+            else
+                ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+            end
         end
         return
     end
@@ -1699,6 +1768,7 @@ RelayoutPanels = function(presentationOnly)
     -- Normal mode
     local wasCompact = compactActive
     compactActive = false
+    if workspace then workspace:SetMiniMode(false) end
 
     if wasCompact then
         -- Returning from compact: restore frame size, scrollbar, rightPanel anchors, centerPanel
@@ -1722,7 +1792,7 @@ RelayoutPanels = function(presentationOnly)
             toolbarHeight = leftPanel.getPreferredHeight()
         end
         local contentWidth = math.max(1, dividerContainer:GetWidth())
-        local detailVisible = ResolveCompactDetailTarget() ~= nil
+        local detailVisible = workspace and workspace:IsOpen() or (not workspace and ResolveCompactDetailTarget() ~= nil)
         local detailWidth = detailVisible and math.floor((contentWidth - gap) * (layout.rightRatio or 0.47)) or 0
         local listWidth = contentWidth - detailWidth - (detailVisible and gap or 0)
 
@@ -1884,6 +1954,7 @@ local function HideInlineDetail()
 end
 
 local function CloseSelectedDetail()
+    if workspace then workspace:Close(); return end
     HideInlineDetail()
     selectedStratID = nil
     rpDetail.currentStrat = nil
@@ -1955,7 +2026,7 @@ ShowInlineDetail = function(strat, patchTag)
     if GAM.UI and GAM.UI.CooldownTrackerWindow then
         GAM.UI.CooldownTrackerWindow.Refresh(strat)
     end
-    if DetailUI and DetailUI.ShowBreakdownWindow and ShouldShowVIBreakdown() then
+    if not workspace and DetailUI and DetailUI.ShowBreakdownWindow and ShouldShowVIBreakdown() then
         DetailUI.ShowBreakdownWindow(strat, patchTag, canonicalResult)
     elseif DetailUI and DetailUI.HideBreakdownWindow then
         DetailUI.HideBreakdownWindow()
@@ -1988,6 +2059,7 @@ local function BuildInlineDetail(panel)
             rule = { C_DR, C_DG, C_DB, C_DA },
         },
         layoutMode = layout.key,
+        workspaceTabs = workspace ~= nil,
         bodyTextColor = (GetThemeDef().bodyText or GetThemeDef().cardBodyText),
         mutedTextColor = (GetThemeDef().mutedText or GetThemeDef().bodyText or GetThemeDef().cardBodyText),
         onCommitCrafts = function(text)
@@ -2015,20 +2087,11 @@ local function BuildInlineDetail(panel)
             OpenAndRefreshSelectedRecipe(rpDetail.currentStrat, true)
         end,
         onPushCraftSim = function()
-            if not rpDetail.currentStrat then return end
-            local pushed, err = GAM.CraftSimBridge.PushStratPrices(
-                rpDetail.currentStrat,
-                rpDetail.currentPatch,
-                rpDetail.canonicalResult)
-            if err then
-                print("|cffff8800[GAM]|r " .. string.format(
-                    GetL()["MSG_CRAFTSIM_ERROR"] or "CraftSim: %s", tostring(err)))
-            else
-                print(string.format("|cffff8800[GAM]|r Pushed %d price(s) to CraftSim.", pushed or 0))
-            end
+            Common.PushPricesToCraftSim(rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.canonicalResult)
         end,
         onToggleShopping = function()
-            ToggleShoppingSync(rpDetail.currentStrat, rpDetail.currentPatch)
+            if workspace then MainWindow.OpenWorkspace("shopping")
+            else ToggleShoppingSync(rpDetail.currentStrat, rpDetail.currentPatch) end
         end,
         onQuickBuy = function()
             if GAM.QuickBuy and GAM.QuickBuy.Show then
@@ -2081,7 +2144,6 @@ local function BuildLeftPanelContent(L, C, LP)
         attachButtonTooltip = AttachButtonTooltip,
         getOpts = GetOpts,
         setOption = SetOption,
-        clampFillQtyValue = ClampFillQtyValue,
         clampStatPercentValue = ClampStatPercentValue,
         formatStatPercentValue = FormatStatPercentValue,
         buildPlayerProfessionSet = BuildPlayerProfessionSet,
@@ -2123,17 +2185,7 @@ local function BuildLeftPanelContent(L, C, LP)
             ToggleShoppingSync(rpDetail.currentStrat, rpDetail.currentPatch)
         end,
         pushSelectedToCraftSim = function()
-            if not rpDetail.currentStrat then return end
-            local pushed, err = GAM.CraftSimBridge.PushStratPrices(
-                rpDetail.currentStrat,
-                rpDetail.currentPatch,
-                rpDetail.canonicalResult)
-            if err then
-                print("|cffff8800[GAM]|r " .. string.format(
-                    GetL()["MSG_CRAFTSIM_ERROR"] or "CraftSim: %s", tostring(err)))
-            else
-                print(string.format("|cffff8800[GAM]|r Pushed %d price(s) to CraftSim.", pushed or 0))
-            end
+            Common.PushPricesToCraftSim(rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.canonicalResult)
         end,
         showARPExport = function()
             if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.ShowARPExport then
@@ -2176,16 +2228,25 @@ local function BuildLeftPanelContent(L, C, LP)
             else
                 err = "stat-cache-unavailable"
             end
+            local L = GetL()
             if snapshot then
-                print(string.format(
-                    "|cff55ff55[GAM]|r Saved %s setup for %s.",
-                    mode == "multicraft" and "Multicraft" or "Resourcefulness",
-                    tostring(snapshot.recipeName or "the open recipe")))
+                local modeName = mode == "multicraft" and (L["GEAR_MODE_MC"] or "Multicraft")
+                    or (L["GEAR_MODE_RES"] or "Resourcefulness")
+                local template = (tonumber(snapshot.revision) or 1) > 1
+                    and (L["MSG_GEAR_UPDATED"] or "Updated your %s set for %s.")
+                    or (L["MSG_GEAR_SAVED"] or "Saved your %s set for %s.")
+                print("|cff55ff55[GAM]|r " .. string.format(template, modeName,
+                    tostring(snapshot.profession or L["GEAR_THIS_PROFESSION"] or "this profession")))
             else
-                print("|cffff8800[GAM]|r " .. string.format(
-                    GetL()["MSG_GEAR_CAPTURE_FIRST"]
-                        or "Equip that gear set and open the exact selected profession recipe first (%s).",
-                    tostring(err)))
+                -- Players see a sentence; the raw code stays available in the debug log.
+                local messages = {
+                    ["no-open-native-recipe"] = L["ERR_GEAR_NO_RECIPE"],
+                    ["profession-equipment-unavailable"] = L["ERR_GEAR_EQUIPMENT"],
+                    ["recipe-stats-unavailable"] = L["ERR_GEAR_STATS"],
+                }
+                GAM.Log.Warn("Gear: save %s set failed: %s", tostring(mode), tostring(err))
+                print("|cffff8800[GAM]|r " .. (messages[err] or string.format(
+                    L["ERR_GEAR_GENERIC"] or "Could not save the gear set (%s).", tostring(err))))
             end
         end,
         getFilterPatch = function()
@@ -2254,6 +2315,7 @@ local function InitializeMainFrame(L, C, layout)
         CaptureFullWindowGeometry()
     end)
     frame:SetScript("OnHide", function()
+        if GAM.CraftPlan then GAM.CraftPlan.Stop() end
         CaptureFullWindowGeometry()
         DisableShoppingSync(true)
     end)
@@ -2288,7 +2350,7 @@ local function InitializeMainFrame(L, C, layout)
             frame:StopMovingOrSizing()
             if compactActive then
                 GetOpts().mainDetailSize = { width = frame:GetWidth(), height = frame:GetHeight() }
-                if rpDetail.reflow then rpDetail.reflow() end
+                RelayoutPanels(true)
             else
                 CaptureFullWindowGeometry()
                 RelayoutPanels(true)
@@ -2296,11 +2358,7 @@ local function InitializeMainFrame(L, C, layout)
         end)
         frame:SetScript("OnSizeChanged", function()
             if not frame:IsShown() or suppressFrameRelayout then return end
-            if compactActive then
-                if rpDetail.reflow then rpDetail.reflow() end
-            else
-                RelayoutPanels(true)
-            end
+            RelayoutPanels(true)
         end)
     end
 
@@ -2361,8 +2419,21 @@ local function BuildPanelSurfaces(L, layout)
         rightPanelShell:SetPoint("BOTTOMRIGHT", dividerContainer, "BOTTOMRIGHT", 0, 0)
     end
 
-    local rpPlaceholder = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    rpPlaceholder:SetPoint("CENTER", rightPanel, "CENTER", 0, 10)
+    if GAM.UI.MainWindowWorkspace then
+        workspace = GAM.UI.MainWindowWorkspace.Create(rightPanel, {
+            getOptions = GetOpts,
+            applyFontSize = ApplyFontSize,
+            onChange = function()
+                RelayoutPanels()
+                if workspace:GetTab() == "details" and rpDetail.currentStrat then
+                    ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
+                end
+            end,
+        })
+    end
+    local detailParent = workspace and workspace.detailHost or rightPanel
+    local rpPlaceholder = detailParent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    rpPlaceholder:SetPoint("CENTER", detailParent, "CENTER", 0, 10)
     rpPlaceholder:SetWidth((layout.rightWidth or 420) - 40)
     rpPlaceholder:SetJustifyH("CENTER")
     rpPlaceholder:SetTextColor(0.5, 0.5, 0.5, 1)
@@ -2372,7 +2443,8 @@ local function BuildPanelSurfaces(L, layout)
     rightPanel.placeholder = rpPlaceholder
 
     SafeBuildSection("Inline detail panel", function()
-        BuildInlineDetail(rightPanel)
+        BuildInlineDetail(detailParent)
+        if workspace and rpDetail.closeButton then rpDetail.closeButton:Hide() end
     end)
 
     if layout.key == "soft" then
@@ -2549,6 +2621,7 @@ local function BuildCenterContent(L, C, layout)
     rowFrames = centerRefs.rowFrames
     onboardingOverlay = centerRefs.onboardingOverlay
     frame.scrollBar = centerRefs.scrollBar
+    if workspace then workspace:AttachList(centerPanelShell, frame.scrollBar, dividerContainer, centerRefs.listSectionTitle, leftPanel) end
     scrollBarTopOffset = layout.scrollBarTop
     columnHeaderTopOffset = layout.listHeaderTop
     builtThemeKey = GetThemeKey()
@@ -2626,6 +2699,7 @@ function MainWindow.OnScanComplete()
     if frame and frame:IsShown() then
         sortKey = "roi"
         sortAsc = true
+        ClearListMetricCache()
         RebuildList()
         MainWindow.RefreshRows()
         RefreshBestStratCard()
@@ -2657,12 +2731,15 @@ end
 
 function MainWindow.Refresh()
     if not frame then return end
+    -- Explicit refresh (settings applied, data reloaded): reprice everything.
+    ClearListMetricCache()
     RebuildList()
     MainWindow.RefreshRows()
     RefreshBestStratCard()
     if leftPanel and leftPanel.refreshRankDropdown then
         leftPanel.refreshRankDropdown()
     end
+    if workspace then workspace:Refresh() end
     -- Re-populate inline detail if one was showing (e.g. after strat edit/delete)
     if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
         local refreshed = rpDetail.currentStrat.id and GAM.Importer.GetStratByID(rpDetail.currentStrat.id)
@@ -2711,6 +2788,11 @@ end
 
 function MainWindow.GetCurrentDetailContext()
     return rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.canonicalResult
+end
+
+function MainWindow.OpenWorkspace(tab)
+    MainWindow.Show()
+    if workspace then return workspace:Select(tab or workspace:GetTab()) end
 end
 
 if GAM.CraftingStats and GAM.CraftingStats.AddProfessionNodeCaptureListener then

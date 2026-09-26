@@ -132,215 +132,12 @@ end
 
 -- Gold accent color used throughout
 local GOLD_R, GOLD_G, GOLD_B         = 1.0, 0.82, 0.0
-local GOLD_DIM_R, GOLD_DIM_G, GOLD_DIM_B = 0.7, 0.57, 0.0
-local THALASSIAN_LUMBER_ITEM_ID = 256963
 
--- Unique name counter so _G[name.."Low"] / _G[name.."Text"] always resolve.
-local _widgetCount = 0
-local function NextWidgetName(prefix)
-    _widgetCount = _widgetCount + 1
-    return GAM.RuntimeName("GAMSettings_" .. prefix .. _widgetCount)
-end
-
--- Layout is measured from the current canvas width. The same row and section
--- helpers serve native Settings and the standalone fallback; no saved keys move.
--- Reference principles: Common Region / Proximity / Fitts / Hick (lawsofux.com),
--- YAGNI / Hyrum (lawsofsoftwareengineering.com).
-local function NewText(parent, text, style)
-    local fs = parent:CreateFontString(nil, "OVERLAY", style or "GameFontHighlight")
-    fs:SetJustifyH("LEFT")
-    fs:SetWordWrap(true)
-    fs:SetText(text or "")
-    return fs
-end
-
-local function AddLayoutItem(parent, item)
-    parent._gamLayout = parent._gamLayout or {}
-    parent._gamLayout[#parent._gamLayout + 1] = item
-    return item
-end
-
-local function MakeSectionHeader(parent, text)
-    local title = NewText(parent, text, "GameFontNormal")
-    title:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
-    local card = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    card:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1,
-    })
-    card:SetBackdropColor(0.08, 0.08, 0.095, 0.72)
-    card:SetBackdropBorderColor(0.4, 0.4, 0.43, 0.45)
-    card:SetFrameLevel(parent:GetFrameLevel())
-    card:EnableMouse(false)
-    AddLayoutItem(parent, { kind = "section", title = title, card = card })
-end
-
-local function AddText(parent, fs)
-    if type(fs) == "string" then fs = NewText(parent, fs, "GameFontHighlightSmall") end
-    fs:SetTextColor(0.72, 0.72, 0.76)
-    return AddLayoutItem(parent, { kind = "text", text = fs })
-end
-
-local function AddRow(parent, label, control, help, controlWidth, minHeight)
-    local row = CreateFrame("Button", nil, parent)
-    row:SetFrameLevel(parent:GetFrameLevel() + 2)
-    if type(label) == "string" then label = NewText(row, label) end
-    label:SetParent(row)
-    label:SetTextColor(0.92, 0.92, 0.94)
-    control:SetParent(row)
-    if type(help) == "string" then help = NewText(row, help, "GameFontHighlightSmall") end
-    if help then
-        help:SetParent(row)
-        help:SetTextColor(0.65, 0.65, 0.70)
-    end
-    local line = row:CreateTexture(nil, "BACKGROUND")
-    line:SetPoint("BOTTOMLEFT", 16, 0)
-    line:SetPoint("BOTTOMRIGHT", -16, 0)
-    line:SetHeight(1)
-    line:SetColorTexture(1, 1, 1, 0.055)
-    row:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
-    row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.035)
-    -- A checkbox can be toggled from its entire labeled row.
-    if control:IsObjectType("CheckButton") then
-        row:SetScript("OnClick", function() control:Click() end)
-    end
-    row:SetScript("OnEnter", function()
-        local enter = control:GetScript("OnEnter")
-        if enter then enter(control) end
-    end)
-    row:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    return AddLayoutItem(parent, {
-        kind = "row", frame = row, label = label, control = control, help = help,
-        controlWidth = controlWidth or control:GetWidth(), minHeight = minHeight or 48,
-    })
-end
-
-local function AddCustom(parent, frame, layout)
-    return AddLayoutItem(parent, { kind = "custom", frame = frame, layout = layout })
-end
-
-local function LayoutPage(page)
-    if page.layingOut then return end
-    local width = page.scroll:GetWidth()
-    if not width or width < 120 then return end -- not yet attached to its host
-    page.layingOut = true
-    local content = page.content
-    content:SetWidth(width)
-    local y, openCard, cardTop = 8, nil, 0
-    local function CloseCard()
-        if openCard then openCard:SetHeight(math.max(16, y - cardTop + 8)) end
-    end
-    for _, item in ipairs(content._gamLayout or {}) do
-        if item.kind == "section" then
-            CloseCard()
-            if openCard then y = y + 28 end
-            item.title:ClearAllPoints()
-            item.title:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -y)
-            item.title:SetWidth(width - 16)
-            y = y + item.title:GetStringHeight() + 12
-            item.card:ClearAllPoints()
-            item.card:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-            item.card:SetWidth(width)
-            openCard, cardTop = item.card, y
-            y = y + 4
-        elseif item.kind == "row" then
-            local row, control = item.frame, item.control
-            local cw = math.min(item.controlWidth, math.max(80, width * 0.45))
-            local lw = math.max(40, width - cw - 52)
-            row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-            row:SetWidth(width)
-            item.label:ClearAllPoints()
-            item.label:SetPoint("TOPLEFT", row, "TOPLEFT", 16, -12)
-            item.label:SetWidth(lw)
-            item.label:SetWordWrap(true)
-            local textHeight = item.label:GetStringHeight()
-            if item.help then
-                item.help:ClearAllPoints()
-                item.help:SetPoint("TOPLEFT", item.label, "BOTTOMLEFT", 0, -5)
-                item.help:SetWidth(lw)
-                item.help:SetWordWrap(true)
-                textHeight = textHeight + 5 + item.help:GetStringHeight()
-            end
-            local height = math.max(item.minHeight, textHeight + 24)
-            row:SetHeight(height)
-            control:ClearAllPoints()
-            control:SetPoint("RIGHT", row, "RIGHT", -16, 0)
-            control:SetWidth(cw)
-            y = y + height
-        elseif item.kind == "text" then
-            item.text:ClearAllPoints()
-            item.text:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -y - 10)
-            item.text:SetWidth(width - 32)
-            item.text:SetWordWrap(true)
-            y = y + item.text:GetStringHeight() + 20
-        elseif item.kind == "custom" then
-            item.frame:ClearAllPoints()
-            item.frame:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -y - 8)
-            item.frame:SetWidth(width - 32)
-            local height = item.layout(width - 32)
-            item.frame:SetHeight(math.max(1, height))
-            y = y + height + 16
-        end
-    end
-    CloseCard()
-    content:SetHeight(math.max(1, y + 20, page.scroll:GetHeight()))
-    page.scroll:UpdateScrollChildRect()
-    local range = math.max(0, page.scroll:GetVerticalScrollRange())
-    page.scroll:SetVerticalScroll(math.min(page.scroll:GetVerticalScroll(), range))
-    if page.scroll.ScrollBar then page.scroll.ScrollBar:SetShown(range > 1) end
-    page.layingOut = false
-end
-
-local function MakeSlider(parent, label, tip, minV, maxV, step)
-    local group = CreateFrame("Frame", nil, parent)
-    group:SetSize(170, 48)
-    local name = NextWidgetName("Slider")
-    local sl = CreateFrame("Slider", name, group, "OptionsSliderTemplate")
-    sl:SetPoint("LEFT", group, "LEFT", 0, 0)
-    sl:SetPoint("RIGHT", group, "RIGHT", 0, 0)
-    sl:SetMinMaxValues(minV, maxV)
-    sl:SetValueStep(step)
-    sl:SetObeyStepOnDrag(true)
-    local low, high, title = _G[name .. "Low"], _G[name .. "High"], _G[name .. "Text"]
-    if low then low:SetText(tostring(minV)) end
-    if high then high:SetText(tostring(maxV)) end
-    if title then title:SetText("") end
-    local val = NewText(group, "", "GameFontHighlightSmall")
-    val:SetPoint("BOTTOM", sl, "TOP", 0, 3)
-    sl:SetScript("OnValueChanged", function(_, v)
-        val:SetText(step >= 1 and string.format("%.0f", v) or string.format("%.2f", v))
-    end)
-    if tip then
-        local function ShowTip()
-            GameTooltip:SetOwner(sl, "ANCHOR_RIGHT")
-            GameTooltip:SetText(tip, 1, 1, 1, 1, true)
-            GameTooltip:Show()
-        end
-        sl:SetScript("OnEnter", ShowTip)
-        sl:SetScript("OnLeave", function() GameTooltip:Hide() end)
-        group:SetScript("OnEnter", ShowTip)
-    end
-    AddRow(parent, label, group, nil, 170, 68)
-    return sl, val
-end
-
-local function MakeCheckbox(parent, label)
-    local name = NextWidgetName("CB")
-    local cb = CreateFrame("CheckButton", name, parent, "UICheckButtonTemplate")
-    cb:SetSize(26, 26)
-    if _G[name .. "Text"] then _G[name .. "Text"]:SetText("") end
-    AddRow(parent, label, cb)
-    return cb
-end
-
-local function MakeButton(parent, label, w, x, y)
-    local btn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    btn:SetSize(w, 28)
-    if x and y then btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y) end
-    btn:SetText(label)
-    return btn
-end
+-- Page, card, and row helpers live in GAM.UI.SettingsLayout (shared with the
+-- Debug Log). They are bound in BuildPanel so this file still loads alone.
+local Layout
+local NewText, MakeSectionHeader, AddText, AddRow, AddCustom, LayoutPage
+local MakeSlider, MakeCheckbox, MakeButton, MeasureButtonWidth, LayoutButtonsTop, NextWidgetName
 
 local function MakeColorControl(parent, color)
     local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
@@ -404,65 +201,6 @@ local function OpenColorPicker(color, onChanged)
     return true
 end
 
-local function MeasureButtonWidth(parent, text, minW, maxW, padding)
-    parent._gamMeasureFS = parent._gamMeasureFS or parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    local fs = parent._gamMeasureFS
-    fs:Hide()
-    fs:SetText(text or "")
-    local w = math.ceil(fs:GetStringWidth() + (padding or 24))
-    if minW and w < minW then w = minW end
-    if maxW and w > maxW then w = maxW end
-    return w
-end
-
-local function LayoutButtonsTop(parent, buttons, topY, cfg)
-    local left   = cfg.left or 14
-    local right  = cfg.right or 546
-    local gap    = cfg.gap or 8
-    local rowGap = cfg.rowGap or 4
-    local align  = cfg.align or "center"
-    local h      = cfg.height or 22
-    local avail  = math.max(1, right - left)
-
-    local rows = { {} }
-    local rowWidths = { 0 }
-    for _, btn in ipairs(buttons) do
-        local bw = btn:GetWidth()
-        local row = rows[#rows]
-        local nextW = (#row > 0) and (rowWidths[#rows] + gap + bw) or bw
-        if #row > 0 and nextW > avail then
-            rows[#rows + 1] = { btn }
-            rowWidths[#rowWidths + 1] = bw
-        else
-            row[#row + 1] = btn
-            rowWidths[#rowWidths] = nextW
-        end
-    end
-
-    for ri, row in ipairs(rows) do
-        local rw = rowWidths[ri]
-        local x
-        if align == "right" then
-            x = right - rw
-        elseif align == "left" then
-            x = left
-        else
-            x = left + math.floor((avail - rw) / 2)
-        end
-        local y = topY - (ri - 1) * (h + rowGap)
-        for bi, btn in ipairs(row) do
-            btn:ClearAllPoints()
-            btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-            x = x + btn:GetWidth() + ((bi < #row) and gap or 0)
-        end
-    end
-
-    return {
-        rows = #rows,
-        usedHeight = (#rows * h) + ((#rows - 1) * rowGap),
-    }
-end
-
 -- Rank policy uses a cycle button, avoiding pop-out menus inside scroll frames.
 
 -- Formats an integer with thousands-separator commas: 50000 → "50,000"
@@ -498,28 +236,6 @@ local function FormatStatPercentValue(value)
     return string.format("%.1f", n)
 end
 
-local function FormatGoldInput(copper)
-    local n = tonumber(copper)
-    if not n or n <= 0 then
-        return ""
-    end
-    local text = string.format("%.4f", n / 10000)
-    text = text:gsub("0+$", ""):gsub("%.$", "")
-    return text
-end
-
-local function ParseGoldInput(text)
-    local clean = tostring(text or ""):gsub(",", ""):match("^%s*(.-)%s*$")
-    if clean == "" then
-        return nil
-    end
-    local gold = tonumber(clean)
-    if not gold or gold <= 0 then
-        return nil
-    end
-    return math.floor((gold * 10000) + 0.5)
-end
-
 local function NormalizeV2PricingMode(mode)
     local value = tostring(mode or ""):lower()
     if value == "fixed_crafts" or value == "fixedcrafts" or value == "craftsim" then
@@ -551,6 +267,13 @@ end
 local function BuildPanel()
     -- Resolve at initialization too, so an earlier file load cannot retain nil.
     Common = assert(GAM.UI.MainWindowCommon, "Settings requires MainWindowCommon")
+    Layout = assert(GAM.UI.SettingsLayout, "Settings requires SettingsLayout")
+    NewText, MakeSectionHeader, AddText, AddRow, AddCustom, LayoutPage =
+        Layout.NewText, Layout.MakeSectionHeader, Layout.AddText, Layout.AddRow,
+        Layout.AddCustom, Layout.LayoutPage
+    MakeSlider, MakeCheckbox, MakeButton, MeasureButtonWidth, LayoutButtonsTop, NextWidgetName =
+        Layout.MakeSlider, Layout.MakeCheckbox, Layout.MakeButton, Layout.MeasureButtonWidth,
+        Layout.LayoutButtonsTop, Layout.NextWidgetName
     local L    = GAM.L
     local opts = GetOpts()
 
@@ -558,16 +281,6 @@ local function BuildPanel()
     panel:SetSize(760, 570)
     panel:SetPoint("CENTER", UIParent, "CENTER")
     panel:Hide()
-
-    local nav = CreateFrame("Frame", nil, panel)
-    nav:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, -16)
-    nav:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 8, 16)
-    nav:SetWidth(144)
-    local divider = nav:CreateTexture(nil, "BACKGROUND")
-    divider:SetPoint("TOPRIGHT", 8, 0)
-    divider:SetPoint("BOTTOMRIGHT", 8, 0)
-    divider:SetWidth(1)
-    divider:SetColorTexture(1, 1, 1, 0.16)
 
     local navDefs = {
         { key = "general", label = "General", description = "Scanning and addon display." },
@@ -579,97 +292,9 @@ local function BuildPanel()
         { key = "about", label = "About", description = GAM.C.ADDON_DISPLAY_NAME .. " contributors and acknowledgments." },
     }
 
-    local pageHost = CreateFrame("Frame", nil, panel)
-    pageHost:SetPoint("TOPLEFT", nav, "TOPRIGHT", 28, 0)
-    pageHost:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -12, 14)
-    local title = NewText(pageHost, "", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 0, 0)
-    title:SetPoint("TOPRIGHT", 0, 0)
-    title:SetTextColor(0.95, 0.95, 0.97)
-    local subtitle = NewText(pageHost, "", "GameFontHighlightSmall")
-    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-    subtitle:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -6)
-    subtitle:SetTextColor(0.65, 0.65, 0.7)
-
-    -- One scrollbar per page, including About. Its viewport follows the host.
-    local pages, navButtons = {}, {}
-    local selectedKey = "general"
-    local ReflowPages
-    for _, def in ipairs(navDefs) do
-        local page = CreateFrame("Frame", nil, pageHost)
-        page:SetPoint("TOPLEFT", pageHost, "TOPLEFT", 0, -54)
-        page:SetPoint("BOTTOMRIGHT", pageHost, "BOTTOMRIGHT", 0, 0)
-        page:Hide()
-        local scroll = CreateFrame("ScrollFrame", nil, page, "UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT", 0, 0)
-        scroll:SetPoint("BOTTOMRIGHT", -24, 0)
-        local pageContent = CreateFrame("Frame", nil, scroll)
-        pageContent:SetSize(520, 1)
-        scroll:SetScrollChild(pageContent)
-        local state = { frame = page, scroll = scroll, content = pageContent }
-        pages[def.key] = state
-        scroll:EnableMouseWheel(true)
-        scroll:SetScript("OnMouseWheel", function(self, delta)
-            local range = math.max(0, self:GetVerticalScrollRange())
-            self:SetVerticalScroll(math.max(0, math.min(range, self:GetVerticalScroll() - delta * 36)))
-        end)
-        scroll:HookScript("OnSizeChanged", function() LayoutPage(state) end)
-        scroll:HookScript("OnScrollRangeChanged", function(self, _, range)
-            if self.ScrollBar then self.ScrollBar:SetShown((range or 0) > 1) end
-        end)
-        page:SetScript("OnShow", function() LayoutPage(state) end)
-    end
-
-    local function SelectSettingsSection(key)
-        if not pages[key] then return end
-        selectedKey = key
-        for _, def in ipairs(navDefs) do
-            if def.key == key then
-                title:SetText(def.label)
-                subtitle:SetText(def.description)
-            end
-        end
-        for pageKey, page in pairs(pages) do
-            page.frame:SetShown(pageKey == key)
-        end
-        for _, entry in ipairs(navButtons) do
-            local selected = entry.key == key
-            entry.fill:SetShown(selected)
-            entry.indicator:SetShown(selected)
-            entry.text:SetTextColor(selected and GOLD_R or 0.8,
-                selected and GOLD_G or 0.8, selected and GOLD_B or 0.84)
-        end
-        -- Keep each page's scroll position and pending edits when navigating.
-        if ReflowPages then ReflowPages() else LayoutPage(pages[key]) end
-    end
-
-    for i, def in ipairs(navDefs) do
-        local key = def.key
-        local btn = CreateFrame("Button", nil, nav)
-        btn:SetSize(144, 36)
-        if key == "about" then
-            btn:SetPoint("BOTTOMLEFT", 0, 0)
-        else
-            btn:SetPoint("TOPLEFT", 0, -(i - 1) * 42)
-        end
-        btn:SetHighlightTexture("Interface\\Buttons\\WHITE8X8")
-        btn:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.06)
-        local fill = btn:CreateTexture(nil, "BACKGROUND")
-        fill:SetAllPoints()
-        fill:SetColorTexture(GOLD_R, GOLD_G, GOLD_B, 0.10)
-        local indicator = btn:CreateTexture(nil, "ARTWORK")
-        indicator:SetPoint("TOPLEFT", 0, -4)
-        indicator:SetPoint("BOTTOMLEFT", 0, 4)
-        indicator:SetWidth(3)
-        indicator:SetColorTexture(GOLD_R, GOLD_G, GOLD_B, 1)
-        local text = NewText(btn, def.label)
-        text:SetPoint("LEFT", 14, 0)
-        text:SetWidth(124)
-        btn:SetScript("OnClick", function() SelectSettingsSection(key) end)
-        navButtons[#navButtons + 1] = {
-            key = key, button = btn, fill = fill, indicator = indicator, text = text,
-        }
-    end
+    local shell = Layout.CreateShell(panel, navDefs, { bottomKey = "about" })
+    local pages, pageHost = shell.pages, shell.pageHost
+    local SelectSettingsSection = shell.Select
 
     local content = pages.general.content
     local function FinalizeContentLayout()
@@ -852,8 +477,6 @@ local function BuildPanel()
     content = pages.pricing.content
     MakeSectionHeader(content, L["SETTINGS_SECTION_PRICING"])
 
-    local ebFillQty
-    local ebLumberPrice
     local ebGlobalStartingCrafts
 
     local startingCraftsLabel = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -916,73 +539,35 @@ local function BuildPanel()
     modeHelp:SetTextColor(0.72, 0.72, 0.72, 1)
     AddRow(content, modeLabel, modeBtn, modeHelp, 180)
 
-    local lblFillQty = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblFillQty:SetText(L["OPT_SHALLOW_FILL_QTY"])
+    -- Market depth is automatic; explain it instead of asking for a number.
+    AddText(content, "Material costs use the Auction House listings for the exact quantity each "
+        .. "strategy needs. Unusually cheap bait listings are ignored, and units the market does "
+        .. "not list are priced at the highest listed price, so estimates err toward higher costs. "
+        .. "Crafted items are valued at the lowest listing.")
 
-    ebFillQty = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-    ebFillQty:SetSize(90, 26)
-    ebFillQty:SetAutoFocus(false)
-    ebFillQty:SetNumeric(true)
-    ebFillQty:SetText(tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY))
-
-    local lblRange = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    lblRange:SetText(L["OPT_SHALLOW_FILL_RANGE"])
-    lblRange:SetTextColor(0.55, 0.55, 0.55)
-    AddRow(content, lblFillQty, ebFillQty, lblRange, 90)
-
-    local function ClampFillQty()
-        local raw = tonumber(ebFillQty:GetText())
-        local val = raw
-            and math.max(GAM.C.MIN_FILL_QTY,
-                math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
-            or GAM.C.DEFAULT_FILL_QTY
-        ebFillQty:SetText(tostring(val))
-        ebFillQty:ClearFocus()
+    -- Shopping budget check: share of gold kept unspent.
+    local function ClampReserve(value)
+        local n = math.floor(tonumber(value) or GAM.C.DEFAULT_GOLD_RESERVE_PCT)
+        return math.max(GAM.C.MIN_GOLD_RESERVE_PCT, math.min(GAM.C.MAX_GOLD_RESERVE_PCT, n))
     end
-    ebFillQty:SetScript("OnEnterPressed", ClampFillQty)
-    ebFillQty:SetScript("OnEditFocusLost", ClampFillQty)
-    ebFillQty:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L["OPT_SHALLOW_FILL_TIP"], 1, 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    ebFillQty:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-    MakeSectionHeader(content, "Material prices")
-
-    local lblLumberPrice = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblLumberPrice:SetText(L["OPT_LUMBER_PRICE"])
-
-    ebLumberPrice = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-    ebLumberPrice:SetSize(90, 26)
-    ebLumberPrice:SetAutoFocus(false)
-    ebLumberPrice:SetMaxLetters(12)
-    do
-        local pdb = GAM.GetPatchDB and GAM:GetPatchDB(GAM.C.DEFAULT_PATCH)
-        ebLumberPrice:SetText(FormatGoldInput(pdb and pdb.priceOverrides and pdb.priceOverrides[THALASSIAN_LUMBER_ITEM_ID]))
+    local ebGoldReserve = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+    ebGoldReserve:SetSize(90, 26)
+    ebGoldReserve:SetAutoFocus(false)
+    ebGoldReserve:SetNumeric(true)
+    ebGoldReserve:SetMaxLetters(2)
+    ebGoldReserve:SetText(tostring(ClampReserve(opts.goldReservePct)))
+    local function NormalizeGoldReserve()
+        local value = ClampReserve(ebGoldReserve:GetText())
+        ebGoldReserve:SetText(tostring(value))
+        ebGoldReserve:ClearFocus()
+        return value
     end
+    ebGoldReserve:SetScript("OnEnterPressed", NormalizeGoldReserve)
+    ebGoldReserve:SetScript("OnEditFocusLost", NormalizeGoldReserve)
+    AddRow(content, "Gold reserve (%)", ebGoldReserve, string.format(
+        "Shopping warns when the queue's materials would leave less than this share of your gold, and suggests craft counts that fit (%d-%d%%).",
+        GAM.C.MIN_GOLD_RESERVE_PCT, GAM.C.MAX_GOLD_RESERVE_PCT), 90)
 
-    local lblLumberUnit = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    lblLumberUnit:SetText(L["OPT_GOLD_EACH"])
-    lblLumberUnit:SetTextColor(0.55, 0.55, 0.55)
-    AddRow(content, lblLumberPrice, ebLumberPrice, lblLumberUnit, 90)
-
-    local function NormalizeLumberPrice()
-        local copper = ParseGoldInput(ebLumberPrice:GetText())
-        ebLumberPrice:SetText(FormatGoldInput(copper))
-        ebLumberPrice:ClearFocus()
-    end
-    ebLumberPrice:SetScript("OnEnterPressed", NormalizeLumberPrice)
-    ebLumberPrice:SetScript("OnEditFocusLost", NormalizeLumberPrice)
-    ebLumberPrice:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L["OPT_LUMBER_PRICE_TITLE"], 1, 1, 1)
-        GameTooltip:AddLine(L["OPT_LUMBER_PRICE_TIP"], 1, 0.82, 0, true)
-        GameTooltip:Show()
-    end)
-    ebLumberPrice:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-    -- ── Advanced manual stat fallbacks ─────────────────────────────────────
     FinalizeContentLayout()
     content = pages.crafting.content
     MakeSectionHeader(content, "Manual stat fallbacks")
@@ -1651,7 +1236,7 @@ local function BuildPanel()
 
     AddRow(content, "Strategy data", btnReload, "Reload the bundled strategy data.", 150)
     AddRow(content, "Price cache", btnClear, "Clear saved prices, then scan again for fresh results.", 150)
-    AddRow(content, "Diagnostics", btnLog, "Open the addon log to investigate a problem.", 150)
+    AddRow(content, "Diagnostics", btnLog, "Open the Debug Log to filter messages and run troubleshooting checks.", 150)
     -- ── Credits & Thanks ───────────────────────────────────────────────────
     FinalizeContentLayout()
     content = pages.about.content
@@ -1725,26 +1310,13 @@ local function BuildPanel()
     applyBtn:SetWidth(MeasureButtonWidth(footer, applyBtn:GetText(), 150, 260, 24))
     panel._setStandalone = function()
         footer:Show()
-        for _, page in pairs(pages) do
-            page.frame:SetPoint("BOTTOMRIGHT", pageHost, "BOTTOMRIGHT", 0, 46)
-            LayoutPage(page)
-        end
+        shell.SetBottomInset(46)
     end
-    ReflowPages = function()
-        local top = math.max(54, title:GetStringHeight() + subtitle:GetStringHeight() + 24)
-        for _, page in pairs(pages) do
-            page.frame:SetPoint("TOPLEFT", pageHost, "TOPLEFT", 0, -top)
-            LayoutPage(page)
-        end
-    end
-    panel:HookScript("OnSizeChanged", ReflowPages)
     SelectSettingsSection("general")
-    ReflowPages()
 
     -- ── Apply logic ────────────────────────────────────────────────────────
     local function ApplySettings()
         local currentOpts = GetOpts()
-        local prevQty = GetOptionValue(currentOpts, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)
         local prevStartingCrafts = GAM.State.GetGlobalStartingCrafts()
         currentOpts.scanDelay = slScanDelay:GetValue()
         currentOpts.debugVerbosity = slVerbosity:GetValue()
@@ -1786,24 +1358,7 @@ local function BuildPanel()
         local globalStartingCrafts = NormalizeGlobalStartingCraftsBox()
         GAM.State.SetGlobalStartingCrafts(globalStartingCrafts)
 
-        local raw = tonumber(ebFillQty:GetText())
-        currentOpts.shallowFillQty = raw
-            and math.max(GAM.C.MIN_FILL_QTY,
-                math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
-            or GAM.C.DEFAULT_FILL_QTY
-        ebFillQty:SetText(tostring(currentOpts.shallowFillQty))
-
-        local lumberCopper = ParseGoldInput(ebLumberPrice and ebLumberPrice:GetText())
-        if GAM.Pricing then
-            if lumberCopper and lumberCopper > 0 then
-                GAM.Pricing.SetPriceOverride(THALASSIAN_LUMBER_ITEM_ID, lumberCopper, GAM.C.DEFAULT_PATCH)
-            else
-                GAM.Pricing.ClearPriceOverride(THALASSIAN_LUMBER_ITEM_ID, GAM.C.DEFAULT_PATCH)
-            end
-        end
-        if ebLumberPrice then
-            ebLumberPrice:SetText(FormatGoldInput(lumberCopper))
-        end
+        currentOpts.goldReservePct = NormalizeGoldReserve()
 
         GAM.Log.SetLevel(currentOpts.debugVerbosity)
         if GAM.AHScan then
@@ -1811,30 +1366,18 @@ local function BuildPanel()
         end
         GAM.Minimap.SetShown(not currentOpts.minimapHidden)
 
-        local qtyChanged = currentOpts.shallowFillQty ~= prevQty
-        if qtyChanged then
-            ClearPriceCache()
-            local msg = string.format("Fill qty changed (%s -> %s units). Price cache cleared — re-scan.",
-                FmtQty(prevQty), FmtQty(currentOpts.shallowFillQty))
-            GAM.Log.Info(msg)
-            print("|cffff8800[GAM]|r " .. msg)
-        end
-
         if globalStartingCrafts ~= prevStartingCrafts then
             GAM.Log.Info("Global starting crafts changed: %d -> %d",
                 prevStartingCrafts, globalStartingCrafts)
         end
 
-        GAM.Log.Info("Fill qty: %d", currentOpts.shallowFillQty)
-        local lumberPriceText = "unset"
-        if lumberCopper and GAM.Pricing and GAM.Pricing.FormatPrice then
-            lumberPriceText = GAM.Pricing.FormatPrice(lumberCopper)
-        end
-        GAM.Log.Info("Thalassian Lumber manual price: %s", lumberPriceText)
         GAM.Log.Info("V2 pricing mode: %s", tostring(currentOpts.v2PricingMode or NormalizeV2PricingMode(nil)))
 
         if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.Refresh then
             GAM.UI.MainWindow.Refresh()
+        end
+        if GAM.UI and GAM.UI.CraftPlanWindow and GAM.UI.CraftPlanWindow.Refresh then
+            GAM.UI.CraftPlanWindow.Refresh()
         end
         if GAM.UI and GAM.UI.StrategyDetail and
             GAM.UI.StrategyDetail.IsShown and GAM.UI.StrategyDetail.Refresh and
@@ -1853,16 +1396,10 @@ local function BuildPanel()
         cbMinimap:SetChecked(not o.minimapHidden)
         cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
         slScale:SetValue(GetOptionValue(o, "uiScale", GAM.C.DEFAULT_UI_SCALE))
-        ebFillQty:SetText(tostring(GetOptionValue(o, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)))
+        ebGoldReserve:SetText(tostring(ClampReserve(o.goldReservePct)))
         ebGlobalStartingCrafts:SetText(tostring(
             (GAM.State and GAM.State.GetGlobalStartingCrafts
                 and GAM.State.GetGlobalStartingCrafts()) or GAM.C.DEFAULT_STARTING_CRAFTS))
-        do
-            local pdb = GAM.GetPatchDB and GAM:GetPatchDB(GAM.C.DEFAULT_PATCH)
-            ebLumberPrice:SetText(FormatGoldInput(
-                pdb and pdb.priceOverrides and pdb.priceOverrides[THALASSIAN_LUMBER_ITEM_ID]
-            ))
-        end
         rankCurrent = rankTexts[o.rankPolicy] and o.rankPolicy or "lowest"
         rankBtn:SetText(rankTexts[rankCurrent])
         modeCurrent = "exhaust_materials"
@@ -1886,8 +1423,7 @@ local function BuildPanel()
     -- (covers changes made via the V2 left panel since settings was last opened)
     panel:SetScript("OnShow", function()
         RefreshControlsFromOptions(GetOpts())
-        SelectSettingsSection(selectedKey)
-        ReflowPages()
+        SelectSettingsSection(shell.selected)
     end)
 
     -- Blizzard Settings ok/cancel callbacks

@@ -2,14 +2,16 @@
 ## Title: Gold Advisor Midnight
 ## Category: Professions
 ## Notes: Compare Midnight crafting profits with live Auction House prices.
-## Version: 2.1.2
+## Version: 2.2.0
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled
+## OptionalDeps: TradeSkillMaster
 ## X-License: All Rights Reserved
 
 Data\WorkbookGenerated.lua
 Data\CommodityManifest.lua
+Data\ItemRanks.lua
 Data\ProfessionCrafts.lua
 Data\ProfessionCraftsPatch12_1.lua
 Data\SpecializationData\Midnight\Alchemy.lua
@@ -36,6 +38,7 @@ Locale\koKR.lua
 Locale\itIT.lua
 Locale\ptBR.lua
 Log.lua
+ItemInfoCache.lua
 Core.lua
 QuickBuy.lua
 State.lua
@@ -73,10 +76,20 @@ Data\Recipes\Patch12_1.lua
 CraftSimPriceOverrides.lua
 CraftSimBridge.lua
 CraftSimQueue.lua
+CraftPlanModel.lua
+CraftPlan.lua
+CraftPlanTypes.lua
+CraftPlanMail.lua
+CraftPlanActions.lua
+CraftPlanBudget.lua
+Diagnostics.lua
 UI\DebugLog.lua
+TSMSaleRate.lua
 UI\MainWindowCommon.lua
+UI\SettingsLayout.lua
 Settings.lua
 UI\VIBreakdownPlan.lua
+UI\CraftPlanWindow.lua
 UI\VIBreakdownWindow.lua
 UI\CrushingAnalyzerWindow.lua
 UI\CooldownTrackerWindow.lua
@@ -84,5 +97,6 @@ UI\MainWindowDetail.lua
 UI\MainWindowLeftPanel.lua
 UI\MainWindowCenter.lua
 UI\MainWindowShopping.lua
+UI\MainWindowWorkspace.lua
 UI\MainWindow.lua
 UI\StrategyDetail.lua

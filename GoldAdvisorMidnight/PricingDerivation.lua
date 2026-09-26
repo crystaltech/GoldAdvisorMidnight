@@ -132,8 +132,8 @@ local CRAFTED_REAGENT_MAP = {
         displayYieldPerCraft = 1.000000,
         formulaProfile = "blacksmithing",
     },
-    -- Sienna Ink Q1: sheet pricing omits Songwater from the expected-value math.
-    -- Costing therefore mirrors the live workbook C29/C31 formulas: pigments only.
+    -- Sienna Ink Q1: 20 Powder + 10 Argentleaf + 5 Mana Lily pigment + 3
+    -- Thalassian Songwater -> 2 inks. Songwater is a real (vendor) cost.
     -- Base yield is 2/20 = 0.1 inks per normalized PP unit before insc_ink stats.
     -- Activates automatically when pigmentCostSource == "mill" (no separate "craft own inks" checkbox needed)
     [245805] = {
@@ -143,12 +143,14 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
             { itemIDs = { 245803, 245804 }, qty = 0.500000 }, -- Argentleaf Pigment
             { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
+            { itemIDs = { 245882 },         qty = 0.150000 }, -- Thalassian Songwater
         },
         yield = 0.100000,
         displayIngredients = {
             { itemIDs = { 245807, 245808 }, qty = 20.000000 },
             { itemIDs = { 245803, 245804 }, qty = 10.000000 },
             { itemIDs = { 245867, 245866 }, qty = 5.000000 },
+            { itemIDs = { 245882 },         qty = 3.000000 },
         },
         displayYieldPerCraft = 2.000000,
         formulaProfile = "insc_ink",
@@ -160,17 +162,19 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 },
             { itemIDs = { 245803, 245804 }, qty = 0.500000 },
             { itemIDs = { 245867, 245866 }, qty = 0.250000 },
+            { itemIDs = { 245882 },         qty = 0.150000 },
         },
         yield = 0.100000,
         displayIngredients = {
             { itemIDs = { 245807, 245808 }, qty = 20.000000 },
             { itemIDs = { 245803, 245804 }, qty = 10.000000 },
             { itemIDs = { 245867, 245866 }, qty = 5.000000 },
+            { itemIDs = { 245882 },         qty = 3.000000 },
         },
         displayYieldPerCraft = 2.000000,
         formulaProfile = "insc_ink",
     },
-    -- Munsell Ink Q1: sheet pricing omits Songwater from the expected-value math.
+    -- Munsell Ink Q1: 20 Powder + 10 Sanguithorn + 5 Mana Lily pigment + 3 Songwater -> 2 inks.
     [245801] = {
         optionKey  = "pigmentCostSource",
         modeValue  = "mill",
@@ -178,12 +182,14 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 }, -- Powder Pigment
             { itemIDs = { 245865, 245864 }, qty = 0.500000 }, -- Sanguithorn Pigment
             { itemIDs = { 245867, 245866 }, qty = 0.250000 }, -- Mana Lily Pigment
+            { itemIDs = { 245882 },         qty = 0.150000 }, -- Thalassian Songwater
         },
         yield = 0.100000,
         displayIngredients = {
             { itemIDs = { 245807, 245808 }, qty = 20.000000 },
             { itemIDs = { 245865, 245864 }, qty = 10.000000 },
             { itemIDs = { 245867, 245866 }, qty = 5.000000 },
+            { itemIDs = { 245882 },         qty = 3.000000 },
         },
         displayYieldPerCraft = 2.000000,
         formulaProfile = "insc_ink",
@@ -195,12 +201,14 @@ local CRAFTED_REAGENT_MAP = {
             { itemIDs = { 245807, 245808 }, qty = 1.000000 },
             { itemIDs = { 245865, 245864 }, qty = 0.500000 },
             { itemIDs = { 245867, 245866 }, qty = 0.250000 },
+            { itemIDs = { 245882 },         qty = 0.150000 },
         },
         yield = 0.100000,
         displayIngredients = {
             { itemIDs = { 245807, 245808 }, qty = 20.000000 },
             { itemIDs = { 245865, 245864 }, qty = 10.000000 },
             { itemIDs = { 245867, 245866 }, qty = 5.000000 },
+            { itemIDs = { 245882 },         qty = 3.000000 },
         },
         displayYieldPerCraft = 2.000000,
         formulaProfile = "insc_ink",

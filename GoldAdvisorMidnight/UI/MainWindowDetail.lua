@@ -233,6 +233,10 @@ function Detail.Render(args)
     local patchTag = args.patchTag or GAM.C.DEFAULT_PATCH
     local selectionChanged = not rpDetail.currentStrat or rpDetail.currentStrat.id ~= strat.id
         or rpDetail.currentPatch ~= patchTag
+    if selectionChanged and rpDetail.queueNotice then
+        rpDetail.queueNotice:Hide()
+        if rpDetail.layoutQueueNotice then rpDetail.layoutQueueNotice() end
+    end
     local L = args.localizer or GAM.L
     local placeholder = GetPlaceholder(args)
     local projection = args.projection or {}
@@ -281,9 +285,16 @@ function Detail.Render(args)
     if rpDetail.notesFS then
         local model = GAM.UI and GAM.UI.StrategyDetailModel
         local notice = model and model.GetRankMixNotice and model.GetRankMixNotice(projection)
+        local lines = {}
         if notice then
             local color = projection.rankMixStatus == "verified" and "|cff55ff55" or "|cffffaa33"
-            rpDetail.notesFS:SetText(color .. notice .. "|r")
+            lines[#lines + 1] = color .. notice .. "|r"
+        end
+        -- Old scan data must never look as current as a fresh scan.
+        local stale = model and model.GetStalePriceNotice and model.GetStalePriceNotice(projection)
+        if stale then lines[#lines + 1] = "|cffff5555" .. stale .. "|r" end
+        if #lines > 0 then
+            rpDetail.notesFS:SetText(table.concat(lines, "\n"))
             rpDetail.notesFS:Show()
         else
             rpDetail.notesFS:Hide()
@@ -300,8 +311,11 @@ function Detail.Render(args)
             projection.expectedCost and formatPrice(projection.expectedCost) or dash)
     end
     if rpDetail.metBuyNowFS then
-        rpDetail.metBuyNowFS:SetText(
-            projection.buyNowCost and formatPrice(projection.buyNowCost) or dash)
+        -- Match the Craft Queue's shopping list, not proc-adjusted chain yields.
+        local plan = GAM.CraftPlan
+        local upfront = plan and plan.EstimatePurchaseCost
+            and plan.EstimatePurchaseCost(strat, patchTag, args.canonicalResult)
+        rpDetail.metBuyNowFS:SetText(upfront and formatPrice(upfront) or dash)
     end
     rpDetail.metRevenueFS:SetText(
         projection.revenue and formatPrice(projection.revenue) or dash)
@@ -317,8 +331,9 @@ function Detail.Render(args)
     else
         rpDetail.metROIFS:SetText(dash)
     end
-    rpDetail.metBreakevenFS:SetText(
-        projection.breakEvenSell and formatPrice(projection.breakEvenSell) or dash)
+    local unitBreakEven, stackBreakEven = GAM.UI.StrategyDetailModel.FormatBatchBreakEven(projection, formatPrice)
+    rpDetail.metBreakevenFS:SetText(unitBreakEven)
+    if rpDetail.metBreakevenStackFS then rpDetail.metBreakevenStackFS:SetText(stackBreakEven) end
     if rpDetail.metStatsFS then
         rpDetail.metStatsFS:SetText(projection.statsCaption or dash)
     end
@@ -357,7 +372,9 @@ function Detail.Render(args)
             row.qtyFS:Show()
             row.qtyFS:SetText(FormatQuantityValue(reagentMetric.required or 0))
             row.needFS:SetText(FormatQuantityValue(reagentMetric.needToBuy or 0))
-            row.priceFS:SetText(reagentMetric.unitPrice and formatPrice(reagentMetric.unitPrice) or "|cffff8800—|r")
+            -- Crafted intermediates are costed through their materials below.
+            row.priceFS:SetText(reagentMetric.crafted and "|cff888888—|r"
+                or reagentMetric.unitPrice and formatPrice(reagentMetric.unitPrice) or "|cffff8800—|r")
             row._metricTooltip = {
                 kind = "reagent",
                 unitPrice = reagentMetric.unitPrice,
@@ -726,8 +743,13 @@ function Detail.Build(args)
         "Estimated profit as a percentage of material value. Actual crafting results can vary.")
 
     local yBreakeven = y
-    rpDetail.metBreakevenFS, y = MakeMetricRow(L and L["LBL_BREAKEVEN"] or "Break-even:", y)
-    MakeMetricTooltip(yBreakeven, "TT_LBL_BREAKEVEN_TITLE", "TT_LBL_BREAKEVEN_BODY")
+    rpDetail.metBreakevenFS, y = MakeMetricRow((GAM.L and GAM.L["WF_DETAIL_BREAK_EVEN_ITEM"] or "Break-even / item:"), y)
+    MakeMetricTooltip(yBreakeven, (GAM.L and GAM.L["WF_DETAIL_BREAK_EVEN_ITEM_TITLE"] or "Break-even sell price per item"),
+        (GAM.L and GAM.L["WF_DETAIL_BREAK_EVEN_ITEM_TIP"] or "Minimum posting price per item that recovers expected consumed material value after the Auction House sale fee, rounded up to copper. Uses expected crafting yields; excludes lost deposits from expired auctions. Mixed outputs do not have one shared break-even price."))
+    local yBreakevenStack = y
+    rpDetail.metBreakevenStackFS, y = MakeMetricRow((GAM.L and GAM.L["WF_DETAIL_BREAK_EVEN_BATCH"] or "Break-even / batch:"), y)
+    MakeMetricTooltip(yBreakevenStack, (GAM.L and GAM.L["WF_DETAIL_BREAK_EVEN_BATCH_TITLE"] or "Break-even for the selected crafting batch"),
+        (GAM.L and GAM.L["WF_DETAIL_BREAK_EVEN_BATCH_TIP"] or "Total gross sale value needed to recover expected material cost after the AH fee for your selected starting crafts. Uses expected output, which can differ from craft count. Rounded up to copper; actual output may vary."))
 
     MakeRule(y, 0.4)
     y = y - 4
@@ -1131,19 +1153,35 @@ function Detail.Build(args)
     )
     btnCraftSim:Hide()
 
-    local btnVIBreakdown = MakeDetailButton((L and L["BTN_VI_BREAKDOWN"]) or "VI Chain", 74, 0, buttonY0)
+    local btnVIBreakdown = MakeDetailButton((GAM.L and GAM.L["WF_ADD_QUEUE"] or "Add to Queue"), 94, 0, buttonY0)
+    local queueNotice = root:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    queueNotice:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", padding, 44)
+    queueNotice:SetPoint("RIGHT", root, "RIGHT", -padding, 0)
+    queueNotice:SetHeight(28)
+    queueNotice:SetJustifyH("LEFT")
+    queueNotice:SetWordWrap(true)
+    queueNotice:Hide()
+    rpDetail.queueNotice = queueNotice
     btnVIBreakdown:SetScript("OnClick", function()
-        onShowBreakdown()
+        if GAM.UI.CraftPlanWindow and rpDetail.currentStrat then
+            local ok, result = GAM.UI.CraftPlanWindow.Add(rpDetail.currentStrat, rpDetail.currentPatch)
+            local count = type(result) == "table" and result.target
+            queueNotice:SetText(ok and string.format(GAM.L and GAM.L["WF_QUEUE_ADDED"] or "Queued %d crafts. Add again queues another batch.", count or 0)
+                or tostring(result or (GAM.L and GAM.L["WF_FINISH_QUANTITY_EDIT"] or "Finish editing the current queue quantity first.")))
+            queueNotice:SetTextColor(ok and 0.5 or 1, ok and 1 or 0.65, 0.4)
+            queueNotice:Show()
+            if rpDetail.layoutQueueNotice then rpDetail.layoutQueueNotice() end
+        else onShowBreakdown() end
     end)
     attachButtonTooltip(
         btnVIBreakdown,
-        (L and L["TT_VI_BREAKDOWN_TITLE"]) or "Show Craft Steps",
-        (L and L["TT_VI_BREAKDOWN_BODY"]) or "Show the materials and intermediate crafts behind the selected estimate."
+        (GAM.L and GAM.L["WF_ADD_QUEUE_TITLE"] or "Add to Craft Queue"),
+        (GAM.L and GAM.L["WF_ADD_QUEUE_TIP"] or "Queue this strategy's crafts and exact materials. Add more strategies to combine shopping and crafting steps.")
     )
     btnVIBreakdown:Hide()
     rpDetail.btnVIBreakdown = btnVIBreakdown
 
-    local btnShop = MakeDetailButton((L and L["BTN_SHOPPING_SHORT"]) or "Shopping", 80, 0, buttonY0)
+    local btnShop = MakeDetailButton((L and L["BTN_SHOPPING_SHORT"]) or (GAM.L and GAM.L["WF_SHOPPING"] or "Shopping"), 80, 0, buttonY0)
     btnShop:SetScript("OnClick", function()
         if IsShiftKeyDown and IsShiftKeyDown() then
             onQuickBuy()
@@ -1153,11 +1191,12 @@ function Detail.Build(args)
     end)
     local shoppingTooltipBody = (L and L["TT_SHOPPING_BODY"])
         or "Create a shopping list for the materials you still need."
+    if args.workspaceTabs then shoppingTooltipBody = (GAM.L and GAM.L["WF_SHOPPING_QUEUE_TIP"] or "View combined material shortages for the Craft Queue.") end
     shoppingTooltipBody = shoppingTooltipBody
-        .. "\nShift-click to open Quick Buy for the current list."
+        .. "\n" .. (GAM.L and GAM.L["WF_QUICK_BUY_SHORTCUT"] or "Shift-click to open Quick Buy for the current list.")
     attachButtonTooltip(
         btnShop,
-        (L and L["TT_SHOPPING_TITLE"]) or "Auctionator Shopping List",
+        args.workspaceTabs and (GAM.L and GAM.L["WF_SHOPPING"] or "Shopping") or ((L and L["TT_SHOPPING_TITLE"]) or "Auctionator Shopping List"),
         shoppingTooltipBody
     )
     rpDetail.btnShop = btnShop
@@ -1195,7 +1234,6 @@ function Detail.Build(args)
 
     if layoutMode == "comfortable" then
         local diagnostics = {
-            rpDetail.metBreakevenFS,
             rpDetail.metCostFS,
             rpDetail.metStatsFS,
             rpDetail.metGearFS,
@@ -1241,6 +1279,12 @@ function Detail.Build(args)
         content:SetHeight(1)
         viewport:SetScrollChild(content)
         rpDetail.viewport = viewport
+        rpDetail.layoutQueueNotice = function()
+            viewport:ClearAllPoints()
+            viewport:SetPoint("TOPLEFT", root, "TOPLEFT", padding, -8)
+            viewport:SetPoint("BOTTOMRIGHT", root, "BOTTOMRIGHT", -padding - 20, queueNotice:IsShown() and 82 or 52)
+            if rpDetail.reflow then rpDetail.reflow() end
+        end
         viewport:EnableMouseWheel(true)
         local function ScrollContent(_, delta)
             viewport:SetVerticalScroll(math.max(0, math.min(viewport:GetVerticalScrollRange(),
@@ -1251,7 +1295,7 @@ function Detail.Build(args)
         outputListHost:SetScript("OnMouseWheel", ScrollContent)
 
         local hiddenMetrics = {
-            [rpDetail.metBreakevenFS] = true, [rpDetail.metCostFS] = true,
+            [rpDetail.metCostFS] = true,
             [rpDetail.metStatsFS] = true, [rpDetail.metGearFS] = true,
             [rpDetail.metNodeBonusesFS] = true,
         }
@@ -1354,9 +1398,9 @@ function Detail.Build(args)
         root:HookScript("OnSizeChanged", function() rpDetail.reflow() end)
         btnScanStrat:ClearAllPoints()
         btnScanStrat:SetPoint("BOTTOMLEFT", root, "BOTTOMLEFT", padding, 12)
-        btnScanStrat:SetSize(110, 28)
-        btnVIBreakdown:SetSize(74, 28)
-        btnShop:SetSize(80, 28)
+        btnScanStrat:SetSize(90, 28)
+        btnVIBreakdown:SetSize(94, 28)
+        btnShop:SetSize(70, 28)
         btnVIBreakdown:ClearAllPoints()
         btnVIBreakdown:SetPoint("LEFT", btnScanStrat, "RIGHT", 6, 0)
         btnShop:ClearAllPoints()

@@ -688,6 +688,49 @@ function Common.SetBackdropColors(widget, bgColor, borderColor)
     end
 end
 
+-- Recipe open/refresh failures arrive as internal codes. Players get a
+-- sentence with a next step; the code is kept in the debug log.
+local RECIPE_FAILURE_KEYS = {
+    ["missing-recipe-id"] = { "ERR_RECIPE_NO_ID", "This strategy has no recipe ID, so its stats cannot be refreshed." },
+    ["profession-api-unavailable"] = { "ERR_RECIPE_API", "The profession interface is not available right now. Try again after /reload." },
+    ["unsupported-profession"] = { "ERR_RECIPE_UNSUPPORTED", "This profession does not support recipe stat capture." },
+    ["profession-not-known"] = { "ERR_RECIPE_NOT_KNOWN", "This character does not know this profession. Log into your crafter and select the recipe once." },
+    ["open-profession-failed"] = { "ERR_RECIPE_OPEN_BLOCKED", "The profession window could not be opened. Leave combat and try again." },
+    ["open-recipe-failed"] = { "ERR_RECIPE_OPEN_BLOCKED", "The profession window could not be opened. Leave combat and try again." },
+    ["recipe-not-in-current-profession"] = { "ERR_RECIPE_NOT_LEARNED", "This recipe is not in this character's recipe list. Learn it, or log into the crafter who knows it." },
+    ["no-open-profession"] = { "ERR_RECIPE_WINDOW_LOADING", "The profession window did not finish loading. Open it once, then click Refresh Recipe again." },
+    ["no-open-profession-nodes"] = { "ERR_RECIPE_WINDOW_LOADING", "The profession window did not finish loading. Open it once, then click Refresh Recipe again." },
+    ["profession-nodes-not-visible"] = { "ERR_RECIPE_WINDOW_LOADING", "The profession window did not finish loading. Open it once, then click Refresh Recipe again." },
+    ["open-recipe-not-visible"] = { "ERR_RECIPE_NOT_SHOWN", "The recipe was not shown in time. Click Refresh Recipe again." },
+    ["no-open-native-recipe"] = { "ERR_RECIPE_NOT_SHOWN", "The recipe was not shown in time. Click Refresh Recipe again." },
+    ["open-recipe-mismatch"] = { "ERR_RECIPE_MISMATCH", "A different recipe stayed open. Select this recipe in the profession window, then click Refresh Recipe." },
+}
+
+function Common.DescribeRecipeFailure(reason)
+    local L = GAM.L or {}
+    local code = tostring(reason or "unknown")
+    local entry = RECIPE_FAILURE_KEYS[code:match("^([%a%-]+)") or code]
+    if GAM.Log and GAM.Log.Warn then GAM.Log.Warn("Recipe: open/refresh failed: %s", code) end
+    if entry then return L[entry[1]] or entry[2] end
+    return string.format(L["ERR_RECIPE_GENERIC"] or "Could not open the selected recipe (%s).", code)
+end
+
+-- One Push-to-CraftSim action for every window, so feedback cannot drift.
+function Common.PushPricesToCraftSim(strat, patchTag, canonicalResult)
+    if not strat or not (GAM.CraftSimBridge and GAM.CraftSimBridge.PushStratPrices) then return end
+    local L = GAM.L or {}
+    local pushed, err = GAM.CraftSimBridge.PushStratPrices(strat, patchTag, canonicalResult)
+    if err then
+        print("|cffff8800[GAM]|r " .. string.format(
+            L["MSG_CRAFTSIM_PUSH_FAILED"] or "CraftSim push failed: %s", tostring(err)))
+    elseif (pushed or 0) == 0 then
+        print("|cffff8800[GAM]|r " .. (L["MSG_NO_PRICES_TO_PUSH"] or "No prices to push - scan items first."))
+    else
+        print("|cffff8800[GAM]|r " .. string.format(
+            L["MSG_PRICES_PUSHED"] or "Pushed %d price(s) to CraftSim.", pushed))
+    end
+end
+
 function Common.AttachButtonTooltip(btn, title, body)
     if not btn then return end
     btn:SetScript("OnEnter", function(self)
@@ -988,14 +1031,6 @@ function Common.IsClickInFavoriteGutter(frameObj, gutterWidth)
     return localX >= 0 and localX <= (gutterWidth or 0)
 end
 
-function Common.ClampFillQtyValue(value, minValue, maxValue, defaultValue)
-    local n = tonumber(value)
-    if not n then
-        return defaultValue
-    end
-    return math.max(minValue, math.min(maxValue, math.floor(n)))
-end
-
 function Common.ClampStatPercentValue(value, fallback)
     local n = tonumber(value)
     if not n then
@@ -1073,7 +1108,7 @@ function Common.StratMatchesFilter(strat, filterMode, filterProfSet, filterProf,
     return true
 end
 
-function Common.BuildRuntimeColumns(rowW)
+function Common.BuildRuntimeColumns(rowW, mini)
     -- Keep the comparison model stable as panels open and close. Profession is
     -- already represented by the filter and row tooltip; missing prices use the
     -- existing dash plus tooltip instead of consuming a mostly-empty Status column.
@@ -1083,7 +1118,16 @@ function Common.BuildRuntimeColumns(rowW)
     local usable = math.max(300, rowW - 40)
     local roiW = 68
     local profitW = math.min(156, math.max(118, math.floor(usable * 0.24)))
-    local nameW = usable - profitW - roiW - gap * 2
+    if mini and rowW < 600 then
+        local nameW = usable - profitW - gap
+        return {
+            {id="stratName", x=10, w=nameW, hKey="COL_STRAT", sKey="stratName", j="LEFT"},
+            {id="profit", x=10+nameW+gap, w=profitW, hKey="COL_PROFIT", sKey="profit", j="RIGHT"},
+        }
+    end
+    local showSaleRate = GAM.TSMSaleRate and GAM.TSMSaleRate.IsAvailable()
+    local saleW = showSaleRate and 76 or 0
+    local nameW = usable - profitW - roiW - gap * 2 - (showSaleRate and saleW + gap or 0)
     local x = 10
     local cols = {
         { id="stratName", x=x, w=nameW, hKey="COL_STRAT", sKey="stratName", j="LEFT" },
@@ -1093,6 +1137,10 @@ function Common.BuildRuntimeColumns(rowW)
     x = x + profitW + gap
     cols[#cols + 1] = { id="roi", x=x, w=roiW, hKey="COL_ROI", sKey="roi", j="RIGHT" }
 
+    if showSaleRate then
+        x = x + roiW + gap
+        cols[#cols + 1] = { id="saleRate", x=x, w=saleW, label=(GAM.L and GAM.L["UI_SALE_RATE"] or "Sale rate"), sKey="saleRate", j="RIGHT" }
+    end
     return cols
 end
 
@@ -1108,7 +1156,7 @@ function Common.GetVisibleListRows(listHost, rowHeight, maxRows)
 end
 
 function Common.ApplyColumnLayout(args)
-    local runtimeCols = Common.BuildRuntimeColumns(args.rowW or 0)
+    local runtimeCols = Common.BuildRuntimeColumns(args.rowW or 0, args.mini)
     local L = args.localizer
     local colHeaderBtns = args.colHeaderBtns or {}
     local rowFrames = args.rowFrames or {}
@@ -1122,7 +1170,7 @@ function Common.ApplyColumnLayout(args)
             btn:ClearAllPoints()
             btn:SetPoint("TOPLEFT", centerPanel, "TOPLEFT", col.x, -topOffset)
             btn:SetWidth(col.w)
-            btn.labelFS:SetText(L and L[col.hKey] or col.hKey)
+            btn.labelFS:SetText(col.label or (L and L[col.hKey]) or col.hKey)
             btn.labelFS:ClearAllPoints()
             btn.labelFS:SetPoint("TOPLEFT", btn, "TOPLEFT", i == 1 and stratIconWidth + 8 or 0, 0)
             btn.labelFS:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -6, 0)
@@ -1146,6 +1194,7 @@ function Common.ApplyColumnLayout(args)
         row.nameText:Hide()
         row.profitText:Hide()
         row.roiText:Hide()
+        if row.saleRateText then row.saleRateText:Hide() end
 
         for _, col in ipairs(runtimeCols) do
             local fs
@@ -1155,6 +1204,8 @@ function Common.ApplyColumnLayout(args)
                 fs = row.profitText
             elseif col.id == "roi" then
                 fs = row.roiText
+            elseif col.id == "saleRate" then
+                fs = row.saleRateText
             end
 
             if fs then
@@ -1185,7 +1236,10 @@ Common.SCAN_HELP = "Click: current list\nCtrl-click: everything\nAlt-click: all 
 function Common.StyleSecondaryWindow(frame)
     if not frame or not ((GAM.C and GAM.C.USE_COMFORTABLE_UI) or Common.IsCustomThemeActive()) then return end
     local theme = Common.GetThemeDef()
-    if frame.SetBackdropColor then frame:SetBackdropColor(unpack(theme.frame.bgColor)) end
+    if frame.SetBackdropColor then
+        local color = theme.frame.bgColor
+        frame:SetBackdropColor(color[1], color[2], color[3], frame._gamOpaqueBackground and 1 or color[4])
+    end
     if frame.SetBackdropBorderColor then frame:SetBackdropBorderColor(unpack(theme.frame.borderColor)) end
     if not frame._gamComfortHeader then
         local header = frame:CreateTexture(nil, "BACKGROUND", nil, -6)

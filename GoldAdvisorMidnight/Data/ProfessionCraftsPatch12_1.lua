@@ -31,7 +31,7 @@ Add("Alchemy", {
     formulaProfile = "alchemy",
     inputs = {
         { itemRef = "Cursebound Globe", itemIDs = { 274781 }, amount = 2 },
-        { itemRef = "Silvermoon Health Potion", itemIDs = { 241304, 241305 }, amount = 25 },
+        { itemRef = "Silvermoon Health Potion", itemIDs = { 241305, 241304 }, amount = 25 },
     },
     outputs = {
         { itemRef = "Concentrated Silvermoon Health Potion", itemIDs = { 271883, 271884 }, baseAmount = 5 },
@@ -49,7 +49,7 @@ Add("Alchemy", {
         { itemRef = "Cursebound Globe", itemIDs = { 274781 }, amount = 1 },
         { itemRef = "Tranquility Bloom", itemIDs = { 236761, 236767 }, amount = 8 },
         { itemRef = "Sanguithorn", itemIDs = { 236770, 236771 }, amount = 6 },
-        { itemRef = "Sunglass Vial", itemIDs = { 240990, 240991 }, amount = 5 },
+        { itemRef = "Sunglass Vial", itemIDs = { 240991, 240990 }, amount = 5 },
     },
     outputs = {
         { itemRef = "Liquid Luster", itemIDs = { 271886, 271887 }, baseAmount = 5 },
@@ -68,7 +68,7 @@ Add("Alchemy", {
         { itemRef = "Tranquility Bloom", itemIDs = { 236761, 236767 }, amount = 8 },
         { itemRef = "Sanguithorn", itemIDs = { 236770, 236771 }, amount = 3 },
         { itemRef = "Mana Lily", itemIDs = { 236778, 236779 }, amount = 3 },
-        { itemRef = "Sunglass Vial", itemIDs = { 240990, 240991 }, amount = 5 },
+        { itemRef = "Sunglass Vial", itemIDs = { 240991, 240990 }, amount = 5 },
     },
     outputs = {
         { itemRef = "Alluring Nostrum", itemIDs = { 271889, 271890 }, baseAmount = 5 },
