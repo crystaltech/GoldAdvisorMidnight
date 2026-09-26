@@ -19,6 +19,8 @@ function PriceSource.Install(Pricing, deps)
 
 local function CallItemInfoAPI(api, itemID)
     if type(api) ~= "function" or not itemID then return nil end
+    -- Quality tiers never change; the shared cache answers repeat questions.
+    if GAM.ItemInfoCache then return GAM.ItemInfoCache.ItemInfo(api, itemID) end
     -- Retail's ItemInfo APIs expect the structured payload. Keep the numeric
     -- retry for older clients and lightweight test/API shims.
     local ok, value = pcall(api, { itemID = itemID })

@@ -6,6 +6,12 @@ local ADDON_NAME, GAM = ...
 local State = {}
 GAM.State = State
 
+-- Session counter bumped whenever any price input changes, so cached
+-- strategy metrics know to recalculate without repricing on every redraw.
+local priceRevision = 0
+function State.BumpPriceRevision() priceRevision = priceRevision + 1 end
+function State.GetPriceRevision() return priceRevision end
+
 local PATCH_TABLE_KEYS = {
     "startingAmounts",
     "favorites",
@@ -207,6 +213,7 @@ function State.ClearPriceCache()
         return
     end
     wipe(db.priceCache)
+    State.BumpPriceRevision()
 end
 
 function State.GetItemKeyDB()

@@ -38,6 +38,7 @@ Locale\koKR.lua
 Locale\itIT.lua
 Locale\ptBR.lua
 Log.lua
+ItemInfoCache.lua
 Core.lua
 QuickBuy.lua
 State.lua

@@ -48,6 +48,7 @@ end
 
 local function CallItemInfoAPI(api, itemID)
     if type(api) ~= "function" or not itemID then return nil end
+    if GAM.ItemInfoCache then return GAM.ItemInfoCache.ItemInfo(api, itemID) end
     local ok, value = pcall(api, { itemID = itemID })
     if ok and value ~= nil then return value end
     ok, value = pcall(api, itemID)

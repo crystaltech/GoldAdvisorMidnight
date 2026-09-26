@@ -40,7 +40,7 @@ function VerticalIntegration.Install(Pricing, deps)
     local PrepareOptimizedRecipeView
     local BuildEconomicReagentMetrics, BuildReagentMetrics, BuildDisplayReagentMetrics
 
-local function GetOwnedItemCount(itemID)
+local function ReadOwnedItemCount(itemID)
     local modernAPI = C_Item and C_Item.GetItemCount
     if type(modernAPI) == "function" then
         local ok, count = pcall(modernAPI, itemID, true, false, true, true)
@@ -55,6 +55,12 @@ local function GetOwnedItemCount(itemID)
         end
     end
     return 0
+end
+
+-- Bags and banks do not change within one repricing pass.
+local function GetOwnedItemCount(itemID)
+    if GAM.ItemInfoCache then return GAM.ItemInfoCache.OwnedCount(itemID, ReadOwnedItemCount) end
+    return ReadOwnedItemCount(itemID)
 end
 
 local function CountOwnedReagentItems(itemID, entryIDs)

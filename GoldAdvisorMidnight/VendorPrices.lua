@@ -227,6 +227,7 @@ function VendorPrices.CaptureMerchant()
                 local previous = character.prices[itemID]
                 if not previous or tonumber(previous.price) ~= unitPrice then
                     changedCount = changedCount + 1
+                    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
                 end
                 character.prices[itemID] = {
                     price = unitPrice,

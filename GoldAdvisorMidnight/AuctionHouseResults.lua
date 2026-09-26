@@ -196,6 +196,7 @@ function Results.StoreCommodityRows(itemID, rows, targetQty)
     if not rows or #rows == 0 then return nil end
     local cached = { prices = rows, ts = time() }
     commodityCache[itemID] = cached
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
     return Results.ComputeStatsForCache(cached, targetQty)
 end
 
@@ -203,6 +204,7 @@ function Results.StoreItemRows(itemID, rows, targetQty)
     if not rows or #rows == 0 then return nil end
     local cached = { prices = rows, ts = time() }
     itemCache[itemID] = cached
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
     return Results.ComputeStatsForCache(cached, targetQty)
 end
 
@@ -259,4 +261,5 @@ end
 function Results.ClearSessionCaches()
     wipe(commodityCache)
     wipe(itemCache)
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
 end

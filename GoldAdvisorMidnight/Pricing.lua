@@ -42,6 +42,8 @@ end
 
 local function RequestItemData(itemID)
     if not itemID or itemID == 0 then return end
+    -- One load request per item per session is enough.
+    if GAM.ItemInfoCache then return GAM.ItemInfoCache.RequestLoad(itemID) end
     if C_Item and C_Item.RequestLoadItemDataByID then
         C_Item.RequestLoadItemDataByID(itemID)
     else
@@ -288,7 +290,7 @@ local function GetPrimaryInputQuality(ctx)
     end
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo
     if api and pickedID then
-        local quality = api(pickedID)
+        local quality = GAM.ItemInfoCache and GAM.ItemInfoCache.ItemInfo(api, pickedID) or api(pickedID)
         if quality and quality > 0 then
             return quality
         end
@@ -544,6 +546,7 @@ function Pricing.StorePrice(itemID, price, minPrice)
         minPrice = tonumber(minPrice) or price,
         ts    = time(),
     }
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
     GAM.Log.Debug("Stored price: itemID=%s price=%s", tostring(itemID), tostring(price))
 end
 
@@ -560,6 +563,7 @@ function Pricing.SetPriceOverride(itemID, price, patchTag)
     local pdb = GAM:GetPatchDB(patchTag)
     pdb.priceOverrides            = pdb.priceOverrides or {}
     pdb.priceOverrides[itemID]    = price
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
 end
 
 -- ClearPriceOverride(itemID, patchTag)
@@ -567,6 +571,7 @@ function Pricing.ClearPriceOverride(itemID, patchTag)
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     local pdb = GAM:GetPatchDB(patchTag)
     if pdb.priceOverrides then
+        if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
         pdb.priceOverrides[itemID] = nil
     end
 end

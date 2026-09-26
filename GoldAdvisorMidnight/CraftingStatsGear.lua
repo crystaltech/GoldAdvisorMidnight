@@ -11,7 +11,15 @@ local Specialization = GAM.CraftingStatsSpecialization
 
 function Gear.Profession(recipeID, profileKey)
     local api = C_TradeSkillUI
-    local info = recipeID and api and api.GetProfessionInfoByRecipeID and api.GetProfessionInfoByRecipeID(recipeID)
+    local lookup = api and api.GetProfessionInfoByRecipeID
+    local info
+    if recipeID and lookup then
+        if GAM.ItemInfoCache then
+            info = GAM.ItemInfoCache.ProfessionInfoByRecipe(lookup, recipeID)
+        else
+            info = lookup(recipeID)
+        end
+    end
     local def = info and Specialization.ResolveProfessionDefBySkillLine(
         info.parentProfessionID or info.professionID)
     local profileDef = Specialization.ResolveProfessionDef(Specialization.GetProfessionForProfile(profileKey))

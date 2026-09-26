@@ -324,6 +324,12 @@ local function BuildListMetricSignature()
     AddMetricSignaturePart(parts, "bolt", opts.boltCostSource or "ah")
     AddMetricSignaturePart(parts, "ingot", opts.ingotCostSource or "ah")
     AddMetricSignaturePart(parts, "statsRev", GetCraftingStatsRevision())
+    -- Prices and owned materials: metrics recalculate only when these change,
+    -- so filtering, sorting and profession switches reuse computed values.
+    AddMetricSignaturePart(parts, "prices", GAM.State and GAM.State.GetPriceRevision
+        and GAM.State.GetPriceRevision() or 0)
+    AddMetricSignaturePart(parts, "bags", GAM.ItemInfoCache and GAM.ItemInfoCache.GetInventoryGeneration
+        and GAM.ItemInfoCache.GetInventoryGeneration() or 0)
 
     for _, key in ipairs(GetMetricStatOptionKeys()) do
         AddMetricSignaturePart(parts, key, opts[key])
@@ -1260,7 +1266,9 @@ end
 
 RebuildList = function()
     local all = GAM.Importer.GetAllStrats(filterPatch)
-    ClearListMetricCache()
+    -- No cache clear here: the metric signature already changes with prices,
+    -- bags, stats and options. Filter/sort/profession changes reuse metrics.
+    bestStratCardDirty = true
     if selectedStratID and not GAM.Importer.GetStratByID(selectedStratID) then
         selectedStratID = nil
     end
@@ -2698,6 +2706,7 @@ function MainWindow.OnScanComplete()
     if frame and frame:IsShown() then
         sortKey = "roi"
         sortAsc = true
+        ClearListMetricCache()
         RebuildList()
         MainWindow.RefreshRows()
         RefreshBestStratCard()
@@ -2729,6 +2738,8 @@ end
 
 function MainWindow.Refresh()
     if not frame then return end
+    -- Explicit refresh (settings applied, data reloaded): reprice everything.
+    ClearListMetricCache()
     RebuildList()
     MainWindow.RefreshRows()
     RefreshBestStratCard()
