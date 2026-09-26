@@ -25,7 +25,8 @@ It includes 283 commodity strategies across nine professions. Equipment, profess
 3. Use `/gam` to open the addon.
 
 Version **2.2.0** adds the Craft Queue with combined Shopping, Mini mode, profession-wide
-saved gear sets, and an optional TSM sale-rate column. Existing
+saved gear sets, an optional TSM sale-rate column, and a Debug Log with filters and
+troubleshooting checks. Existing
 `GoldAdvisorMidnightDB` settings are retained and upgraded in place. The separate
 development addon's settings are not imported.
 
@@ -33,7 +34,7 @@ development addon's settings are not imported.
 
 1. Select a profession and strategy.
 2. Open the matching Blizzard recipe so GAM can capture its current stats and specialization bonuses.
-3. Choose the starting craft count, material rank, and stat gear.
+3. Choose the starting craft count, material quality, and profession gear.
 4. Use Shift-click on `Scan` to refresh the required Auction House prices.
 5. Review profit, ROI, break-even price, materials, and expected output.
 6. Enable `VI Crafting` to compare buying intermediates with crafting them yourself.
@@ -49,8 +50,8 @@ Click `Scan` to refresh the filtered list; Ctrl-click scans all strategies, Alt-
 ## Important Controls
 
 - `AH Price Qty` controls how deeply GAM samples the Auction House order book.
-- `Material Rank` selects R1, R2, or the cheapest verified mix for the reachable output rank.
-- `Stat Gear` selects `Auto`, `Multicraft`, or `Resourcefulness`.
+- `Material quality` opens a menu to choose R1, R2, or the cheapest verified mix for the reachable output rank.
+- `Profession gear` chooses `Auto`, `Multicraft`, or `Resourcefulness` for the selected strategy.
 - `Refresh Recipe` recaptures the selected recipe from the current crafter.
 - `VI Crafting` recursively evaluates eligible intermediate recipes.
 - `Add to Queue` saves the selected strategy's craft count and material ranks without opening another window or changing tabs. `Tools > Craft Queue` opens the queue tab.
@@ -67,7 +68,7 @@ Click `Scan` to refresh the filtered list; Ctrl-click scans all strategies, Alt-
 - Shopping combines requirements across the whole queue. The primary queue action leads through shopping and collection before crafting. Changing a saved setup or output rank can change requirements and require additional materials.
 - When Shopping is visible, buy and approve prices directly in that tab. When it is hidden, the contextual Quick Buy window provides the same controls. Switching views preserves the pending quote or purchase.
 
-To save a gear set, equip it, open any recipe of that profession, and use `Save MC` or `Save Res` from the Stat Gear menu. A set is saved once per profession and crafter; every strategy in that profession uses it together with your specialization nodes. Save it again after changing gear.
+To save a gear set, equip it, open any recipe of that profession, and use `Save MC` or `Save Res` from the Profession gear menu. A set is saved once per profession and crafter; every strategy in that profession uses it together with your specialization nodes. Once saved, the button reads `Update MC` / `Update Res`: green means you are wearing that set, orange means your equipped gear differs. Hover it to see the saved items and when they were saved; click it with the new gear equipped to replace the set.
 
 ## Craft Plan
 
@@ -137,9 +138,9 @@ before continuing.
 ```
 
 - `/gam` or `/goldadvisor` toggles the main window.
-- `/gam log` opens the addon's copyable support log.
-- `/gam settings` opens the Dev settings window directly.
-- `/gam help` lists the available Dev commands.
+- `/gam log` opens the Debug Log. Its Log page filters messages by severity, area, and text; its Troubleshooting page runs checks (scan results, gear sets, stat sources, recipe audits, support summary) and writes the results to the log.
+- `/gam settings` opens the settings window directly.
+- `/gam help` lists the available commands.
 
 ## Versioning
 
@@ -155,4 +156,5 @@ World of Warcraft and source-data build numbers are tracked separately from the 
 
 - [Release history](https://github.com/crystaltech/GoldAdvisorMidnight/releases)
 - Discord: https://discord.gg/v7vsCKCsFh
-- For unexpected results, include the output from `/gam log`.
+- For unexpected results, open `/gam log`, run `Troubleshooting > Support summary`, reproduce the problem, then use `Copy All` and include the text.
+- The interface is English-only for now; translations will return after review by native speakers.
