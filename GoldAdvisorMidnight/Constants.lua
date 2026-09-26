@@ -41,7 +41,10 @@ GAM.C = {
     USE_COMFORTABLE_UI   = true,
     ADDON_DISPLAY_NAME   = "Gold Advisor Midnight",
     PRIMARY_SLASH_COMMAND = "/gam",
-    ADDON_VERSION        = "2.2.0",
+    -- Locale/*.lua catalogs stay in the addon for future human review, but every
+    -- client shows the English base strings until this is switched back on.
+    TRANSLATIONS_ENABLED = false,
+    ADDON_VERSION       = "2.2.0",
     DATA_VERSION         = 21,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",

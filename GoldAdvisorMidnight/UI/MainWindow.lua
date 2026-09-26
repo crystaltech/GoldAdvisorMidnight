@@ -1473,9 +1473,7 @@ local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
                 tostring(requestedRecipeID or strat.recipeID or "unknown"),
                 visibleRecipeID))
         else
-            print("|cffff8800[GAM]|r " .. string.format(
-                GetL()["MSG_VERIFY_RECIPE_FAILED"] or "Could not verify the selected recipe: %s",
-                tostring(asyncReason or "unknown")))
+            print("|cffff8800[GAM]|r " .. Common.DescribeRecipeFailure(asyncReason))
         end
     end)
     if not opened and reportFailure then
@@ -1496,9 +1494,7 @@ local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
                     tostring(strat.profession or "this profession")))
             end
         else
-            print("|cffff8800[GAM]|r "
-                .. ((L and L["MSG_REFRESH_RECIPE_FAILED"]) or "Could not open the selected recipe")
-                .. ": " .. tostring(reason or "unknown"))
+            print("|cffff8800[GAM]|r " .. Common.DescribeRecipeFailure(reason))
         end
     end
     return opened and true or false
@@ -2089,17 +2085,7 @@ local function BuildInlineDetail(panel)
             OpenAndRefreshSelectedRecipe(rpDetail.currentStrat, true)
         end,
         onPushCraftSim = function()
-            if not rpDetail.currentStrat then return end
-            local pushed, err = GAM.CraftSimBridge.PushStratPrices(
-                rpDetail.currentStrat,
-                rpDetail.currentPatch,
-                rpDetail.canonicalResult)
-            if err then
-                print("|cffff8800[GAM]|r " .. string.format(
-                    GetL()["MSG_CRAFTSIM_ERROR"] or "CraftSim: %s", tostring(err)))
-            else
-                print(string.format("|cffff8800[GAM]|r Pushed %d price(s) to CraftSim.", pushed or 0))
-            end
+            Common.PushPricesToCraftSim(rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.canonicalResult)
         end,
         onToggleShopping = function()
             if workspace then MainWindow.OpenWorkspace("shopping")
@@ -2198,17 +2184,7 @@ local function BuildLeftPanelContent(L, C, LP)
             ToggleShoppingSync(rpDetail.currentStrat, rpDetail.currentPatch)
         end,
         pushSelectedToCraftSim = function()
-            if not rpDetail.currentStrat then return end
-            local pushed, err = GAM.CraftSimBridge.PushStratPrices(
-                rpDetail.currentStrat,
-                rpDetail.currentPatch,
-                rpDetail.canonicalResult)
-            if err then
-                print("|cffff8800[GAM]|r " .. string.format(
-                    GetL()["MSG_CRAFTSIM_ERROR"] or "CraftSim: %s", tostring(err)))
-            else
-                print(string.format("|cffff8800[GAM]|r Pushed %d price(s) to CraftSim.", pushed or 0))
-            end
+            Common.PushPricesToCraftSim(rpDetail.currentStrat, rpDetail.currentPatch, rpDetail.canonicalResult)
         end,
         showARPExport = function()
             if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.ShowARPExport then
@@ -2251,16 +2227,25 @@ local function BuildLeftPanelContent(L, C, LP)
             else
                 err = "stat-cache-unavailable"
             end
+            local L = GetL()
             if snapshot then
-                print(string.format(
-                    "|cff55ff55[GAM]|r Saved %s setup for %s.",
-                    mode == "multicraft" and "Multicraft" or "Resourcefulness",
-                    tostring(snapshot.profession or "the open profession")))
+                local modeName = mode == "multicraft" and (L["GEAR_MODE_MC"] or "Multicraft")
+                    or (L["GEAR_MODE_RES"] or "Resourcefulness")
+                local template = (tonumber(snapshot.revision) or 1) > 1
+                    and (L["MSG_GEAR_UPDATED"] or "Updated your %s set for %s.")
+                    or (L["MSG_GEAR_SAVED"] or "Saved your %s set for %s.")
+                print("|cff55ff55[GAM]|r " .. string.format(template, modeName,
+                    tostring(snapshot.profession or L["GEAR_THIS_PROFESSION"] or "this profession")))
             else
-                print("|cffff8800[GAM]|r " .. string.format(
-                    GetL()["MSG_GEAR_CAPTURE_FIRST"]
-                        or "Equip that gear set and open the exact selected profession recipe first (%s).",
-                    tostring(err)))
+                -- Players see a sentence; the raw code stays available in the debug log.
+                local messages = {
+                    ["no-open-native-recipe"] = L["ERR_GEAR_NO_RECIPE"],
+                    ["profession-equipment-unavailable"] = L["ERR_GEAR_EQUIPMENT"],
+                    ["recipe-stats-unavailable"] = L["ERR_GEAR_STATS"],
+                }
+                GAM.Log.Warn("Gear: save %s set failed: %s", tostring(mode), tostring(err))
+                print("|cffff8800[GAM]|r " .. (messages[err] or string.format(
+                    L["ERR_GEAR_GENERIC"] or "Could not save the gear set (%s).", tostring(err))))
             end
         end,
         getFilterPatch = function()

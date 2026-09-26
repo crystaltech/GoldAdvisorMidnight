@@ -478,19 +478,59 @@ function LeftPanelUI.Build(args)
         optimal = (L and L["RANK_DD_OPTIMAL"]) or "Best Mix -> Max Rank",
     }
 
+    -- A real menu, like Profession gear: the choices are visible before one is
+    -- applied instead of cycling on each click.
+    local gearMenu
+    local rankOrder = { "lowest", "optimal", "highest" }
+    local rankMenu = CreateFrame("Frame", nil, panel, "BackdropTemplate")
+    rankMenu:SetPoint("TOPLEFT", ddRank, "BOTTOMLEFT", 0, -2)
+    rankMenu:SetSize(innerW, 4 + (#rankOrder * 24))
+    rankMenu:SetFrameStrata("DIALOG")
+    rankMenu:SetFrameLevel(panel:GetFrameLevel() + 20)
+    rankMenu:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    rankMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
+    rankMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    rankMenu:Hide()
+    panel:HookScript("OnHide", function() rankMenu:Hide() end)
+
+    local rankButtons = {}
     local function RefreshRankDropdown()
         local rankPolicy = getOpts().rankPolicy or "lowest"
-        ddRank:SetText(rankTextMap[rankPolicy] or rankTextMap.lowest)
+        ddRank:SetText((rankTextMap[rankPolicy] or rankTextMap.lowest) .. "  v")
+        for policy, button in pairs(rankButtons) do
+            local active = policy == rankPolicy
+            if button:GetFontString() then
+                button:GetFontString():SetTextColor(
+                    active and gold[1] or 0.65, active and gold[2] or 0.65, active and gold[3] or 0.65)
+            end
+        end
+    end
+
+    for index, policy in ipairs(rankOrder) do
+        local button = CreateFrame("Button", nil, rankMenu, "UIPanelButtonTemplate")
+        button:SetHeight(22)
+        button:SetPoint("TOPLEFT", rankMenu, "TOPLEFT", 2, -2 - ((index - 1) * 24))
+        button:SetPoint("TOPRIGHT", rankMenu, "TOPRIGHT", -2, -2 - ((index - 1) * 24))
+        button:SetText(rankTextMap[policy])
+        button:SetScript("OnClick", function()
+            setOption("rankPolicy", policy)
+            rankMenu:Hide()
+            RefreshRankDropdown()
+            RefreshVisiblePanels()
+        end)
+        rankButtons[policy] = button
     end
 
     ddRank:SetScript("OnClick", function()
-        local current = getOpts().rankPolicy or "lowest"
-        local nextPolicy = current == "lowest" and "optimal"
-            or current == "optimal" and "highest"
-            or "lowest"
-        setOption("rankPolicy", nextPolicy)
+        profMenu:Hide()
+        if gearMenu then gearMenu:Hide() end
         RefreshRankDropdown()
-        RefreshVisiblePanels()
+        rankMenu:SetShown(not rankMenu:IsShown())
     end)
     RefreshRankDropdown()
     panel.refreshRankDropdown = RefreshRankDropdown
@@ -509,7 +549,7 @@ function LeftPanelUI.Build(args)
         (L and L["TT_GEAR_MENU_BODY"])
             or "Choose a saved gear setup, or save the stats from the recipe currently open in your profession window.")
 
-    local gearMenu = CreateFrame("Frame", nil, panel, "BackdropTemplate")
+    gearMenu = CreateFrame("Frame", nil, panel, "BackdropTemplate")
     gearMenu:SetPoint("TOPLEFT", gearPlanBtn, "BOTTOMLEFT", 0, -2)
     gearMenu:SetSize(innerW, 56)
     gearMenu:SetFrameStrata("DIALOG")
@@ -545,48 +585,139 @@ function LeftPanelUI.Build(args)
             RefreshVisiblePanels()
         end)
     end
-    attachButtonTooltip(gearButtons.auto, "Auto", "Use whichever saved setup gives more profit.")
-    attachButtonTooltip(gearButtons.multicraft, "Multicraft", "Always use the saved Multicraft setup.")
-    attachButtonTooltip(gearButtons.resourcefulness, "Resourcefulness", "Always use the saved Resourcefulness setup.")
+    local function Lx(key, fallback)
+        return (L and L[key]) or fallback
+    end
+    attachButtonTooltip(gearButtons.auto, Lx("GEAR_MODE_AUTO", "Auto"),
+        Lx("GEAR_MODE_AUTO_TIP", "Price this strategy with whichever saved set gives more profit."))
+    attachButtonTooltip(gearButtons.multicraft, Lx("GEAR_MODE_MC", "Multicraft"),
+        Lx("GEAR_MODE_MC_TIP", "Always price this strategy with the saved Multicraft set."))
+    attachButtonTooltip(gearButtons.resourcefulness, Lx("GEAR_MODE_RES", "Resourcefulness"),
+        Lx("GEAR_MODE_RES_TIP", "Always price this strategy with the saved Resourcefulness set."))
 
-    local captureMCBtn = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
-    captureMCBtn:SetSize(halfBtnW - 2, 22)
-    captureMCBtn:SetPoint("BOTTOMLEFT", gearMenu, "BOTTOMLEFT", 2, 2)
-    captureMCBtn:SetText((L and L["BTN_SAVE_MC"]) or "Save MC")
-    captureMCBtn:SetScript("OnClick", function()
-        captureGearPreset("multicraft")
-        gearMenu:Hide()
-        RefreshVisiblePanels()
-    end)
-    attachButtonTooltip(captureMCBtn, "Save Multicraft",
-        (GAM.L and GAM.L["UI_SAVE_MC_TIP"] or "Save this profession's equipped Multicraft set. Every strategy in the profession uses it; save again after changing gear."))
+    -- Save and Update share one button per set. Its label says whether a set
+    -- exists, its color whether it is equipped, and the tooltip shows the
+    -- saved items and why saving is unavailable. Button sizes never change.
+    local gearSetDefs = {
+        multicraft = { save = Lx("BTN_SAVE_MC", "Save MC"), update = Lx("BTN_UPDATE_MC", "Update MC"),
+            name = Lx("GEAR_MODE_MC", "Multicraft") },
+        resourcefulness = { save = Lx("BTN_SAVE_RES", "Save Res"), update = Lx("BTN_UPDATE_RES", "Update Res"),
+            name = Lx("GEAR_MODE_RES", "Resourcefulness") },
+    }
+    local GEAR_EQUIPPED_COLOR = { 0.35, 0.9, 0.35 }
+    local GEAR_STALE_COLOR = { 1, 0.55, 0.2 }
 
-    local captureResBtn = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
-    captureResBtn:SetSize(halfBtnW - 2, 22)
-    captureResBtn:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
-    captureResBtn:SetText((L and L["BTN_SAVE_RES"]) or "Save Res")
-    captureResBtn:SetScript("OnClick", function()
-        captureGearPreset("resourcefulness")
-        gearMenu:Hide()
-        RefreshVisiblePanels()
-    end)
-    attachButtonTooltip(captureResBtn, "Save Resourcefulness",
-        (GAM.L and GAM.L["UI_SAVE_RES_TIP"] or "Save this profession's equipped Resourcefulness set. Every strategy in the profession uses it; save again after changing gear."))
+    local function FormatSavedAge(capturedAt)
+        local now = type(time) == "function" and time() or 0
+        local age = math.max(0, now - (tonumber(capturedAt) or now))
+        if age < 60 then return Lx("GEAR_SET_SAVED_NOW", "Saved just now.") end
+        local text
+        if type(SecondsToTime) == "function" then
+            text = SecondsToTime(age, true, false, 1)
+        else
+            local days, hours = math.floor(age / 86400), math.floor(age / 3600)
+            text = days > 0 and (days .. " days") or hours > 0 and (hours .. " hours")
+                or (math.floor(age / 60) .. " minutes")
+        end
+        return string.format(Lx("GEAR_SET_SAVED_AGO", "Saved %s ago."), text)
+    end
 
+    local function AddTooltipLine(text, color)
+        GameTooltip:AddLine(text, color[1], color[2], color[3], true)
+    end
+
+    local function ShowGearSetTooltip(button, mode)
+        local def = gearSetDefs[mode]
+        local status = getGearStatus() or {}
+        local detail = status.details and status.details[mode]
+        local profession = status.profession or Lx("GEAR_THIS_PROFESSION", "this profession")
+        local muted, info, blocked = { 0.7, 0.7, 0.7 }, { 1, 0.82, 0 }, { 1, 0.35, 0.35 }
+        GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+        GameTooltip:SetText(def.name .. " - " .. profession, 1, 1, 1)
+        AddTooltipLine(string.format(
+            Lx("GEAR_SET_SHARED", "Shared by every %s strategy on this character."), profession), muted)
+        if detail then
+            AddTooltipLine(FormatSavedAge(detail.capturedAt), info)
+            if detail.needsResave then
+                AddTooltipLine(Lx("GEAR_SET_RESAVE", "Save it again to use it."), GEAR_STALE_COLOR)
+            end
+            if detail.equipped == true then
+                AddTooltipLine(Lx("GEAR_SET_EQUIPPED", "You are wearing this set now."), GEAR_EQUIPPED_COLOR)
+            elseif detail.equipped == false then
+                AddTooltipLine(Lx("GEAR_SET_DIFFERENT",
+                    "Your equipped profession gear differs from this set."), GEAR_STALE_COLOR)
+            else
+                AddTooltipLine(Lx("GEAR_SET_EQUIP_UNKNOWN", "Equipment could not be read yet."), muted)
+            end
+            if #detail.items > 0 then
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine(Lx("GEAR_SET_ITEMS", "Saved items:"), 1, 1, 1)
+                for _, link in ipairs(detail.items) do GameTooltip:AddLine("  " .. link) end
+            else
+                AddTooltipLine(Lx("GEAR_SET_NO_ITEMS", "No profession items were equipped."), muted)
+            end
+        else
+            AddTooltipLine(string.format(Lx("GEAR_SET_NOT_SAVED",
+                "Not saved yet. Equip your %s gear, open any %s recipe, then click to save it."),
+                def.name, profession), info)
+        end
+        GameTooltip:AddLine(" ")
+        if status.canCapture then
+            AddTooltipLine(detail and Lx("GEAR_SET_CLICK_UPDATE", "Click to replace this set with your equipped gear.")
+                or Lx("GEAR_SET_CLICK_SAVE", "Click to save your equipped gear as this set."), { 0.55, 0.85, 1 })
+        elseif status.captureBlocked == "other-profession" then
+            AddTooltipLine(string.format(Lx("GEAR_BLOCK_OTHER_PROF",
+                "The open profession window is %s. Open %s to save or update this set."),
+                tostring(status.openProfession), profession), blocked)
+        else
+            AddTooltipLine(string.format(Lx("GEAR_BLOCK_NO_RECIPE",
+                "Open the %s profession window to save or update this set."), profession), blocked)
+        end
+        AddTooltipLine(Lx("GEAR_SET_LEGEND", "Green: set equipped. Orange: saved, but different gear equipped."),
+            { 0.55, 0.55, 0.55 })
+        GameTooltip:Show()
+    end
+
+    local function MakeGearSetButton(mode, point)
+        local button = CreateFrame("Button", nil, gearMenu, "UIPanelButtonTemplate")
+        button:SetSize(halfBtnW - 2, 22)
+        button:SetPoint(point, gearMenu, point, point == "BOTTOMLEFT" and 2 or -2, 2)
+        button:SetText(gearSetDefs[mode].save)
+        -- Disabled buttons still explain why they are disabled.
+        if button.SetMotionScriptsWhileDisabled then button:SetMotionScriptsWhileDisabled(true) end
+        button:SetScript("OnClick", function()
+            captureGearPreset(mode)
+            gearMenu:Hide()
+            RefreshVisiblePanels()
+        end)
+        button:SetScript("OnEnter", function(self) ShowGearSetTooltip(self, mode) end)
+        button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        return button
+    end
+    local captureButtons = {
+        multicraft = MakeGearSetButton("multicraft", "BOTTOMLEFT"),
+        resourcefulness = MakeGearSetButton("resourcefulness", "BOTTOMRIGHT"),
+    }
+
+    local RefreshGearPlan
     gearPlanBtn:SetScript("OnClick", function()
         profMenu:Hide()
-        gearMenu:SetShown(not gearMenu:IsShown())
+        rankMenu:Hide()
+        local show = not gearMenu:IsShown()
+        -- Equipment may have changed since the last refresh.
+        if show then RefreshGearPlan() end
+        gearMenu:SetShown(show)
     end)
     panel:HookScript("OnHide", function() gearMenu:Hide() end)
 
-    local function RefreshGearPlan()
+    RefreshGearPlan = function()
         local status = getGearStatus()
         local selected = status and status.selected or "auto"
-        local available = status and status.sets or {}
+        local details = status and status.details or {}
         local modeLabels = {
-            auto = (L and L["GEAR_MODE_AUTO"]) or "Auto",
-            multicraft = (L and L["GEAR_MODE_MC"]) or "Multicraft",
-            resourcefulness = (L and L["GEAR_MODE_RES"]) or "Resourcefulness",
+            auto = Lx("GEAR_MODE_AUTO", "Auto"),
+            multicraft = Lx("GEAR_MODE_MC", "Multicraft"),
+            resourcefulness = Lx("GEAR_MODE_RES", "Resourcefulness"),
         }
         gearPlanBtn:SetText((modeLabels[selected] or modeLabels.auto) .. "  v")
         for mode, button in pairs(gearButtons) do
@@ -598,13 +729,24 @@ function LeftPanelUI.Build(args)
                     active and gold[3] or 0.65)
             end
         end
-        captureMCBtn:SetText(available.multicraft and "MC Saved" or "Save MC")
-        captureResBtn:SetText(available.resourcefulness and "Res Saved" or "Save Res")
         local enabled = status and status.canCapture or false
-        captureMCBtn:SetEnabled(enabled)
-        captureResBtn:SetEnabled(enabled)
-        captureMCBtn:SetAlpha(enabled and 1 or 0.45)
-        captureResBtn:SetAlpha(enabled and 1 or 0.45)
+        for mode, button in pairs(captureButtons) do
+            local detail = details[mode]
+            button:SetEnabled(enabled)
+            button:SetAlpha(enabled and 1 or 0.45)
+            button:SetText(detail and gearSetDefs[mode].update or gearSetDefs[mode].save)
+            local fs = button:GetFontString()
+            local color = detail and (detail.equipped == true and GEAR_EQUIPPED_COLOR
+                or (detail.equipped == false or detail.needsResave) and GEAR_STALE_COLOR) or nil
+            if fs and color then
+                fs:SetTextColor(color[1], color[2], color[3])
+            elseif fs then
+                -- Restore the template color after a status color was shown.
+                local getFont = enabled and button.GetNormalFontObject or button.GetDisabledFontObject
+                local fontObject = getFont and getFont(button)
+                if fontObject and fontObject.GetTextColor then fs:SetTextColor(fontObject:GetTextColor()) end
+            end
+        end
     end
     panel.refreshGearPlan = RefreshGearPlan
 
@@ -772,6 +914,7 @@ function LeftPanelUI.Build(args)
 
     moreToolsBtn:SetScript("OnClick", function()
         gearMenu:Hide()
+        rankMenu:Hide()
         profMenu:Hide()
         toolsMenu:SetShown(not toolsMenu:IsShown())
     end)
@@ -856,12 +999,12 @@ function LeftPanelUI.Build(args)
             scanRows[4]:SetEnabled(not active and selected)
         end
         scanMenuBtn:SetScript("OnClick", function()
-            profMenu:Hide(); gearMenu:Hide(); toolsMenu:Hide()
+            profMenu:Hide(); gearMenu:Hide(); rankMenu:Hide(); toolsMenu:Hide()
             RefreshScanMenu()
             scanMenu:SetShown(not scanMenu:IsShown())
         end)
         scanBtnLeft:HookScript("OnClick", function() scanMenu:Hide(); profMenu:Hide() end)
-        ddProf:HookScript("OnClick", function() scanMenu:Hide(); gearMenu:Hide(); toolsMenu:Hide() end)
+        ddProf:HookScript("OnClick", function() scanMenu:Hide(); gearMenu:Hide(); rankMenu:Hide(); toolsMenu:Hide() end)
         moreToolsBtn:HookScript("OnClick", function() scanMenu:Hide() end)
 
         -- Addon-owned menus close on Escape and outside mouse-down, without
@@ -1012,6 +1155,7 @@ function LeftPanelUI.Build(args)
         ddRank:ClearAllPoints()
         ddRank:SetPoint("TOPLEFT", rankLbl, "BOTTOMLEFT", 0, -4)
         ddRank:SetSize(194, 24)
+        rankMenu:SetWidth(194)
 
         gearLbl:ClearAllPoints()
         gearLbl:SetPoint("TOPLEFT", panel, "TOPLEFT", 382, -108)
@@ -1030,12 +1174,12 @@ function LeftPanelUI.Build(args)
             button:SetPoint("TOPLEFT", gearMenu, "TOPLEFT", 2 + ((index - 1) * (compactGearW + compactGearGap)), -2)
             button:SetSize(compactGearW, 22)
         end
-        captureMCBtn:ClearAllPoints()
-        captureMCBtn:SetPoint("BOTTOMLEFT", gearMenu, "BOTTOMLEFT", 2, 2)
-        captureMCBtn:SetSize(115, 22)
-        captureResBtn:ClearAllPoints()
-        captureResBtn:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
-        captureResBtn:SetSize(115, 22)
+        captureButtons.multicraft:ClearAllPoints()
+        captureButtons.multicraft:SetPoint("BOTTOMLEFT", gearMenu, "BOTTOMLEFT", 2, 2)
+        captureButtons.multicraft:SetSize(115, 22)
+        captureButtons.resourcefulness:ClearAllPoints()
+        captureButtons.resourcefulness:SetPoint("BOTTOMRIGHT", gearMenu, "BOTTOMRIGHT", -2, 2)
+        captureButtons.resourcefulness:SetSize(115, 22)
 
         viOwn:ClearAllPoints()
         viOwn:SetPoint("TOPLEFT", panel, "TOPLEFT", 600, -122)
@@ -1066,12 +1210,14 @@ function LeftPanelUI.Build(args)
         for _, button in ipairs({
             ddProf, moreToolsBtn,
             ddRank, gearPlanBtn, selectedShoppingBtn, quickBuyBtn, cooldownsBtn,
-            selectedCraftSimBtn, selectedScanBtn, btnARP, craftPlanBtn, captureMCBtn, captureResBtn,
+            selectedCraftSimBtn, selectedScanBtn, btnARP, craftPlanBtn,
+            captureButtons.multicraft, captureButtons.resourcefulness,
         }) do
             styleButton(button, false)
         end
         styleButton(scanBtnLeft, true)
         for _, button in pairs(gearButtons) do styleButton(button, false) end
+        for _, button in pairs(rankButtons) do styleButton(button, false) end
 
         local function SetOptionsShown(shown)
             getOpts().craftingOptionsExpanded = shown and true or false
@@ -1092,19 +1238,24 @@ function LeftPanelUI.Build(args)
                 fillQtyOKBtn:Hide()
             end
             gearMenu:Hide()
+            rankMenu:Hide()
             relayoutPanels()
         end
 
         refreshComfortableSummary = function()
             local opts = getOpts()
-            local rank = ({ lowest = "Rank 1", highest = "Rank 2", optimal = "Best mix" })[opts.rankPolicy or "lowest"]
-                or tostring(opts.rankPolicy or "R1 mats")
+            local rank = ({
+                lowest = Lx("UI_SUMMARY_RANK1", "Rank 1"),
+                highest = Lx("UI_SUMMARY_RANK2", "Rank 2"),
+                optimal = Lx("UI_SUMMARY_BEST_MIX", "Best mix"),
+            })[opts.rankPolicy or "lowest"] or tostring(opts.rankPolicy)
             local gearStatus = getGearStatus()
-            local gear = gearStatus and gearStatus.selected or "Auto"
-            if gear == "multicraft" then gear = "Multicraft" end
-            if gear == "resourcefulness" then gear = "Resourcefulness" end
-            if gear == "auto" then gear = "Auto" end
-            summary:SetText(string.format("Price quantity: %s  |  Materials: %s  |  Gear: %s",
+            local gear = ({
+                auto = Lx("GEAR_MODE_AUTO", "Auto"),
+                multicraft = Lx("GEAR_MODE_MC", "Multicraft"),
+                resourcefulness = Lx("GEAR_MODE_RES", "Resourcefulness"),
+            })[gearStatus and gearStatus.selected or "auto"] or Lx("GEAR_MODE_AUTO", "Auto")
+            summary:SetText(string.format(Lx("UI_SETTINGS_SUMMARY", "Price quantity: %s  |  Materials: %s  |  Gear: %s"),
                 tostring(opts.shallowFillQty or GAM.C.DEFAULT_FILL_QTY), rank, gear))
         end
 

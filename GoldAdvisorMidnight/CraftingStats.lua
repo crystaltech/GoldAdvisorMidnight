@@ -652,19 +652,30 @@ function Stats.GetGearPresetStatus(strat, patchTag)
     local selected = Stats.GetGearModeForStrat(strat, patchTag)
     local openSnapshot = GetOpenNativeRecipeSnapshot()
     local openProfession = openSnapshot and Gear.Profession(openSnapshot.recipeID, openSnapshot.profileKey)
-    local canCapture = openProfession ~= nil and (not strat or
-        openProfession == Gear.Profession(strat.recipeID, GetProfileKeyForStrat(strat)))
+    local recipeID, profileKey = strat and strat.recipeID, GetProfileKeyForStrat(strat)
+    local profession = strat and Gear.Profession(recipeID, profileKey) or nil
+    local canCapture = openProfession ~= nil and (not strat or openProfession == profession)
     local character = EnsureCache()
-    local sets = {}
+    local current = strat and Gear.ReadEquipment(recipeID, profileKey) or nil
+    local sets, details = {}, {}
     for _, mode in ipairs({ "multicraft", "resourcefulness" }) do
-        sets[mode] = Gear.GetSet(character, strat and strat.recipeID, GetProfileKeyForStrat(strat), mode) ~= nil
+        details[mode] = Gear.Describe(character, recipeID, profileKey, mode, current)
+        sets[mode] = details[mode] ~= nil
+    end
+    local captureBlocked
+    if not canCapture then
+        captureBlocked = openProfession and "other-profession" or "no-open-recipe"
     end
     return {
         selected = selected,
         available = available,
         crafters = crafters,
         canCapture = canCapture,
+        captureBlocked = captureBlocked,
+        profession = profession,
+        openProfession = openProfession,
         sets = sets,
+        details = details,
         selectedMissing = selected ~= "auto" and not available[selected] or false,
     }
 end

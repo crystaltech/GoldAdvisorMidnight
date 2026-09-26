@@ -147,6 +147,29 @@ function Gear.Requirement(character, recipeID, profileKey, mode)
         signature = set.signature, slots = Cache.CopySerializableTable(set.slots) }
 end
 
+-- Read-only summary of one saved set for the gear menu. `current` is the
+-- crafter's equipment from ReadEquipment; nil means it could not be read, so
+-- `equipped` stays nil instead of claiming a mismatch.
+function Gear.Describe(character, recipeID, profileKey, mode, current)
+    local set = Gear.GetSet(character, recipeID, profileKey, mode)
+    if not set then return nil end
+    local items = {}
+    for _, slot in ipairs(set.slots or {}) do
+        if slot.link then items[#items + 1] = slot.link end
+    end
+    local equipped
+    if current and current.profession == set.profession then
+        equipped = current.signature == set.signature
+    end
+    return {
+        capturedAt = set.capturedAt,
+        revision = set.revision,
+        items = items,
+        equipped = equipped,
+        needsResave = type(set.stats) ~= "table",
+    }
+end
+
 function Gear.IsEquipped(requirement, recipeID, profileKey)
     local _, uid = Cache.Ensure()
     if not requirement or uid ~= requirement.uid then return false end

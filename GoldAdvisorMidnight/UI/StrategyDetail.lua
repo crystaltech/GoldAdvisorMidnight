@@ -270,53 +270,12 @@ local function ItemRowLeave()
 end
 
 -- ===== Auctionator export =====
+-- Shares the main window's list builder so vendor purchases stay off the AH list.
+local shoppingList
 local function CreateAuctionatorList()
-    if not (Auctionator and Auctionator.API and Auctionator.API.v1 and
-            type(Auctionator.API.v1.CreateShoppingList) == "function") then
-        print("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_NOT_FOUND"])
-        return
-    end
     if not currentStrat then return end
-    local result = canonicalResult or GAM.PricingFacade.CalculateCurrent(currentStrat, currentPatch)
-    if not result then return end
-
-    local addonName  = ADDON_NAME
-    local hasConvert = type(Auctionator.API.v1.ConvertToSearchString) == "function"
-    local searchStrings, qtySummary = {}, {}
-
-    for _, rm in ipairs(result.shoppingReagents or {}) do
-        local qty = math.floor(rm.needToBuy or 0)
-        if qty > 0 then
-            local entry
-            local searchData = GAM.Pricing.GetShoppingSearchData(rm.itemID, rm.name)
-            if hasConvert then
-                local qualityID = (rm.itemID and C_TradeSkillUI and C_TradeSkillUI.GetItemReagentQualityByItemInfo)
-                    and C_TradeSkillUI.GetItemReagentQualityByItemInfo(rm.itemID) or nil
-                local searchTerm = {
-                    searchString = searchData.searchName or rm.name,
-                    quantity = qty,
-                    isExact = true,
-                }
-                if qualityID and qualityID > 0 then searchTerm.tier = qualityID end
-                entry = Auctionator.API.v1.ConvertToSearchString(addonName, searchTerm)
-            else
-                entry = searchData.searchString
-            end
-            if entry then
-                searchStrings[#searchStrings + 1] = entry
-                qtySummary[#qtySummary + 1] = string.format("  %s: |cffffd700%d|r", searchData.displayName, qty)
-            end
-        end
-    end
-
-    if #searchStrings == 0 then
-        print("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_NO_ITEMS"])
-        return
-    end
-    local listName = GAM.L["AUCTIONATOR_LIST_NAME"]
-    Auctionator.API.v1.CreateShoppingList(addonName, listName, searchStrings)
-    print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_CREATED"], listName, #searchStrings))
-    for _, line in ipairs(qtySummary) do print(line) end
+    shoppingList = shoppingList or GAM.UI.MainWindowShopping.Create({})
+    shoppingList.CreateShoppingList(currentStrat, currentPatch)
 end
 
 -- ===== Metrics section =====
@@ -923,18 +882,7 @@ local function Build()
     btnCraftSim:SetPoint("BOTTOM", frame, "BOTTOM", 0, 20)
     btnCraftSim:SetText(L["BTN_PUSH_CRAFTSIM"])
     btnCraftSim:SetScript("OnClick", function()
-        if not currentStrat then return end
-        local pushed, err = GAM.CraftSimBridge.PushStratPrices(currentStrat, currentPatch, canonicalResult)
-        if err then
-            print("|cffff8800[GAM]|r " .. string.format(
-                L["MSG_CRAFTSIM_PUSH_FAILED"] or "CraftSim push failed: %s", err))
-        elseif pushed == 0 then
-            print("|cffff8800[GAM]|r " .. (L["MSG_NO_PRICES_TO_PUSH"]
-                or "No prices to push — scan items first."))
-        else
-            print("|cffff8800[GAM]|r " .. string.format(
-                L["MSG_PRICES_PUSHED"] or "Pushed %d price(s) to CraftSim.", pushed))
-        end
+        GAM.UI.MainWindowCommon.PushPricesToCraftSim(currentStrat, currentPatch, canonicalResult)
     end)
     btnCraftSim:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -982,10 +930,10 @@ local function Build()
         local opened, reason = stats.OpenRecipeForStrat(currentStrat, function()
             SD.Refresh()
         end, function(asyncReason)
-            print("|cffff8800[GAM]|r Could not refresh the selected recipe: " .. tostring(asyncReason or "unknown"))
+            print("|cffff8800[GAM]|r " .. GAM.UI.MainWindowCommon.DescribeRecipeFailure(asyncReason))
         end)
         if not opened then
-            print("|cffff8800[GAM]|r Could not open the selected recipe: " .. tostring(reason or "unknown"))
+            print("|cffff8800[GAM]|r " .. GAM.UI.MainWindowCommon.DescribeRecipeFailure(reason))
         end
     end)
 
