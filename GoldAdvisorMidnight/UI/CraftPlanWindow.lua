@@ -194,6 +194,12 @@ function UI.Refresh()
             local row = Row(index)
             row.kind = "item"
             row.bg:SetColorTexture(1, 1, 1, 0)
+            if row.largeText then
+                -- Rows are recycled; only the budget row uses the larger size.
+                local face, _, flags = row.label:GetFont()
+                if face then row.label:SetFont(face, embedded and 11 or 14, flags) end
+                row.largeText = nil
+            end
             row.label:SetText(label); row.amount:SetText(amount or "")
             row.click, row.other, row.tip, row.itemID, row.editPlan = click, other, tip, nil, nil
             row.purchaseItemID = nil
@@ -228,16 +234,21 @@ function UI.Refresh()
         -- and offer craft counts that fit while keeping the reserve.
         local budget = GAM.CraftPlanBudget and GAM.CraftPlanBudget.Check(projection)
         if budget then
-            local basis = L("WF_BUDGET_BASIS", "You can spend %s (keeping %d%% of %s).",
-                Price(budget.spendable), budget.reserve, Price(budget.money))
-            local unpriced = budget.unpriced > 0
-                and ("\n" .. L("WF_BUDGET_UNPRICED", "%d materials have no price yet; the total may be higher.", budget.unpriced)) or ""
+            -- Larger, multi-line summary so the gold check is noticed.
+            local lines = {
+                L("WF_BUDGET_COST", "Estimated cost: %s", Price(budget.cost)),
+                L("WF_BUDGET_SPEND", "You can spend: %s (keeping %d%% of %s)",
+                    Price(budget.spendable), budget.reserve, Price(budget.money)),
+            }
+            if budget.unpriced > 0 then
+                lines[#lines + 1] = L("WF_BUDGET_UNPRICED", "%d materials have no price yet; the total may be higher.", budget.unpriced)
+            end
+            local action, click
+            local label
             if not budget.short then
-                Add("|cffaaaaaa" .. L("WF_BUDGET_OK", "Estimated cost %s.", Price(budget.cost)) .. " " .. basis .. unpriced .. "|r")
+                label = "|cff88dd99" .. L("WF_BUDGET_OK_TITLE", "Within your gold budget") .. "|r\n" .. table.concat(lines, "\n")
             else
-                local label = "|cffffaa55" .. L("WF_BUDGET_SHORT", "Not enough gold: these materials cost about %s.", Price(budget.cost))
-                    .. "|r\n" .. basis .. unpriced
-                local action, click
+                label = "|cffffaa55" .. L("WF_BUDGET_SHORT_TITLE", "Not enough gold for these materials") .. "|r\n" .. table.concat(lines, "\n")
                 local suggestions = budget.affordable and budget.suggestions or nil
                 if suggestions then
                     if #suggestions == 1 then
@@ -256,9 +267,12 @@ function UI.Refresh()
                 else
                     label = label .. "\n" .. L("WF_BUDGET_NONE", "Not even one more craft fits. Lower the gold reserve in Settings > Pricing, or sell items first.")
                 end
-                local row = Add(label, "", action, click)
-                row.tip = L("WF_BUDGET_TIP", "Compares the shopping list with your gold, keeping the reserve set in Settings > Pricing. Suggested crafts use each plan's saved setup and the materials you already own.")
             end
+            local row = Add(label, "", action, click)
+            row.tip = L("WF_BUDGET_TIP", "Compares the shopping list with your gold, keeping the reserve set in Settings > Pricing. Suggested crafts use each plan's saved setup and the materials you already own.")
+            local face, _, flags = row.label:GetFont()
+            if face then row.label:SetFont(face, embedded and 13 or 16, flags) end
+            row.largeText = true
         end
         for _, buy in ipairs(projection.buys) do
             local source = GAM.VendorPrices.ResolvePurchase(buy.itemID, buy.quantity)

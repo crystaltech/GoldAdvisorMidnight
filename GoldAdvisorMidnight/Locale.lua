@@ -723,13 +723,16 @@ L["V2_VI_HEADING"] = "Intermediates"
 L["V2_VI_SHORT"] = "Craft them myself"
 
 -- Shopping gold guard (English only until translations are reviewed)
-L["WF_BUDGET_BASIS"] = "You can spend %s (keeping %d%% of %s)."
 L["WF_BUDGET_UNPRICED"] = "%d materials have no price yet; the total may be higher."
-L["WF_BUDGET_OK"] = "Estimated cost %s."
-L["WF_BUDGET_SHORT"] = "Not enough gold: these materials cost about %s."
 L["WF_BUDGET_USE"] = "Use %d crafts"
 L["WF_BUDGET_SUGGEST_ONE"] = "%d total crafts fit your budget."
 L["WF_BUDGET_REDUCE"] = "Reduce crafts"
 L["WF_BUDGET_SUGGEST_MANY"] = "Fits your budget: %s."
 L["WF_BUDGET_NONE"] = "Not even one more craft fits. Lower the gold reserve in Settings > Pricing, or sell items first."
 L["WF_BUDGET_TIP"] = "Compares the shopping list with your gold, keeping the reserve set in Settings > Pricing. Suggested crafts use each plan's saved setup and the materials you already own."
+
+-- Shopping gold guard (English only until translations are reviewed)
+L["WF_BUDGET_COST"] = "Estimated cost: %s"
+L["WF_BUDGET_SPEND"] = "You can spend: %s (keeping %d%% of %s)"
+L["WF_BUDGET_OK_TITLE"] = "Within your gold budget"
+L["WF_BUDGET_SHORT_TITLE"] = "Not enough gold for these materials"
