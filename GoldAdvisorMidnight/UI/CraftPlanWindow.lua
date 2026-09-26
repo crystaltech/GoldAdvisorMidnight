@@ -224,6 +224,42 @@ function UI.Refresh()
         Section((GAM.L and GAM.L["WF_MATERIALS"] or "Materials to buy"), (GAM.L and GAM.L["WF_QUANTITY"] or "Quantity needed"))
         if #projection.buys > 0 then Add((GAM.L and GAM.L["WF_SELECT_MATERIAL"] or "Select a material below to buy it.")) end
         if #projection.buys == 0 then Add("|cff88cc99" .. L("WF_ACCOUNTED", "All materials accounted for") .. "|r") end
+        -- Gold guard: warn before a shopping trip the player cannot finish,
+        -- and offer craft counts that fit while keeping the reserve.
+        local budget = GAM.CraftPlanBudget and GAM.CraftPlanBudget.Check(projection)
+        if budget then
+            local basis = L("WF_BUDGET_BASIS", "You can spend %s (keeping %d%% of %s).",
+                Price(budget.spendable), budget.reserve, Price(budget.money))
+            local unpriced = budget.unpriced > 0
+                and ("\n" .. L("WF_BUDGET_UNPRICED", "%d materials have no price yet; the total may be higher.", budget.unpriced)) or ""
+            if not budget.short then
+                Add("|cffaaaaaa" .. L("WF_BUDGET_OK", "Estimated cost %s.", Price(budget.cost)) .. " " .. basis .. unpriced .. "|r")
+            else
+                local label = "|cffffaa55" .. L("WF_BUDGET_SHORT", "Not enough gold: these materials cost about %s.", Price(budget.cost))
+                    .. "|r\n" .. basis .. unpriced
+                local action, click
+                local suggestions = budget.affordable and budget.suggestions or nil
+                if suggestions then
+                    if #suggestions == 1 then
+                        action = L("WF_BUDGET_USE", "Use %d crafts", suggestions[1].target)
+                        label = label .. "\n" .. L("WF_BUDGET_SUGGEST_ONE", "%d total crafts fit your budget.", suggestions[1].target)
+                    else
+                        local parts = {}
+                        for _, entry in ipairs(suggestions) do parts[#parts + 1] = entry.plan.name .. " " .. entry.target end
+                        action = L("WF_BUDGET_REDUCE", "Reduce crafts")
+                        label = label .. "\n" .. L("WF_BUDGET_SUGGEST_MANY", "Fits your budget: %s.", table.concat(parts, ", "))
+                    end
+                    click = function()
+                        GAM.CraftPlanBudget.Apply(suggestions)
+                        UI.Refresh()
+                    end
+                else
+                    label = label .. "\n" .. L("WF_BUDGET_NONE", "Not even one more craft fits. Lower the gold reserve in Settings > Pricing, or sell items first.")
+                end
+                local row = Add(label, "", action, click)
+                row.tip = L("WF_BUDGET_TIP", "Compares the shopping list with your gold, keeping the reserve set in Settings > Pricing. Suggested crafts use each plan's saved setup and the materials you already own.")
+            end
+        end
         for _, buy in ipairs(projection.buys) do
             local source = GAM.VendorPrices.ResolvePurchase(buy.itemID, buy.quantity)
             local row = Add(Name(buy.itemID, buy.name) .. "\n|cffaaaaaa" .. (source == "vendor" and (GAM.L and GAM.L["WF_VENDOR"] or "Vendor") or (GAM.L and GAM.L["WF_AH"] or "Auction House")) .. "|r",
@@ -579,3 +615,13 @@ function UI.SetEmbeddedTab(tab)
     if GAM.QuickBuy and GAM.QuickBuy.RefreshPresentation then GAM.QuickBuy.RefreshPresentation() end
 end
 function UI.FinishEditing() return FinishEditing() end
+
+-- The Shopping budget depends on the player's gold, which changes outside
+-- inventory events (sales, repairs, mail).
+local moneyWatcher = CreateFrame("Frame")
+if moneyWatcher.RegisterEvent then
+    moneyWatcher:RegisterEvent("PLAYER_MONEY")
+    moneyWatcher:SetScript("OnEvent", function()
+        if UI.IsShoppingVisible() then UI.Refresh() end
+    end)
+end

@@ -572,6 +572,29 @@ local function BuildPanel()
     end)
     ebFillQty:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+    -- Shopping budget check: share of gold kept unspent.
+    local function ClampReserve(value)
+        local n = math.floor(tonumber(value) or GAM.C.DEFAULT_GOLD_RESERVE_PCT)
+        return math.max(GAM.C.MIN_GOLD_RESERVE_PCT, math.min(GAM.C.MAX_GOLD_RESERVE_PCT, n))
+    end
+    local ebGoldReserve = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+    ebGoldReserve:SetSize(90, 26)
+    ebGoldReserve:SetAutoFocus(false)
+    ebGoldReserve:SetNumeric(true)
+    ebGoldReserve:SetMaxLetters(2)
+    ebGoldReserve:SetText(tostring(ClampReserve(opts.goldReservePct)))
+    local function NormalizeGoldReserve()
+        local value = ClampReserve(ebGoldReserve:GetText())
+        ebGoldReserve:SetText(tostring(value))
+        ebGoldReserve:ClearFocus()
+        return value
+    end
+    ebGoldReserve:SetScript("OnEnterPressed", NormalizeGoldReserve)
+    ebGoldReserve:SetScript("OnEditFocusLost", NormalizeGoldReserve)
+    AddRow(content, "Gold reserve (%)", ebGoldReserve, string.format(
+        "Shopping warns when the queue's materials would leave less than this share of your gold, and suggests craft counts that fit (%d-%d%%).",
+        GAM.C.MIN_GOLD_RESERVE_PCT, GAM.C.MAX_GOLD_RESERVE_PCT), 90)
+
     FinalizeContentLayout()
     content = pages.crafting.content
     MakeSectionHeader(content, "Manual stat fallbacks")
@@ -1369,6 +1392,7 @@ local function BuildPanel()
                 math.min(GAM.C.MAX_FILL_QTY, math.floor(raw)))
             or GAM.C.DEFAULT_FILL_QTY
         ebFillQty:SetText(tostring(currentOpts.shallowFillQty))
+        currentOpts.goldReservePct = NormalizeGoldReserve()
 
         GAM.Log.SetLevel(currentOpts.debugVerbosity)
         if GAM.AHScan then
@@ -1396,6 +1420,9 @@ local function BuildPanel()
         if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.Refresh then
             GAM.UI.MainWindow.Refresh()
         end
+        if GAM.UI and GAM.UI.CraftPlanWindow and GAM.UI.CraftPlanWindow.Refresh then
+            GAM.UI.CraftPlanWindow.Refresh()
+        end
         if GAM.UI and GAM.UI.StrategyDetail and
             GAM.UI.StrategyDetail.IsShown and GAM.UI.StrategyDetail.Refresh and
             GAM.UI.StrategyDetail.IsShown() then
@@ -1414,6 +1441,7 @@ local function BuildPanel()
         cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
         slScale:SetValue(GetOptionValue(o, "uiScale", GAM.C.DEFAULT_UI_SCALE))
         ebFillQty:SetText(tostring(GetOptionValue(o, "shallowFillQty", GAM.C.DEFAULT_FILL_QTY)))
+        ebGoldReserve:SetText(tostring(ClampReserve(o.goldReservePct)))
         ebGlobalStartingCrafts:SetText(tostring(
             (GAM.State and GAM.State.GetGlobalStartingCrafts
                 and GAM.State.GetGlobalStartingCrafts()) or GAM.C.DEFAULT_STARTING_CRAFTS))

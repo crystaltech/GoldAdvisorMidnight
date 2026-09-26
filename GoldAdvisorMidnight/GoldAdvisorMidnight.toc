@@ -80,6 +80,7 @@ CraftPlan.lua
 CraftPlanTypes.lua
 CraftPlanMail.lua
 CraftPlanActions.lua
+CraftPlanBudget.lua
 Diagnostics.lua
 UI\DebugLog.lua
 TSMSaleRate.lua

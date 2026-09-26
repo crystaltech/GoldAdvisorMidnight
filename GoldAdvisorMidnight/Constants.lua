@@ -137,6 +137,11 @@ GAM.C = {
     MIN_FILL_QTY     = 10,     -- minimum configurable fill qty
     MAX_FILL_QTY     = 10000,  -- maximum configurable fill qty
 
+    -- Share of the player's gold the Shopping budget check keeps unspent
+    DEFAULT_GOLD_RESERVE_PCT = 20,
+    MIN_GOLD_RESERVE_PCT     = 0,
+    MAX_GOLD_RESERVE_PCT     = 90,
+
     -- Price trimming: ARP-style percentage trim from the expensive end
     -- After filling to targetQty, the top TRIM_PCT% most expensive units are dropped.
     -- Matches ARP Tracker default (Trim: 2). Range 0–100; 0 = no trim.

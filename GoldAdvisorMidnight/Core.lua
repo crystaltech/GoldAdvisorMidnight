@@ -82,6 +82,7 @@ local DB_DEFAULTS = {
         engRsNode        = ProfileDefault("engineering_craft", "defaultRsNode", 45),
         globalStartingCrafts = GAM.C.DEFAULT_STARTING_CRAFTS,
         shallowFillQty      = GAM.C.DEFAULT_FILL_QTY,
+        goldReservePct      = GAM.C.DEFAULT_GOLD_RESERVE_PCT,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         v2PricingMode        = GAM.C.DEFAULT_V2_PRICING_MODE,
         -- Per-session panel state
