@@ -427,9 +427,29 @@ end
 -- uses the current scanned order book so larger craft counts can reflect the
 -- real fill cost. If no live depth exists, we fall back to the cached/export
 -- unit price basis.
+-- The largest quantity pricing has asked for, per item, so scans page only
+-- as deep as something needs (AHScan.DepthFor). Kept 14 days; a smaller need
+-- replaces an older larger one after that.
+local NEED_KEEP_SECONDS = 14 * 86400
+local function NoteDemand(itemID, qty)
+    qty = tonumber(qty)
+    if not (itemID and qty and qty > 1 and GAM.db) then return end
+    GAM.db.scanNeeds = GAM.db.scanNeeds or {}
+    local rec, now = GAM.db.scanNeeds[itemID], time()
+    if not rec or qty > rec.qty or now - (rec.t or 0) > NEED_KEEP_SECONDS then
+        GAM.db.scanNeeds[itemID] = { qty = math.ceil(qty), t = now }
+    end
+end
+function Pricing.ScanNeed(itemID)
+    local rec = GAM.db and GAM.db.scanNeeds and GAM.db.scanNeeds[itemID]
+    if not rec or time() - (rec.t or 0) > NEED_KEEP_SECONDS then return 0 end
+    return rec.qty or 0
+end
+
 function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     if not itemID then return nil end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    NoteDemand(itemID, qty)
     local opts = GetOpts()
 
     -- 1. Manual override (use ~= nil so an explicit 0 override is honoured)
@@ -600,17 +620,23 @@ local function GetOutputPriceForItem(item, patchTag, preferredQuality, qty, reci
     if not ids or #ids == 0 then return nil, false, nil end
 
     local desiredQuality = GetDesiredOutputQuality(item, patchTag, preferredQuality, recipeID)
-    local exactID = FindItemIDByQuality(ids, desiredQuality, recipeID)
-    if exactID then
-        local p, s = Pricing.GetEffectivePrice(exactID, patchTag, qty)
-        return p, s or false, exactID
+    -- Selling: a lone listing far above the item's normal price is not
+    -- believed; the normal price is used (none yet: no price).
+    local function Sale(itemID)
+        local p, s = Pricing.GetEffectivePrice(itemID, patchTag, qty)
+        -- (Called directly: `x and f()` would keep only f's first return.)
+        local normal, unreliable
+        if Pricing.UnreliableSale then normal, unreliable = Pricing.UnreliableSale(itemID) end
+        if unreliable then
+            p = normal and p and math.min(p, normal) or normal
+        end
+        return p, s or false, itemID
     end
+    local exactID = FindItemIDByQuality(ids, desiredQuality, recipeID)
+    if exactID then return Sale(exactID) end
 
     local policyID = PickItemID(ids, patchTag)
-    if policyID then
-        local p, s = Pricing.GetEffectivePrice(policyID, patchTag, qty)
-        return p, s or false, policyID
-    end
+    if policyID then return Sale(policyID) end
 
     return nil, false, nil
 end

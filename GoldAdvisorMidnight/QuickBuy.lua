@@ -17,6 +17,9 @@ local function L(key, fallback, ...)
     return value
 end
 
+-- Seconds to wait for a purchase confirmation before moving on.
+local PURCHASE_TIMEOUT = 30
+
 local function FirstEntry(list)
     return list and list.entries and list.entries[1] or nil
 end
@@ -133,6 +136,22 @@ function QuickBuy.CreateController(deps)
         end
         state.phase = "purchasing"
         state.lastError = nil
+        -- The confirmation can be lost: after a while move on instead of
+        -- waiting forever. The entry leaves the list (it probably went
+        -- through; its mail records it), and the player checks the mailbox
+        -- before buying it again.
+        local attempt, entry = state.attemptID, state.pendingEntry
+        if deps.after then
+            deps.after(PURCHASE_TIMEOUT, function()
+                if state.phase ~= "purchasing" or state.attemptID ~= attempt or state.pendingEntry ~= entry then return end
+                RemoveEntry(controller.list, entry)
+                ClearPending()
+                state.phase = FirstEntry(controller.list) and "idle" or "complete"
+                state.lastError = L("QB_NO_CONFIRMATION", "No confirmation for %s from the Auction House. Check your mailbox before buying it again.",
+                    entry.name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(entry.itemID)) or "?")
+                Changed()
+            end)
+        end
         Changed()
         return true
     end
@@ -192,6 +211,7 @@ function QuickBuy.CreateController(deps)
         end
         pending.before = deps.getItemCount(pending.entry.itemID)
         pending.quantity = quantity
+        pending.unitPrice = offer.unitPrice
         controller.state.attemptID = controller.state.attemptID + 1
         local attempt = controller.state.attemptID
         local ok, err = pcall(deps.buyMerchant, offer.index, quantity)
@@ -230,6 +250,9 @@ function QuickBuy.CreateController(deps)
         if received <= 0 then return false end
         pending.entry.quantity = math.max(0, pending.entry.quantity - received)
         pending.before = pending.before + received
+        if deps.onReceipt then
+            deps.onReceipt(pending.entry, received, received * (pending.unitPrice or 0), "vendor", self.list)
+        end
         pending.quantity = pending.quantity - received
         if pending.entry.quantity <= 0 then
             if deps.onPurchased then deps.onPurchased(pending.entry, received, self.list) end
@@ -368,8 +391,34 @@ function QuickBuy.CreateController(deps)
         return ConfirmPending()
     end
 
+    -- The Auction House does not have this much right now. The first time,
+    -- the material moves behind the rest so the others can still be bought;
+    -- if it comes round again and is still short, the list stops on it.
     function controller:OnPriceUnavailable()
         if self.state.phase ~= "quoting" and self.state.phase ~= "approval" then return false end
+        local entry, list = self.state.pendingEntry, self.list
+        -- Craft Queue lists: stop buying for the plans that need it.
+        local message = entry and list and list.onUnavailable and list.onUnavailable(entry)
+        if message then
+            CancelQuote()
+            ClearPending()
+            self.state.phase = FirstEntry(list) and "idle" or "complete"
+            self.state.lastError = message
+            Changed()
+            return true
+        end
+        if entry and list and list.entries and not entry.unavailable and #list.entries > 1 then
+            entry.unavailable = true
+            RemoveEntry(list, entry)
+            list.entries[#list.entries + 1] = entry
+            CancelQuote()
+            ClearPending()
+            self.state.phase = "idle"
+            self.state.lastError = L("QB_UNAVAILABLE_LATER", "Not enough %s on the Auction House right now; buying the rest first.",
+                entry.name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(entry.itemID)) or "?")
+            Changed()
+            return true
+        end
         return Fail(L("WF_QUANTITY_UNAVAILABLE", "This quantity is unavailable. Select another material in Shopping, or retry Buy."))
     end
 
@@ -387,6 +436,9 @@ function QuickBuy.CreateController(deps)
         self.deferredList = nil
         if deferred and deferred ~= self.list then
             ApplyPurchasedQuantity(deferred, purchasedEntry.itemID, purchasedQty)
+        end
+        if deps.onReceipt then
+            deps.onReceipt(purchasedEntry, purchasedQty, state.quoteTotalPrice, "auction", self.list)
         end
         if deps.onPurchased then
             deps.onPurchased(purchasedEntry, purchasedQty, self.list)
@@ -643,7 +695,11 @@ function QuickBuy.Init()
             C_AuctionHouse.StartCommoditiesPurchase(itemID, quantity)
         end,
         confirm = function(itemID, quantity)
-            C_AuctionHouse.ConfirmCommoditiesPurchase(itemID, quantity)
+            -- Quick Buy records its own purchases; HistoryCapture skips them.
+            GAM.quickBuyConfirming = true
+            local ok, err = pcall(C_AuctionHouse.ConfirmCommoditiesPurchase, itemID, quantity)
+            GAM.quickBuyConfirming = nil
+            if not ok then error(err, 0) end
         end,
         cancel = function()
             if C_AuctionHouse and C_AuctionHouse.CancelCommoditiesPurchase then
@@ -656,7 +712,12 @@ function QuickBuy.Init()
         merchantOffer = function(itemID)
             return GAM.VendorPrices and GAM.VendorPrices.GetMerchantOffer(itemID)
         end,
-        buyMerchant = function(index, quantity) BuyMerchantItem(index, quantity) end,
+        buyMerchant = function(index, quantity)
+            GAM.quickBuyVendoring = true
+            local ok, err = pcall(BuyMerchantItem, index, quantity)
+            GAM.quickBuyVendoring = nil
+            if not ok then error(err, 0) end
+        end,
         getItemCount = function(itemID) return C_Item.GetItemCount(itemID, false, false, false) end,
         getMoney = GetMoney,
         after = function(delay, callback)
@@ -667,6 +728,16 @@ function QuickBuy.Init()
                 list.onPurchased(entry, quantity, controller.state.phase == "vendorPurchasing")
             end
             RemoveAuctionatorEntry(entry, list)
+        end,
+        onReceipt = function(entry, quantity, copper, source)
+            if not (GAM.CraftHistory and entry) then return end
+            -- Auction House purchases are recorded from their mail, at the
+            -- invoice price (HistoryCapture); vendor purchases right away.
+            if source == "auction" and GAM.HistoryCapture and GAM.HistoryCapture.ExpectPurchase then
+                GAM.HistoryCapture.ExpectPurchase(entry.itemID, quantity, copper, entry.plans)
+            else
+                GAM.CraftHistory.RecordPurchase(entry.itemID, quantity, copper, source, entry.plans)
+            end
         end,
         onVendor = RemoveAuctionatorEntry,
         onComplete = function()

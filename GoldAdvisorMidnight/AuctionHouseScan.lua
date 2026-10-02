@@ -118,6 +118,38 @@ local function AddQueueMetadata(entry, reason, strategyKey)
 end
 
 local priceScanQueued = {}  -- [itemID] = queueEntry; reset at StartScan
+-- Items priced since the main window last refreshed during a scan, so it
+-- reprices only the strategies that use them.
+local changedItems = {}
+function AHScan.TakeChangedItems()
+    local items = changedItems
+    changedItems = {}
+    return items
+end
+
+-- How deep to page each item: what pricing has asked for (strategies at
+-- their batch size, chains, mixes) and what queued plans still need to buy,
+-- plus a quarter; at least the reference sample, at most SCAN_DEPTH_UNITS.
+-- Items nothing needs in quantity stop after the first page.
+local queueNeeds   -- [itemID] = units queued plans still buy; built once per scan
+local function QueueNeeds()
+    if queueNeeds then return queueNeeds end
+    queueNeeds = {}
+    local plan = GAM.CraftPlan
+    if plan and plan.OpenBuys then
+        local ok, buys = pcall(plan.OpenBuys)
+        for _, buy in ipairs(ok and buys or {}) do
+            queueNeeds[buy.itemID] = (queueNeeds[buy.itemID] or 0) + (buy.quantity or 0)
+        end
+    end
+    return queueNeeds
+end
+function AHScan.DepthFor(itemID)
+    local sample = GAM.C.MARKET_SAMPLE_UNITS or 50
+    local need = math.max(QueueNeeds()[itemID] or 0,
+        GAM.Pricing and GAM.Pricing.ScanNeed and GAM.Pricing.ScanNeed(itemID) or 0)
+    return math.max(sample, math.min(GAM.C.SCAN_DEPTH_UNITS or 25000, math.ceil(need * 1.25)))
+end
 local function EnqueuePriceScan(itemID, callback, itemName, noFallback, reason, strategyKey)
     if not itemID or itemID == 0 then return end
     if priceScanQueued[itemID] then
@@ -171,6 +203,8 @@ local function SendPriceQuery(entry)
         return false
     end
     entry.queryItemKey = itemKey
+    -- A new query: nothing read for it yet.
+    entry.rows, entry.rowCount, entry.rowsType, entry.awaitingPage, entry.fullResults = nil, nil, nil, nil, nil
     local ok = Query.SendSearch(itemKey)
     if ok then
         lastQueryTime = GetTime()
@@ -255,14 +289,15 @@ local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
     local targetQty = GAM.C.MARKET_SAMPLE_UNITS or 50
     local avg, minPrice, maxPrice, count
     if resultType == "commodity" then
-        avg, minPrice, maxPrice, count = Results.StoreCommodityRows(entry.itemID, rows, targetQty)
+        avg, minPrice, maxPrice, count = Results.StoreCommodityRows(entry.itemID, rows, targetQty, entry.fullResults)
     else
-        avg, minPrice, maxPrice, count = Results.StoreItemRows(entry.itemID, rows, targetQty)
+        avg, minPrice, maxPrice, count = Results.StoreItemRows(entry.itemID, rows, targetQty, entry.fullResults)
         if avg then avg = math.floor(avg) end
     end
     if not avg then return false end
 
     GAM.Pricing.StorePrice(entry.itemID, avg, minPrice, Results.BuildDepthCurve(rows))
+    changedItems[entry.itemID] = true
     if entry.callback then
         pcall(entry.callback, entry.itemID, avg, minPrice, maxPrice, count)
     end
@@ -282,10 +317,25 @@ local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
 end
 
 local function RequestMoreIfNeeded(entry, attempt, resultType, rows)
-    -- Page deep enough for large crafts; pricing never invents unlisted units.
-    local targetQty = GAM.C.SCAN_DEPTH_UNITS or 25000
+    -- Page as deep as the item is needed; pricing never invents unlisted units
+    -- (anything past what was read is priced at the highest price seen).
+    local targetQty = AHScan.DepthFor(entry.itemID)
     local listed = Results.GetListedQuantity(rows)
     local full = Query.HasFullResults(resultType, entry.itemID, entry.resultItemKey or entry.queryItemKey)
+    entry.fullResults = full == true
+    -- A page was asked for and has not arrived (same rows): keep waiting
+    -- instead of asking again, for up to the result wait.
+    if entry.awaitingPage and full ~= true then
+        if entry.rowCount == entry.awaitingFrom then
+            if GetTime() - entry.awaitingSince < (RESULT_WAIT or 5) then
+                SchedulePendingPoll(entry, attempt, POLL_INTERVAL)
+                return true, false
+            end
+            entry.awaitingPage = nil
+            return false, false   -- the page never came: use what was read
+        end
+        entry.awaitingPage = nil
+    end
     if listed >= targetQty or full == true or (entry.moreRequests or 0) >= MAX_MORE_REQUESTS then
         return false, full == true or listed >= targetQty
     end
@@ -297,6 +347,7 @@ local function RequestMoreIfNeeded(entry, attempt, resultType, rows)
     end
 
     entry.moreRequests = (entry.moreRequests or 0) + 1
+    entry.awaitingPage, entry.awaitingFrom, entry.awaitingSince = true, entry.rowCount, GetTime()
     Query.Record(entry, "MORE", resultType .. ":" .. tostring(listed))
     -- A new page is a new pending phase. Renewing the attempt invalidates the
     -- previous timeout and delayed result callbacks.
@@ -311,11 +362,26 @@ local function TryProcessAvailableResults(entry, attempt, preferredType)
     if not IsCurrentAttempt(entry, attempt) then return false end
     local types = preferredType and { preferredType } or { "commodity", "item" }
     for _, resultType in ipairs(types) do
-        local rows
+        -- Read the rows only when Blizzard's result count changed (a new
+        -- page): polls in between reuse the last read.
+        local key = entry.resultItemKey or entry.queryItemKey
+        local okCount, count
         if resultType == "commodity" then
-            rows = Results.ReadCommodityRows(entry.itemID)
+            okCount, count = pcall(C_AuctionHouse.GetNumCommoditySearchResults, entry.itemID)
         else
-            rows = Results.ReadItemRows(entry.resultItemKey or entry.queryItemKey)
+            okCount, count = pcall(C_AuctionHouse.GetNumItemSearchResults, key)
+        end
+        count = okCount and tonumber(count) or nil
+        local rows
+        if count and entry.rowsType == resultType and entry.rowCount == count and entry.rows then
+            rows = entry.rows
+        else
+            if resultType == "commodity" then
+                rows = Results.ReadCommodityRows(entry.itemID)
+            else
+                rows = Results.ReadItemRows(key)
+            end
+            entry.rows, entry.rowCount, entry.rowsType = rows, count, resultType
         end
         if #rows > 0 then
             Query.Record(entry, "CACHE_ROWS", resultType .. ":" .. tostring(#rows))
@@ -745,6 +811,30 @@ function AHScan.QueueItemScan(itemID, callback, reason, strategyKey)
     EnqueuePriceScan(itemID, callback, nil, nil, reason or "manual item", strategyKey)
 end
 
+-- Re-checks an item even if it was already scanned this session (QueueItemScan
+-- de-duplicates until the next full scan). If the item is still waiting in the
+-- queue, the callback joins that pending check instead of adding another.
+function AHScan.QueueFreshItemScan(itemID, callback, reason)
+    if not itemID or itemID == 0 then return end
+    local queued = priceScanQueued[itemID]
+    if queued then
+        local waiting = queued == pendingEntry
+        for index = queueHead, #scanQueue do
+            if scanQueue[index] == queued then waiting = true; break end
+        end
+        if waiting then
+            local previous = queued.callback
+            queued.callback = function(...)
+                if previous then pcall(previous, ...) end
+                if callback then callback(...) end
+            end
+            return
+        end
+        priceScanQueued[itemID] = nil
+    end
+    EnqueuePriceScan(itemID, callback, nil, nil, reason or "refresh")
+end
+
 function AHScan.QueueNameScan(itemName, patchTag, callback, reason, strategyKey)
     if not itemName then return end
     EnqueueNameScan(itemName, patchTag, callback, reason or "manual name", strategyKey)
@@ -877,6 +967,7 @@ function AHScan.QueueAllStratItems(patchTag)
 end
 
 function AHScan.StartScan()
+    queueNeeds = nil   -- the queue may have changed since the last scan
     if not GAM.ahOpen then
         GAM.Log.Warn(GAM.L["ERR_NO_AH"])
         return
@@ -892,7 +983,9 @@ function AHScan.StartScan()
         scanSuccessCount = 0
         scanFailCount    = 0
         doneCount        = 0
-        -- totalEver was already set as items were queued; don't reset it here
+        -- Count only what is waiting: small re-checks after a finished scan
+        -- would otherwise add to the previous scan's total.
+        totalEver        = math.max(0, #scanQueue - queueHead + 1)
         failedQueue      = {}
         isRetryPass      = false
         GAM.Log.Info(GAM.L["SCAN_STARTED"], totalEver)
@@ -979,6 +1072,7 @@ function AHScan.ResetQueue()
     failedQueue     = {}
     priceScanQueued = {}
     nameScanQueued  = {}
+    queueNeeds      = nil
     totalEver       = 0
     doneCount       = 0
     completedDiagnostics = {}

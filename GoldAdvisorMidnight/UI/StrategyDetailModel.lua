@@ -277,6 +277,15 @@ end
 function Model.GetRankMixNotice(projection)
     if not projection then return nil end
     local reason = tostring(projection.rankMixReason or "live recipe data unavailable")
+    if reason == "saved-crafter-reach" then
+        return string.format((GAM.L and GAM.L["UI_RANK_SAVED_CRAFTER"]
+            or "Rank %d output, as last checked on %s. Log in to that character to recheck it."),
+            tonumber(projection.rankMixOutputQuality) or 1, tostring(projection.rankMixCrafter or "?"))
+    end
+    if reason == "recipe-not-known-here" then
+        return (GAM.L and GAM.L["UI_RANK_ALT_UNKNOWN"])
+            or "This character does not know this recipe, so pricing uses rank 1 output. Open GAM once on the character who crafts it to save its rank."
+    end
     if projection.rankMixMaterialPolicy == "highest" and projection.rankMixStatus then
         local reachable = tonumber(projection.rankMixOutputQuality)
         if reason == "target-quality-unreachable" and reachable then
@@ -348,6 +357,7 @@ function Model.Project(result)
         selectionNotes = result.selectionNotes,
         rankMixStatus = result.rankMixStatus,
         rankMixReason = result.rankMixReason,
+        rankMixCrafter = result.rankMixCrafter,
         rankMixMaterialPolicy = result.rankMixMaterialPolicy,
         rankMixTargetQuality = result.rankMixTargetQuality,
         rankMixOutputQuality = result.rankMixOutputQuality,

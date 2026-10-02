@@ -641,10 +641,23 @@ function Stats.GetAvailableGearPresetModes(strat)
                 realm = owner and owner.realm,
                 isCurrent = uid == currentUID,
                 capturedAt = snapshot.capturedAt,
+                signature = (Gear.GetSet(owner, recipeID, profileKey, mode) or {}).signature,
             }
         end
     end
     return available, crafters
+end
+
+-- Two saved sets holding the same gear are one setup captured twice, so Auto
+-- prices with the newer capture instead of whichever capture pays more.
+function Stats.GetAutoGearPresetModes(strat)
+    local available, crafters = Stats.GetAvailableGearPresetModes(strat)
+    local mc, res = crafters.multicraft, crafters.resourcefulness
+    if not (mc and res and mc.signature and mc.uid == res.uid and mc.signature == res.signature) then
+        return available
+    end
+    local resNewer = (tonumber(res.capturedAt) or 0) > (tonumber(mc.capturedAt) or 0)
+    return { multicraft = not resNewer, resourcefulness = resNewer }
 end
 
 function Stats.GetGearPresetStatus(strat, patchTag)
@@ -687,10 +700,10 @@ function Stats.CaptureOpenRecipeAsGearPreset(mode)
     if not snapshot or not snapshot.recipeID then
         return nil, "no-open-native-recipe"
     end
-    local set, err = Gear.CaptureSet(snapshot, mode)
+    local set, err, linked = Gear.CaptureSet(snapshot, mode)
     if not set then return nil, err end
     Stats.SaveSnapshot(snapshot)
-    return set, nil
+    return set, nil, linked
 end
 
 function Stats.ReadPlannedOperation(recipeID, allocation, targetGUID)

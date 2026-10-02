@@ -157,6 +157,8 @@ local function LoadRecipeList(list, src, isUser)
 end
 
 function Importer.Init()
+    -- Posting keeps an index of strategy outputs; it must follow reloads.
+    if GAM.Posting and GAM.Posting.InvalidateOutputIndex then GAM.Posting.InvalidateOutputIndex() end
     wipe(stratsByID)
     wipe(stratsByPatch)
     wipe(stratsByProfession)

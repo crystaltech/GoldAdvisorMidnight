@@ -204,12 +204,12 @@ function Layout.MakeSlider(parent, label, tip, minV, maxV, step)
     return sl, val
 end
 
-function Layout.MakeCheckbox(parent, label)
+function Layout.MakeCheckbox(parent, label, help)
     local name = Layout.NextWidgetName("CB")
     local cb = CreateFrame("CheckButton", name, parent, "UICheckButtonTemplate")
     cb:SetSize(26, 26)
     if _G[name .. "Text"] then _G[name .. "Text"]:SetText("") end
-    AddRow(parent, label, cb)
+    AddRow(parent, label, cb, help)
     return cb
 end
 

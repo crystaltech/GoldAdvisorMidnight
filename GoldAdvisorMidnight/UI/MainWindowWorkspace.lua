@@ -11,7 +11,7 @@ function Workspace.Create(panel, deps)
     function self:GetTab()
         local tab = Options().workspaceTab
         if tab == "strategies" and self.mini then return tab end
-        return (tab == "queue" or tab == "shopping") and tab or "details"
+        return (tab == "queue" or tab == "shopping" or tab == "posting" or tab == "history") and tab or "details"
     end
     function self:IsOpen() return Options().workspacePaneOpen ~= false end
     local bar = CreateFrame("Frame", nil, panel)
@@ -35,6 +35,14 @@ function Workspace.Create(panel, deps)
     self.strategiesHost:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -6)
     self.strategiesHost:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
     GAM.UI.CraftPlanWindow.Embed(self.planHost)
+    self.postingHost = CreateFrame("Frame", nil, panel)
+    self.postingHost:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -6)
+    self.postingHost:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
+    self.historyHost = CreateFrame("Frame", nil, panel)
+    self.historyHost:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -6)
+    self.historyHost:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
+    if GAM.UI.PostingWindow then GAM.UI.PostingWindow.Embed(self.postingHost) end
+    if GAM.UI.HistoryWindow then GAM.UI.HistoryWindow.Embed(self.historyHost) end
     function self:AttachList(shell, scrollBar, fullParent, title, filters)
         self.listShell, self.scrollBar, self.fullParent = shell, scrollBar, fullParent
         self.listTitle = title
@@ -74,28 +82,32 @@ function Workspace.Create(panel, deps)
         self.detailHost:SetShown(tab == "details")
         self.planHost:SetShown(tab == "queue" or tab == "shopping")
         self.strategiesHost:SetShown(tab == "strategies")
-        group:SetWidth(self.mini and 444 or 378)
-        local index = 0
-        for _, key in ipairs({"strategies", "details", "shopping", "queue", "posting"}) do
-            local button = self.buttons[key]
+        self.postingHost:SetShown(tab == "posting")
+        self.historyHost:SetShown(tab == "history")
+        -- Share the bar between the visible tabs.
+        local keys = {}
+        for _, key in ipairs({"strategies", "details", "shopping", "queue", "posting", "history"}) do
             local shown = key ~= "strategies" or self.mini
-            button:SetShown(shown)
-            if shown then
-                button:SetWidth(self.mini and 84 or 90)
-                button:ClearAllPoints()
-                button:SetPoint("LEFT", group, "LEFT", index * (self.mini and 90 or 96), 0)
-                index = index + 1
-            end
+            self.buttons[key]:SetShown(shown)
+            if shown then keys[#keys + 1] = key end
+        end
+        local available = math.max(300, (bar:GetWidth() or 0) - 34)
+        local step = math.min(96, math.floor(available / #keys))
+        group:SetWidth(step * #keys - 4)
+        for index, key in ipairs(keys) do
+            local button = self.buttons[key]
+            button:SetWidth(step - 4)
+            button:ClearAllPoints()
+            button:SetPoint("LEFT", group, "LEFT", (index - 1) * step, 0)
         end
         for key, button in pairs(self.buttons) do
-            button:SetEnabled(key ~= tab and key ~= "posting")
+            button:SetEnabled(key ~= tab)
             button.selected:SetShown(key == tab)
         end
         if tab == "queue" or tab == "shopping" then GAM.UI.CraftPlanWindow.SetEmbeddedTab(tab) end
         if GAM.QuickBuy and GAM.QuickBuy.RefreshPresentation then GAM.QuickBuy.RefreshPresentation() end
     end
     function self:Select(tab)
-        if tab == "posting" then return false end
         if not GAM.UI.CraftPlanWindow.FinishEditing() then return false end
         Options().workspaceTab = tab
         Options().workspacePaneOpen = true
@@ -111,7 +123,7 @@ function Workspace.Create(panel, deps)
         Options().compactMode = false
         deps.onChange()
     end
-    for index, spec in ipairs({{"strategies", (GAM.L and GAM.L["WF_STRATS"] or "Strats")}, {"details", (GAM.L and GAM.L["WF_DETAILS"] or "Details")}, {"shopping", (GAM.L and GAM.L["WF_SHOPPING"] or "Shopping")}, {"queue", (GAM.L and GAM.L["WF_QUEUE"] or "Craft Queue")}, {"posting", (GAM.L and GAM.L["WF_POSTING"] or "Posting")}}) do
+    for index, spec in ipairs({{"strategies", (GAM.L and GAM.L["WF_STRATS"] or "Strats")}, {"details", (GAM.L and GAM.L["WF_DETAILS"] or "Details")}, {"shopping", (GAM.L and GAM.L["WF_SHOPPING"] or "Shopping")}, {"queue", (GAM.L and GAM.L["WF_QUEUE"] or "Craft Queue")}, {"posting", (GAM.L and GAM.L["WF_POSTING"] or "Posting")}, {"history", (GAM.L and GAM.L["WF_HISTORY_TAB"] or "History")}}) do
         local key = spec[1]
         local button = CreateFrame("Button", nil, group, "UIPanelButtonTemplate")
         button:SetSize(90, 24); button:SetPoint("LEFT", group, "LEFT", (index - 1) * 96, 0)
@@ -128,6 +140,7 @@ function Workspace.Create(panel, deps)
     close = CreateFrame("Button", nil, bar, "UIPanelCloseButton")
     close:SetSize(24, 24); close:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 2, 2)
     close:SetScript("OnClick", function() self:Close() end)
+    bar:SetScript("OnSizeChanged", function() self:Refresh() end)
     self:Refresh()
     return self
 end

@@ -654,8 +654,8 @@ function Engine.Install(Pricing, deps)
         local stats = GAM.CraftingStats
         if Engine.ResolveStageGearMode(stats, strat, ctx.patchTag, ctx.strat, ctx.gearModeOverride) ~= "auto"
                 or not GetV2ProfileDef(strat) then return nil end
-        local available = stats and stats.GetAvailableGearPresetModes
-            and stats.GetAvailableGearPresetModes(strat) or {}
+        local modes = stats and (stats.GetAutoGearPresetModes or stats.GetAvailableGearPresetModes)
+        local available = modes and modes(strat) or {}
         local snapshots = {}
         for _, mode in ipairs({ "multicraft", "resourcefulness" }) do
             if available[mode] then
@@ -890,10 +890,12 @@ function Engine.Install(Pricing, deps)
             -- A missing live operation snapshot must not turn a successful AH
             -- scan into an all-dash strategy list. When Blizzard does provide
             -- an all-high reachable quality, output pricing is pinned to it.
-            rankMixStatus = ctx.rankMixPlan
+            rankMixStatus = ctx.rankMixReason == "saved-crafter-reach" and "saved"
+                or ctx.rankMixPlan
                 and (ctx.rankMixReason == "target-quality-unreachable" and "reachable" or "verified")
                 or ctx.rankMixReason and "fallback" or nil,
             rankMixReason = ctx.rankMixReason,
+            rankMixCrafter = ctx.rankMixCrafter,
             rankMixMaterialPolicy = GetInputRankPolicy(ctx.strat),
             rankMixTargetQuality = ctx.targetOutputQuality,
             rankMixOutputQuality = ctx.reachableOutputQuality,
@@ -920,9 +922,10 @@ function Engine.Install(Pricing, deps)
             strat, active, patchTag, craftQty, opts, pdb, ahCut, runtimeOverrides,
             globalStartingCrafts)
         if type(PrepareOptimizedRecipeView) == "function" then
-            local optimizedActive, rankMixPlan, rankMixReason, targetOutputQuality, reachableOutputQuality =
+            local optimizedActive, rankMixPlan, rankMixReason, targetOutputQuality, reachableOutputQuality, rankMixCrafter =
                 PrepareOptimizedRecipeView(ctx, strat, ctx.active, ctx.crafts)
             ctx.active = optimizedActive or ctx.active
+            ctx.rankMixCrafter = rankMixCrafter
             ctx.rankMixPlan = rankMixPlan
             ctx.rankMixReason = rankMixReason
             ctx.targetOutputQuality = targetOutputQuality
@@ -955,6 +958,8 @@ function Engine.Install(Pricing, deps)
         local available = stats and stats.GetAvailableGearPresetModes
             and stats.GetAvailableGearPresetModes(strat)
             or { multicraft = false, resourcefulness = false }
+        local autoModes = stats and stats.GetAutoGearPresetModes
+            and stats.GetAutoGearPresetModes(strat) or available
         local resolved
         local metrics
 
@@ -963,14 +968,14 @@ function Engine.Install(Pricing, deps)
             metrics = CalculateStratMetricsV2Once(
                 strat, patchTag, craftQty, requested,
                 runtimeOverrides, globalStartingCrafts)
-        elseif available.multicraft and available.resourcefulness then
+        elseif autoModes.multicraft and autoModes.resourcefulness then
             local multicraft = CalculateStratMetricsV2Once(
                 strat, patchTag, craftQty, "multicraft", runtimeOverrides, globalStartingCrafts)
             local resourcefulness = CalculateStratMetricsV2Once(
                 strat, patchTag, craftQty, "resourcefulness", runtimeOverrides, globalStartingCrafts)
             metrics, resolved = Engine.SelectGearMetrics(multicraft, resourcefulness)
-        elseif available.multicraft or available.resourcefulness then
-            resolved = available.multicraft and "multicraft" or "resourcefulness"
+        elseif autoModes.multicraft or autoModes.resourcefulness then
+            resolved = autoModes.multicraft and "multicraft" or "resourcefulness"
             metrics = CalculateStratMetricsV2Once(
                 strat, patchTag, craftQty, resolved, runtimeOverrides, globalStartingCrafts)
         else

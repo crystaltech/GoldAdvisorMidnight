@@ -44,7 +44,7 @@ GAM.C = {
     -- Locale/*.lua catalogs stay in the addon for future human review, but every
     -- client shows the English base strings until this is switched back on.
     TRANSLATIONS_ENABLED = false,
-    ADDON_VERSION       = "2.2.0",
+    ADDON_VERSION       = "2.3.0",
     DATA_VERSION         = 21,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",
@@ -69,7 +69,7 @@ GAM.C = {
     EVENT_PROCESS_DELAY  = 0.8,    -- wait after event before reading results
     AH_POLL_INTERVAL     = 0.35,   -- cache polling when Blizzard omits a result event
     AH_MAX_MORE_REQUESTS = 5,      -- bounded result-depth pagination per query
-    SCAN_UI_REFRESH_INTERVAL = 2.0, -- debounce expensive row/detail repricing while scans are active
+    SCAN_UI_REFRESH_INTERVAL = 5.0, -- while scanning, reprice changed visible rows at most this often
 
     -- Pricing
     PRICE_STALE_SECONDS  = 600,    -- 10-minute cache freshness

@@ -2,7 +2,7 @@
 ## Title: Gold Advisor Midnight
 ## Category: Professions
 ## Notes: Compare Midnight crafting profits with live Auction House prices.
-## Version: 2.2.0
+## Version: 2.3.0
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled
@@ -82,6 +82,13 @@ CraftPlanTypes.lua
 CraftPlanMail.lua
 CraftPlanActions.lua
 CraftPlanBudget.lua
+CraftHistory.lua
+CraftHistoryAnalysis.lua
+PostingModel.lua
+Posting.lua
+PostingMail.lua
+HistoryCapture.lua
+Stock.lua
 Diagnostics.lua
 UI\DebugLog.lua
 TSMSaleRate.lua
@@ -90,6 +97,8 @@ UI\SettingsLayout.lua
 Settings.lua
 UI\VIBreakdownPlan.lua
 UI\CraftPlanWindow.lua
+UI\PostingWindow.lua
+UI\HistoryWindow.lua
 UI\VIBreakdownWindow.lua
 UI\CrushingAnalyzerWindow.lua
 UI\CooldownTrackerWindow.lua

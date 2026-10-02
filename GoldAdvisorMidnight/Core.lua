@@ -574,6 +574,18 @@ handlers["PLAYER_LOGIN"] = function(self)
     if self.QuickBuy and self.QuickBuy.Init then
         self.QuickBuy.Init()
     end
+    if self.CraftHistory and self.CraftHistory.Prune then pcall(self.CraftHistory.Prune) end
+    if self.Posting and self.Posting.Init then self.Posting.Init() end
+    if self.PostingMail and self.PostingMail.Init then self.PostingMail.Init() end
+    if self.HistoryCapture and self.HistoryCapture.Init then self.HistoryCapture.Init() end
+    if self.CraftPlan and self.CraftPlan.Init then pcall(self.CraftPlan.Init) end
+    -- Expired auctions and Auction House mail about to run out, on any character.
+    if self.Stock and self.Stock.Reminders and C_Timer and C_Timer.After then
+        C_Timer.After(8, function()
+            local ok, lines = pcall(self.Stock.Reminders)
+            for _, line in ipairs(ok and lines or {}) do print("|cffffd100[GAM]|r " .. line) end
+        end)
+    end
     -- Pre-warm WoW item cache for all strat itemIDs so crafting quality API
     -- calls (used by ARP Export) return correct data on first use.
     if self.Importer and self.Importer.GetAllStrats then

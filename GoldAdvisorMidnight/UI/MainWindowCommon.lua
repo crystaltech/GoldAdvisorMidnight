@@ -668,6 +668,49 @@ function Common.GetThemeColorDefinitions()
     return Common.THEME_COLOR_DEFS
 end
 
+-- Colors for workspace tabs, taken from the active theme so appearance
+-- profiles apply. Status colors (gain, loss, warning) and coin colors stay fixed.
+local THEME_FALLBACK = {
+    accent = { 1, 0.82, 0, 1 }, body = { 0.92, 0.92, 0.94, 1 },
+    muted = { 0.72, 0.72, 0.76, 1 }, band = { 1, 1, 1, 0.05 },
+}
+function Common.ThemeColor(role)
+    local ok, theme = pcall(Common.GetThemeDef)
+    theme = ok and type(theme) == "table" and theme or {}
+    local color = (role == "accent" and (theme.cardTitleText or theme.titleText))
+        or (role == "body" and theme.bodyText) or (role == "muted" and theme.mutedText)
+        or (role == "band" and theme.listRowOdd) or nil
+    return color or THEME_FALLBACK[role] or THEME_FALLBACK.body
+end
+function Common.ThemeHex(role)
+    local c = Common.ThemeColor(role)
+    return string.format("|cff%02x%02x%02x", math.floor(c[1] * 255 + 0.5),
+        math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5))
+end
+
+-- Coin-colored gold with a colored sign: + gained, - spent or lost.
+-- short drops copper once there is gold (narrow columns).
+function Common.SignedMoney(copper, short)
+    if not copper then return "—" end
+    local abs = math.abs(math.floor(copper))
+    -- Short: no copper from 1g, no silver from 100g.
+    if short and abs >= 1000000 then abs = abs - abs % 10000
+    elseif short and abs >= 10000 then abs = abs - abs % 100 end
+    local text = GAM.Pricing and GAM.Pricing.FormatPrice and GAM.Pricing.FormatPrice(abs) or tostring(abs)
+    if abs == 0 then return text end
+    return (copper < 0 and "|cffff8a7a-|r" or "|cff83e896+|r") .. text
+end
+
+-- One status vocabulary across tabs: green ready, amber check, red problem, grey waiting.
+Common.STATUS_TEXTURES = {
+    ok = "Interface\\COMMON\\Indicator-Green", warn = "Interface\\COMMON\\Indicator-Yellow",
+    bad = "Interface\\COMMON\\Indicator-Red", neutral = "Interface\\COMMON\\Indicator-Gray",
+}
+function Common.StatusDot(kind, size)
+    size = size or 12
+    return "|T" .. (Common.STATUS_TEXTURES[kind] or Common.STATUS_TEXTURES.neutral) .. ":" .. size .. ":" .. size .. "|t"
+end
+
 function Common.RefreshTheme()
     Common.InvalidateThemeCache()
     if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.ApplyTheme then

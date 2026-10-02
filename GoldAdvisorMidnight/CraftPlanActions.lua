@@ -44,6 +44,9 @@ function Plan.QueueExtras(plan, quantity)
     data.nextID = data.nextID + 1
     extra.optionalExtra, extra.history, extra.outputs, extra.confirmedCasts = true, {}, {}, {}
     extra.intermediateOutputs = {}
+    -- Its own batch: none of the finished plan's material use or state.
+    extra.consumed, extra.marketShort, extra.needsReview, extra.ownUse = nil, nil, nil, true
+    extra.createdAt = GetServerTime and GetServerTime() or nil
     extra.name = L("WF_EXTRA_NAME", "%s · extra crafts", plan.name)
     extra.breakEven = nil
     local node = extra.nodes[extra.root]
@@ -172,15 +175,19 @@ end
 
 -- Prefer a usable batch over shopping for later steps. Preserve dependency
 -- reservations; pausing a blocked strategy explicitly releases them.
+-- A step the player can fix now (rank review, setup) goes before one that
+-- only waits for cooldown charges, so it is not hidden behind it.
 function Plan.NextTask(projection)
-    local fallback
+    local fallback, waiting
     for _, task in ipairs(projection.tasks) do
         if task.ready > 0 and not task.plan.needsReview then
             local ok, allocation, message, code = pcall(Plan.Preflight, task)
             if ok and allocation then return task, allocation, message end
-            fallback = fallback or { task, nil, ok and message or tostring(allocation), code }
+            local entry = { task, nil, ok and message or tostring(allocation), ok and code or nil }
+            if entry[4] == "cooldown" then waiting = waiting or entry else fallback = fallback or entry end
         end
     end
+    fallback = fallback or waiting
     if fallback then return fallback[1], nil, fallback[3], fallback[4] end
 end
 function Plan.AcceptRankChange(proposal)

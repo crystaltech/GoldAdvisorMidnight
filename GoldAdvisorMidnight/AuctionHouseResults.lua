@@ -36,11 +36,16 @@ local function EnsureResultsSorted(results)
     results._gamSortedByUnitPrice = true
 end
 
--- Lower quartile fence (Q1 - 1.5 x IQR, as in CraftSimEnhancer) over the
--- first `window` units, computed on price buckets instead of one entry per
--- unit. When most units share one price (IQR 0) anything cheaper is bait.
--- Returns nil when there are too few units to judge.
-local function LowerFence(rows, window)
+-- Outlier fences over the first `window` units, computed on price buckets
+-- instead of one entry per unit:
+--   lower: Q1 - 1.5 x IQR (as in CraftSimEnhancer); when most units share one
+--     price (IQR 0) anything cheaper is bait. Needs MARKET_FENCE_MIN_UNITS.
+--   upper: the higher of Q3 + 3 x IQR and 3 x Q3 - generous, so a market that
+--     climbs with depth is never trimmed, only listings far above it (a
+--     troll post). Needs 3 units.
+-- Each is nil when there are too few units to judge.
+local UPPER_MIN_UNITS = 3
+local function Fences(rows, window)
     local buckets, total = {}, 0
     for _, row in ipairs(rows) do
         local price = row and tonumber(row.unitPrice)
@@ -52,7 +57,7 @@ local function LowerFence(rows, window)
             total = total + take
         end
     end
-    if total < (GAM.C.MARKET_FENCE_MIN_UNITS or 8) then return nil end
+    if total < UPPER_MIN_UNITS then return nil, nil end
     local function Quantile(p)
         local target, seen = math.max(1, math.floor((total + 1) * p)), 0
         for _, bucket in ipairs(buckets) do
@@ -63,14 +68,18 @@ local function LowerFence(rows, window)
     end
     local q1, q3 = Quantile(0.25), Quantile(0.75)
     local iqr = q3 - q1
-    if iqr <= 0 then return q1 end
-    return math.max(0, q1 - 1.5 * iqr)
+    local upper = math.max(q3 + 3 * iqr, q3 * 3)
+    if total < (GAM.C.MARKET_FENCE_MIN_UNITS or 8) then return nil, upper end
+    if iqr <= 0 then return q1, upper end
+    return math.max(0, q1 - 1.5 * iqr), upper
 end
 
 -- Cost of buying `targetQty` units, erring toward the higher price:
 --   * bait below the lower fence is skipped, so it cannot make inputs look cheap;
---   * expensive units inside the quantity are kept, because they would be paid;
---   * units the market does not list are priced at the highest listed price.
+--   * listings far above the upper fence (troll posts) are skipped too: nobody
+--     would buy them, and one must not set the price of an item;
+--   * expensive units inside the fences are kept, because they would be paid;
+--   * units the market does not list are priced at the highest kept price.
 -- One unit is the sell-side quote: the lowest listing, bait included, so sale
 -- prices are never raised by filtering. The second return is always that raw
 -- lowest listing. Returns avg, lowest, highest, filledUnits, depth.
@@ -86,14 +95,19 @@ function Results.ComputeStatsFromRows(rows, targetQty)
     end
     if not lowest then return nil end
 
-    local fence = targetQty > 1 and LowerFence(rows, math.max(targetQty, GAM.C.MARKET_SAMPLE_UNITS or 50)) or nil
+    local fence, upper
+    if targetQty > 1 then fence, upper = Fences(rows, math.max(targetQty, GAM.C.MARKET_SAMPLE_UNITS or 50)) end
+    local trimmed = 0
     local function Fill(skipBelow)
         local filled, sum, highest, bait = 0, 0, nil, 0
+        trimmed = 0
         for _, row in ipairs(rows) do
             local price = row and tonumber(row.unitPrice)
             local available = row and (tonumber(row.quantity) or 0) or 0
             if price and price > 0 and available > 0 then
-                if skipBelow and price < skipBelow then
+                if upper and price > upper then
+                    trimmed = trimmed + available
+                elseif skipBelow and price < skipBelow then
                     bait = bait + available
                 else
                     local take = math.min(available, targetQty - filled)
@@ -125,6 +139,8 @@ function Results.ComputeStatsFromRows(rows, targetQty)
         incomplete = available < targetQty,
         baitUnits = bait,
         lowerFence = fence,
+        trimmedUnits = trimmed,
+        upperFence = upper,
     }
 end
 
@@ -220,7 +236,12 @@ function Results.ReadCommodityRows(itemID)
         local price = rowOK and result and tonumber(result.unitPrice)
         local quantity = rowOK and result and (tonumber(result.quantity) or 0) or 0
         if price and price > 0 and quantity > 0 then
-            rows[#rows + 1] = { unitPrice = price, quantity = quantity }
+            -- A commodity row combines every seller at one price. mine/numMine
+            -- tell Posting how much of the row is the player's own.
+            rows[#rows + 1] = { unitPrice = price, quantity = quantity,
+                mine = result.containsOwnerItem and true or false,
+                numMine = tonumber(result.numOwnerItems) or 0, order = index,
+                timeLeft = tonumber(result.timeLeftSeconds) }
         end
     end
     EnsureResultsSorted(rows)
@@ -254,17 +275,19 @@ function Results.GetListedQuantity(rows)
     return quantity
 end
 
-function Results.StoreCommodityRows(itemID, rows, targetQty)
+-- full: every listing was read (false: the scan stopped at the depth it
+-- needed, so more may be listed than these rows show).
+function Results.StoreCommodityRows(itemID, rows, targetQty, full)
     if not rows or #rows == 0 then return nil end
-    local cached = { prices = rows, ts = time() }
+    local cached = { prices = rows, ts = time(), full = full }
     commodityCache[itemID] = cached
     if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
     return Results.ComputeStatsForCache(cached, targetQty)
 end
 
-function Results.StoreItemRows(itemID, rows, targetQty)
+function Results.StoreItemRows(itemID, rows, targetQty, full)
     if not rows or #rows == 0 then return nil end
-    local cached = { prices = rows, ts = time() }
+    local cached = { prices = rows, ts = time(), full = full }
     itemCache[itemID] = cached
     if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
     return Results.ComputeStatsForCache(cached, targetQty)
@@ -311,13 +334,14 @@ function Results.GetRawScanSnapshot(itemID)
 
     local prices = {}
     for index, row in ipairs(cached.prices) do
-        prices[index] = { unitPrice = row.unitPrice, quantity = row.quantity or 0 }
+        prices[index] = { unitPrice = row.unitPrice, quantity = row.quantity or 0, mine = row.mine,
+            numMine = row.numMine, order = row.order, timeLeft = row.timeLeft }
     end
     table.sort(prices, function(a, b)
         if a.unitPrice == b.unitPrice then return a.quantity > b.quantity end
         return a.unitPrice < b.unitPrice
     end)
-    return { itemID = itemID, source = source, ts = cached.ts, prices = prices }
+    return { itemID = itemID, source = source, ts = cached.ts, prices = prices, full = cached.full }
 end
 
 function Results.ClearSessionCaches()
