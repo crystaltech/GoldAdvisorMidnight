@@ -17,6 +17,16 @@ local rankProposal, editing, nextAction
 local embedded, viewMode = false, "queue"
 local Plan = GAM.CraftPlan
 local FinishEditing
+-- In the workspace tab the queue follows the theme; the standalone window
+-- keeps its own dark backdrop and fixed colors.
+local function Accent()
+    local common = GAM.UI.MainWindowCommon
+    return embedded and common and common.ThemeHex and common.ThemeHex("accent") or "|cffffdf70"
+end
+local function Dot(kind)
+    local common = GAM.UI.MainWindowCommon
+    return common and common.StatusDot and common.StatusDot(kind) or (kind == "ok" and "|cff88dd99+|r" or "|cffffaa55!|r")
+end
 local function Price(value)
     return value and GAM.Pricing.FormatPrice(math.ceil(value)) or "—"
 end
@@ -57,7 +67,12 @@ local function Text(parent, font)
     local text = parent:CreateFontString(nil, "OVERLAY", font or "GameFontHighlight")
     local face, _, flags = text:GetFont()
     if face then text:SetFont(face, embedded and 11 or (font and 16 or 14), flags) end
-    text:SetTextColor(0.95, 0.95, 0.95)
+    local common = GAM.UI.MainWindowCommon
+    if embedded and common and common.ThemeColor then
+        text:SetTextColor(unpack(common.ThemeColor("body")))
+    else
+        text:SetTextColor(0.95, 0.95, 0.95)
+    end
     text:SetJustifyH("LEFT"); text:SetWordWrap(true)
     return text
 end
@@ -135,6 +150,14 @@ local function Row(index)
     rows[index] = row
     return row
 end
+-- Free units, plus listed and returned-in-mail units: yours, just not free to use.
+local function FreeText(output)
+    local owned = GAM.Stock and GAM.Stock.Owned(output.itemID)
+    local away = owned and (owned.listed + owned.mail) or 0
+    if away > 0 then return L("WF_FREE_AWAY_COUNT", "%d free · %d listed/mail", output.free, away) end
+    return L("WF_FREE_COUNT", "%d free (bags + banks)", output.free)
+end
+
 local function LayoutRows()
     if not host then return end
     local width = math.max(1, scroll:GetWidth())
@@ -213,7 +236,7 @@ function UI.Refresh()
             return row
         end
         local function Section(label, caption)
-            local row = Add("|cffffdf70" .. label .. "|r", caption and "|cffaaaaaa" .. caption .. "|r")
+            local row = Add(Accent() .. label .. "|r", caption and "|cffaaaaaa" .. caption .. "|r")
             row.kind = "section"
             row.bg:SetColorTexture(1, 1, 1, 0.035)
             return row
@@ -222,7 +245,7 @@ function UI.Refresh()
             or L("WF_PLAN_TITLE_MANY", "Craft Plan · %d strategies", #data.plans))
         local empty = #data.plans == 0 and next(data.incoming) == nil
         if empty then
-            Add("|cffffdf70" .. L("WF_QUEUE_EMPTY_TITLE", "Your craft queue is empty") .. "|r\n"
+            Add(Accent() .. L("WF_QUEUE_EMPTY_TITLE", "Your craft queue is empty") .. "|r\n"
                 .. L("WF_QUEUE_EMPTY_BODY", "Select a strategy, then choose Add to Queue in Details."))
         else
 
@@ -285,7 +308,7 @@ function UI.Refresh()
                 local _, _, _, _, _, depth = GAM.AHScan.ComputePriceForQty(buy.itemID, buy.quantity)
                 if depth and depth.incomplete then
                     row.tip = row.tip .. "\n" .. L("WF_SHORT_MARKET", "Only %d listed on the Auction House; %d needed. The rest may cost more or be unavailable.", depth.filled, depth.requested)
-                    row.label:SetText(row.label:GetText() .. " |cffffaa55!|r")
+                    row.label:SetText(row.label:GetText() .. " " .. Dot("warn"))
                 end
             end
         end
@@ -302,9 +325,36 @@ function UI.Refresh()
         end -- shopping
         if not embedded or viewMode == "queue" then
         Section((GAM.L and GAM.L["WF_QUEUE_CONCENTRATION_OFF"] or "Craft queue · Concentration off"), (GAM.L and GAM.L["WF_READY"] or "Remaining / Ready"))
+        -- Plans of one recipe share the same surplus: offer extras once.
+        local extrasOffered = {}
+        local function ExtraOffer(plan)
+            local recipe = plan.nodes and plan.nodes[plan.root] and plan.nodes[plan.root].recipeID
+            if recipe and extrasOffered[recipe] then return 0 end
+            local extra = Plan.ExtraCapacity and Plan.ExtraCapacity(plan) or 0
+            if extra > 0 and recipe then extrasOffered[recipe] = true end
+            return extra
+        end
         for _, plan in ipairs(data.plans) do
             local saved = plan
-            local row = Add("|cffffdf70" .. plan.name .. "|r\n" .. L("WF_PLAN_PROGRESS", "%d crafts completed · Saved setup · %s", plan.completed,
+            if Plan.IsFinished(plan) then
+                -- Finished: one line. Clear saves its results to History.
+                local made, left = 0, 0
+                for id, qty in pairs(plan.outputs or {}) do made = made + qty; left = left + Plan.Count(id) end
+                local done = Add(Dot("ok") .. " " .. Accent() .. plan.name .. "|r\n"
+                    .. L("WF_PLAN_DONE_SUMMARY", "%d crafts done · %d made · %d still in bags or bank", plan.completed, made, left),
+                    "", L("WF_CLEAR", "Clear"), function() rankProposal = nil; Plan.Archive(saved); UI.Refresh() end)
+                done.kind = "plan"
+                done.bg:SetColorTexture(0.5, 0.9, 0.6, 0.05)
+                done.tip = L("WF_PLAN_DONE_TIP", "Finished. Clear moves it to History and keeps its break-even and your cost for the items it made. It also clears itself once those items are sold or gone.")
+                done.edit:Hide(); done.editLabel:Hide()
+                local extra = ExtraOffer(plan)
+                if extra > 0 then
+                    Add(string.format(GAM.L and GAM.L["WF_EXTRA_AVAILABLE"] or "%d additional crafts from unreserved materials in your bags and banks.", extra),
+                        "", string.format(GAM.L and GAM.L["WF_QUEUE_MORE"] or "Queue %d more", extra),
+                        function() Report(Plan.QueueExtras(saved, extra)) end)
+                end
+            else
+            local row = Add(Accent() .. plan.name .. "|r\n" .. L("WF_PLAN_PROGRESS", "%d crafts completed · Saved setup · %s", plan.completed,
                 plan.vi and L("WF_VI_ON", "VI on") or L("WF_VI_OFF", "VI off")),
                 "", (GAM.L and GAM.L["WF_REMOVE"] or "Remove"), function() rankProposal = nil; Plan.Remove(saved); UI.Refresh() end)
             row.kind = "plan"
@@ -321,6 +371,21 @@ function UI.Refresh()
                     rankProposal = nil
                     Report(ok, err); UI.Refresh()
                 end, (GAM.L and GAM.L["WF_CANCEL"] or "Cancel"), function() rankProposal = nil; UI.Refresh() end)
+            end
+            if plan.marketShort then
+                local short = plan.marketShort
+                local fit = short.fit or 0
+                local canLower = fit >= math.max(1, plan.completed)
+                local warn = Add("|cffffaa55" .. L("WF_SHORT_TITLE", "Not enough %s on the Auction House.",
+                        (C_Item.GetItemNameByID and C_Item.GetItemNameByID(short.itemID)) or "?") .. "|r\n"
+                    .. (canLower and L("WF_SHORT_BODY", "Buying stopped for this plan. The last scan supports %d crafts.", fit)
+                        or L("WF_SHORT_BODY_NONE", "Buying stopped for this plan. The last scan supports no more crafts.")),
+                    "", canLower and L("WF_SHORT_LOWER", "Lower to %d", fit) or (GAM.L and GAM.L["WF_REMOVE"] or "Remove"),
+                    function()
+                        if canLower then Report(Plan.FitToMarket(saved)) else Plan.Remove(saved) end
+                        UI.Refresh()
+                    end, L("WF_SHORT_RETRY_BUTTON", "Retry"), function() Report(Plan.RetryShort(saved)); UI.Refresh() end)
+                warn.tip = L("WF_SHORT_TIP", "Quick Buy stopped buying this plan's other materials so they do not sit unused. Lower the plan to what the Auction House has, or Retry after a new scan.")
             end
             if plan.needsReview then
                 local review = Add("|cffffaa55" .. L("WF_VERIFY_PROGRESS_TITLE", "Verify completed final crafts.") .. "|r\n"
@@ -342,7 +407,7 @@ function UI.Refresh()
                         local name = node.gearMode == "multicraft" and L("GEAR_MODE_MC", "Multicraft") or L("GEAR_MODE_RES", "Resourcefulness")
                         if node.gearMode == "legacy" then name = L("WF_UNKNOWN", "unknown") end
                         local equipped = GAM.CraftingStatsGear and GAM.CraftingStatsGear.IsEquipped(node.gearRequirement, node.recipeID, node.statProfileKey)
-                        gearText = L("VI_GEAR_FORMAT", "Gear: %s", name) .. (equipped and " |cff88dd99\226\156\147|r" or " |cffffaa55!|r")
+                        gearText = L("VI_GEAR_FORMAT", "Gear: %s", name) .. " " .. Dot(equipped and "ok" or "warn")
                         for _, slot in ipairs(node.gearRequirement and node.gearRequirement.slots or {}) do
                             if slot.link then parts[#parts + 1] = slot.link end
                         end
@@ -361,7 +426,7 @@ function UI.Refresh()
             end
             if plan.completed >= plan.target then
                 Add("|cff88ee99" .. L("WF_REQUESTED_COMPLETE", "Requested crafts completed.") .. "|r")
-                local extra = Plan.ExtraCapacity and Plan.ExtraCapacity(plan) or 0
+                local extra = ExtraOffer(plan)
                 if extra > 0 then
                     Add(string.format(GAM.L and GAM.L["WF_EXTRA_AVAILABLE"] or "%d additional crafts from unreserved materials in your bags and banks.", extra),
                         "", string.format(GAM.L and GAM.L["WF_QUEUE_MORE"] or "Queue %d more", extra),
@@ -373,6 +438,7 @@ function UI.Refresh()
                 Add(L("WF_EXTRA_BREAK_EVEN", "Est. break-even / extra item: %s", estimate and Price(estimate) or L("WF_ESTIMATE_UNAVAILABLE", "unavailable"))
                     .. "\n" .. L("WF_ESTIMATE_BASIS", "Current material prices and base yield; includes AH cut."))
             end
+            end -- unfinished plan
         end
         if #data.plans == 0 then Add((GAM.L and GAM.L["WF_EMPTY_QUEUE"] or "Select a strategy and use Add to Queue in Details.")) end
 
@@ -381,7 +447,7 @@ function UI.Refresh()
         for _, output in ipairs(outputRows) do
             local estimate = output.breakEven and Price(output.breakEven) or L("WF_ESTIMATE_MISSING", "unavailable (missing or differing costs)")
             local row = Add(Name(output.itemID) .. "\n" .. L("WF_OUTPUT_BREAK_EVEN", "Est. break-even / item: %s", estimate),
-                L("WF_RECORDED_COUNT", "%d recorded", output.produced) .. "\n" .. L("WF_FREE_COUNT", "%d free (bags + banks)", output.free), nil, nil, nil, nil,
+                L("WF_RECORDED_COUNT", "%d recorded", output.produced) .. "\n" .. FreeText(output), nil, nil, nil, nil,
                 (output.currentEstimate and L("WF_CURRENT_ESTIMATE_TIP", "Break-even uses current material prices and base yield, including the AH cut; bonus procs are excluded.")
                     or L("WF_SAVED_ESTIMATE_TIP", "Break-even from the strategy's pricing estimate, including expected bonus procs; recalculated when you change the craft count.")) .. "\n"
                 .. L("WF_OUTPUT_TIP", "These are estimates, not actual acquisition costs. Recorded includes GAM batches only. Free counts your bags, bank, reagent bank and Warband bank, excludes all queue reservations, and may include previously owned stock. Free items may be sold or kept."))
@@ -390,7 +456,7 @@ function UI.Refresh()
         local hasHistory = false
         for _, saved in ipairs(data.plans) do if next(saved.history) then hasHistory = true; break end end
         if hasHistory then
-        Add("|cffffdf70" .. L("WF_HISTORY", "Completed steps") .. "|r", "", showHistory and (GAM.L and GAM.L["WF_HIDE"] or "Hide") or (GAM.L and GAM.L["WF_SHOW"] or "Show"), function() showHistory = not showHistory; UI.Refresh() end)
+        Add(Accent() .. L("WF_HISTORY", "Completed steps") .. "|r", "", showHistory and (GAM.L and GAM.L["WF_HIDE"] or "Hide") or (GAM.L and GAM.L["WF_SHOW"] or "Show"), function() showHistory = not showHistory; UI.Refresh() end)
         if showHistory then
             for _, plan in ipairs(data.plans) do
                 for key, count in pairs(plan.history) do
@@ -415,7 +481,9 @@ function UI.Refresh()
         stopButton:SetShown(busy); stopButton:SetEnabled(busy)
         local nextTask, allocation, amount, reason = Plan.NextTask(projection)
         -- Lead with the combined shopping trip before offering early batches.
-        if #projection.buys > 0 or next(data.incoming) ~= nil then nextTask = nil end
+        -- Plans waiting on a short material do not hold up the others.
+        local openBuys = #Plan.OpenBuys(projection)
+        if openBuys > 0 or next(data.incoming) ~= nil then nextTask = nil end
         local needsReview = false
         for _, saved in ipairs(data.plans) do if saved.needsReview and not saved.paused then needsReview = true; break end end
         local label, action = (GAM.L and GAM.L["WF_PLAN_COMPLETE"] or "Plan complete"), nil
@@ -423,7 +491,7 @@ function UI.Refresh()
             label = (GAM.L and GAM.L["WF_CRAFTING"] or "Crafting...")
         elseif #data.plans == 0 then
             label = (GAM.L and GAM.L["WF_ADD_FROM_DETAILS"] or "Add strategies from Details")
-        elseif #projection.buys > 0 then
+        elseif openBuys > 0 then
             label, action = (GAM.L and GAM.L["WF_BUY_MISSING"] or "Buy missing materials"), function() Plan.Buy() end
             if embedded then label, action = (GAM.L and GAM.L["WF_VIEW_SHOPPING"] or "View shopping list"), function() GAM.UI.MainWindow.OpenWorkspace("shopping") end end
         elseif needsReview and not nextTask then
@@ -442,7 +510,7 @@ function UI.Refresh()
                     else Report(false, err) end
                 end
             elseif reason == "gear-required" then
-                label = L("WF_EQUIP_SAVED_SET", "Equip saved profession set")
+                label, action = L("WF_EQUIP_SAVED_SET", "Equip saved profession set"), function() Plan.EquipGear(nextTask) end
                 status:SetText(amount)
             elseif reason == "setup-mismatch" then
                 label, action = (GAM.L and GAM.L["WF_USE_SETUP"] or "Use current setup"), function() Report(Plan.RefreshStrategy(nextTask.plan)) end
@@ -561,6 +629,9 @@ local function Build(parent)
     scroll:SetScript("OnSizeChanged", LayoutRows)
     status = Text(window); status:SetPoint("BOTTOMLEFT", 16, 54); status:SetPoint("RIGHT", window, "RIGHT", -20, 0); status:SetHeight(48)
     nextButton = Button(window, L("WF_CRAFT_NEXT", "Craft next"), 420, function() if nextAction then nextAction() end end); nextButton:SetPoint("BOTTOMRIGHT", -24, 18)
+    -- The one main action is gold on every workspace tab.
+    local common = GAM.UI.MainWindowCommon
+    if common and common.StyleComfortableButton then common.StyleComfortableButton(nextButton, true) end
     stopButton = Button(window, (GAM.L and GAM.L["WF_STOP"] or "Stop"), 74, Plan.Stop); stopButton:SetPoint("RIGHT", nextButton, "LEFT", -8, 0)
     if embedded then
         status:ClearAllPoints(); status:SetPoint("BOTTOMLEFT", 6, 36)

@@ -233,6 +233,7 @@ function Contract.FromV2Metrics(request, metrics)
         selectionNotes = metrics.selectionNotes,
         rankMixStatus = metrics.rankMixStatus,
         rankMixReason = metrics.rankMixReason,
+        rankMixCrafter = metrics.rankMixCrafter,
         rankMixMaterialPolicy = metrics.rankMixMaterialPolicy,
         rankMixTargetQuality = metrics.rankMixTargetQuality,
         rankMixOutputQuality = metrics.rankMixOutputQuality,

@@ -537,19 +537,104 @@ end
 
 -- StorePrice(itemID, price, minPrice, curve) — called by AHScan after scan.
 -- `curve` is the compact price-by-quantity summary from BuildDepthCurve.
+-- A market this thin whose lowest listing is this many times the item's
+-- normal price is not believed for selling (a lone troll listing); after
+-- this long it is accepted as the new level.
+Pricing.UNRELIABLE_UNITS = 20
+Pricing.UNRELIABLE_RATIO = 3
+Pricing.UNRELIABLE_ACCEPT_SECONDS = 48 * 3600
+
+-- Other ranks of the same item (from the strategies' item lists): a lower
+-- rank normally sells for no more than a higher one.
+local rankSiblings
+function Pricing.RankSiblings(itemID)
+    if not rankSiblings then
+        rankSiblings = {}
+        local function Add(item)
+            local ids = item and item.itemIDs
+            if not (ids and #ids > 1) then return end
+            for _, a in ipairs(ids) do
+                rankSiblings[a] = rankSiblings[a] or {}
+                for _, b in ipairs(ids) do if b ~= a then rankSiblings[a][b] = true end end
+            end
+        end
+        local ok, strats = pcall(function() return GAM.Importer and GAM.Importer.GetAllStrats() end)
+        for _, strat in ipairs(ok and strats or {}) do
+            Add(strat.output)
+            for _, o in ipairs(strat.outputs or {}) do Add(o) end
+            for _, r in ipairs(strat.reagents or {}) do Add(r) end
+        end
+    end
+    return rankSiblings[itemID]
+end
+
+-- The lowest normal price of a higher rank of this item, or nil.
+local function HigherRankReference(cache, itemID)
+    local ranks = GAM.ItemRanks or {}
+    local mine = ranks[itemID]
+    if not mine then return nil end
+    local ref
+    for other in pairs(Pricing.RankSiblings(itemID) or {}) do
+        if (ranks[other] or 0) > mine then
+            local entry = cache[other]
+            local value = entry and (entry.normal or entry.minPrice)
+            if value and value > 0 and (not ref or value < ref) then ref = value end
+        end
+    end
+    return ref
+end
+
 function Pricing.StorePrice(itemID, price, minPrice, curve)
     if not itemID or not price then return end
     local cache = GAM:GetRealmCache()
+    local old, now = cache[itemID], time()
+    local lowest = tonumber(minPrice) or price
+    -- The item's normal lowest price, from GAM's own scans: it follows a lower
+    -- price at once and a higher one slowly, and a suspicious scan does not
+    -- move it.
+    local normal = old and old.normal
+    local listed = type(curve) == "table" and tonumber(curve.listed) or nil
+    local thin = listed and listed < Pricing.UNRELIABLE_UNITS
+    local ratio = Pricing.UNRELIABLE_RATIO
+    local higher = HigherRankReference(cache, itemID)
+    -- A lower rank far above its higher rank: a troll, however long it stays.
+    local overRank = thin and higher and lowest > higher * ratio
+    local overOwn = thin and normal and lowest > normal * ratio
+    if higher and normal and normal > higher * ratio then normal = higher end   -- a troll learned as normal
+    local suspicious = (overRank or overOwn) and true or false
+    local since = suspicious and (old and old.unreliableSince or now) or nil
+    local saleRef = nil
+    if suspicious and not overRank and now - since >= Pricing.UNRELIABLE_ACCEPT_SECONDS then
+        suspicious, since, normal = false, nil, lowest   -- it has stayed: the new level
+    elseif suspicious then
+        saleRef = overRank and math.min(normal or higher, higher) or normal
+    elseif normal and lowest > normal then
+        normal = math.floor(normal * 0.75 + lowest * 0.25 + 0.5)
+    else
+        normal = lowest
+    end
     -- Store only price + timestamp; raw order-book arrays are no longer persisted
     -- to SavedVariables (they caused progressive lag after multiple scans).
     cache[itemID] = {
         price = price,
-        minPrice = tonumber(minPrice) or price,
+        minPrice = lowest,
         curve = type(curve) == "table" and curve or nil,
-        ts    = time(),
+        ts    = now,
+        normal = normal,
+        unreliable = suspicious or nil,
+        unreliableSince = since,
+        saleRef = saleRef,
     }
     if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
     GAM.Log.Debug("Stored price: itemID=%s price=%s", tostring(itemID), tostring(price))
+end
+
+-- A sale price GAM does not believe (see StorePrice): returns the item's
+-- normal price (nil when it has none) and true; otherwise nil, false.
+function Pricing.UnreliableSale(itemID)
+    local entry = itemID and GAM:GetRealmCache()[itemID]
+    if entry and entry.unreliable then return entry.saleRef or entry.normal, true end
+    return nil, false
 end
 
 -- StoreRaw / GetRawCache — no-ops. Raw AH listings are kept in session-only

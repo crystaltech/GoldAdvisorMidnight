@@ -1,6 +1,6 @@
 # Gold Advisor Midnight
 
-Gold Advisor Midnight (GAM) is a World of Warcraft Retail addon for comparing Midnight crafting profits with live Auction House prices, then shopping for and crafting the profitable ones.
+Gold Advisor Midnight (GAM) is a World of Warcraft Retail addon for comparing Midnight crafting profits with live Auction House prices, then shopping for, crafting, posting and tracking the profitable ones.
 
 It includes 283 commodity strategies across nine professions. Equipment, profession tools, bags, toys, mounts, bind-on-pickup items, and other one-off crafts are intentionally excluded.
 
@@ -14,6 +14,8 @@ It includes 283 commodity strategies across nine professions. Equipment, profess
 - Compares saved Multicraft and Resourcefulness gear with the `Auto` option
 - Plans intermediate crafting (for example, milling herbs for your own pigments) when it is cheaper than buying
 - Craft Queue with combined Shopping, a gold check, Quick Buy, and confirmed crafting progress
+- Posting tab: post what you crafted at the lowest listing (never undercutting), and cancel and repost undercut auctions
+- History tab: what you bought, crafted, posted and sold, realized profit per item and per batch, and suggestions on what to craft more or post less
 - Creates Auctionator shopping lists and can send prices and plans to CraftSim
 - Shows TradeSkillMaster region sale rates when TSM is installed
 - Tracks recipe cooldowns and charges across your characters
@@ -35,6 +37,7 @@ Existing `GoldAdvisorMidnightDB` settings are kept and upgraded in place. The se
 5. Review profit, return, break-even price, materials, and expected output.
 6. Turn on **Intermediates: Craft them myself** to compare buying intermediate materials with crafting them.
 7. Click `Add to Queue` in Details, then use the `Shopping` and `Craft Queue` tabs. Add more strategies to combine their shopping.
+8. Post your crafts from the `Posting` tab, and check `History` to see what really made gold.
 
 `Scan prices` scans the strategies in the list. Ctrl-click scans all strategies, Alt-click scans favorites, and Shift-click scans the selected strategy; the arrow beside it offers the same choices. Click again during a scan to stop it. Cooldowns, Quick Buy, CraftSim, exports, and the Craft Queue are also under `Tools`.
 
@@ -51,6 +54,7 @@ Set the default batch for strategies without their own value in **Settings > Pri
 ## Settings Row
 
 - `Material quality` chooses Rank 1 materials, Rank 2 materials, or the cheapest verified mix for the highest reachable output rank.
+  The output rank is checked on the character who knows the recipe. Open GAM once on each crafter; your other characters then use that crafter's rank and mix.
 - `Profession gear` chooses `Auto`, `Multicraft`, or `Resourcefulness` for the selected strategy.
 - `Intermediates` includes crafting intermediate materials yourself when that is cheaper than buying them.
 - `Refresh Recipe` (in Details) recaptures the selected recipe from the current crafter.
@@ -80,6 +84,23 @@ Once saved, the button reads `Update MC` / `Update Res`. Green means you are wea
 - Salvage jobs (crushing, recycling) keep their exact input item and rank; enchanting jobs include the vellum. Recrafting existing equipment stays in Blizzard's profession window. Concentration is never used.
 - Finished work moves to completed history. Outputs show produced quantities and free stock in your bags and banks, with a break-even estimate per item. After a batch finishes, GAM can offer extra crafts from unreserved materials; these never buy anything.
 - Reloading in the middle of a batch asks you to confirm the completed count before continuing.
+
+## Posting
+
+- The `Posting` tab lists what your Craft Queue made. **Settings > Posting** can add other items GAM strategies make that are in your bags or bank.
+- Each row starts at the lowest listing. Tick what to post, change the price or quantity if you like, then press **Post** once per auction (Blizzard requires a click for each).
+- Rows start unticked when the price is below break-even, the item keeps expiring, you already have enough listed, or the only listings look far above the item's usual price. Hover the status dot to see why; you can still tick them.
+- **Your auctions** shows where each auction stands: first in line, undercut, matched by a newer listing at your price (the newest sells first), or worth reposting higher. Ticked auctions are cancelled and reposted with the same button. A cancel is only ticked when reposting stays above break-even and the lost deposit is small.
+- Prices are re-checked when the Auction House opens while a GAM window is open. Turn this off in **Settings > Posting** to check only with `Recheck`.
+- Auction duration, starting quantity and the cancel rules are in **Settings > Posting** and **Settings > Your auctions**.
+
+## History
+
+- GAM records purchases, crafts, posts, cancels, expiries and sales on each character, including ones made with Blizzard's interface or other addons.
+- **Totals** show what you spent, sold after the cut, lost in deposits, your realized profit, and gold sitting in unsold stock.
+- **By item** gives each item a verdict (Craft more, Post less, Losing money, Unsold stock). **By batch** follows each Craft Queue plan from purchase to sale, using the materials it really used at what you paid. **Log** lists every event.
+- **Suggestions** rank what to do next by gold. `Queue N crafts` adds about a week of your own sales, minus what you already own, have listed or have queued, within 80% of your gold. Nothing changes unless you click.
+- Keep history for 30, 90 or 180 days or a year in **Settings > Crafting history**, with an optional minimum profit per craft.
 
 ## Windows
 

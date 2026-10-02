@@ -28,6 +28,24 @@ function SaleRate.Get(itemID)
     return value
 end
 
+-- Average units sold per auction house per day in the region (TSM). It is a
+-- regional average, not this player's sales; nil when TSM has no value.
+local soldCache = {}
+function SaleRate.SoldPerDay(itemID)
+    if not SaleRate.IsAvailable() then return nil end
+    itemID = tonumber(itemID)
+    if not itemID or itemID <= 0 then return nil end
+    local now = GetTime and GetTime() or 0
+    local cached = soldCache[itemID]
+    if cached and cached.api == TSM_API and now - cached.time < 30 then return cached.value end
+    local ok, value = pcall(TSM_API.GetCustomPriceValue, "DBRegionSoldPerDay * 1000", "i:" .. itemID)
+    value = ok and tonumber(value) or nil
+    if value then value = value / 1000 end
+    if not value or value ~= value or value < 0 then value = nil end
+    soldCache[itemID] = { value = value, time = now, api = TSM_API }
+    return value
+end
+
 function SaleRate.ForOutputs(outputs)
     local seen, items = {}, {}
     for _, output in ipairs(outputs or {}) do

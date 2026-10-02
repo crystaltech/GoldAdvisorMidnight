@@ -8,6 +8,7 @@ end
 local Plan = {}
 GAM.CraftPlan = Plan
 local pending, events
+local outsideResults   -- craft results already recorded outside the queue
 local function GetStopRepeat()
     return (C_TradeSkillUI and C_TradeSkillUI.StopRecipeRepeat) or StopTradeSkillRepeat
 end
@@ -77,7 +78,9 @@ function Plan.Project()
     return projection
 end
 
-function Plan.Add(strat, patchTag)
+-- target: optional craft count (History's Queue button); the notes below
+-- then describe that count.
+function Plan.Add(strat, patchTag, target)
     Plan.Init()
     if pending then return false, L("WF_ADD_BUSY", "Finish or stop the current batch before adding a plan.") end
     local result, err = GAM.PricingFacade.CalculateCurrent(strat, patchTag)
@@ -99,9 +102,190 @@ function Plan.Add(strat, patchTag)
     snapshot.id = data.nextID
     data.nextID = data.nextID + 1
     snapshot.crafter = UnitName("player")
+    snapshot.createdAt = GetServerTime and GetServerTime() or nil
+    target = tonumber(target)
+    if target and target >= 1 and target <= 100000 and target % 1 == 0 and target ~= snapshot.target then
+        snapshot.target = target
+        Plan.RecalculateBreakEven(snapshot)
+    end
     data.plans[#data.plans + 1] = snapshot
-    Notify(L("WF_ADDED_PLAN", "Added %s. Quantities use base yields, without bonus procs.", snapshot.name), "summary")
+    local notes = {}
+    notes[#notes + 1] = Plan.StockWarning(snapshot)
+    notes[#notes + 1] = Plan.ProfitWarning(result)
+    notes[#notes + 1] = Plan.AvailabilityWarning(snapshot)
+    notes[#notes + 1] = Plan.HistoryWarning(snapshot)
+    notes[#notes + 1] = Plan.CooldownWarning(snapshot)
+    local okGold, goldNote = pcall(Plan.GoldWarning)
+    notes[#notes + 1] = okGold and goldNote or nil
+    local warning = #notes > 0 and table.concat(notes, " ") or nil
+    if warning then
+        -- Shown in the queue's status line (and chat); the plan is still added.
+        Notify(L("WF_ADDED_PLAN", "Added %s. Quantities use base yields, without bonus procs.", snapshot.name) .. " " .. warning)
+    else
+        Notify(L("WF_ADDED_PLAN", "Added %s. Quantities use base yields, without bonus procs.", snapshot.name), "summary")
+    end
     return true, snapshot
+end
+-- Optional minimum profit per craft (Settings; 0 = off): a note, never a block.
+function Plan.MinProfit()
+    local value = tonumber(GAM.db and GAM.db.options and GAM.db.options.minProfitPerCraft) or 0
+    return value > 0 and value or nil
+end
+function Plan.ProfitWarning(result)
+    local minimum, perCraft = Plan.MinProfit(), result and tonumber(result.profitPerCraft)
+    -- A loss at today's prices is always worth a note (a Queue button or an
+    -- old habit can add a strategy whose market has since dropped).
+    if perCraft and perCraft < 0 then
+        return L("WF_CURRENT_LOSS", "At current prices each craft loses %s.", GAM.Pricing.FormatPrice(math.floor(-perCraft)))
+    end
+    if not (minimum and perCraft) or perCraft >= minimum then return nil end
+    return L("WF_BELOW_MIN_PROFIT", "Profit per craft %s is below your minimum %s.",
+        GAM.Pricing.FormatPrice(math.floor(perCraft)), GAM.Pricing.FormatPrice(minimum))
+end
+-- A note when the Auction House did not have enough of a material at the
+-- last scan: the plan may stall at Quick Buy. The whole queue's need is
+-- compared (two plans can share a material), for the materials this plan
+-- uses. Vendor materials are skipped.
+-- none: an item known to be unavailable right now (a purchase just failed),
+-- whatever the last scan said: only what you own of it counts.
+function Plan.AvailabilityWarning(plan, none)
+    local scan = GAM.AHScan
+    if not (scan and scan.GetRawScanSnapshot and GAM.CraftPlanModel) then return nil end
+    local plans, included = {}, false
+    for _, saved in ipairs(Data().plans) do
+        plans[#plans + 1] = saved
+        if saved == plan then included = true end
+    end
+    if not included then plans[#plans + 1] = plan end
+    local ok, own = pcall(GAM.CraftPlanModel.Project, { plan }, Count)
+    local okAll, projection = pcall(GAM.CraftPlanModel.Project, plans, Count)
+    if not (ok and okAll and type(own) == "table" and type(projection) == "table") then return nil end
+    local uses = {}
+    for _, buy in ipairs(own.buys or {}) do uses[buy.itemID] = true end
+    local short = {}
+    for _, buy in ipairs(projection.buys or {}) do
+        if not uses[buy.itemID] then buy = nil end
+        if buy then
+        local vendor = GAM.VendorPrices and GAM.VendorPrices.IsVendorItem and GAM.VendorPrices.IsVendorItem(buy.itemID)
+        local snapshot = not vendor and scan.GetRawScanSnapshot(buy.itemID)
+        if buy.itemID == none then snapshot = { prices = {} } end
+        if snapshot and snapshot.prices then
+            local listed = 0
+            for _, row in ipairs(snapshot.prices) do
+                listed = listed + math.max(0, (row.quantity or 0) - (row.mine and (tonumber(row.numMine) or 0) or 0))
+            end
+            -- A scan that stopped at the depth it needed (full == false) only
+            -- shows a lower bound: never call that short.
+            if listed < buy.quantity and snapshot.full ~= false then
+                short[#short + 1] = L("WF_SHORT_ITEM", "%d of %d %s", listed, buy.quantity,
+                    buy.name or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(buy.itemID)) or "?")
+            end
+        end
+        end
+    end
+    if #short == 0 then return nil end
+    return L("WF_SHORT_ON_AH", "Only %s listed at your last scan; buying may stall. Lower the craft count or wait.",
+        table.concat(short, ", ", 1, math.min(#short, 2)))
+end
+-- The largest craft count (at least the crafts done) whose materials the
+-- last scan showed on the Auction House, with the rest of the queue.
+-- none: the item a purchase just failed on (see AvailabilityWarning).
+function Plan.FitCrafts(plan, none)
+    local original = plan.target
+    local low, high = plan.completed or 0, original
+    plan.target = high
+    if not Plan.AvailabilityWarning(plan, none) then return high end
+    while low < high do
+        local mid = math.floor((low + high + 1) / 2)
+        plan.target = mid
+        if Plan.AvailabilityWarning(plan, none) then high = mid - 1 else low = mid end
+    end
+    plan.target = original
+    return low
+end
+
+-- The purchase of itemID just failed. When the last scan showed less than
+-- was needed, it is believable and the fit uses it; when it showed enough
+-- (or there is no scan), it is out of date, so only owned units count.
+function Plan.MarkShort(plan, itemID, requested)
+    plan.marketShort = { itemID = itemID, at = GetServerTime and GetServerTime() or 0 }
+    local snapshot = GAM.AHScan and GAM.AHScan.GetRawScanSnapshot and GAM.AHScan.GetRawScanSnapshot(itemID)
+    local listed = 0
+    for _, row in ipairs(snapshot and snapshot.prices or {}) do
+        listed = listed + math.max(0, (row.quantity or 0) - (row.mine and (tonumber(row.numMine) or 0) or 0))
+    end
+    local scanWrong = not snapshot or listed >= (requested or math.huge)
+    plan.marketShort.fit = math.min(plan.target, Plan.FitCrafts(plan, scanWrong and itemID or nil))
+end
+
+-- Lower a short plan to what the Auction House can supply.
+function Plan.FitToMarket(plan)
+    local fit = plan.marketShort and plan.marketShort.fit or Plan.FitCrafts(plan)
+    -- Nothing more to buy: a plan with crafts done finishes at those.
+    if fit < (plan.completed or 0) or (fit < 1 and (plan.completed or 0) > 0) then fit = plan.completed end
+    if fit < math.max(1, plan.completed or 0) then return false, L("WF_SHORT_NOTHING", "The Auction House cannot supply even one more craft; remove the plan or retry later.") end
+    local ok, err = Plan.SetTarget(plan, fit)
+    if ok then plan.marketShort = nil end
+    return ok, err
+end
+
+function Plan.RetryShort(plan)
+    plan.marketShort = nil
+    Notify(L("WF_SHORT_RETRY", "%s will buy again; scan first so the prices and amounts are current.", plan.name))
+    return true
+end
+
+-- Realized profit of this strategy's batches in the last `days` days, from
+-- History (finished plans; profit counts sold items at what they cost).
+-- Returns total copper and the number of batches, or nil when none.
+function Plan.RecentResult(strategyID, days)
+    local history, analysis = GAM.CraftHistory, GAM.CraftHistoryAnalysis
+    if not (strategyID and history and analysis and analysis.Batches and history.ArchivedPlans) then return nil end
+    local since = (GetServerTime and GetServerTime() or 0) - (days or 30) * 86400
+    local records = {}
+    for _, record in ipairs(history.ArchivedPlans()) do
+        if record.strategyID == strategyID and (record.archivedAt or 0) >= since then records[#records + 1] = record end
+    end
+    if #records == 0 then return nil end
+    local market = GAM.Posting and GAM.Posting.MarketPrice
+    local ahCut = GAM.Posting and GAM.Posting.Options().ahCut or 0.05
+    local total, counted = 0, 0
+    for _, batch in ipairs(analysis.Batches(records, history.Events(), history.PlanPurchases, market, ahCut,
+            function(record) return (history.MaterialCost(record.consumed, record.id, market)) end)) do
+        if batch.realized and batch.sold > 0 then total, counted = total + batch.realized, counted + 1 end
+    end
+    if counted == 0 then return nil end
+    return total, counted
+end
+
+-- A note when this strategy's recent batches lost gold: the estimate can
+-- look good while your own results say otherwise.
+function Plan.HistoryWarning(plan)
+    local total, count = Plan.RecentResult(plan and plan.strategyID, 30)
+    if not total or total >= 0 then return nil end
+    return L("WF_RECENT_LOSS", "Your last %d batches of this lost %s after costs (History).", count,
+        GAM.Pricing.FormatPrice(-total))
+end
+
+-- A note when a cooldown recipe has fewer charges ready than the plan's
+-- crafts: the rest wait for charges (and their materials wait in bags).
+function Plan.CooldownWarning(plan)
+    local tracker = GAM.CooldownTracker
+    local node = plan and plan.nodes and plan.nodes[plan.root]
+    if not (tracker and tracker.GetImmediateCraftCapacity and node) then return nil end
+    local ok, ready = pcall(tracker.GetImmediateCraftCapacity, node.recipeID)
+    local left = (plan.target or 0) - (plan.completed or 0)
+    if not ok or type(ready) ~= "number" or ready >= left then return nil end
+    return L("WF_COOLDOWN_SHORT", "Only %d of these %d crafts are ready now (cooldown); the rest wait for charges.", ready, left)
+end
+
+-- A note when the player already owns plenty of what the plan makes.
+function Plan.StockWarning(plan)
+    local stock = GAM.Stock
+    local node = plan and plan.nodes and plan.nodes[plan.root]
+    if not (stock and node) then return nil end
+    local ids = node.outputItemID and { node.outputItemID } or node.outputs or {}
+    return stock.QueueWarning(ids, (plan.target or 0) * (node.baseYield or 0))
 end
 -- Up-front gold for this strategy alone: the exact materials Add to Queue
 -- would put on the shopping list (base yields, no procs, owned items used
@@ -124,8 +308,113 @@ function Plan.EstimatePurchaseCost(strat, patchTag, result)
     return total
 end
 
+-- Materials the plan's batches used, less the intermediate items the plan
+-- crafted itself (their materials are already counted; bought ones are not).
+-- nil for plans from before tracking.
+function Plan.UsedMaterials(plan)
+    if not plan.consumed then return nil end
+    local crafted, used = plan.intermediateOutputs or {}, {}
+    for itemID, qty in pairs(plan.consumed) do
+        local bought = qty - (crafted[itemID] or 0)
+        if bought > 0 then used[itemID] = bought end
+    end
+    return next(used) and used or nil
+end
+
+-- A plan's results as History keeps them: what it made and its break-even.
+function Plan.BatchRecord(plan)
+    local record = { id = plan.id, name = plan.name, strategyID = plan.strategyID, patchTag = plan.patchTag,
+        createdAt = plan.createdAt, completed = plan.completed, consumed = Plan.UsedMaterials(plan),
+        extra = plan.optionalExtra or nil, ownUse = plan.ownUse or nil,
+        target = plan.target, finalOutputs = {}, outputs = {}, breakEven = {} }
+    local finalEstimate = plan.breakEven or (Plan.OutputBreakEven and Plan.OutputBreakEven(plan, plan.root))
+    for id, qty in pairs(plan.outputs or {}) do
+        record.finalOutputs[id], record.outputs[id] = qty, qty
+        record.breakEven[id] = finalEstimate and math.ceil(finalEstimate) or nil
+    end
+    for key, node in pairs(plan.nodes or {}) do
+        if key ~= plan.root then
+            for _, id in ipairs(node.outputs or {}) do
+                local qty = (plan.intermediateOutputs or {})[id] or 0
+                if qty > 0 then
+                    record.outputs[id] = (record.outputs[id] or 0) + qty
+                    local estimate = Plan.OutputBreakEven and Plan.OutputBreakEven(plan, key)
+                    record.breakEven[id] = record.breakEven[id] or (estimate and math.ceil(estimate)) or nil
+                end
+            end
+        end
+    end
+    return record
+end
+
+-- Adds a strategy again with a set number of crafts (History's Craft more).
+function Plan.QueueMore(strategyID, patchTag, crafts)
+    local importer = GAM.Importer
+    local strat = importer and importer.GetStratByID and importer.GetStratByID(strategyID)
+    if not strat then return false, L("WF_STRAT_MISSING", "That strategy is no longer available.") end
+    local ok, plan = Plan.Add(strat, patchTag or strat.patchTag, math.max(1, math.floor(crafts)))
+    if not ok then return ok, plan end
+    -- History's count follows your sales; the Auction House may not have the
+    -- materials for all of it. Queue what the last scan can supply, so a
+    -- half-bought plan does not tie up gold.
+    if Plan.AvailabilityWarning(plan) then
+        local asked, fit = plan.target, Plan.FitCrafts(plan)
+        if fit < 1 then
+            Plan.Remove(plan)
+            return false, L("WF_QUEUE_NO_MATS", "Not queued: your last scan did not show the materials for even one craft.")
+        end
+        Plan.SetTarget(plan, fit)
+        Notify(L("WF_QUEUE_FITTED", "Queued %d of %d crafts: your last scan showed materials for %d.", fit, asked, fit))
+    end
+    return true, plan
+end
+
+-- Saves a finished plan's results to History, then removes it from the queue.
+function Plan.Archive(plan, automatic)
+    if pending then return false end
+    local history = GAM.CraftHistory
+    if history then history.ArchivePlan(Plan.BatchRecord(plan)) end
+    for i, saved in ipairs(Data().plans) do
+        if saved == plan then table.remove(Data().plans, i); break end
+    end
+    Notify(automatic and L("WF_PLAN_ARCHIVED_AUTO", "%s is finished and its items are gone; it moved to History.", plan.name)
+        or L("WF_PLAN_ARCHIVED", "%s cleared. Its results stay in History.", plan.name), "summary")
+    if GAM.Posting and GAM.Posting.Changed then GAM.Posting.Changed() end
+    return true
+end
+
+function Plan.IsFinished(plan)
+    return plan.completed >= plan.target and not plan.needsReview
+end
+
+-- True when nothing the plan made is left: not in bags or banks, not
+-- waiting in the mailbox, and not still listed as far as GAM knows.
+function Plan.OutputsGone(plan)
+    local stock = GAM.Stock
+    local ids = {}
+    for id in pairs(plan.outputs or {}) do ids[id] = true end
+    for id in pairs(plan.intermediateOutputs or {}) do ids[id] = true end
+    for id in pairs(ids) do
+        if Count(id) > 0 then return false end
+        if stock and (stock.Listed(id) > 0 or stock.InMail(id) > 0) then return false end
+    end
+    return true
+end
+
+function Plan.ArchiveFinished()
+    if pending then return end
+    local plans = Data().plans
+    for index = #plans, 1, -1 do
+        local plan = plans[index]
+        if Plan.IsFinished(plan) and Plan.OutputsGone(plan) then Plan.Archive(plan, true) end
+    end
+end
+
 function Plan.Remove(plan)
     if pending then return false end
+    -- Crafts already made keep their batch (items, materials used, cost) in
+    -- History; only an untouched plan is simply dropped.
+    if (plan.completed or 0) > 0 or next(plan.consumed or {}) then return Plan.Archive(plan) end
     for i, saved in ipairs(Data().plans) do
         if saved == plan then table.remove(Data().plans, i); Notify(L("WF_REMOVED_PLAN", "Plan removed; reservations released."), "summary"); return true end
     end
@@ -152,7 +441,9 @@ function Plan.SetTarget(plan, target)
     Plan.RecalculateBreakEven(plan)
     plan.estimateInvalid = true
     plan.revision = (plan.revision or 0) + 1
-    Notify(L("WF_TARGET_UPDATED", "Final craft count updated; remaining materials recalculated."))
+    plan.marketShort = nil
+    local short = Plan.AvailabilityWarning(plan) or Plan.CooldownWarning(plan)
+    Notify(L("WF_TARGET_UPDATED", "Final craft count updated; remaining materials recalculated.") .. (short and (" " .. short) or ""))
     return true
 end
 function Plan.ReviewProgress(plan, completed)
@@ -321,7 +612,7 @@ function Plan.Preflight(task)
     end
     local capacity = GAM.CooldownTracker and GAM.CooldownTracker.GetImmediateCraftCapacity(task.node.recipeID)
     local amount = math.min(task.crafts, task.ready, capacity or task.ready, targetCapacity or task.ready)
-    if amount < 1 then return nil, L("WF_ON_COOLDOWN", "This recipe is on cooldown.") end
+    if amount < 1 then return nil, L("WF_ON_COOLDOWN", "This recipe is on cooldown."), "cooldown" end
     if not GetStopRepeat() then return nil, L("WF_STOP_UNAVAILABLE", "The client crafting stop control is unavailable.") end
     return allocation, math.floor(amount), nil, target
 end
@@ -336,8 +627,15 @@ function Plan.Craft(task)
     if not fresh then Notify(L("WF_STEP_SATISFIED", "This step is already satisfied.")); return false end
     local ok, allocation, amount, _, target = pcall(Plan.Preflight, fresh)
     if not ok or not allocation then Notify(ok and amount or tostring(allocation)); return false end
-    pending = { task = fresh, requested = amount, confirmed = 0, results = {}, lastActivity = GetTime(), target = target }
-    Data().inFlight = { planID = fresh.plan.id, nodeKey = fresh.node.key }
+    pending = { task = fresh, requested = amount, confirmed = 0, results = {}, lastActivity = GetTime(), target = target,
+        startCounts = {} }
+    -- Materials on hand now; what is missing at the end of the batch was used
+    -- (resourcefulness savings stay in bags and are not counted).
+    for _, reagent in ipairs(fresh.node.reagents or {}) do pending.startCounts[reagent.itemID] = Count(reagent.itemID) end
+    if fresh.node.targetItemID then pending.startCounts[fresh.node.targetItemID] = Count(fresh.node.targetItemID) end
+    -- Saved: after a /reload or disconnect mid-batch the start counts still
+    -- tell what the batch used.
+    Data().inFlight = { planID = fresh.plan.id, nodeKey = fresh.node.key, startCounts = pending.startCounts }
     Notify(L("WF_CRAFTING_NOTICE", "Crafting %s. Each new recipe requires a click.", fresh.node.name))
     -- Retain the user's hardware event through the actual submission.
     local submitted, failure = pcall(function()
@@ -358,6 +656,14 @@ function Plan.OpenRecipe(task)
     local ok, err = pcall(C_TradeSkillUI.OpenRecipe, task.node.recipeID)
     Notify(ok and L("WF_RECIPE_OPENED", "Recipe opened. Verify gear, then click Craft.") or tostring(err))
 end
+function Plan.EquipGear(task)
+    if pending then return end
+    local node = task.node
+    local gear = GAM.CraftingStatsGear
+    if not (gear and gear.Equip) then return end
+    local ok, done, message = pcall(gear.Equip, node.gearRequirement, node.recipeID, node.statProfileKey)
+    Notify(ok and message or tostring(done))
+end
 function Plan.Stop()
     if not pending then return end
     pending.stopping = true
@@ -366,8 +672,22 @@ function Plan.Stop()
     Notify(L("WF_STOPPING_NOTICE", "Stopping after the current craft; confirmed progress will be kept."))
 end
 
+-- Adds what the batch used to its plan (plan.consumed = {[itemID] = qty}).
+local function RecordUse(batch)
+    if not (batch and batch.confirmed > 0 and batch.startCounts) then return end
+    local plan, outputs = batch.task.plan, {}
+    for _, id in ipairs(batch.task.node.outputs or {}) do outputs[id] = true end
+    plan.consumed = plan.consumed or {}
+    for itemID, before in pairs(batch.startCounts) do
+        local used = before - Count(itemID)
+        if used > 0 and not outputs[itemID] then plan.consumed[itemID] = (plan.consumed[itemID] or 0) + used end
+    end
+end
+Plan.RecordUse = RecordUse
+
 local function EndBatch()
     if not pending then return end
+    pcall(RecordUse, pending)
     pending = nil
     Data().inFlight = nil
     Notify(L("WF_BATCH_FINISHED", "Batch finished. Remaining requirements now use your current bags and banks."))
@@ -375,6 +695,7 @@ end
 function Plan.OnEvent(event, ...)
     local data = Data()
     if event == "BAG_UPDATE_DELAYED" then
+        if not pending then pcall(Plan.ArchiveFinished) end
         if pending and not pending.task.final and pending.confirmed > 0 and not pending.stopping then
             local needed = false
             for _, task in ipairs(Plan.Project().tasks) do
@@ -403,6 +724,20 @@ function Plan.OnEvent(event, ...)
             end
             Notify()
         end
+    elseif not pending and event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
+        -- Crafted outside the queue: still part of the history when a GAM
+        -- strategy makes the item.
+        local result = ...
+        local capture = GAM.HistoryCapture
+        if result and not result.firstCraftReward and (result.quantity or 0) > 0 and GAM.CraftHistory
+                and capture and capture.IsOutput(result.itemID) then
+            local key = tostring(result.operationID) .. ":" .. tostring(result.itemID) .. ":" .. tostring(result.itemGUID)
+            outsideResults = outsideResults or {}
+            if not (tonumber(result.operationID) and outsideResults[key]) then
+                if tonumber(result.operationID) then outsideResults[key] = true end
+                GAM.CraftHistory.Record("craft", { itemID = result.itemID, qty = result.quantity, source = "outside" })
+            end
+        end
     elseif pending and event == "TRADE_SKILL_ITEM_CRAFTED_RESULT" then
         local result = ...
         if result and not result.firstCraftReward then
@@ -416,6 +751,10 @@ function Plan.OnEvent(event, ...)
                 pending.results[key] = true
                 local task = pending.task
                 GAM.CraftPlanModel.RecordOutput(task.plan, task.node, result.itemID, result.quantity, task.final)
+                if GAM.CraftHistory and result.quantity and result.quantity > 0 then
+                    GAM.CraftHistory.Record("craft", { itemID = result.itemID, qty = result.quantity,
+                        planID = task.plan.id, source = task.final and "final" or "intermediate" })
+                end
                 if not task.final and task.node.outputItemID and result.itemID ~= task.node.outputItemID then
                     for _, id in ipairs(task.node.outputs) do
                         if result.itemID == id then
@@ -460,12 +799,59 @@ function Plan.OnEvent(event, ...)
     end
 end
 
+-- Materials still to buy, leaving out plans waiting on a short material
+-- (they buy nothing until lowered or retried): { itemID, name, quantity, plans }.
+function Plan.OpenBuys(projection)
+    projection = projection or Plan.Project()
+    local held = {}
+    for _, plan in ipairs(Data().plans) do if plan.marketShort then held[plan.id] = true end end
+    if not next(held) then return projection.buys end
+    local open = {}
+    for _, entry in ipairs(projection.buys) do
+        local quantity, plans = entry.quantity, {}
+        for planID, need in pairs(entry.plans or {}) do
+            if held[planID] then quantity = quantity - need else plans[planID] = need end
+        end
+        if quantity > 0 then
+            open[#open + 1] = { itemID = entry.itemID, name = entry.name, quantity = quantity, plans = plans }
+        end
+    end
+    return open
+end
+
+-- What the queue's materials still to buy cost, at the prices Quick Buy
+-- expects (vendor or Auction House).
+function Plan.OpenBuysCost()
+    local resolve = GAM.VendorPrices and GAM.VendorPrices.ResolvePurchase
+    local total = 0
+    for _, entry in ipairs(Plan.OpenBuys()) do
+        local unit
+        if resolve then unit = select(2, resolve(entry.itemID, entry.quantity)) end
+        unit = tonumber(unit) or (GAM.Pricing and GAM.Pricing.GetUnitPrice and GAM.Pricing.GetUnitPrice(entry.itemID)) or 0
+        total = total + unit * entry.quantity
+    end
+    return math.floor(total)
+end
+
+-- A note when the queue's materials cost more than the gold on hand: Quick
+-- Buy would spend it all on part of each plan and none could be crafted.
+function Plan.GoldWarning()
+    local money = GetMoney and tonumber(GetMoney())
+    if not money then return nil end
+    local cost = Plan.OpenBuysCost()
+    if cost <= money then return nil end
+    return L("WF_QUEUE_OVER_GOLD", "The queue's materials cost %s and you have %s; lower a plan so each can be finished.",
+        GAM.Pricing.FormatPrice(cost), GAM.Pricing.FormatPrice(money))
+end
+
 function Plan.CreateShoppingList(itemID)
     local list = { entries = {}, vendorEntries = {}, craftPlan = true }
-    for _, entry in ipairs(Plan.Project().buys) do
+    for _, entry in ipairs(Plan.OpenBuys()) do
+        local quantity, plans = entry.quantity, entry.plans
         if not itemID or entry.itemID == itemID then
-            local source, price = GAM.VendorPrices.ResolvePurchase(entry.itemID, entry.quantity)
-            local copy = { itemID = entry.itemID, name = entry.name, quantity = entry.quantity, unitPrice = price }
+            local source, price = GAM.VendorPrices.ResolvePurchase(entry.itemID, quantity)
+            local copy = { itemID = entry.itemID, name = entry.name, quantity = quantity, unitPrice = price,
+                plans = plans }
             local target = source == "vendor" and list.vendorEntries or list.entries
             target[#target + 1] = copy
         end
@@ -489,6 +875,37 @@ function Plan.CreateShoppingList(itemID)
         end
         return false, L("WF_SHORTAGE_CHANGED", "Requirements changed. Select the material in Shopping again to review the current shortage.")
     end
+    -- The Auction House does not have enough of this material: stop buying
+    -- for the plans that need it (their other materials would sit unused),
+    -- keep buying for the rest. Returns a message, or nil for no plans.
+    list.onUnavailable = function(entry)
+        if not (entry and entry.plans and next(entry.plans)) then return nil end
+        local stuck, names = {}, {}
+        for _, plan in ipairs(Data().plans) do
+            if entry.plans[plan.id] then
+                stuck[plan.id] = true
+                names[#names + 1] = plan.name
+                Plan.MarkShort(plan, entry.itemID, entry.quantity)
+            end
+        end
+        for _, source in ipairs({ list.entries, list.vendorEntries }) do
+            for index = #source, 1, -1 do
+                local other = source[index]
+                if other == entry or other.itemID == entry.itemID then
+                    table.remove(source, index)
+                elseif other.plans then
+                    for planID in pairs(stuck) do
+                        local share = other.plans[planID]
+                        if share then other.quantity = other.quantity - share; other.plans[planID] = nil end
+                    end
+                    if other.quantity <= 0 then table.remove(source, index) end
+                end
+            end
+        end
+        Notify()
+        return L("QB_SHORT_STOPPED", "Not enough %s on the Auction House: stopped buying for %s. Lower it in the Craft Queue, or retry later.",
+            entry.name or (C_Item.GetItemNameByID and C_Item.GetItemNameByID(entry.itemID)) or "?", table.concat(names, ", "))
+    end
     list.onPurchased = function(entry, quantity, fromVendor)
         if fromVendor then return end
         local incoming = Data().incoming
@@ -509,9 +926,60 @@ function Plan.Buy(itemID)
     GAM.QuickBuy.SetList(list)
     GAM.QuickBuy.Buy()
 end
+-- Extra-crafts plans made before 2026-09-29 copied the finished plan's
+-- material use. Take the parent's use back out, once: the parent is the plan
+-- of the same name made earlier whose use is contained in the extra's (the
+-- largest such).
+function Plan.RepairExtraUse(extras, sources)
+    local suffix = L("WF_EXTRA_NAME", "%s · extra crafts", ""):gsub("^%s+", " ")
+    local fixed = 0
+    for _, extra in ipairs(extras) do
+        local name = extra.name or ""
+        local isExtra = extra.optionalExtra or extra.extra
+            or (#name > #suffix and name:sub(-#suffix) == suffix)
+        if isExtra and not extra.ownUse and extra.consumed then
+            local base = name:sub(1, #name - #suffix)
+            local parent, parentTotal
+            local extraTotal = 0
+            for _, qty in pairs(extra.consumed) do extraTotal = extraTotal + qty end
+            for _, source in ipairs(sources) do
+                if source ~= extra and source.consumed and (source.id or 0) < (extra.id or 0) and source.name == base then
+                    local contained, total = true, 0
+                    for itemID, qty in pairs(source.consumed) do
+                        total = total + qty
+                        if (extra.consumed[itemID] or 0) < qty then contained = false end
+                    end
+                    if contained and total > 0 and (not parentTotal or total > parentTotal) then parent, parentTotal = source, total end
+                end
+            end
+            -- A copied parent is most of what the extra shows; a small plan
+            -- that merely fits inside the extra's own use is not its parent.
+            if parent and parentTotal * 2 >= extraTotal then
+                for itemID, qty in pairs(parent.consumed) do
+                    local left = extra.consumed[itemID] - qty
+                    extra.consumed[itemID] = left > 0 and left or nil
+                end
+                if not next(extra.consumed) then extra.consumed = nil end
+                fixed = fixed + 1
+            end
+            extra.ownUse = true   -- checked: never taken out again
+        end
+    end
+    return fixed
+end
+
 function Plan.Init()
     if events then return end
     local data = Data()
+    local history = GAM.CraftHistory
+    local store = history and history.Store and history.Store()
+    if not data.extraUseFix and store then
+        local sources = {}
+        for _, plan in ipairs(data.plans) do sources[#sources + 1] = plan end
+        for _, record in ipairs(store.plans or {}) do sources[#sources + 1] = record end
+        Plan.RepairExtraUse(sources, sources)
+        data.extraUseFix = true
+    end
     for _, plan in ipairs(data.plans) do
         for _, node in pairs(plan.nodes or {}) do
             -- Old queue entries never stored the gear used by pricing. Keep
@@ -532,7 +1000,17 @@ function Plan.Init()
     end
     if Plan.InitMail then Plan.InitMail() end
     if data.inFlight then
-        for _, plan in ipairs(data.plans) do if plan.id == data.inFlight.planID then plan.needsReview = true end end
+        for _, plan in ipairs(data.plans) do
+            if plan.id == data.inFlight.planID then
+                plan.needsReview = true
+                -- The interrupted batch's materials: what is missing since it started.
+                local node = plan.nodes and plan.nodes[data.inFlight.nodeKey]
+                if node and data.inFlight.startCounts then
+                    pcall(RecordUse, { confirmed = 1, task = { plan = plan, node = node },
+                        startCounts = data.inFlight.startCounts })
+                end
+            end
+        end
         data.inFlight = nil
     end
     events = CreateFrame("Frame")

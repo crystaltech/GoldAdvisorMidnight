@@ -308,6 +308,46 @@ local function GetMetricStatOptionKeys()
     return metricStatOptionKeys
 end
 
+-- ===== Scan-time repricing =====
+-- While a scan runs, the list keeps its metrics (the price revision in the
+-- signature is held) and each refresh reprices only the visible strategies
+-- that use an item priced since the last refresh. The full reprice comes
+-- when the scan completes.
+local scanHeldRevision = nil
+local scanItemsByStrat = {}
+local function ItemsForStrategy(strat)
+    local key = strat.id or strat
+    local cached = scanItemsByStrat[key]
+    if cached then return cached end
+    local set = {}
+    local function Add(item)
+        for _, id in ipairs(item and item.itemIDs or {}) do set[id] = true end
+        for _, alt in ipairs(item and item.cheapestOf or {}) do Add(alt) end
+    end
+    Add(strat.output)
+    for _, o in ipairs(strat.outputs or {}) do Add(o) end
+    for _, r in ipairs(strat.reagents or {}) do Add(r) end
+    for _, variant in pairs(strat.rankVariants or {}) do
+        Add(variant.output)
+        for _, o in ipairs(variant.outputs or {}) do Add(o) end
+        for _, r in ipairs(variant.reagents or {}) do Add(r) end
+    end
+    local pricing = GAM.Pricing
+    -- Materials of crafted steps (chains) count too.
+    if pricing and pricing.GetVerticalIntegrationScanItems then
+        local ok, items = pcall(pricing.GetVerticalIntegrationScanItems, strat, filterPatch)
+        for _, item in ipairs(ok and items or {}) do Add(item) end
+    end
+    scanItemsByStrat[key] = set
+    return set
+end
+local function StrategyUsesAny(strat, items)
+    for id in pairs(ItemsForStrategy(strat)) do
+        if items[id] then return true end
+    end
+    return false
+end
+
 local function BuildListMetricSignature()
     local opts = GetOpts()
     local parts = {}
@@ -325,8 +365,8 @@ local function BuildListMetricSignature()
     AddMetricSignaturePart(parts, "statsRev", GetCraftingStatsRevision())
     -- Prices and owned materials: metrics recalculate only when these change,
     -- so filtering, sorting and profession switches reuse computed values.
-    AddMetricSignaturePart(parts, "prices", GAM.State and GAM.State.GetPriceRevision
-        and GAM.State.GetPriceRevision() or 0)
+    AddMetricSignaturePart(parts, "prices", scanHeldRevision or (GAM.State and GAM.State.GetPriceRevision
+        and GAM.State.GetPriceRevision() or 0))
     AddMetricSignaturePart(parts, "bags", GAM.ItemInfoCache and GAM.ItemInfoCache.GetInventoryGeneration
         and GAM.ItemInfoCache.GetInventoryGeneration() or 0)
 
@@ -1447,6 +1487,51 @@ local function EnsureInlineDetailReady()
     return rightPanel and rightPanel:IsShown() and ShowInlineDetail
 end
 
+local function CaptureGearSet(mode)
+    local stats = GAM.CraftingStats
+    local snapshot, err, linked
+    if stats and stats.CaptureOpenRecipeAsGearPreset then
+        snapshot, err, linked = stats.CaptureOpenRecipeAsGearPreset(mode)
+    else
+        err = "stat-cache-unavailable"
+    end
+    local L = GetL()
+    if snapshot then
+        local modeName = mode == "multicraft" and (L["GEAR_MODE_MC"] or "Multicraft")
+            or (L["GEAR_MODE_RES"] or "Resourcefulness")
+        local template = (tonumber(snapshot.revision) or 1) > 1
+            and (L["MSG_GEAR_UPDATED"] or "Updated your %s set for %s.")
+            or (L["MSG_GEAR_SAVED"] or "Saved your %s set for %s.")
+        print("|cff55ff55[GAM]|r " .. string.format(template, modeName,
+            tostring(snapshot.profession or L["GEAR_THIS_PROFESSION"] or "this profession")))
+        if linked and StaticPopup_Show then
+            -- The other set held the gear just replaced; offer to keep them together.
+            StaticPopupDialogs["GAM_GEAR_UPDATE_LINKED"] = StaticPopupDialogs["GAM_GEAR_UPDATE_LINKED"] or {
+                button1 = YES, button2 = NO, timeout = 0, whileDead = true, hideOnEscape = true,
+                OnAccept = function(_, data)
+                    CaptureGearSet(data)
+                    if leftPanel and leftPanel.refreshVisiblePanels then leftPanel.refreshVisiblePanels() end
+                end,
+            }
+            local otherName = linked == "multicraft" and (L["GEAR_MODE_MC"] or "Multicraft")
+                or (L["GEAR_MODE_RES"] or "Resourcefulness")
+            StaticPopupDialogs["GAM_GEAR_UPDATE_LINKED"].text = string.format(L["GEAR_UPDATE_LINKED"]
+                or "Your %s set was the same gear you just replaced. Update it to match?", otherName)
+            StaticPopup_Show("GAM_GEAR_UPDATE_LINKED", nil, nil, linked)
+        end
+    else
+        -- Players see a sentence; the raw code stays available in the debug log.
+        local messages = {
+            ["no-open-native-recipe"] = L["ERR_GEAR_NO_RECIPE"],
+            ["profession-equipment-unavailable"] = L["ERR_GEAR_EQUIPMENT"],
+            ["recipe-stats-unavailable"] = L["ERR_GEAR_STATS"],
+        }
+        GAM.Log.Warn("Gear: save %s set failed: %s", tostring(mode), tostring(err))
+        print("|cffff8800[GAM]|r " .. (messages[err] or string.format(
+            L["ERR_GEAR_GENERIC"] or "Could not save the gear set (%s).", tostring(err))))
+    end
+end
+
 local missingCrafterNoticeByProfession = {}
 
 local function OpenAndRefreshSelectedRecipe(strat, reportFailure)
@@ -2220,35 +2305,7 @@ local function BuildLeftPanelContent(L, C, LP)
                 end
             end
         end,
-        captureGearPreset = function(mode)
-            local stats = GAM.CraftingStats
-            local snapshot, err
-            if stats and stats.CaptureOpenRecipeAsGearPreset then
-                snapshot, err = stats.CaptureOpenRecipeAsGearPreset(mode)
-            else
-                err = "stat-cache-unavailable"
-            end
-            local L = GetL()
-            if snapshot then
-                local modeName = mode == "multicraft" and (L["GEAR_MODE_MC"] or "Multicraft")
-                    or (L["GEAR_MODE_RES"] or "Resourcefulness")
-                local template = (tonumber(snapshot.revision) or 1) > 1
-                    and (L["MSG_GEAR_UPDATED"] or "Updated your %s set for %s.")
-                    or (L["MSG_GEAR_SAVED"] or "Saved your %s set for %s.")
-                print("|cff55ff55[GAM]|r " .. string.format(template, modeName,
-                    tostring(snapshot.profession or L["GEAR_THIS_PROFESSION"] or "this profession")))
-            else
-                -- Players see a sentence; the raw code stays available in the debug log.
-                local messages = {
-                    ["no-open-native-recipe"] = L["ERR_GEAR_NO_RECIPE"],
-                    ["profession-equipment-unavailable"] = L["ERR_GEAR_EQUIPMENT"],
-                    ["recipe-stats-unavailable"] = L["ERR_GEAR_STATS"],
-                }
-                GAM.Log.Warn("Gear: save %s set failed: %s", tostring(mode), tostring(err))
-                print("|cffff8800[GAM]|r " .. (messages[err] or string.format(
-                    L["ERR_GEAR_GENERIC"] or "Could not save the gear set (%s).", tostring(err))))
-            end
-        end,
+        captureGearPreset = function(mode) CaptureGearSet(mode) end,
         getFilterPatch = function()
             return filterPatch
         end,
@@ -2656,12 +2713,60 @@ function MainWindow.RefreshProfessionDropdown()
     end
 end
 
+-- One visible strategy per frame: check whether it uses a changed item and,
+-- if so, reprice it. Spreads a refresh over several frames instead of one
+-- heavy one; the detail panel comes last.
+local scanReprice = { items = {}, list = {}, index = 0, running = false, generation = 0 }
+local function StepScanReprice(generation)
+    local q = scanReprice
+    if generation ~= q.generation then return end   -- a newer pass took over
+    if not (frame and frame:IsShown() and scanHeldRevision) then
+        q.running, q.items = false, {}
+        return
+    end
+    q.index = q.index + 1
+    local strat = q.list[q.index]
+    if strat then
+        if StrategyUsesAny(strat, q.items) then
+            InvalidateListMetric(strat.id, filterPatch)
+            GetListMetric(strat)   -- this frame's work
+            MainWindow.RefreshRows()
+        end
+        C_Timer.After(0, function() StepScanReprice(generation) end)
+        return
+    end
+    local current = rpDetail.currentStrat
+    if current and rpDetail.root and rpDetail.root:IsShown() and StrategyUsesAny(current, q.items) then
+        ShowInlineDetail(current, rpDetail.currentPatch)
+    end
+    q.running, q.items = false, {}
+end
+local function StartScanReprice(changed)
+    local q = scanReprice
+    for id in pairs(changed) do q.items[id] = true end
+    -- The visible rows now, from the top (a running pass restarts with them).
+    q.list, q.index = {}, 0
+    for index = scrollOffset + 1, math.min(#filteredList, scrollOffset + GetVisibleListRows()) do
+        q.list[#q.list + 1] = filteredList[index]
+    end
+    if not q.running then
+        q.running = true
+        q.generation = q.generation + 1
+        local generation = q.generation
+        C_Timer.After(0, function() StepScanReprice(generation) end)
+    end
+end
+
 function MainWindow.OnScanProgress(done, total, isComplete)
     if not frame then return end
     if leftPanel and leftPanel.setScanProgress then
         leftPanel.setScanProgress(done, total, isComplete)
     end
     if isComplete then
+        scanHeldRevision, scanItemsByStrat = nil, {}
+        scanReprice.running, scanReprice.items, scanReprice.list = false, {}, {}
+        scanReprice.generation = scanReprice.generation + 1   -- stops a pass in progress
+        if GAM.AHScan and GAM.AHScan.TakeChangedItems then GAM.AHScan.TakeChangedItems() end
         frame.progBar:Hide()
         frame.progLabel:SetText("")
         SetScanningState(false)
@@ -2677,19 +2782,21 @@ function MainWindow.OnScanProgress(done, total, isComplete)
             frame.progBar:SetValue(0)
             frame.progLabel:SetText(GAM.L["STATUS_QUEUING"])
         end
+        -- Hold the list's metrics for the scan; changed rows are invalidated below.
+        if not scanHeldRevision then
+            scanHeldRevision = GAM.State and GAM.State.GetPriceRevision and GAM.State.GetPriceRevision() or 0
+            scanItemsByStrat = {}
+        end
         if frame:IsShown() and done and done > 0 then
             local now = GetTime()
-            local refreshInterval = GAM.C.SCAN_UI_REFRESH_INTERVAL or 2.0
+            local refreshInterval = GAM.C.SCAN_UI_REFRESH_INTERVAL or 5.0
             if (now - lastScanRefreshAt) >= refreshInterval then
                 lastScanRefreshAt = now
-                ClearListMetricCache()
-                -- Performance: keep progress live, but batch the expensive
-                -- visible-row/detail repricing work while AH results are streaming.
-                -- Full re-sort happens at OnScanComplete.
-                MainWindow.RefreshRows()
-                if rpDetail.currentStrat and rpDetail.root and rpDetail.root:IsShown() then
-                    ShowInlineDetail(rpDetail.currentStrat, rpDetail.currentPatch)
-                end
+                -- Performance: progress stays live; only the visible rows that
+                -- use an item priced since the last refresh are repriced. Full
+                -- reprice and re-sort happen at OnScanComplete.
+                local changed = GAM.AHScan and GAM.AHScan.TakeChangedItems and GAM.AHScan.TakeChangedItems() or {}
+                if next(changed) then StartScanReprice(changed) end
             end
         end
     end
@@ -2726,6 +2833,10 @@ function MainWindow.ApplyTheme()
     ApplyTheme()
     if frame and frame:IsShown() then
         RelayoutPanels()
+    end
+    for _, name in ipairs({ "PostingWindow", "HistoryWindow", "CraftPlanWindow" }) do
+        local window = GAM.UI[name]
+        if window and window.Refresh then pcall(window.Refresh) end
     end
 end
 

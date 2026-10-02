@@ -286,6 +286,7 @@ local function BuildPanel()
         { key = "general", label = "General", description = "Scanning and addon display." },
         { key = "appearance", label = "Appearance", description = "Shared colors for the addon UI." },
         { key = "pricing", label = "Pricing", description = "Default quantities and material prices." },
+        { key = "posting", label = L["SETTINGS_SECTION_POSTING"], description = L["SETTINGS_POSTING_DESC"] },
         { key = "crafting", label = "Stat fallbacks", description = "Manual values used when a captured profile is unavailable." },
         { key = "nodes", label = "Profession nodes", description = "Captured specialization ranks and manual overrides." },
         { key = "tools", label = "Tools", description = "Reload strategy data and manage the price cache." },
@@ -567,6 +568,87 @@ local function BuildPanel()
     AddRow(content, "Gold reserve (%)", ebGoldReserve, string.format(
         "Shopping warns when the queue's materials would leave less than this share of your gold, and suggests craft counts that fit (%d-%d%%).",
         GAM.C.MIN_GOLD_RESERVE_PCT, GAM.C.MAX_GOLD_RESERVE_PCT), 90)
+
+    -- ── Posting ────────────────────────────────────────────────────────────
+    FinalizeContentLayout()
+    content = pages.posting.content
+    local postOpts = GAM.PostingModel.Options(opts.posting)
+    MakeSectionHeader(content, L["SETTINGS_SECTION_POSTING"])
+
+    local function CycleButton(width, values, labels, current)
+        local state = { value = current }
+        local btn = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+        btn:SetSize(width, 28)
+        local function Show() btn:SetText(labels[state.value] or tostring(state.value)) end
+        btn:SetScript("OnClick", function()
+            for index, value in ipairs(values) do
+                if value == state.value then state.value = values[index % #values + 1]; break end
+            end
+            Show()
+        end)
+        state.Set = function(value) state.value = value; Show() end
+        Show()
+        return btn, state
+    end
+    local durationBtn, durationState = CycleButton(180, { 12, 24, 48 },
+        { [12] = L["OPT_POST_12H"], [24] = L["OPT_POST_24H"], [48] = L["OPT_POST_48H"] }, postOpts.duration)
+    AddRow(content, L["OPT_POST_DURATION"], durationBtn, L["OPT_POST_DURATION_TIP"], 180)
+    local startQtyBtn, startQtyState = CycleButton(220, { "rec", "all" },
+        { rec = L["OPT_POST_QTY_REC"], all = L["OPT_POST_QTY_ALL"] }, postOpts.startQty)
+    AddRow(content, L["OPT_POST_START_QTY"], startQtyBtn, L["OPT_POST_START_QTY_TIP"], 220)
+    local cbSkipBelow = MakeCheckbox(content, L["OPT_POST_SKIP_BELOW"])
+    cbSkipBelow:SetChecked(postOpts.skipBelow)
+    local cbIncludeOther = MakeCheckbox(content, L["OPT_POST_INCLUDE_OTHER"])
+    cbIncludeOther:SetChecked(postOpts.includeOther)
+    local slMarginWarn = MakeSlider(content, L["OPT_POST_MARGIN_WARN"], L["OPT_POST_MARGIN_WARN_TIP"], 0, 100, 5)
+    slMarginWarn:SetValue(math.floor(postOpts.marginWarn * 100 + 0.5))
+    local slThin = MakeSlider(content, L["OPT_POST_THIN"], L["OPT_POST_THIN_TIP"], 0, 50, 5)
+    slThin:SetValue(math.floor(postOpts.thinPct * 100 + 0.5))
+    local slStreak = MakeSlider(content, L["OPT_POST_STREAK"], L["OPT_POST_STREAK_TIP"], 0, 10, 1)
+    slStreak:SetValue(postOpts.streakLimit)
+
+    local cbAutoScan = MakeCheckbox(content, L["OPT_POST_AUTO_SCAN"], L["OPT_POST_AUTO_SCAN_TIP"])
+    cbAutoScan:SetChecked(postOpts.autoScan)
+
+    MakeSectionHeader(content, L["SETTINGS_SECTION_YOUR_AUCTIONS"])
+    local cbCheckAuctions = MakeCheckbox(content, L["OPT_POST_CHECK_AUCTIONS"])
+    cbCheckAuctions:SetChecked(postOpts.checkAuctions)
+    local slMaxExpires = MakeSlider(content, L["OPT_POST_MAX_EXPIRES"], L["OPT_POST_MAX_EXPIRES_TIP"], 0, 20, 1)
+    slMaxExpires:SetValue(postOpts.maxExpires)
+    local cbCancelUndercut = MakeCheckbox(content, L["OPT_POST_CANCEL_UNDERCUT"])
+    cbCancelUndercut:SetChecked(postOpts.cancelUndercut)
+    local cbMatched = MakeCheckbox(content, L["OPT_POST_MATCHED"])
+    cbMatched:SetChecked(postOpts.matchedIsUndercut)
+    local cbRepostHigher = MakeCheckbox(content, L["OPT_POST_REPOST_HIGHER"])
+    cbRepostHigher:SetChecked(postOpts.repostHigher)
+    local slCancelDeposit = MakeSlider(content, L["OPT_POST_CANCEL_DEPOSIT"], L["OPT_POST_CANCEL_DEPOSIT_TIP"], 0, 20, 1)
+    slCancelDeposit:SetValue(math.floor(postOpts.cancelDepositPct * 100 + 0.5))
+    AddText(content, L["OPT_POST_AUCTIONS_HELP"])
+
+    MakeSectionHeader(content, L["SETTINGS_SECTION_HISTORY"])
+    local historyDaysBtn, historyDaysState = CycleButton(140, { 30, 90, 180, 365 },
+        { [30] = L["OPT_HISTORY_30"], [90] = L["OPT_HISTORY_90"], [180] = L["OPT_HISTORY_180"], [365] = L["OPT_HISTORY_365"] },
+        tonumber(opts.historyDays) or 180)
+    AddRow(content, L["OPT_HISTORY_KEEP"], historyDaysBtn, L["OPT_HISTORY_KEEP_TIP"], 140)
+    -- Minimum profit per craft, in gold (0 = off): Add to Queue and Craft more.
+    local ebMinProfit = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+    ebMinProfit:SetSize(90, 26); ebMinProfit:SetAutoFocus(false); ebMinProfit:SetNumeric(true); ebMinProfit:SetMaxLetters(7)
+    ebMinProfit:SetText(tostring(math.floor((tonumber(opts.minProfitPerCraft) or 0) / 10000)))
+    ebMinProfit:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    AddRow(content, L["OPT_MIN_PROFIT"], ebMinProfit, L["OPT_MIN_PROFIT_TIP"], 90)
+    local btnClearHistory = MakeButton(content, L["BTN_CLEAR_HISTORY"], 140)
+    btnClearHistory:SetScript("OnClick", function()
+        StaticPopupDialogs["GAM_CLEAR_HISTORY"] = StaticPopupDialogs["GAM_CLEAR_HISTORY"] or {
+            text = L["MSG_CLEAR_HISTORY_CONFIRM"], button1 = YES, button2 = NO,
+            timeout = 0, whileDead = true, hideOnEscape = true,
+            OnAccept = function()
+                if GAM.CraftHistory then GAM.CraftHistory.Clear() end
+                if GAM.Posting then GAM.Posting.Changed() end
+            end,
+        }
+        StaticPopup_Show("GAM_CLEAR_HISTORY")
+    end)
+    AddRow(content, L["OPT_HISTORY_CLEAR"], btnClearHistory, L["OPT_HISTORY_CLEAR_TIP"], 140)
 
     FinalizeContentLayout()
     content = pages.crafting.content
@@ -1313,6 +1395,7 @@ local function BuildPanel()
         shell.SetBottomInset(46)
     end
     SelectSettingsSection("general")
+    panel._selectSection = SelectSettingsSection
 
     -- ── Apply logic ────────────────────────────────────────────────────────
     local function ApplySettings()
@@ -1359,6 +1442,27 @@ local function BuildPanel()
         GAM.State.SetGlobalStartingCrafts(globalStartingCrafts)
 
         currentOpts.goldReservePct = NormalizeGoldReserve()
+        local prevPosting = GAM.PostingModel.Options(currentOpts.posting)
+        local function Slider(slider, fallback) return tonumber((slider:GetValue())) or fallback end
+        currentOpts.posting = {
+            duration = durationState.value, startQty = startQtyState.value,
+            skipBelow = cbSkipBelow:GetChecked() and true or false,
+            includeOther = cbIncludeOther:GetChecked() and true or false,
+            marginWarn = Slider(slMarginWarn, prevPosting.marginWarn * 100) / 100,
+            thinPct = Slider(slThin, prevPosting.thinPct * 100) / 100,
+            streakLimit = math.floor(Slider(slStreak, prevPosting.streakLimit)),
+            maxExpires = math.floor(Slider(slMaxExpires, prevPosting.maxExpires)),
+            checkAuctions = cbCheckAuctions:GetChecked() and true or false,
+            autoScan = cbAutoScan:GetChecked() and true or false,
+            cancelUndercut = cbCancelUndercut:GetChecked() and true or false,
+            matchedIsUndercut = cbMatched:GetChecked() and true or false,
+            repostHigher = cbRepostHigher:GetChecked() and true or false,
+            cancelDepositPct = Slider(slCancelDeposit, prevPosting.cancelDepositPct * 100) / 100,
+        }
+        currentOpts.historyDays = historyDaysState.value
+        currentOpts.minProfitPerCraft = math.max(0, math.floor(tonumber(ebMinProfit:GetText()) or 0)) * 10000
+        if GAM.CraftHistory and GAM.CraftHistory.Prune then pcall(GAM.CraftHistory.Prune) end
+        if GAM.Posting and GAM.Posting.Changed then GAM.Posting.Changed() end
 
         GAM.Log.SetLevel(currentOpts.debugVerbosity)
         if GAM.AHScan then
@@ -1397,6 +1501,22 @@ local function BuildPanel()
         cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
         slScale:SetValue(GetOptionValue(o, "uiScale", GAM.C.DEFAULT_UI_SCALE))
         ebGoldReserve:SetText(tostring(ClampReserve(o.goldReservePct)))
+        local po = GAM.PostingModel.Options(o.posting)
+        durationState.Set(po.duration); startQtyState.Set(po.startQty)
+        cbSkipBelow:SetChecked(po.skipBelow)
+        cbIncludeOther:SetChecked(po.includeOther)
+        slMarginWarn:SetValue(math.floor(po.marginWarn * 100 + 0.5))
+        slThin:SetValue(math.floor(po.thinPct * 100 + 0.5))
+        slStreak:SetValue(po.streakLimit)
+        slMaxExpires:SetValue(po.maxExpires)
+        cbCheckAuctions:SetChecked(po.checkAuctions)
+        cbAutoScan:SetChecked(po.autoScan)
+        cbCancelUndercut:SetChecked(po.cancelUndercut)
+        cbMatched:SetChecked(po.matchedIsUndercut)
+        cbRepostHigher:SetChecked(po.repostHigher)
+        slCancelDeposit:SetValue(math.floor(po.cancelDepositPct * 100 + 0.5))
+        historyDaysState.Set(tonumber(o.historyDays) or 180)
+        ebMinProfit:SetText(tostring(math.floor((tonumber(o.minProfitPerCraft) or 0) / 10000)))
         ebGlobalStartingCrafts:SetText(tostring(
             (GAM.State and GAM.State.GetGlobalStartingCrafts
                 and GAM.State.GetGlobalStartingCrafts()) or GAM.C.DEFAULT_STARTING_CRAFTS))
@@ -1601,6 +1721,12 @@ function SettingsMod.Refresh()
     if panel and panel._refreshGlobalStartingCrafts then
         panel._refreshGlobalStartingCrafts()
     end
+end
+
+-- Opens Settings on one section ("posting", "pricing", ...).
+function SettingsMod.ShowSection(key)
+    SettingsMod.Show()
+    if panel and panel._selectSection then pcall(panel._selectSection, key) end
 end
 
 function SettingsMod.ShowStandalone()

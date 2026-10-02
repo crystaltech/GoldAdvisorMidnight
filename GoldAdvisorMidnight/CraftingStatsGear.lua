@@ -110,9 +110,15 @@ function Gear.CaptureSet(snapshot, mode)
         resourcefulness = { percent = snapshot.resPercent, rating = snapshot.resRating,
             nodeRating = nodes and nodes.resourcefulness },
     }
+    -- The other mode held the gear this save replaces: it is stranded on the
+    -- old items unless the user updates it too.
+    local otherMode = mode == "multicraft" and "resourcefulness" or "multicraft"
+    local other = sets[otherMode]
+    local linked = old and other and old.signature ~= equipment.signature
+        and other.signature == old.signature and otherMode or nil
     sets[mode] = equipment
     Cache.TouchRevision(character, cache)
-    return equipment
+    return equipment, nil, linked
 end
 
 -- Profession ratings convert to a chance linearly, so only the node part of
@@ -184,6 +190,100 @@ function Gear.IsEquipped(requirement, recipeID, profileKey)
     local equipment = Gear.ReadEquipment(recipeID, profileKey)
     return equipment and equipment.profession == requirement.profession
         and equipment.signature == requirement.signature or false
+end
+
+local function T(key, fallback, ...)
+    local value = (GAM.L and GAM.L[key]) or fallback
+    if select("#", ...) > 0 then return string.format(value, ...) end
+    return value
+end
+
+-- Finds a saved item by GUID in the bags or in another profession slot.
+local function LocateItem(guid, equipped)
+    for slot in pairs(equipped) do
+        local location = ItemLocation:CreateFromEquipmentSlot(slot)
+        if C_Item.DoesItemExist(location) and C_Item.GetItemGUID(location) == guid then
+            return location, function() PickupInventoryItem(slot) end
+        end
+    end
+    for bag = 0, (NUM_TOTAL_EQUIPPED_BAG_SLOTS or 5) do
+        for bagSlot = 1, C_Container.GetContainerNumSlots(bag) do
+            local location = ItemLocation:CreateFromBagAndSlot(bag, bagSlot)
+            if C_Item.DoesItemExist(location) and C_Item.GetItemGUID(location) == guid then
+                return location, function() C_Container.PickupContainerItem(bag, bagSlot) end
+            end
+        end
+    end
+end
+
+local function PutCursorInFreeBag()
+    for bag = 0, (NUM_BAG_SLOTS or 4) do
+        local free, family = C_Container.GetContainerNumFreeSlots(bag)
+        if free and free > 0 and family == 0 then
+            if bag == 0 then PutItemInBackpack() else PutItemInBag(C_Container.ContainerIDToInventoryID(bag)) end
+            return true
+        end
+    end
+    return false
+end
+
+-- Swaps the saved profession items onto the character. Items move one click
+-- at a time on the server, so a slot whose item is still locked from an
+-- earlier swap is left for the next click. Returns done, message.
+function Gear.Equip(requirement, recipeID, profileKey)
+    local _, uid = Cache.Ensure()
+    if not requirement or uid ~= requirement.uid then
+        return false, T("GEAR_EQUIP_WRONG_CHARACTER", "This set belongs to another character.")
+    end
+    if InCombatLockdown and InCombatLockdown() then
+        return false, T("WF_LEAVE_COMBAT", "Leave combat before crafting.")
+    end
+    if (UnitCastingInfo and UnitCastingInfo("player")) or (CursorHasItem and CursorHasItem()) then
+        return false, T("GEAR_EQUIP_BUSY", "Finish your current cast and empty the cursor, then try again.")
+    end
+    local current = Gear.ReadEquipment(recipeID, profileKey)
+    if not current or current.profession ~= requirement.profession then
+        return false, T("ERR_GEAR_EQUIPMENT", "Your profession equipment could not be read yet. Wait for the profession window to finish loading, then try again.")
+    end
+    local equipped = {}
+    for _, entry in ipairs(current.slots) do equipped[entry.slot] = entry end
+    local missing, waiting, noSpace, moved = {}, false, false, false
+    for _, want in ipairs(requirement.slots or {}) do
+        -- Read the slot live: an earlier swap in this loop may have filled it.
+        local slotLocation = ItemLocation:CreateFromEquipmentSlot(want.slot)
+        local haveGUID = C_Item.DoesItemExist(slotLocation) and C_Item.GetItemGUID(slotLocation) or nil
+        if equipped[want.slot] and haveGUID ~= want.guid then
+            if C_Item.IsLocked(slotLocation) then
+                waiting = true
+            elseif not want.guid then
+                PickupInventoryItem(want.slot)
+                if PutCursorInFreeBag() then moved = true else noSpace = true; ClearCursor() end
+            else
+                local location, pickup = LocateItem(want.guid, equipped)
+                if not location then
+                    missing[#missing + 1] = want.link or want.item or tostring(want.slot)
+                elseif C_Item.IsLocked(location) then
+                    waiting = true
+                else
+                    pickup()
+                    EquipCursorItem(want.slot)
+                    if CursorHasItem() then ClearCursor() else moved = true end
+                end
+            end
+        end
+    end
+    if #missing > 0 then
+        return false, T("GEAR_EQUIP_MISSING", "Not in your bags: %s. Take it from the bank, then click again.",
+            table.concat(missing, ", "))
+    end
+    if noSpace then return false, T("GEAR_EQUIP_NO_SPACE", "Free a bag slot to unequip the extra profession item.") end
+    if waiting then return true, T("GEAR_EQUIP_AGAIN", "Some items are still moving. Click again to finish equipping the set.") end
+    if not moved then
+        -- Every saved item is already in place, so the items themselves
+        -- changed (upgrade or enchant) since the set was saved.
+        return false, T("GEAR_EQUIP_CHANGED", "The saved items are equipped but were upgraded or re-enchanted since the set was saved. Save the set again.")
+    end
+    return true, T("GEAR_EQUIP_STARTED", "Equipping the saved profession set.")
 end
 local GEAR_MODES = {
     auto = true,

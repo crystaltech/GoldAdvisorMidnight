@@ -296,6 +296,26 @@ PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputIt
             }, ctx.patchTag, quantity)
         end,
     })
+    local knows = type(optimizer.KnowsRecipe) == "function" and optimizer.KnowsRecipe(strat.recipeID)
+    if plan and knows and type(optimizer.SaveReach) == "function" then
+        optimizer.SaveReach(strat.recipeID, plan.highestReachableQuality, plan)
+    end
+    -- A recipe this character does not know: use the rank its crafter saved,
+    -- with the mix it verified (else the policy's materials; no cheaper mix
+    -- can be verified from here).
+    if knows ~= true and type(optimizer.SavedReach) == "function" then
+        local saved, crafter, _, mix = optimizer.SavedReach(strat.recipeID)
+        if saved and (knows == false or not plan) then
+            local reach = math.max(1, math.min(targetQuality, saved))
+            local savedPlan = mix and { rows = mix, verifiedQuality = reach, saved = true } or nil
+            local applied = savedPlan and optimizer.ApplyPlan(active, savedPlan)
+            return applied or active, applied and savedPlan or nil, "saved-crafter-reach", targetQuality,
+                reach, crafter
+        end
+        if knows == false and not plan then
+            return active, nil, "recipe-not-known-here", targetQuality, fallbackQuality
+        end
+    end
     if not plan then
         local reachableQuality = diagnostic and tonumber(diagnostic.reachableQuality) or nil
         return active, nil, reason or "rank-mix-unavailable", targetQuality,

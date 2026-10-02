@@ -7,8 +7,26 @@ local Optimizer = {}
 GAM.ReagentMixOptimizer = Optimizer
 
 local SKILL_SCALE = 1000
-local MODEL_TTL_SECONDS = 2
+-- A recipe's model (its slots and what each rank adds) and the rank Blizzard
+-- reports for each mix depend on the character's skill, gear and talents,
+-- not on prices. They are kept until one of those changes (events below),
+-- or 10 minutes, so repricing during a scan does not ask the client again.
+local MODEL_TTL_SECONDS = 600
 local liveModelCache = {}
+local operationCache = {}   -- [recipeID] = { [allocation key] = info or false }
+
+function Optimizer.ClearCache()
+    wipe(liveModelCache)
+    wipe(operationCache)
+end
+if type(CreateFrame) == "function" then
+    local watcher = CreateFrame("Frame")
+    for _, event in ipairs({ "PLAYER_EQUIPMENT_CHANGED", "TRAIT_CONFIG_UPDATED", "SKILL_LINES_CHANGED",
+            "TRADE_SKILL_SHOW", "LEARNED_SPELL_IN_SKILL_LINE" }) do
+        pcall(watcher.RegisterEvent, watcher, event)
+    end
+    watcher:SetScript("OnEvent", function() Optimizer.ClearCache() end)
+end
 
 local function RoundSkill(value)
     return math.floor((tonumber(value) or 0) * SKILL_SCALE + 0.5)
@@ -35,6 +53,15 @@ local function OperationDifficulty(info)
     return (base or 0) + (bonus or 0)
 end
 
+local function AllocationKey(allocation)
+    local parts = {}
+    for index, entry in ipairs(allocation or {}) do
+        parts[index] = tostring(entry.dataSlotIndex) .. ":" .. tostring(entry.reagent and entry.reagent.itemID)
+            .. ":" .. tostring(entry.quantity)
+    end
+    return table.concat(parts, ",")
+end
+
 local function CallOperationInfo(recipeID, allocation)
     local api = C_TradeSkillUI and C_TradeSkillUI.GetCraftingOperationInfo
     if type(api) ~= "function" then
@@ -44,6 +71,21 @@ local function CallOperationInfo(recipeID, allocation)
     if not ok then return nil, "operation-api-error" end
     if type(info) ~= "table" then return nil, "operation-api-returned-nil" end
     return info
+end
+
+-- The rank Blizzard reports for one candidate mix, remembered with the
+-- recipe's model: repricing (every refresh of a scan) checks the same mixes.
+-- Model-building calls are not cached here; the model itself keeps them.
+local function CandidateOperationInfo(recipeID, allocation)
+    local byRecipe = operationCache[recipeID]
+    local key = AllocationKey(allocation)
+    if byRecipe and byRecipe[key] then return byRecipe[key].info, byRecipe[key].reason end
+    local info, reason = CallOperationInfo(recipeID, allocation)
+    if reason ~= "operation-api-error" and reason ~= "operation-api-unavailable" then
+        operationCache[recipeID] = byRecipe or {}
+        operationCache[recipeID][key] = { info = info, reason = reason }
+    end
+    return info, reason
 end
 
 local function CallItemInfoAPI(api, itemID)
@@ -265,6 +307,8 @@ local function GetLiveModel(recipeID)
     if cached and now and cached.cachedAt and now - cached.cachedAt <= MODEL_TTL_SECONDS then
         return cached.model
     end
+    -- Rebuilding the model: the recipe's mix results are rechecked too.
+    operationCache[recipeID] = nil
     local model, reason = BuildLiveModel(recipeID)
     if model and now then
         liveModelCache[recipeID] = { model = model, cachedAt = now }
@@ -459,7 +503,7 @@ function Optimizer.BuildLivePlan(args)
             }
         end
         local allocation = BuildAllocation(selectedSlots, candidate.highCounts)
-        candidate.operationInfo, candidate.operationReason = CallOperationInfo(recipeID, allocation)
+        candidate.operationInfo, candidate.operationReason = CandidateOperationInfo(recipeID, allocation)
         candidate.operationChecked = true
         return candidate.operationInfo, candidate.operationReason
     end
@@ -650,6 +694,76 @@ function Optimizer.GetHighestOutputQuality(output, recipeID)
     return best
 end
 
-function Optimizer.ClearCache()
-    wipe(liveModelCache)
+-- The client only answers rank questions for recipes the logged-in character
+-- knows. Each crafter's all-high-material rank is saved with its crafting
+-- stats so other characters price that crafter's output at the right rank.
+local REACH_REFRESH_SECONDS = 3600
+
+local function ReachStore()
+    local cache = GAM.CraftingStatsCache
+    if not (cache and type(cache.Ensure) == "function") then return nil end
+    return cache.Ensure()
+end
+
+local function Now()
+    return type(time) == "function" and time() or os.time()
+end
+
+-- true / false when the client knows, nil when it cannot say.
+function Optimizer.KnowsRecipe(recipeID)
+    local api = C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo
+    recipeID = tonumber(recipeID)
+    if not recipeID or type(api) ~= "function" then return nil end
+    local ok, info = pcall(api, recipeID)
+    if not ok or type(info) ~= "table" then return nil end
+    return info.learned and true or false
+end
+
+-- plan: the verified plan; its mix (which reaches at least `quality`) is
+-- saved too, so other characters can price that mix instead of all rank 2.
+function Optimizer.SaveReach(recipeID, quality, plan)
+    recipeID, quality = tonumber(recipeID), tonumber(quality)
+    if not recipeID or not quality or quality <= 0 then return end
+    local character = ReachStore()
+    if type(character) ~= "table" then return end
+    character.rankReach = character.rankReach or {}
+    local key, now = tostring(recipeID), Now()
+    local entry = character.rankReach[key]
+    if type(entry) == "table" and entry.quality == quality and now - (tonumber(entry.at) or 0) < REACH_REFRESH_SECONDS then
+        return
+    end
+    local mix
+    if type(plan) == "table" and (tonumber(plan.verifiedQuality) or 0) >= quality and type(plan.rows) == "table" then
+        mix = {}
+        for index, row in ipairs(plan.rows) do
+            mix[index] = { dataSlotIndex = row.dataSlotIndex, quantity = row.quantity, lowItemID = row.lowItemID,
+                highItemID = row.highItemID, lowCount = row.lowCount, highCount = row.highCount }
+        end
+    end
+    character.rankReach[key] = { quality = quality, at = now, mix = mix }
+end
+
+-- Returns quality, crafter name, true when it came from another character,
+-- and the saved mix rows (or nil).
+-- This character's own saved rank wins; otherwise the most recent alt's.
+function Optimizer.SavedReach(recipeID)
+    recipeID = tonumber(recipeID)
+    if not recipeID then return nil end
+    local key = tostring(recipeID)
+    local character, uid, cache = ReachStore()
+    local own = type(character) == "table" and character.rankReach and character.rankReach[key]
+    if type(own) == "table" and tonumber(own.quality) then
+        return tonumber(own.quality), character.name, false, own.mix
+    end
+    local best, bestName
+    for otherUID, other in pairs(type(cache) == "table" and cache.characters or {}) do
+        local entry = otherUID ~= uid and type(other) == "table" and type(other.rankReach) == "table"
+            and other.rankReach[key] or nil
+        if type(entry) == "table" and tonumber(entry.quality)
+                and (not best or (tonumber(entry.at) or 0) > (tonumber(best.at) or 0)) then
+            best, bestName = entry, other.name
+        end
+    end
+    if best then return tonumber(best.quality), bestName, true, best.mix end
+    return nil
 end

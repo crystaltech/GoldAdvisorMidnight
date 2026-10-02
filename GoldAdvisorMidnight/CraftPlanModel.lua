@@ -24,13 +24,17 @@ function Model.Project(plans, count, countReady)
         ledger[id] = ledger[id] - take
         return qty - take
     end
-    local function Buy(reagent, qty)
+    -- plans records each plan's share of the combined shortage, so recorded
+    -- purchases can be attributed to the plans that needed them.
+    local function Buy(reagent, qty, planID)
         if qty <= 0 then return end
         if not buys[reagent.itemID] then
-            buys[reagent.itemID] = { itemID = reagent.itemID, name = reagent.name, quantity = 0 }
+            buys[reagent.itemID] = { itemID = reagent.itemID, name = reagent.name, quantity = 0, plans = {} }
             buyOrder[#buyOrder + 1] = buys[reagent.itemID]
         end
-        buys[reagent.itemID].quantity = buys[reagent.itemID].quantity + qty
+        local buy = buys[reagent.itemID]
+        buy.quantity = buy.quantity + qty
+        if planID ~= nil then buy.plans[planID] = (buy.plans[planID] or 0) + qty end
     end
     for _, plan in ipairs(plans or {}) do
         local taskMap, visiting = {}, {}
@@ -57,9 +61,9 @@ function Model.Project(plans, count, countReady)
                         if batches > 0 then Produce(reagent.producer, batches, false) end
                         local output = batches * producer.baseYield
                         ledger[reagent.itemID] = Owned(reagent.itemID) + math.max(0, output - shortage)
-                        Buy(reagent, math.max(0, shortage - output))
+                        Buy(reagent, math.max(0, shortage - output), plan.id)
                     else
-                        Buy(reagent, shortage)
+                        Buy(reagent, shortage, plan.id)
                     end
                 end
             end
