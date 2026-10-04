@@ -283,19 +283,40 @@ PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputIt
         return active, nil, "optimizer-unavailable", targetQuality, fallbackQuality
     end
 
-    local plan, reason, diagnostic = optimizer.BuildLivePlan({
-        recipeID = strat.recipeID,
-        targetQuality = targetQuality,
-        crafts = crafts,
-        recipeView = active,
-        highestOnly = policy == "highest",
-        priceGetter = function(itemID, quantity)
-            return Pricing.GetEffectivePriceForItem({
-                itemIDs = { itemID },
-                rankPolicyOverride = "highest",
-            }, ctx.patchTag, quantity)
-        end,
-    })
+    local function BuildPlan()
+        return optimizer.BuildLivePlan({
+            recipeID = strat.recipeID,
+            targetQuality = targetQuality,
+            crafts = crafts,
+            recipeView = active,
+            highestOnly = policy == "highest",
+            priceGetter = function(itemID, quantity)
+                return Pricing.GetEffectivePriceForItem({
+                    itemIDs = { itemID },
+                    rankPolicyOverride = "highest",
+                }, ctx.patchTag, quantity)
+            end,
+        })
+    end
+    -- An intermediate (an ink, a pigment) is planned again inside every
+    -- strategy that uses it, each pricing every material mix. The same
+    -- recipe, materials and craft count give the same plan within a frame.
+    local plan, reason, diagnostic
+    if GAM.ItemInfoCache then
+        local opts = GetOpts()
+        local sig = { tostring(strat.recipeID), tostring(targetQuality), tostring(crafts), policy,
+            tostring(ctx.patchTag), tostring(opts.pigmentCostSource), tostring(opts.ingotCostSource),
+            tostring(opts.boltCostSource) }
+        for _, reagent in ipairs(active.reagents or {}) do
+            sig[#sig + 1] = table.concat(reagent.itemIDs or {}, ",")
+            for _, alternative in ipairs(reagent.cheapestOf or {}) do
+                sig[#sig + 1] = "/" .. table.concat(alternative.itemIDs or {}, ",")
+            end
+        end
+        plan, reason, diagnostic = GAM.ItemInfoCache.ThisFrame("rankMixPlan", table.concat(sig, ";"), BuildPlan)
+    else
+        plan, reason, diagnostic = BuildPlan()
+    end
     local knows = type(optimizer.KnowsRecipe) == "function" and optimizer.KnowsRecipe(strat.recipeID)
     if plan and knows and type(optimizer.SaveReach) == "function" then
         optimizer.SaveReach(strat.recipeID, plan.highestReachableQuality, plan)
@@ -412,7 +433,15 @@ local function FindProducerMatch(ctx, itemID, state)
                 local craftCapacity, capacityReason = nil, nil
                 local tracker = GAM.CooldownTracker
                 if tracker and type(tracker.GetImmediateCraftCapacity) == "function" then
-                    craftCapacity, capacityReason = tracker.GetImmediateCraftCapacity(strat.recipeID)
+                    -- Every reagent of every chained strategy asks; charges
+                    -- only change between frames, so share one answer.
+                    local function Read() return tracker.GetImmediateCraftCapacity(strat.recipeID) end
+                    if GAM.ItemInfoCache then
+                        craftCapacity, capacityReason = GAM.ItemInfoCache.ThisFrame(
+                            "craftCapacity", tonumber(strat.recipeID), Read)
+                    else
+                        craftCapacity, capacityReason = Read()
+                    end
                 end
                 if craftCapacity == nil or craftCapacity > 0 then
                     return {
