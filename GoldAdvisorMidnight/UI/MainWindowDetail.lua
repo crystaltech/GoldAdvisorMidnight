@@ -778,6 +778,9 @@ function Detail.Build(args)
         "TT_LBL_STATS_BODY",
         function()
             local projection = rpDetail.detailProjection or {}
+            if GAM.CraftStats then
+                return GAM.CraftStats.AppendTooltip(projection.statsTooltip, projection.statStrategyIDs)
+            end
             return projection.statsTooltip
         end)
 

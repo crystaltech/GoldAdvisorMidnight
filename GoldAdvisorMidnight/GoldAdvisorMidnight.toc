@@ -84,6 +84,7 @@ CraftPlanActions.lua
 CraftPlanBudget.lua
 CraftHistory.lua
 CraftHistoryAnalysis.lua
+CraftStats.lua
 PostingModel.lua
 Posting.lua
 PostingMail.lua

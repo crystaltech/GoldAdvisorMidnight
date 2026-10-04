@@ -131,6 +131,20 @@ local function BuildStatsTooltip(result)
     return table.concat(lines, "\n")
 end
 
+-- The strategy and every intermediate it crafts, for recorded craft results.
+local function CollectStatStrategyIDs(result)
+    local ids, seen = {}, {}
+    local function Add(id)
+        if id ~= nil and not seen[id] then seen[id] = true; ids[#ids + 1] = id end
+    end
+    Add(result and result.strategyID)
+    local diagnostics = result and result.diagnostics
+    for _, usage in ipairs(type(diagnostics) == "table" and diagnostics.statUsages or {}) do
+        Add(usage.stratID)
+    end
+    return ids
+end
+
 local function BuildGearCaption(result)
     local requested = tostring(result and result.gearModeRequested or "auto")
     local resolved = tostring(result and result.gearModeResolved or "current")
@@ -368,6 +382,7 @@ function Model.Project(result)
         crafterCaption = BuildCrafterCaption(result),
         statsCaption = BuildStatsCaption(result),
         statsTooltip = BuildStatsTooltip(result),
+        statStrategyIDs = CollectStatStrategyIDs(result),
         nodeBonusCaption = BuildNodeBonusCaption(result),
         nodeBonusTooltip = BuildNodeBonusTooltip(result),
         gearCaption = BuildGearCaption(result),
