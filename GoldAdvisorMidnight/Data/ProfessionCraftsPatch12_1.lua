@@ -93,6 +93,59 @@ Add("Cooking", {
     },
 })
 
+-- Cooking salvage: one plant or animal part per craft, any of five single-rank
+-- commodities. Yield varies with Cooking skill; 3 is just under observed
+-- max-skill averages (about 3.1 per part including Resourcefulness).
+Add("Cooking", {
+    id = "cooking__plant_protein__midnight_1",
+    name = "Plant Protein",
+    patchTag = "midnight-1",
+    recipeID = 1296450,
+    formulaProfile = "cook_salvage",
+    inputs = {
+        {
+            itemRef = "Cheapest Plant Part",
+            itemIDs = { 275286 },
+            amount = 1,
+            cheapestOf = {
+                { itemRef = "Malleable Root",         itemIDs = { 275285 } },
+                { itemRef = "Leafy Appendage",        itemIDs = { 275286 } },
+                { itemRef = "Cellular Slab",          itemIDs = { 275287 } },
+                { itemRef = "Photosynthesized Scrap", itemIDs = { 275288 } },
+                { itemRef = "Winged Stalk",           itemIDs = { 275289 } },
+            },
+        },
+    },
+    outputs = {
+        { itemRef = "Plant Protein", itemIDs = { 242640 }, baseAmount = 3 },
+    },
+})
+
+Add("Cooking", {
+    id = "cooking__practically_pork__midnight_1",
+    name = "Practically Pork",
+    patchTag = "midnight-1",
+    recipeID = 1296449,
+    formulaProfile = "cook_salvage",
+    inputs = {
+        {
+            itemRef = "Cheapest Animal Part",
+            itemIDs = { 275280 },
+            amount = 1,
+            cheapestOf = {
+                { itemRef = "Gamey Flank",      itemIDs = { 275280 } },
+                { itemRef = "Folded Wing",      itemIDs = { 275281 } },
+                { itemRef = "Smooth Loin",      itemIDs = { 275282 } },
+                { itemRef = "Amphibious Scrap", itemIDs = { 275283 } },
+                { itemRef = "Slobbery Tongue",  itemIDs = { 275284 } },
+            },
+        },
+    },
+    outputs = {
+        { itemRef = "Practically Pork", itemIDs = { 242639 }, baseAmount = 3 },
+    },
+})
+
 Add("Enchanting", {
     id = "enchanting__rite_of_the_hashey__midnight_1",
     name = "Enchant Weapon - Rite of the Hash'ey",

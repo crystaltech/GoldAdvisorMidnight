@@ -27,6 +27,20 @@ local function BuildOutputs(outputs)
     return built
 end
 
+-- Salvage-style inputs accept any one item from a pool. StrategyModel owns
+-- normalization; this only carries the reviewed alternatives through.
+local function CopyCheapestOf(alternatives)
+    if not alternatives then return nil end
+    local copy = {}
+    for index, alternative in ipairs(alternatives) do
+        copy[index] = {
+            itemRef = alternative.itemRef,
+            itemIDs = CopyItemIDs(alternative.itemIDs),
+        }
+    end
+    return copy
+end
+
 local function BuildReagents(inputs)
     local built = {}
     for index, input in ipairs(inputs or {}) do
@@ -34,6 +48,7 @@ local function BuildReagents(inputs)
             itemRef = input.itemRef,
             itemIDs = CopyItemIDs(input.itemIDs),
             qtyPerCraft = input.amount,
+            cheapestOf = CopyCheapestOf(input.cheapestOf),
         }
     end
     return built

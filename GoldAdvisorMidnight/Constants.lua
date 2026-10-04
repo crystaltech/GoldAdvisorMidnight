@@ -19,7 +19,7 @@ end
 local PROFESSION_REGISTRY = {
     { name = "Alchemy",        enumName = "Alchemy",        skillLineID = 171, profKey = "alch", profiles = { "alchemy" }, aliases = { "alchemy", "alch" } },
     { name = "Blacksmithing",  enumName = "Blacksmithing",  skillLineID = 164, profKey = "bs",   profiles = { "blacksmithing" }, aliases = { "blacksmith", "bs" } },
-    { name = "Cooking",        enumName = "Cooking",        skillLineID = 185, profKey = "cook", profiles = { "cooking" }, aliases = { "cooking", "cook" } },
+    { name = "Cooking",        enumName = "Cooking",        skillLineID = 185, profKey = "cook", profiles = { "cooking", "cook_salvage" }, aliases = { "cooking", "cook" } },
     { name = "Enchanting",     enumName = "Enchanting",     skillLineID = 333, profKey = "ench", profiles = { "ench_shatter", "ench_craft" }, aliases = { "enchant", "ench" } },
     { name = "Engineering",    enumName = "Engineering",    skillLineID = 202, profKey = "eng",  profiles = { "engineering_recycling", "engineering_craft" }, aliases = { "engineer", "eng" } },
     { name = "Inscription",    enumName = "Inscription",    skillLineID = 773, profKey = "insc", profiles = { "insc_milling", "insc_ink", "insc_missive_estimated", "insc_codified" }, aliases = { "inscription", "insc" } },

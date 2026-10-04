@@ -136,6 +136,20 @@ GAM.WorkbookGenerated = {
       sheetMCm = 1.250,
       sheetRs  = 0.300,
     },
+    -- Cooking salvage (Plant Protein, Practically Pork): the profession window
+    -- shows Resourcefulness but no Multicraft. Shares the Cooking Res setting.
+    cook_salvage = {
+      multiKey = nil,
+      resKey = "cookRes",
+      mcNodeKey = nil,
+      rsNodeKey = nil,
+      defaultMulti = nil,
+      defaultRes = 8.800,
+      defaultMcNode = 0,
+      defaultRsNode = 0,
+      sheetMCm = 0,      -- no multicraft
+      sheetRs  = 0.300,
+    },
     insc_milling = {
       multiKey = nil,
       resKey = "inscMillingRes",

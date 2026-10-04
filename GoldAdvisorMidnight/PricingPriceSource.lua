@@ -510,6 +510,18 @@ function Pricing.GetEffectivePrice(itemID, patchTag, qty)
     return cachedPrice, stale
 end
 
+-- Units the last scan saw listed: live listings first, then the saved scan
+-- (after /reload). nil when the item has not been scanned.
+function Pricing.GetListedQuantity(itemID)
+    local results = GAM.AuctionHouseResults
+    local live = results and results.GetCachedResults and results.GetCachedResults(itemID)
+    if live and live.prices and #live.prices > 0 then
+        return results.GetListedQuantity(live.prices)
+    end
+    local entry = GAM.GetRealmCache and GAM:GetRealmCache()[itemID]
+    return entry and type(entry.curve) == "table" and tonumber(entry.curve.listed) or nil
+end
+
 local function GetDirectEffectivePriceForItem(item, patchTag, qty)
     if not item then return nil, false end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
