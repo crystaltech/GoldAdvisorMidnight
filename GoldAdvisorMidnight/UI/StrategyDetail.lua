@@ -973,6 +973,9 @@ local function Build()
         local parts = {}
         for _, key in ipairs({"statsTooltip", "gearTooltip", "nodeBonusTooltip"}) do
             local value = projection[key]
+            if key == "statsTooltip" and GAM.CraftStats then
+                value = GAM.CraftStats.AppendTooltip(value, projection.statStrategyIDs)
+            end
             if value and value ~= "" then parts[#parts + 1] = value end
         end
         infoText:SetText(#parts > 0 and table.concat(parts, "\n\n") or "No captured calculation information is available for this recipe.")

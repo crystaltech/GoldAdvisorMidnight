@@ -76,6 +76,45 @@ function Cache.ProfessionInfoByRecipe(api, recipeID)
     return identity
 end
 
+-- A recipe's ranked output item list is fixed. An empty answer (recipe data
+-- still loading) is never kept. Callers must not modify the returned list.
+function Cache.RecipeList(api, recipeID)
+    if type(api) ~= "function" or not recipeID then return nil end
+    local store = Store(api)
+    local cached = store[recipeID]
+    if cached ~= nil then return cached end
+    local ok, list = pcall(api, recipeID)
+    if not ok or type(list) ~= "table" or #list == 0 then return nil end
+    store[recipeID] = list
+    return list
+end
+
+-- Live answers that hold for one frame (whether a recipe is known, charges
+-- ready). Chained strategies ask them once per reagent; one repricing pass
+-- runs in one frame, so the first answer is shared. A price change within
+-- the frame starts over. Up to three return values.
+local liveFrame, liveRevision, live = nil, nil, {}
+function Cache.ThisFrame(kind, key, read)
+    local now = type(GetTime) == "function" and GetTime() or nil
+    if not now or key == nil then return read() end
+    local revision = GAM.State and GAM.State.GetPriceRevision and GAM.State.GetPriceRevision() or 0
+    if liveFrame ~= now or liveRevision ~= revision then
+        live, liveFrame, liveRevision = {}, now, revision
+    end
+    local bucket = live[kind]
+    if not bucket then
+        bucket = {}
+        live[kind] = bucket
+    end
+    local entry = bucket[key]
+    if not entry then
+        local a, b, c = read()
+        entry = { a, b, c }
+        bucket[key] = entry
+    end
+    return entry[1], entry[2], entry[3]
+end
+
 -- Owned counts change with bags and banks, so they are shared only within
 -- one frame (one repricing pass) and dropped on any bag update.
 local countFrame, countGeneration, generation, counts = nil, nil, 0, {}

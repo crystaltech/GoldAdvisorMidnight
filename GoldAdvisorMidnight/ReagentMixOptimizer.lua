@@ -674,10 +674,14 @@ end
 function Optimizer.GetHighestOutputQuality(output, recipeID)
     local recipeAPI = C_TradeSkillUI and C_TradeSkillUI.GetRecipeQualityItemIDs
     if tonumber(recipeID) and type(recipeAPI) == "function" then
-        local ok, qualityItemIDs = pcall(recipeAPI, tonumber(recipeID))
-        if ok and type(qualityItemIDs) == "table" and #qualityItemIDs > 0 then
-            return #qualityItemIDs
+        local qualityItemIDs
+        if GAM.ItemInfoCache then
+            qualityItemIDs = GAM.ItemInfoCache.RecipeList(recipeAPI, tonumber(recipeID))
+        else
+            local ok, ids = pcall(recipeAPI, tonumber(recipeID))
+            qualityItemIDs = ok and type(ids) == "table" and #ids > 0 and ids or nil
         end
+        if qualityItemIDs then return #qualityItemIDs end
     end
     local api = C_TradeSkillUI and C_TradeSkillUI.GetItemCraftedQualityByItemInfo
     local best = nil
@@ -710,13 +714,22 @@ local function Now()
 end
 
 -- true / false when the client knows, nil when it cannot say.
+local function ReadKnowsRecipe(api, recipeID)
+    local ok, info = pcall(api, recipeID)
+    if not ok or type(info) ~= "table" then return nil end
+    return info.learned and true or false
+end
+
 function Optimizer.KnowsRecipe(recipeID)
     local api = C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo
     recipeID = tonumber(recipeID)
     if not recipeID or type(api) ~= "function" then return nil end
-    local ok, info = pcall(api, recipeID)
-    if not ok or type(info) ~= "table" then return nil end
-    return info.learned and true or false
+    if GAM.ItemInfoCache then
+        return (GAM.ItemInfoCache.ThisFrame("knowsRecipe", recipeID, function()
+            return ReadKnowsRecipe(api, recipeID)
+        end))
+    end
+    return ReadKnowsRecipe(api, recipeID)
 end
 
 -- plan: the verified plan; its mix (which reaches at least `quality`) is

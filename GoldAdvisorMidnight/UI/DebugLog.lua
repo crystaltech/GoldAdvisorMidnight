@@ -492,6 +492,9 @@ local function BuildToolsPage(content, Layout, shell, styleButton)
     Report(writeLabel, T("DBG_STAT_PROFILES", "Stat profiles"),
         T("DBG_STAT_PROFILES_HELP", "Every stat profile with its Multicraft and Resourcefulness values."),
         function() GAM.CraftingStats.DumpProfiles() end)
+    Report(writeLabel, T("DBG_CRAFT_RESULTS", "Craft results"),
+        T("DBG_CRAFT_RESULTS_HELP", "Multicraft procs and Resourcefulness refunds recorded from your crafts, compared with what GAM expected."),
+        function() GAM.CraftStats.DumpReport() end)
 
     Layout.MakeSectionHeader(content, T("DBG_SECTION_RECIPES", "Recipe data"))
     -- Audits write their summary and every problem row to the log; the full
