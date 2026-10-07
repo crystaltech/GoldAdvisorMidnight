@@ -45,7 +45,7 @@ GAM.C = {
     -- client shows the English base strings until this is switched back on.
     TRANSLATIONS_ENABLED = false,
     ADDON_VERSION       = "2.3.2",
-    DATA_VERSION         = 21,
+    DATA_VERSION         = 22,
     STRATEGY_SCHEMA_VERSION = 1,
     DEFAULT_PATCH        = "midnight-1",
 

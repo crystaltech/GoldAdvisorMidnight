@@ -413,6 +413,16 @@ local MIGRATIONS = {
             end
         end,
     },
+    {
+        -- dataVersion 22: automatic Posting price checks are off by default.
+        -- Saving Settings stored the old default (on), so clear it once;
+        -- players can turn it back on in Settings > Posting.
+        dataVersion = 22,
+        migrate = function(db)
+            local posting = type(db.options) == "table" and db.options.posting
+            if type(posting) == "table" then posting.autoScan = nil end
+        end,
+    },
 }
 
 local function RunMigrations(db)
