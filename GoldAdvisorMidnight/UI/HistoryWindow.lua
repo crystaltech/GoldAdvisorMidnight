@@ -284,7 +284,8 @@ end
 -- ===== Refresh =====
 
 function UI.Refresh()
-    if not host or not host:IsShown() then return end
+    -- Visible, not just shown: the tab stays shown inside a closed window.
+    if not host or not host:IsVisible() then return end
     if not (GAM.CraftHistory and GAM.CraftHistoryAnalysis) then return end
     local events, stats, opts = Data()
     local analysis = GAM.CraftHistoryAnalysis
