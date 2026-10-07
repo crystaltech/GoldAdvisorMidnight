@@ -625,7 +625,7 @@ function Pricing.StorePrice(itemID, price, minPrice, curve)
         unreliableSince = since,
         saleRef = saleRef,
     }
-    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision(itemID) end
     GAM.Log.Debug("Stored price: itemID=%s price=%s", tostring(itemID), tostring(price))
 end
 
