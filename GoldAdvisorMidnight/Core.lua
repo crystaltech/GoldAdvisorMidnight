@@ -3,6 +3,12 @@
 -- Module: GAM (root)
 
 local ADDON_NAME, GAM = ...
+
+-- Patch 12.1.5 removed the global GetItemInfo; C_Item.GetItemInfo replaces it.
+local function GetItemInfo(item)
+    local api = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
+    if api then return api(item) end
+end
 local workbookProfiles = (GAM.WorkbookGenerated and GAM.WorkbookGenerated.formulaProfiles) or {}
 -- Reuse production SavedVariables; isolated development settings are not imported.
 local DB_GLOBAL_NAME = "GoldAdvisorMidnightDB"

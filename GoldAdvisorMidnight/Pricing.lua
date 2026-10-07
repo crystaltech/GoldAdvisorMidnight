@@ -46,7 +46,7 @@ local function RequestItemData(itemID)
     if GAM.ItemInfoCache then return GAM.ItemInfoCache.RequestLoad(itemID) end
     if C_Item and C_Item.RequestLoadItemDataByID then
         C_Item.RequestLoadItemDataByID(itemID)
-    else
+    elseif GetItemInfo then
         GetItemInfo(itemID)
     end
 end

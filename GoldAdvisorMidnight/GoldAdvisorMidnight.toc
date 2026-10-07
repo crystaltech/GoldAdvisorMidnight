@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120100, 120105
 ## Title: Gold Advisor Midnight
 ## Category: Professions
 ## Notes: Compare Midnight crafting profits with live Auction House prices.

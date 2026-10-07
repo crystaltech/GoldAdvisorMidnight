@@ -5,6 +5,12 @@
 
 local ADDON_NAME, GAM = ...
 local AHScan = {}
+
+-- Patch 12.1.5 removed the global GetItemInfo; C_Item.GetItemInfo replaces it.
+local function GetItemInfo(item)
+    local api = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
+    if api then return api(item) end
+end
 GAM.AHScan = AHScan
 
 -- ===== Configuration (hot-swappable via SetScanDelay) =====
