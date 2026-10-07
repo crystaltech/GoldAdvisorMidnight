@@ -95,6 +95,7 @@ UI\DebugLog.lua
 TSMSaleRate.lua
 UI\MainWindowCommon.lua
 UI\SettingsLayout.lua
+UI\ManualPrice.lua
 Settings.lua
 UI\VIBreakdownPlan.lua
 UI\CraftPlanWindow.lua

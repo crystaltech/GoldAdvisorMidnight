@@ -643,22 +643,137 @@ end
 function Pricing.StoreRaw(itemID, sortedRaw)   end
 function Pricing.GetRawCache(itemID) return nil end
 
--- SetPriceOverride(itemID, price, patchTag)
-function Pricing.SetPriceOverride(itemID, price, patchTag)
-    if not itemID then return end
-    patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    local pdb = GAM:GetPatchDB(patchTag)
-    pdb.priceOverrides            = pdb.priceOverrides or {}
-    pdb.priceOverrides[itemID]    = price
+-- ===== Manual input prices =====
+-- Off by default (options.manualPricesEnabled). A manual price is kept for this
+-- session only unless options.manualPricesKeep is on; then it is saved in the
+-- patch DB. Only one store is live at a time: toggling "keep" moves the prices
+-- across. Turning the feature off ignores both stores without deleting them.
+-- Manual prices value materials only; sale prices always come from the market.
+local sessionOverrides = {} -- [patchTag][itemID] = copper; never saved
+
+local function BumpRevision()
     if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
+end
+
+local function KeepManualPrices() return GetOpts().manualPricesKeep == true end
+
+local function OverrideStore(patchTag, create)
+    patchTag = patchTag or GAM.C.DEFAULT_PATCH
+    if KeepManualPrices() then
+        local pdb = GetPatchDB(patchTag)
+        if create and type(pdb.priceOverrides) ~= "table" then pdb.priceOverrides = {} end
+        return pdb.priceOverrides
+    end
+    if create and not sessionOverrides[patchTag] then sessionOverrides[patchTag] = {} end
+    return sessionOverrides[patchTag]
+end
+
+function Pricing.ManualPricesEnabled()
+    return GetOpts().manualPricesEnabled == true
+end
+
+-- GetPriceOverride(itemID, patchTag) → copper or nil
+function Pricing.GetPriceOverride(itemID, patchTag)
+    if not itemID or not Pricing.ManualPricesEnabled() then return nil end
+    local store = OverrideStore(patchTag)
+    return store and store[itemID] or nil
+end
+
+-- SetPriceOverride(itemID, price, patchTag) → true when stored
+function Pricing.SetPriceOverride(itemID, price, patchTag)
+    price = tonumber(price)
+    if not itemID or not price or price < 0 or price ~= price or price == math.huge then
+        return false
+    end
+    OverrideStore(patchTag, true)[itemID] = math.floor(price + 0.5)
+    BumpRevision()
+    return true
 end
 
 -- ClearPriceOverride(itemID, patchTag)
 function Pricing.ClearPriceOverride(itemID, patchTag)
-    patchTag = patchTag or GAM.C.DEFAULT_PATCH
-    local pdb = GAM:GetPatchDB(patchTag)
-    if pdb.priceOverrides then
-        if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
-        pdb.priceOverrides[itemID] = nil
+    local store = OverrideStore(patchTag)
+    if itemID and store and store[itemID] ~= nil then
+        store[itemID] = nil
+        BumpRevision()
     end
+end
+
+-- ClearAllPriceOverrides() clears session and saved manual prices for every patch.
+function Pricing.ClearAllPriceOverrides()
+    wipe(sessionOverrides)
+    for _, pdb in pairs((GAM.db and GAM.db.patch) or {}) do
+        if type(pdb) == "table" and type(pdb.priceOverrides) == "table" then
+            wipe(pdb.priceOverrides)
+        end
+    end
+    BumpRevision()
+end
+
+-- CountPriceOverrides() → number of manual prices in the live store (all patches).
+function Pricing.CountPriceOverrides()
+    local count = 0
+    if KeepManualPrices() then
+        for _, pdb in pairs((GAM.db and GAM.db.patch) or {}) do
+            for _ in pairs(type(pdb) == "table" and type(pdb.priceOverrides) == "table"
+                and pdb.priceOverrides or {}) do
+                count = count + 1
+            end
+        end
+    else
+        for _, store in pairs(sessionOverrides) do
+            for _ in pairs(store) do count = count + 1 end
+        end
+    end
+    return count
+end
+
+-- SetKeepManualPrices(keep): saving on moves this session's prices into the
+-- patch DB; saving off moves saved prices into the session so they still apply
+-- until logout, then are gone.
+function Pricing.SetKeepManualPrices(keep)
+    keep = keep and true or false
+    if keep == KeepManualPrices() then return end
+    if keep then
+        for patchTag, store in pairs(sessionOverrides) do
+            local pdb = GetPatchDB(patchTag)
+            pdb.priceOverrides = type(pdb.priceOverrides) == "table" and pdb.priceOverrides or {}
+            for itemID, price in pairs(store) do pdb.priceOverrides[itemID] = price end
+        end
+        wipe(sessionOverrides)
+    else
+        for patchTag, pdb in pairs((GAM.db and GAM.db.patch) or {}) do
+            if type(pdb) == "table" and type(pdb.priceOverrides) == "table" and next(pdb.priceOverrides) then
+                local store = sessionOverrides[patchTag] or {}
+                sessionOverrides[patchTag] = store
+                for itemID, price in pairs(pdb.priceOverrides) do store[itemID] = price end
+                wipe(pdb.priceOverrides)
+            end
+        end
+    end
+    GetOpts().manualPricesKeep = keep
+    BumpRevision()
+end
+
+-- ParseMoneyText("12g 50s", "12.5", "12.5g", "50s", "75c") → copper or nil.
+-- A bare number is gold.
+function Pricing.ParseMoneyText(text)
+    text = tostring(text or ""):lower():gsub(",", "."):gsub("%s+", "")
+    if text == "" then return nil end
+    local bare = tonumber(text)
+    if bare then
+        return bare >= 0 and math.floor(bare * 10000 + 0.5) or nil
+    end
+    local total, rest = 0, text
+    for _, unit in ipairs({ { "g", 10000 }, { "s", 100 }, { "c", 1 } }) do
+        local value, after = rest:match("^([%d%.]+)" .. unit[1] .. "(.*)$")
+        if value then
+            local n = tonumber(value)
+            if not n then return nil end
+            total = total + n * unit[2]
+            rest = after
+        end
+    end
+    if rest ~= "" then return nil end
+    return math.floor(total + 0.5)
 end

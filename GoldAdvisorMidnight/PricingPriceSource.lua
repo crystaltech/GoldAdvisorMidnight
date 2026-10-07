@@ -452,17 +452,18 @@ function Pricing.ScanNeed(itemID)
     return rec.qty or 0
 end
 
-function Pricing.GetEffectivePrice(itemID, patchTag, qty)
+-- marketOnly skips manual input prices: sale prices pass it so a manual
+-- price never inflates revenue.
+function Pricing.GetEffectivePrice(itemID, patchTag, qty, marketOnly)
     if not itemID then return nil end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
     NoteDemand(itemID, qty)
     local opts = GetOpts()
 
-    -- 1. Manual override (use ~= nil so an explicit 0 override is honoured)
-    local pdb = GetPatchDB(patchTag)
-    if pdb.priceOverrides and pdb.priceOverrides[itemID] ~= nil then
-        return pdb.priceOverrides[itemID], false
-    end
+    -- 1. Manual input price (an explicit 0 is honoured).
+    local manual = not marketOnly and Pricing.GetPriceOverride
+        and Pricing.GetPriceOverride(itemID, patchTag)
+    if manual then return manual, false end
 
     -- 2. Vendor price. Use the current character's last observed merchant
     -- quote (including reputation/racial discounts), then the static fallback.
@@ -522,6 +523,11 @@ function Pricing.GetListedQuantity(itemID)
     return entry and type(entry.curve) == "table" and tonumber(entry.curve.listed) or nil
 end
 
+-- GetMarketPrice(itemID, patchTag, qty) → price, isStale; ignores manual prices.
+function Pricing.GetMarketPrice(itemID, patchTag, qty)
+    return Pricing.GetEffectivePrice(itemID, patchTag, qty, true)
+end
+
 local function GetDirectEffectivePriceForItem(item, patchTag, qty)
     if not item then return nil, false end
     patchTag = patchTag or GAM.C.DEFAULT_PATCH
@@ -534,12 +540,6 @@ local function GetDirectEffectivePriceForItem(item, patchTag, qty)
     end
     if not ids or #ids == 0 then
         return nil, false
-    end
-
-    for _, id in ipairs(ids) do
-        if pdb.priceOverrides and pdb.priceOverrides[id] ~= nil then
-            return pdb.priceOverrides[id], false
-        end
     end
 
     local picked = PickItemID(ids, patchTag, item.rankPolicyOverride)
@@ -583,18 +583,15 @@ function Pricing.GetEffectivePriceForItem(item, patchTag, qty)
     end
     if not ids or #ids == 0 then return nil, false end
 
-    -- Manual price overrides win over all derivation. Check every ID.
-    for _, id in ipairs(ids) do
-        if pdb.priceOverrides and pdb.priceOverrides[id] ~= nil then
-            return pdb.priceOverrides[id], false
-        end
-    end
-
     -- Pick rank-policy ID FIRST so mill/craft derivation honours R1/R2 selection.
     -- (Previously the loop checked ids in array order and could pick R1 even when
     -- R2 Mats was selected because R1's entry appeared first in the array.)
     local picked = PickItemID(ids, patchTag, item.rankPolicyOverride)
     if not picked then return nil, false end
+
+    -- A manual price for the chosen rank wins over derivation.
+    local manual = Pricing.GetPriceOverride and Pricing.GetPriceOverride(picked, patchTag)
+    if manual ~= nil then return manual, false end
 
     if not item.skipDerivation then
         if GetOpts().pigmentCostSource == "mill" and Derivation.HasMillMapping(picked) then
@@ -641,7 +638,7 @@ local function GetOutputPriceForItem(item, patchTag, preferredQuality, qty, reci
     -- Selling: a lone listing far above the item's normal price is not
     -- believed; the normal price is used (none yet: no price).
     local function Sale(itemID)
-        local p, s = Pricing.GetEffectivePrice(itemID, patchTag, qty)
+        local p, s = Pricing.GetEffectivePrice(itemID, patchTag, qty, true)
         -- (Called directly: `x and f()` would keep only f's first return.)
         local normal, unreliable
         if Pricing.UnreliableSale then normal, unreliable = Pricing.UnreliableSale(itemID) end

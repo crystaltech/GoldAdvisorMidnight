@@ -217,6 +217,7 @@ local function BindItemRow(frameObj, display)
 end
 
 local function ItemRowClick(self, button)
+    if GAM.UI.ManualPrice and GAM.UI.ManualPrice.HandleRowClick(self, button) then return end
     local display = self and self._itemDisplay
     local link = display and display.itemLink
     if not link or link == "" then return end
@@ -255,6 +256,7 @@ local function ItemRowEnter(self)
             if tt.totalCost and tt.totalCostFull and tt.totalCost ~= tt.totalCostFull then
                 GameTooltip:AddLine(string.format((L and L["TT_ROW_BUY_NOW_COST"]) or "Buy Now Cost: %s", GAM.Pricing.FormatPrice(tt.totalCost)), 1, 0.82, 0)
             end
+            if GAM.UI.ManualPrice then GAM.UI.ManualPrice.AddTooltipLines(tt) end
         elseif tt.kind == "output" then
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", FormatExpectedOutputTooltip(tt.expectedQty, tt.expectedQtyRaw)), 1, 0.82, 0)
@@ -308,8 +310,11 @@ local function RefreshMetrics()
             and plan.EstimatePurchaseCost(currentStrat, currentPatch, canonicalResult)
         local buyNow = upfront and GAM.Pricing.FormatPrice(upfront) or GAM.L["NO_PRICE"]
         local stale = GAM.UI.StrategyDetailModel.GetStalePriceNotice(projection)
+        local manualNote = GAM.UI.ManualPrice
+            and GAM.UI.ManualPrice.NoteText(projection.reagents, currentPatch)
         frame.expNotice:SetText((GAM.L["LBL_BUY_NOW_COST"] or "Buy Now Cost:") .. " " .. buyNow
-            .. (stale and ("  |cffff5555" .. stale .. "|r") or ""))
+            .. (stale and ("  |cffff5555" .. stale .. "|r") or "")
+            .. (manualNote and ("  " .. manualNote) or ""))
         frame.expNotice:Show()
     end
 end
@@ -466,6 +471,10 @@ local function PopulateReagentRow(row, reagentMetric, isPrimary)
     row.needText:SetText(string.format("%.0f", reagentMetric.needToBuy or 0))
     row._metricTooltip = {
         kind = "reagent",
+        itemID = reagentMetric.itemID,
+        name = reagentMetric.name,
+        patchTag = currentPatch,
+        crafted = reagentMetric.crafted,
         unitPrice = reagentMetric.unitPrice,
         required = reagentMetric.required,
         needToBuy = reagentMetric.needToBuy,
@@ -476,7 +485,11 @@ local function PopulateReagentRow(row, reagentMetric, isPrimary)
     if reagentMetric.crafted then
         row.priceText:SetText("|cff888888—|r")
     elseif reagentMetric.unitPrice then
-        row.priceText:SetText(GAM.Pricing.FormatPrice(reagentMetric.unitPrice))
+        local priceText = GAM.Pricing.FormatPrice(reagentMetric.unitPrice)
+        if GAM.UI.ManualPrice then
+            priceText = GAM.UI.ManualPrice.DecoratePrice(priceText, reagentMetric.itemID, currentPatch)
+        end
+        row.priceText:SetText(priceText)
     else
         row.priceText:SetText("|cffff8800" .. GAM.L["NO_PRICE"] .. "|r")
     end

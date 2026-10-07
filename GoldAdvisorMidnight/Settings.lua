@@ -569,6 +569,32 @@ local function BuildPanel()
         "Shopping warns when the queue's materials would leave less than this share of your gold, and suggests craft counts that fit (%d-%d%%).",
         GAM.C.MIN_GOLD_RESERVE_PCT, GAM.C.MAX_GOLD_RESERVE_PCT), 90)
 
+    -- Manual material prices: off by default, session-only unless saved.
+    MakeSectionHeader(content, L["SETTINGS_SECTION_MANUAL_PRICES"])
+    local cbManualPrices = MakeCheckbox(content, L["OPT_MANUAL_PRICES"], L["OPT_MANUAL_PRICES_TIP"])
+    cbManualPrices:SetChecked(opts.manualPricesEnabled == true)
+    local cbKeepManualPrices = MakeCheckbox(content, L["OPT_MANUAL_PRICES_KEEP"], L["OPT_MANUAL_PRICES_KEEP_TIP"])
+    cbKeepManualPrices:SetChecked(opts.manualPricesKeep == true)
+    local function SyncManualPriceControls()
+        cbKeepManualPrices:SetEnabled(cbManualPrices:GetChecked() and true or false)
+    end
+    cbManualPrices:HookScript("OnClick", SyncManualPriceControls)
+    SyncManualPriceControls()
+    local btnClearManualPrices = MakeButton(content, L["BTN_CLEAR_MANUAL_PRICES"], 170)
+    local function RefreshManualPriceCount()
+        local count = GAM.Pricing and GAM.Pricing.CountPriceOverrides
+            and GAM.Pricing.CountPriceOverrides() or 0
+        btnClearManualPrices:SetText(string.format(L["BTN_CLEAR_MANUAL_PRICES"], count))
+        btnClearManualPrices:SetEnabled(count > 0)
+    end
+    btnClearManualPrices:SetScript("OnClick", function()
+        if GAM.Pricing and GAM.Pricing.ClearAllPriceOverrides then GAM.Pricing.ClearAllPriceOverrides() end
+        RefreshManualPriceCount()
+        if GAM.UI and GAM.UI.MainWindow and GAM.UI.MainWindow.Refresh then GAM.UI.MainWindow.Refresh() end
+    end)
+    AddRow(content, L["OPT_MANUAL_PRICES_CLEAR"], btnClearManualPrices, nil, 170)
+    RefreshManualPriceCount()
+
     -- ── Posting ────────────────────────────────────────────────────────────
     FinalizeContentLayout()
     content = pages.posting.content
@@ -1442,6 +1468,14 @@ local function BuildPanel()
         GAM.State.SetGlobalStartingCrafts(globalStartingCrafts)
 
         currentOpts.goldReservePct = NormalizeGoldReserve()
+        local manualEnabled = cbManualPrices:GetChecked() and true or false
+        if manualEnabled ~= (currentOpts.manualPricesEnabled == true) then
+            currentOpts.manualPricesEnabled = manualEnabled
+            if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
+        end
+        if GAM.Pricing and GAM.Pricing.SetKeepManualPrices then
+            GAM.Pricing.SetKeepManualPrices(cbKeepManualPrices:GetChecked())
+        end
         local prevPosting = GAM.PostingModel.Options(currentOpts.posting)
         local function Slider(slider, fallback) return tonumber((slider:GetValue())) or fallback end
         currentOpts.posting = {
@@ -1501,6 +1535,10 @@ local function BuildPanel()
         cbRememberAHState:SetChecked(o.rememberAHWindowState ~= false)
         slScale:SetValue(GetOptionValue(o, "uiScale", GAM.C.DEFAULT_UI_SCALE))
         ebGoldReserve:SetText(tostring(ClampReserve(o.goldReservePct)))
+        cbManualPrices:SetChecked(o.manualPricesEnabled == true)
+        cbKeepManualPrices:SetChecked(o.manualPricesKeep == true)
+        SyncManualPriceControls()
+        RefreshManualPriceCount()
         local po = GAM.PostingModel.Options(o.posting)
         durationState.Set(po.duration); startQtyState.Set(po.startQty)
         cbSkipBelow:SetChecked(po.skipBelow)

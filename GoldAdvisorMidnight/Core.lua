@@ -85,6 +85,9 @@ local DB_DEFAULTS = {
         goldReservePct      = GAM.C.DEFAULT_GOLD_RESERVE_PCT,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         v2PricingMode        = GAM.C.DEFAULT_V2_PRICING_MODE,
+        -- Manual input prices: off by default; kept for the session only unless saved.
+        manualPricesEnabled = false,
+        manualPricesKeep    = false,
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
         leftPanelCollapsed  = false,   -- left panel collapse state

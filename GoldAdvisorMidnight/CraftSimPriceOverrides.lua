@@ -36,10 +36,10 @@ function Overrides.Install(Bridge, deps)
     local function GetDirectOverridePrice(itemID, patchTag, qty)
         if not itemID then return nil end
 
-        patchTag = patchTag or GAM.C.DEFAULT_PATCH
-        local pdb = GAM:GetPatchDB(patchTag)
-        if pdb.priceOverrides and pdb.priceOverrides[itemID] ~= nil then
-            return pdb.priceOverrides[itemID]
+        local manual = GAM.Pricing and GAM.Pricing.GetPriceOverride
+            and GAM.Pricing.GetPriceOverride(itemID, patchTag)
+        if manual ~= nil then
+            return manual
         end
 
         local vendorPrice = GAM.VendorPrices and GAM.VendorPrices.GetPrice

@@ -1091,6 +1091,7 @@ local function BindItemRow(frameObj, display)
 end
 
 local function ItemRowClick(self, button)
+    if GAM.UI.ManualPrice and GAM.UI.ManualPrice.HandleRowClick(self, button) then return end
     local display = self and self._itemDisplay
     local link = display and display.itemLink
     if not link or link == "" then return end
@@ -1134,6 +1135,7 @@ local function ItemRowEnter(self)
                     (L and L["TT_COST_SOURCE"]) or "Cost source: %s", tt.sourceNote),
                     0.75, 0.75, 0.75, true)
             end
+            if GAM.UI.ManualPrice then GAM.UI.ManualPrice.AddTooltipLines(tt) end
         elseif tt.kind == "output" then
             GameTooltip:AddLine(string.format((L and L["TT_ROW_UNIT_SELL_PRICE"]) or "Unit Sell Price: %s", tt.unitPrice and GAM.Pricing.FormatPrice(tt.unitPrice) or "|cffff8800—|r"), 1, 0.82, 0)
             GameTooltip:AddLine(string.format((L and L["TT_ROW_EXPECTED_OUTPUT"]) or "Expected Output: %s", FormatExpectedOutputTooltip(tt.expectedQty, tt.expectedQtyRaw)), 1, 0.82, 0)

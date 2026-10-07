@@ -301,7 +301,8 @@ function Plan.EstimatePurchaseCost(strat, patchTag, result)
     if not projected then return nil end
     local total = 0
     for _, buy in ipairs(projection.buys) do
-        local price = GAM.Pricing.GetEffectivePrice(buy.itemID, patchTag, buy.quantity)
+        -- Real Auction House spend: manual input prices do not apply here.
+        local price = GAM.Pricing.GetMarketPrice(buy.itemID, patchTag, buy.quantity)
         if not price then return nil end
         total = total + price * buy.quantity
     end
