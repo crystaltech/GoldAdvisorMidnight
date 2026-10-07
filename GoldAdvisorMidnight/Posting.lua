@@ -18,12 +18,14 @@ local Model = assert(GAM.PostingModel, "PostingModel must load before Posting")
 local DURATION_ENUM = { [12] = 1, [24] = 2, [48] = 3 }
 local REFRESH_TIMEOUT = 60
 local STALE_SECONDS = 120   -- your auctions are re-checked when their scan is older
+local RECHECK_FRESH_SECONDS = 120   -- Recheck skips prices scanned this recently
 local READ_RETRIES = 5      -- an incomplete auction list is read again this many times
 local READ_RETRY_SECONDS = 1
 local session = {
     edits = {},          -- [itemID] = { price, qty, on }
     cancelEdits = {},    -- [auctionID] = on
     refreshing = {},     -- [itemID] = GetTime() the refresh was queued
+    changedAt = {},      -- [itemID] = time() of the last post or cancel seen this session
     auctions = {},       -- own active commodity auctions
     pending = nil,       -- the post/cancel submitted and not yet confirmed
     warning = nil,       -- a post waiting for the player to confirm Blizzard's price warning
@@ -477,18 +479,49 @@ function Posting.RefreshPrices(itemIDs, force)
 end
 
 -- The Recheck button: re-read your auctions and re-check every item's price.
+-- A price scanned this session in the last RECHECK_FRESH_SECONDS, with no
+-- post or cancel of the item since (that scan cannot show your new auction).
+-- Scan times and postedLocal both use the local clock (time()).
+function Posting.IsFresh(itemID)
+    local _, ts, prices = Posting.Listing(itemID)
+    if not (prices and ts) then return false end
+    if ((time and time()) or 0) - ts > RECHECK_FRESH_SECONDS then return false end
+    local changed = session.changedAt[itemID]
+    if changed and changed >= ts then return false end
+    local events = EventsByItem()[itemID] or {}
+    for index = #events, 1, -1 do
+        local event = events[index]
+        if event.kind == "post" and event.postedLocal and event.postedLocal >= ts then return false end
+    end
+    return true
+end
+
+-- The Recheck button: re-read your auctions and re-check prices, skipping
+-- items scanned in the last two minutes unless you posted or cancelled them since.
 function Posting.Recheck()
     if not GAM.ahOpen then Notify(L("PT_OPEN_AH", "Open the Auction House to post.")); return end
-    local ids, seen = {}, {}
-    for _, row in ipairs(Posting.Rows()) do
-        if not seen[row.itemID] then seen[row.itemID] = true; ids[#ids + 1] = row.itemID end
+    local ids, seen, skipped = {}, {}, 0
+    local function Add(itemID)
+        if seen[itemID] then return end
+        seen[itemID] = true
+        if Posting.IsFresh(itemID) then skipped = skipped + 1 else ids[#ids + 1] = itemID end
     end
-    for _, auction in ipairs(session.auctions) do
-        if not seen[auction.itemID] then seen[auction.itemID] = true; ids[#ids + 1] = auction.itemID end
-    end
+    for _, row in ipairs(Posting.Rows()) do Add(row.itemID) end
+    for _, auction in ipairs(session.auctions) do Add(auction.itemID) end
     Posting.QueryOwned()
-    Posting.RefreshPrices(ids, true)
-    Notify(L("PT_RECHECKING", "Rechecking %d items...", #ids))
+    if #ids > 0 then Posting.RefreshPrices(ids, true) end
+    if GAM.Log and GAM.Log.Debug then
+        GAM.Log.Debug("Posting: Recheck scans %d items, skips %d scanned in the last %d s", #ids, skipped,
+            RECHECK_FRESH_SECONDS)
+    end
+    if #ids == 0 then
+        Notify(L("PT_RECHECK_FRESH", "Prices were scanned in the last 2 minutes. Rechecking your auctions only."))
+    elseif skipped > 0 then
+        Notify(L("PT_RECHECKING_SOME", "Rechecking %d items (%d scanned in the last 2 minutes are skipped)...",
+            #ids, skipped))
+    else
+        Notify(L("PT_RECHECKING", "Rechecking %d items...", #ids))
+    end
 end
 
 -- ===== Own auctions =====
@@ -812,6 +845,7 @@ local function OnPosted(auctionID)
     -- Untick after posting; the rest stays for next time.
     -- What stayed in bags; more than this later is new stock to post.
     session.edits[pending.itemID] = { on = false, postedLeft = BagCount(pending.itemID) }
+    session.changedAt[pending.itemID] = time and time() or 0
     session.message = L("PT_POSTED", "Posted %d.", pending.qty)
     QueryOwned()
     Changed()
@@ -826,6 +860,8 @@ local function RecordCancel(target)
     store.cancelledAuctions = store.cancelledAuctions or {}
     if store.cancelledAuctions[target.auctionID] then return end
     store.cancelledAuctions[target.auctionID] = true
+    -- A scan from before the cancel no longer matches the listings.
+    if target.itemID then session.changedAt[target.itemID] = time and time() or 0 end
     if GAM.CraftHistory then
         GAM.CraftHistory.Record("cancel", { itemID = target.itemID, qty = target.qty, copper = target.deposit or 0,
             auctionID = target.auctionID })
