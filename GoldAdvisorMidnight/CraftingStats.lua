@@ -467,7 +467,12 @@ local function InferProfileKey(recipeName, profession, supportsMulticraft)
     if prof:find("tailor", 1, true) or prof == "tail" then return "tailoring" end
     if prof:find("blacksmith", 1, true) or prof == "bs" then return "blacksmithing" end
     if prof:find("leather", 1, true) or prof == "lw" then return "leatherworking" end
-    if prof:find("cooking", 1, true) or prof == "cook" then return "cooking" end
+    if prof:find("cooking", 1, true) or prof == "cook" then
+        if supportsMulticraft == false then
+            return "cook_salvage"
+        end
+        return "cooking"
+    end
     return nil
 end
 

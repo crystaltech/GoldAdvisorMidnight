@@ -285,12 +285,34 @@ BuildMergedReagentMap = function(ctx, roundMode)
     return mergedOrder, mergedMap
 end
 
+-- A pool item the queue can actually finish with: owned plus listed covers
+-- the need. Unscanned items are not ruled out (nothing is known yet).
+local function CanCoverPoolNeed(itemID, required)
+    local need = tonumber(required) or 0
+    if not itemID or need <= 0 or not Pricing.GetListedQuantity then return true end
+    local listed = Pricing.GetListedQuantity(itemID)
+    if listed == nil then return true end
+    local owned = Pricing.GetOwnedItemCount and Pricing.GetOwnedItemCount(itemID) or 0
+    return listed + owned >= need
+end
+
+-- One pool item supplies the whole batch (a salvage craft takes one exact
+-- input). Prefer the cheapest item that can cover it, so the queue does not
+-- stall on a part the Auction House runs out of; if none can, keep the
+-- cheapest (its shortfall is already priced at the highest listing).
 ResolveCheapestAlternative = function(entry, ctx, required)
     if not (entry and entry.cheapestOf) then
         return nil
     end
 
-    local best = nil
+    local best, bestCovering = nil, nil
+    local function Consider(candidate)
+        if not best or candidate.price < best.price then best = candidate end
+        if (not bestCovering or candidate.price < bestCovering.price)
+                and CanCoverPoolNeed(candidate.itemID, required) then
+            bestCovering = candidate
+        end
+    end
     local inputPolicy = GetInputRankPolicy(ctx.strat)
     for _, alt in ipairs(entry.cheapestOf) do
         local altIDs = alt.itemIDs
@@ -307,31 +329,31 @@ ResolveCheapestAlternative = function(entry, ctx, required)
                 name = alt.itemRef,
                 rankPolicyOverride = inputPolicy,
             }, ctx.patchTag, required)
-            if altPrice and pickedAltID and (not best or altPrice < best.price) then
-                best = {
+            if altPrice and pickedAltID then
+                Consider({
                     itemID = pickedAltID,
                     itemIDs = altIDs,
                     name = alt.itemRef,
                     price = altPrice,
                     stale = altStale or false,
-                }
+                })
             end
         else
             local altProxy = { itemIDs = altIDs or {}, name = alt.itemRef, rankPolicyOverride = inputPolicy }
             local altPrice, altStale = Pricing.GetEffectivePriceForItem(altProxy, ctx.patchTag, required)
-            if altPrice and (not best or altPrice < best.price) then
-                best = {
+            if altPrice then
+                Consider({
                     itemID = PickItemID(altIDs, ctx.patchTag, inputPolicy),
                     itemIDs = altIDs,
                     name = alt.itemRef,
                     price = altPrice,
                     stale = altStale or false,
-                }
+                })
             end
         end
     end
 
-    return best
+    return bestCovering or best
 end
 
     return {

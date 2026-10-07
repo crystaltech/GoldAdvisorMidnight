@@ -54,7 +54,24 @@ end
 
 local listeners = {}
 function Posting.OnChange(callback) listeners[#listeners + 1] = callback end
+-- A scan stores prices item by item, each a change: the windows redraw at
+-- most every CHANGE_INTERVAL seconds, with one more after the last change.
+local CHANGE_INTERVAL = 0.5
+local lastChange, changeQueued = nil, false
 local function Changed()
+    local now = Now()
+    if lastChange and now - lastChange < CHANGE_INTERVAL and C_Timer and C_Timer.After then
+        if not changeQueued then
+            changeQueued = true
+            C_Timer.After(CHANGE_INTERVAL - (now - lastChange), function()
+                changeQueued = false
+                lastChange = Now()
+                for _, callback in ipairs(listeners) do pcall(callback) end
+            end)
+        end
+        return
+    end
+    lastChange = now
     for _, callback in ipairs(listeners) do pcall(callback) end
 end
 Posting.Changed = Changed
@@ -90,14 +107,26 @@ function Posting.Listing(itemID)
     return {}, nil, nil
 end
 
--- History grouped by item, built once per call instead of once per row.
+-- History grouped by item, oldest first. Rebuilt only when events are
+-- added or pruned: the auction checks read it for every auction.
+local eventsCache = { key = nil }
 local function EventsByItem()
+    local history = GAM.CraftHistory
+    local store = history and history.Store and history.Store()
+    local events = store and store.events
+    local first, last = events and events[1], events and events[#events]
+    local key = events and (#events .. ":" .. tostring(first and first.id) .. ":" .. tostring(last and last.id))
+    if key and eventsCache.key == key then return eventsCache.byItem end
     local byItem = {}
-    for _, event in ipairs(GAM.CraftHistory and GAM.CraftHistory.Events() or {}) do
-        local list = byItem[event.itemID]
-        if not list then list = {}; byItem[event.itemID] = list end
-        list[#list + 1] = event
+    for _, event in ipairs(history and history.Events() or {}) do
+        local id = event.itemID
+        if id ~= nil then
+            local list = byItem[id]
+            if not list then list = {}; byItem[id] = list end
+            list[#list + 1] = event
+        end
     end
+    eventsCache = { key = key, byItem = byItem }
     return byItem
 end
 Posting.EventsByItem = EventsByItem
@@ -205,14 +234,45 @@ function Posting.ReagentIndex()
 end
 
 -- Strategy data can be reloaded (Settings > Tools); rebuild the indexes then.
-function Posting.InvalidateOutputIndex() outputIndex, reagentIndex = nil, nil end
+local breakEvenCache = { revision = nil, values = {} }
+function Posting.InvalidateOutputIndex()
+    outputIndex, reagentIndex = nil, nil
+    breakEvenCache = { revision = nil, values = {} }
+end
 
 -- Break-even for an item made outside the queue: the current estimate of
 -- the strategies that make it. The highest one is used, the safer floor.
-local breakEvenCache = { revision = nil, values = {} }
+-- A scan changes prices one item at a time: a sale item that no strategy
+-- uses as a material only affects the strategies that make it, so only
+-- their outputs are worked out again. Any other change clears everything.
+local function DropAffected(changed)
+    local outputs, reagents = OutputIndex(), Posting.ReagentIndex()
+    local values = breakEvenCache.values
+    for _, id in ipairs(changed) do
+        if reagents[id] or not outputs[id] then return false end
+        for _, strat in ipairs(outputs[id]) do
+            local function Drop(output) for _, out in ipairs(output and output.itemIDs or {}) do values[out] = nil end end
+            Drop(strat.output)
+            for _, output in ipairs(strat.outputs or {}) do Drop(output) end
+            for _, variant in pairs(strat.rankVariants or {}) do
+                Drop(variant.output)
+                for _, output in ipairs(variant.outputs or {}) do Drop(output) end
+            end
+        end
+    end
+    return true
+end
 function Posting.StrategyBreakEven(itemID)
-    local revision = GAM.State and GAM.State.GetPriceRevision and GAM.State.GetPriceRevision()
-    if breakEvenCache.revision ~= revision then breakEvenCache = { revision = revision, values = {} } end
+    local state = GAM.State
+    local revision = state and state.GetPriceRevision and state.GetPriceRevision()
+    if breakEvenCache.revision ~= revision then
+        local changed = state and state.PriceChangesSince and state.PriceChangesSince(breakEvenCache.revision)
+        if changed and DropAffected(changed) then
+            breakEvenCache.revision = revision
+        else
+            breakEvenCache = { revision = revision, values = {} }
+        end
+    end
     local cached = breakEvenCache.values[itemID]
     if cached ~= nil then return cached or nil end
     local best
@@ -462,9 +522,10 @@ Posting.TrackedItems = TrackedItems
 -- The latest post of this item at this price: its baseline of other sellers
 -- and when it was posted (local clock, same as scan timestamps).
 local function PostAt(itemID, price)
-    local events = GAM.CraftHistory and GAM.CraftHistory.Events({ kind = "post", itemID = itemID }) or {}
+    local events = EventsByItem()[itemID] or {}
     for index = #events, 1, -1 do
-        if events[index].unitPrice == price then return events[index] end
+        local event = events[index]
+        if event.kind == "post" and event.unitPrice == price then return event end
     end
 end
 
@@ -492,19 +553,21 @@ local function Evaluate(auction, opts)
     -- When this item was last cancelled (re-cancel guard).
     auction.now = (GetServerTime and GetServerTime()) or (time and time()) or 0
     auction.lastCancel, auction.cancelTimes = nil, {}
-    local cancels = GAM.CraftHistory and GAM.CraftHistory.Events({ kind = "cancel", itemID = auction.itemID,
-        since = auction.now - 24 * 3600 }) or {}
-    for _, event in ipairs(cancels) do
-        auction.cancelTimes[#auction.cancelTimes + 1] = event.t or 0
-        if not auction.lastCancel or (event.t or 0) > auction.lastCancel then auction.lastCancel = event.t end
+    local since = auction.now - 24 * 3600
+    for _, event in ipairs(EventsByItem()[auction.itemID] or {}) do
+        if event.kind == "cancel" and (event.t or 0) >= since then
+            auction.cancelTimes[#auction.cancelTimes + 1] = event.t or 0
+            if not auction.lastCancel or (event.t or 0) > auction.lastCancel then auction.lastCancel = event.t end
+        end
     end
     auction.state = Model.AuctionState(auction, opts)
 end
 
 local function LastPostDuration(itemID)
-    local events = GAM.CraftHistory and GAM.CraftHistory.Events({ kind = "post", itemID = itemID }) or {}
-    local last = events[#events]
-    return last and last.duration or nil
+    local events = EventsByItem()[itemID] or {}
+    for index = #events, 1, -1 do
+        if events[index].kind == "post" then return events[index].duration end
+    end
 end
 
 -- Reads again shortly: Blizzard sends the list in parts, and rows can arrive

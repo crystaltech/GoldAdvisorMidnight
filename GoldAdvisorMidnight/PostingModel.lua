@@ -15,7 +15,7 @@ Model.DEFAULTS = {
     thinPct = 0.10,         -- a top price tier under 10% of the post is "small"
     streakLimit = 3,        -- expires in a row before a row starts unticked; 0 = off
     checkAuctions = true,   -- read the player's own auctions when the AH opens
-    autoScan = true,        -- re-check prices on their own (only while a GAM window is open)
+    autoScan = false,       -- re-check prices on their own (only while a GAM window is open); off since 2.3.2
     includeOther = true,    -- also list other strategy outputs found in bags/bank
     cancelUndercut = true,  -- pre-tick undercut auctions for cancel and repost
     matchedIsUndercut = true, -- a same-price listing posted after mine counts

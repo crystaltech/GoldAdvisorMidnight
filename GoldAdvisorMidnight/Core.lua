@@ -85,6 +85,9 @@ local DB_DEFAULTS = {
         goldReservePct      = GAM.C.DEFAULT_GOLD_RESERVE_PCT,
         uiScale             = GAM.C.DEFAULT_UI_SCALE,
         v2PricingMode        = GAM.C.DEFAULT_V2_PRICING_MODE,
+        -- Manual input prices: off by default; kept for the session only unless saved.
+        manualPricesEnabled = false,
+        manualPricesKeep    = false,
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
         leftPanelCollapsed  = false,   -- left panel collapse state
@@ -408,6 +411,16 @@ local MIGRATIONS = {
                     patch.priceOverrides[256963] = nil
                 end
             end
+        end,
+    },
+    {
+        -- dataVersion 22: automatic Posting price checks are off by default.
+        -- Saving Settings stored the old default (on), so clear it once;
+        -- players can turn it back on in Settings > Posting.
+        dataVersion = 22,
+        migrate = function(db)
+            local posting = type(db.options) == "table" and db.options.posting
+            if type(posting) == "table" then posting.autoScan = nil end
         end,
     },
 }

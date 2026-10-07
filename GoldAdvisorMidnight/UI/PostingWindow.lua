@@ -368,7 +368,8 @@ local function Place(frame, y, height)
 end
 
 function UI.Refresh()
-    if not host or not host:IsShown() then return end
+    -- Visible, not just shown: the tab stays shown inside a closed window.
+    if not host or not host:IsVisible() then return end
     if focusBox then return end
     local posting = GAM.Posting
     local opts = posting.Options()

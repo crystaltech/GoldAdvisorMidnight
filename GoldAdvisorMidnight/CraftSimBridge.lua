@@ -78,6 +78,9 @@ local function InferFormulaProfileKey(recipeData, profDef)
         end
         return "engineering_craft"
     end
+    if profDef.profKey == "cook" and recipeData.supportsMulticraft == false then
+        return "cook_salvage"
+    end
 
     local directProfiles = {
         alch = "alchemy",

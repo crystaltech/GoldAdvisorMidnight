@@ -2,7 +2,9 @@
 
 Gold Advisor Midnight (GAM) is a World of Warcraft Retail addon for comparing Midnight crafting profits with live Auction House prices, then shopping for, crafting, posting and tracking the profitable ones.
 
-It includes 283 commodity strategies across nine professions. Equipment, profession tools, bags, toys, mounts, bind-on-pickup items, and other one-off crafts are intentionally excluded.
+It includes 285 commodity strategies across nine professions. Equipment, profession tools, bags, toys, mounts, bind-on-pickup items, and other one-off crafts are intentionally excluded.
+
+New to GAM? The [Getting Started guide (PDF)](docs/guide/GAM-Getting-Started-Guide.pdf) walks through installing, your first price scan, and your first week, step by step. It is also attached to each release.
 
 ## Features
 
@@ -13,6 +15,7 @@ It includes 283 commodity strategies across nine professions. Equipment, profess
 - Captures recipe stats, specialization bonuses, and saved profession gear sets per crafter
 - Compares saved Multicraft and Resourcefulness gear with the `Auto` option
 - Plans intermediate crafting (for example, milling herbs for your own pigments) when it is cheaper than buying
+- Optional manual material prices for materials you gathered or already bought
 - Craft Queue with combined Shopping, a gold check, Quick Buy, and confirmed crafting progress
 - Posting tab: post what you crafted at the lowest listing (never undercutting), and cancel and repost undercut auctions
 - History tab: what you bought, crafted, posted and sold, realized profit per item and per batch, and suggestions on what to craft more or post less
@@ -50,6 +53,7 @@ Set the default batch for strategies without their own value in **Settings > Pri
 - **Materials you own** reduce what you need to buy, but profit values them at the current market price. Crafting must beat simply selling those materials.
 - Each scan saves a small price-by-quantity summary per item, so prices stay accurate after `/reload`.
 - If the market lists fewer units than you need, Shopping marks the material with `!` and its tooltip shows how many are listed.
+- **Manual material prices** (off by default): turn on **Settings > Pricing > Allow manual material prices**, then right-click a material in Details to use your own price, for example for materials you gathered or already bought. Prices last until you log out unless **Keep manual prices after logout** is on, and are set per rank. They only value materials: sale prices, Buy Now cost and Quick Buy always use the Auction House.
 
 ## Settings Row
 
@@ -91,7 +95,7 @@ Once saved, the button reads `Update MC` / `Update Res`. Green means you are wea
 - Each row starts at the lowest listing. Tick what to post, change the price or quantity if you like, then press **Post** once per auction (Blizzard requires a click for each).
 - Rows start unticked when the price is below break-even, the item keeps expiring, you already have enough listed, or the only listings look far above the item's usual price. Hover the status dot to see why; you can still tick them.
 - **Your auctions** shows where each auction stands: first in line, undercut, matched by a newer listing at your price (the newest sells first), or worth reposting higher. Ticked auctions are cancelled and reposted with the same button. A cancel is only ticked when reposting stays above break-even and the lost deposit is small.
-- Prices are re-checked when the Auction House opens while a GAM window is open. Turn this off in **Settings > Posting** to check only with `Recheck`.
+- Press `Recheck` to re-read your auctions and current prices. To have GAM re-check prices on its own when the Auction House opens and after each post or cancel (only while a GAM window is open), turn on **Settings > Posting > Check prices automatically**. It is off by default.
 - Auction duration, starting quantity and the cancel rules are in **Settings > Posting** and **Settings > Your auctions**.
 
 ## History

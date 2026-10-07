@@ -281,7 +281,7 @@ function Results.StoreCommodityRows(itemID, rows, targetQty, full)
     if not rows or #rows == 0 then return nil end
     local cached = { prices = rows, ts = time(), full = full }
     commodityCache[itemID] = cached
-    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision(itemID) end
     return Results.ComputeStatsForCache(cached, targetQty)
 end
 
@@ -289,7 +289,7 @@ function Results.StoreItemRows(itemID, rows, targetQty, full)
     if not rows or #rows == 0 then return nil end
     local cached = { prices = rows, ts = time(), full = full }
     itemCache[itemID] = cached
-    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision() end
+    if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision(itemID) end
     return Results.ComputeStatsForCache(cached, targetQty)
 end
 
@@ -331,6 +331,9 @@ function Results.GetRawScanSnapshot(itemID)
         source, cached = "item", itemCache[itemID]
     end
     if not cached then return nil end
+    -- Stored results never change once stored (a new scan stores a new
+    -- table), so the sorted copy is built once. Callers only read it.
+    if cached.snapshot then return cached.snapshot end
 
     local prices = {}
     for index, row in ipairs(cached.prices) do
@@ -341,7 +344,8 @@ function Results.GetRawScanSnapshot(itemID)
         if a.unitPrice == b.unitPrice then return a.quantity > b.quantity end
         return a.unitPrice < b.unitPrice
     end)
-    return { itemID = itemID, source = source, ts = cached.ts, prices = prices, full = cached.full }
+    cached.snapshot = { itemID = itemID, source = source, ts = cached.ts, prices = prices, full = cached.full }
+    return cached.snapshot
 end
 
 function Results.ClearSessionCaches()

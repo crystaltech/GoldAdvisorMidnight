@@ -62,6 +62,7 @@ local function GetOwnedItemCount(itemID)
     if GAM.ItemInfoCache then return GAM.ItemInfoCache.OwnedCount(itemID, ReadOwnedItemCount) end
     return ReadOwnedItemCount(itemID)
 end
+Pricing.GetOwnedItemCount = GetOwnedItemCount
 
 local function CountOwnedReagentItems(itemID, entryIDs)
     local userHave = 0
@@ -709,7 +710,12 @@ function Pricing.BuildCraftPlanSnapshot(strat, patchTag, result)
         if #(active.outputs or {}) == 1 then
             node.outputItemID = outputID or PickItemID(GetResolvedItemIDs(output, patchTag), patchTag, GetInputRankPolicy(source))
             node.baseYield = math.floor(tonumber(output.baseYieldPerCraft) or 0)
-            if C_TradeSkillUI and C_TradeSkillUI.GetRecipeSchematic then
+            -- Salvage schematics report a placeholder quantity, not the yield
+            -- (CraftPlan ignores it for the same reason), so keep the data yield.
+            local recipeInfo = C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo
+                and select(2, pcall(C_TradeSkillUI.GetRecipeInfo, source.recipeID))
+            local isSalvage = type(recipeInfo) == "table" and recipeInfo.isSalvageRecipe
+            if not isSalvage and C_TradeSkillUI and C_TradeSkillUI.GetRecipeSchematic then
                 local ok, schematic = pcall(C_TradeSkillUI.GetRecipeSchematic, source.recipeID, false)
                 if ok and schematic and tonumber(schematic.quantityMin) then
                     node.baseYield = math.min(node.baseYield, math.max(0, math.floor(schematic.quantityMin)))

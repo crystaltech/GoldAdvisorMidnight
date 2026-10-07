@@ -348,15 +348,22 @@ function Detail.Render(args)
         rpDetail.metNodeBonusesFS:SetText(projection.nodeBonusCaption or dash)
     end
 
+    local reagentMetrics = projection.reagents or {}
+    local ManualPrice = GAM.UI.ManualPrice
+    local notes = {}
     if projection.missingPrices and #projection.missingPrices > 0 then
-        rpDetail.missingFS:SetText((L and L["MISSING_PRICES"] or "Missing prices") .. ": " .. table.concat(projection.missingPrices, ", "))
+        notes[#notes + 1] = (L and L["MISSING_PRICES"] or "Missing prices") .. ": " .. table.concat(projection.missingPrices, ", ")
+    end
+    -- Profit built on the player's own prices is always flagged.
+    notes[#notes + 1] = ManualPrice and ManualPrice.NoteText(reagentMetrics, patchTag) or nil
+    if #notes > 0 then
+        rpDetail.missingFS:SetText(table.concat(notes, "   "))
         rpDetail.missingFS:Show()
     else
         rpDetail.missingFS:Hide()
         rpDetail.missingFS:SetText("")
     end
 
-    local reagentMetrics = projection.reagents or {}
     if rpDetail.ensureRows then rpDetail.ensureRows(#reagentMetrics, #outputItems) end
     for i, row in ipairs(rpDetail.reagentRows or {}) do
         local reagentMetric = reagentMetrics[i]
@@ -373,10 +380,18 @@ function Detail.Render(args)
             row.qtyFS:SetText(FormatQuantityValue(reagentMetric.required or 0))
             row.needFS:SetText(FormatQuantityValue(reagentMetric.needToBuy or 0))
             -- Crafted intermediates are costed through their materials below.
-            row.priceFS:SetText(reagentMetric.crafted and "|cff888888—|r"
-                or reagentMetric.unitPrice and formatPrice(reagentMetric.unitPrice) or "|cffff8800—|r")
+            local priceText = reagentMetric.crafted and "|cff888888—|r"
+                or reagentMetric.unitPrice and formatPrice(reagentMetric.unitPrice) or "|cffff8800—|r"
+            if ManualPrice and not reagentMetric.crafted then
+                priceText = ManualPrice.DecoratePrice(priceText, reagentMetric.itemID, patchTag)
+            end
+            row.priceFS:SetText(priceText)
             row._metricTooltip = {
                 kind = "reagent",
+                itemID = reagentMetric.itemID,
+                name = reagentMetric.name,
+                patchTag = patchTag,
+                crafted = reagentMetric.crafted,
                 unitPrice = reagentMetric.unitPrice,
                 required = reagentMetric.required,
                 needToBuy = reagentMetric.needToBuy,

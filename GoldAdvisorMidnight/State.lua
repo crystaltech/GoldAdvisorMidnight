@@ -9,8 +9,29 @@ GAM.State = State
 -- Session counter bumped whenever any price input changes, so cached
 -- strategy metrics know to recalculate without repricing on every redraw.
 local priceRevision = 0
-function State.BumpPriceRevision() priceRevision = priceRevision + 1 end
+-- Which item each recent bump was for (false: any price may have changed),
+-- so a cache can drop only what an item affects.
+local CHANGE_LOG_SIZE = 2000
+local changeLog = {}
+function State.BumpPriceRevision(itemID)
+    priceRevision = priceRevision + 1
+    changeLog[priceRevision] = itemID or false
+    changeLog[priceRevision - CHANGE_LOG_SIZE] = nil
+end
 function State.GetPriceRevision() return priceRevision end
+
+-- The items whose prices changed after revision `since`, or nil when that
+-- is unknown (a change for every item, or too long ago).
+function State.PriceChangesSince(since)
+    if not since or since > priceRevision or priceRevision - since > CHANGE_LOG_SIZE then return nil end
+    local items = {}
+    for revision = since + 1, priceRevision do
+        local itemID = changeLog[revision]
+        if not itemID then return nil end
+        items[#items + 1] = itemID
+    end
+    return items
+end
 
 local PATCH_TABLE_KEYS = {
     "startingAmounts",
