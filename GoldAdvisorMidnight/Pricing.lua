@@ -626,7 +626,7 @@ function Pricing.StorePrice(itemID, price, minPrice, curve)
         saleRef = saleRef,
     }
     if GAM.State and GAM.State.BumpPriceRevision then GAM.State.BumpPriceRevision(itemID) end
-    GAM.Log.Debug("Stored price: itemID=%s price=%s", tostring(itemID), tostring(price))
+    if GAM.Log.Verbose then GAM.Log.Verbose("Stored price: itemID=%s price=%s", tostring(itemID), tostring(price)) end
 end
 
 -- A sale price GAM does not believe (see StorePrice): returns the item's

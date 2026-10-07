@@ -504,6 +504,9 @@ function UI.Refresh()
     button:SetEnabled(kind ~= nil and GAM.ahOpen and not posting.IsBusy())
 end
 
+-- Verbose reports slow redraws (Settings: Debug log > Capture level).
+if GAM.Log and GAM.Log.Timed then UI.Refresh = GAM.Log.Timed("Posting tab redraw", UI.Refresh) end
+
 function UI.Embed(parent)
     if host then return end
     host = CreateFrame("Frame", nil, parent)

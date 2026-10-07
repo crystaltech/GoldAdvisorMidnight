@@ -2823,6 +2823,8 @@ function MainWindow.OnScanComplete()
     end
 end
 
+if GAM.Log and GAM.Log.Timed then MainWindow.OnScanComplete = GAM.Log.Timed("Strategy list after scan", MainWindow.OnScanComplete) end
+
 function MainWindow.ApplyTheme()
     if not frame then
         return
@@ -2866,6 +2868,8 @@ function MainWindow.Refresh()
         end
     end
 end
+
+if GAM.Log and GAM.Log.Timed then MainWindow.Refresh = GAM.Log.Timed("Strategy list full refresh", MainWindow.Refresh) end
 
 function MainWindow.Show()
     if not frame then Build() end

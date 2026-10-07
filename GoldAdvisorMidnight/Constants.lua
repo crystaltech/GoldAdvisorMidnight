@@ -75,7 +75,7 @@ GAM.C = {
     PRICE_STALE_SECONDS  = 600,    -- 10-minute cache freshness
 
     -- Debug log
-    LOG_RING_SIZE        = 500,
+    LOG_RING_SIZE        = 2000,
 
     -- Default options (mirrors DB.options defaults)
     DEFAULT_SCAN_DELAY   = 1.0,

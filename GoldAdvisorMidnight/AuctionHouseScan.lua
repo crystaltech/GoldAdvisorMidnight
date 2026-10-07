@@ -51,6 +51,13 @@ local completedDiagnostics = {}
 -- Progress tracking
 local totalEver   = 0   -- total items ever enqueued in this scan session
 local doneCount   = 0   -- items completed (success or fail)
+local scanStartedAt      -- GetTime() when the current scan started (for the log)
+
+-- Detailed log lines are built only when their level is captured.
+local function LogEnabled(levelName)
+    local Log = GAM.Log
+    return Log and Log.Enabled and Log.Enabled(levelName) or false
+end
 
 local progressCallback = nil  -- fn(done, total, isComplete)
 
@@ -214,7 +221,7 @@ local function SendPriceQuery(entry)
     local ok = Query.SendSearch(itemKey)
     if ok then
         lastQueryTime = GetTime()
-        GAM.Log.Debug("AHScan: query itemID=%d", entry.itemID)
+        if LogEnabled("VERBOSE") then GAM.Log.Verbose("AHScan: query %s", GAM.Log.Item(entry.itemID)) end
     else
         GAM.Log.Warn("AHScan: SendSearchQuery failed for itemID=%d", entry.itemID)
     end
@@ -290,6 +297,32 @@ local ScheduleAttemptTimeout
 local SchedulePendingPoll
 local BeginBrowseFallback
 
+-- One Debug line per priced item: lowest listing, the sample average GAM
+-- prices materials with, units listed, and anything unusual. Verbose adds
+-- the first price tiers.
+local function LogPriceResult(entry, avg, rows, depthComplete)
+    local Log = GAM.Log
+    local snapshot = Results.GetRawScanSnapshot(entry.itemID)
+    local prices = snapshot and snapshot.prices or {}
+    local lowest = prices[1] and prices[1].unitPrice
+    local notes = {}
+    if lowest and avg >= lowest * 2 then notes[#notes + 1] = "thin market: average far above lowest" end
+    if not depthComplete then notes[#notes + 1] = "read to the needed depth only" end
+    local normal, unreliable = GAM.Pricing.UnreliableSale and GAM.Pricing.UnreliableSale(entry.itemID)
+    if unreliable then notes[#notes + 1] = "unreliable sale price, normal " .. Log.Money(normal) end
+    Log.Debug("AHScan: %s lowest %s, %d-unit avg %s, %d listed%s%s", Log.Item(entry.itemID), Log.Money(lowest),
+        GAM.C.MARKET_SAMPLE_UNITS or 50, Log.Money(avg), Results.GetListedQuantity(rows),
+        #notes > 0 and "; " or "", table.concat(notes, "; "))
+    if LogEnabled("VERBOSE") then
+        local tiers = {}
+        for index = 1, math.min(3, #prices) do
+            tiers[#tiers + 1] = string.format("%d at %s", prices[index].quantity or 0, Log.Money(prices[index].unitPrice))
+        end
+        Log.Verbose("AHScan: %s first tiers: %s; queued for %s", Log.Item(entry.itemID), table.concat(tiers, ", "),
+            table.concat(entry.reasons or { "?" }, ", "))
+    end
+end
+
 local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
     -- Reference price: the fixed sample depth with bait removed.
     local targetQty = GAM.C.MARKET_SAMPLE_UNITS or 50
@@ -316,8 +349,7 @@ local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
     pollToken = pollToken + 1
     waitingForResults = false
     pendingEntry = nil
-    GAM.Log.Debug("AHScan: price itemID=%d avg=%d source=%s depth=%s",
-        entry.itemID, math.floor(avg), resultType, tostring(depthComplete))
+    if LogEnabled("DEBUG") then LogPriceResult(entry, avg, rows, depthComplete) end
     FireProgress(false)
     return true
 end
@@ -525,6 +557,7 @@ local function ProcessNextInQueue()
         isRetryPass = false
         if ticker then ticker:Cancel(); ticker = nil end
         GAM.Log.Info(GAM.L["SCAN_COMPLETE"], scanSuccessCount, scanFailCount)
+        if scanStartedAt then GAM.Log.Debug("AHScan: finished in %d s", math.floor(GetTime() - scanStartedAt + 0.5)) end
         FireProgress(true)
         local win = GAM.GetActiveMainWindow and GAM:GetActiveMainWindow() or (GAM.UI and GAM.UI.MainWindow)
         if win and win.OnScanComplete then
@@ -995,6 +1028,20 @@ function AHScan.StartScan()
         failedQueue      = {}
         isRetryPass      = false
         GAM.Log.Info(GAM.L["SCAN_STARTED"], totalEver)
+        scanStartedAt = GetTime()
+        if LogEnabled("DEBUG") then
+            -- Why these items are scanned: "strategy input 120, posting 14".
+            local counts, order = {}, {}
+            for index = queueHead, #scanQueue do
+                for _, reason in ipairs(scanQueue[index].reasons or { "other" }) do
+                    if not counts[reason] then counts[reason] = 0; order[#order + 1] = reason end
+                    counts[reason] = counts[reason] + 1
+                end
+            end
+            local parts = {}
+            for _, reason in ipairs(order) do parts[#parts + 1] = reason .. " " .. counts[reason] end
+            GAM.Log.Debug("AHScan: scanning for %s", table.concat(parts, ", "))
+        end
     else
         GAM.Log.Info("AHScan: resumed with %d of %d items complete", doneCount, totalEver)
     end

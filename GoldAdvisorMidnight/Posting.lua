@@ -286,6 +286,35 @@ function Posting.StrategyBreakEven(itemID)
     return best
 end
 
+-- Verbose: each row's price, break-even and why it is ticked or not,
+-- logged at the Auction House when that changes (the tab redraws often).
+local ROW_REASONS = {
+    { "below", "below break-even" }, { "lowMargin", "low margin" }, { "unreliable", "unreliable lowest price" },
+    { "streak", "keeps expiring" }, { "covered", "already listed enough" }, { "thin", "small top price tier" },
+    { "noCompetition", "no other sellers" }, { "noPrice", "no price" },
+}
+local loggedRows = {}
+local function LogRow(row)
+    local Log = GAM.Log
+    -- Only at the Auction House, where the rows are acted on.
+    if not (GAM.ahOpen and Log and Log.Enabled and Log.Enabled("VERBOSE")) then return end
+    local reasons = {}
+    for _, pair in ipairs(ROW_REASONS) do
+        if row.flags and row.flags[pair[1]] then reasons[#reasons + 1] = pair[2] end
+    end
+    if row.other then reasons[#reasons + 1] = "other item, starts unticked" end
+    local text = string.format("%s: %s x%d at %s, break-even %s, %s, %s%s", Log.Item(row.itemID), row.status or "?",
+        row.qty or 0, Log.Money(row.price), Log.Money(row.breakEven), row.on and "ticked" or "unticked",
+        #reasons > 0 and table.concat(reasons, ", ") or "no warnings",
+        row.fromPaid and ", break-even from price paid" or "")
+    -- Logged when the outcome changes, not every price move.
+    local key = string.format("%s|%s|%s", row.status or "?", row.on and "on" or "off", table.concat(reasons, ","))
+    if loggedRows[row.itemID] ~= key then
+        loggedRows[row.itemID] = key
+        Log.Verbose("Posting: row %s", text)
+    end
+end
+
 function Posting.Rows()
     local plan = GAM.CraftPlan
     if not (plan and plan.Project and plan.OutputSummary) then return {} end
@@ -383,6 +412,7 @@ function Posting.Rows()
             if row.bags <= 0 then row.on = false; row.qty = 0 end
             row.status = Model.Status(row, opts)
             row.flags = Model.Flags(row, opts)
+            LogRow(row)
             rows[#rows + 1] = row
         end
     end
@@ -731,7 +761,8 @@ function Posting.DoNext()
         return ok
     elseif kind == "cancel" then
         local pending = { kind = "cancel", auctionID = target.auctionID, itemID = target.itemID,
-            qty = target.qty, deposit = target.deposit }
+            qty = target.qty, deposit = target.deposit, price = target.price, state = target.state,
+            lowest = target.lowest }
         session.pending = pending
         local ok = pcall(api.CancelAuction, target.auctionID)
         if not ok then session.pending = nil; Notify(L("PT_CANCEL_FAILED", "The cancel failed. Try again.")); return false end
@@ -766,9 +797,14 @@ end
 
 local function OnPosted(auctionID)
     local pending = session.pending
-    if GAM.Log and GAM.Log.Debug then
-        GAM.Log.Debug("Posting post confirmed: auctionID=%s pending=%s", tostring(auctionID),
-            tostring(pending and pending.kind == "post" and (pending.itemID .. " x" .. pending.qty) or "none"))
+    local Log = GAM.Log
+    if Log and Log.Enabled and Log.Enabled("DEBUG") then
+        if pending and pending.kind == "post" then
+            Log.Debug("Posting: posted %s x%d at %s each, %dh, deposit %s (auction %s)", Log.Item(pending.itemID),
+                pending.qty, Log.Money(pending.price), pending.duration or 0, Log.Money(pending.deposit), tostring(auctionID))
+        else
+            Log.Debug("Posting: auction %s created outside the Posting button", tostring(auctionID))
+        end
     end
     if not pending or pending.kind ~= "post" then return end
     -- HistoryCapture records the post (from any addon); this only updates the tab.
@@ -804,8 +840,17 @@ end
 Posting.RecordCancel = RecordCancel
 
 -- The cancel is recorded by HistoryCapture; this releases the button.
+-- Why the Posting tab ticked an auction to cancel, for the log.
+local CANCEL_REASONS = { under = "undercut", matched = "matched by a newer listing", higher = "repost higher" }
+
 local function OnCancelled()
     local pending = session.pending
+    local Log = GAM.Log
+    if pending and pending.kind == "cancel" and Log and Log.Enabled and Log.Enabled("DEBUG") then
+        Log.Debug("Posting: cancelled %s x%d at %s each (%s, lowest %s), deposit lost %s", Log.Item(pending.itemID),
+            pending.qty or 0, Log.Money(pending.price), CANCEL_REASONS[pending.state] or tostring(pending.state),
+            Log.Money(pending.lowest), Log.Money(pending.deposit))
+    end
     if pending and pending.kind == "cancel" then session.pending = nil end
     QueryOwned()
     Changed()
@@ -847,11 +892,19 @@ function Posting.OnEvent(event, ...)
     elseif event == "AUCTION_HOUSE_POST_WARNING" then
         local pending = session.pending
         if pending and pending.kind == "post" then
+            if GAM.Log and GAM.Log.Enabled and GAM.Log.Enabled("DEBUG") then
+                GAM.Log.Debug("Posting: Blizzard price warning for %s at %s; waiting for a second press",
+                    GAM.Log.Item(pending.itemID), GAM.Log.Money(pending.price))
+            end
             session.pending, session.warning = nil, pending
             Notify(L("PT_PRICE_WARNING", "Blizzard warns this price is unusual. Press the button again to confirm."))
         end
     elseif event == "AUCTION_HOUSE_POST_ERROR" then
         if session.pending and session.pending.kind == "post" then
+            if GAM.Log and GAM.Log.Enabled and GAM.Log.Enabled("DEBUG") then
+                GAM.Log.Debug("Posting: post failed for %s x%d at %s", GAM.Log.Item(session.pending.itemID),
+                    session.pending.qty or 0, GAM.Log.Money(session.pending.price))
+            end
             session.pending = nil
             Notify(L("PT_POST_FAILED", "The post failed. Check the item and try again."))
         end
