@@ -138,6 +138,18 @@ function CenterUI.MakeRowFrame(args, parent, idx)
                 1, 0.82, 0
             )
         end
+        local knowledge = self.knowledge
+        if knowledge and (knowledge.state == "not-learned" or knowledge.state == "no-profession") then
+            local who = knowledge.characterName or (L and L["TT_THIS_CHARACTER"]) or "This character"
+            local text = knowledge.state == "no-profession"
+                and string.format(L and L["TT_NO_PROFESSION"] or "%s doesn't have %s.", who, tostring(strat.profession))
+                or string.format(L and L["TT_NOT_LEARNED"] or "%s hasn't learned this recipe.", who)
+            GameTooltip:AddLine(text, 1, 0.5, 0.25, true)
+        end
+        if knowledge and knowledge.state ~= "learned" and #knowledge.learnedBy > 0 then
+            GameTooltip:AddLine(string.format(L and L["TT_LEARNED_BY"] or "Learned by: %s",
+                table.concat(knowledge.learnedBy, ", ")), 0.55, 0.8, 1, true)
+        end
         if GAM.TSMSaleRate and GAM.TSMSaleRate.IsAvailable() then
             GameTooltip:AddLine((GAM.L and GAM.L["UI_SALE_RATE_TITLE"] or "TSM region sale rate"), 1, 0.82, 0)
             for _, output in ipairs(self.saleRateItems or {}) do
@@ -179,6 +191,12 @@ function CenterUI.PopulateRow(args, row, strat)
     row.star:SetAlpha(favorite and 1 or 0.35)
 
     row.nameText:SetText(strat.stratName)
+    -- Dim strategies this character cannot craft; the tooltip says why.
+    local stats = GAM.CraftingStats
+    row.knowledge = stats and stats.GetRecipeKnowledge and stats.GetRecipeKnowledge(strat) or nil
+    local cannotCraft = row.knowledge
+        and (row.knowledge.state == "not-learned" or row.knowledge.state == "no-profession")
+    row.nameText:SetAlpha(cannotCraft and 0.45 or 1)
 
     local metrics = getListMetric(strat)
     if row.saleRateText then

@@ -828,6 +828,35 @@ function Stats.PlayerHasProfession(profession)
     return PlayerHasProfession(profession)
 end
 
+-- Whether this character can craft a strategy's recipe, for the strategy
+-- list. state: "learned", "not-learned" (from the last profession sweep),
+-- "no-profession", or nil when this character's profession has not been
+-- opened since. learnedBy lists other characters known to have learned it.
+function Stats.GetRecipeKnowledge(strat)
+    local recipeID = NormalizeRecipeID(strat and strat.recipeID)
+    if not recipeID then return nil end
+    local character, currentUID, cache = EnsureCache()
+    local key = tostring(recipeID)
+    local result = { learnedBy = {}, characterName = type(character) == "table" and character.name or nil }
+    local own = type(character) == "table" and type(character.learnedRecipes) == "table"
+        and character.learnedRecipes[key]
+    if PlayerHasProfession(strat.profession) == false then
+        result.state = "no-profession"
+    elseif own == true then
+        result.state = "learned"
+    elseif own == false then
+        result.state = "not-learned"
+    end
+    for uid, other in pairs(type(cache) == "table" and cache.characters or {}) do
+        if uid ~= currentUID and type(other) == "table" and type(other.learnedRecipes) == "table"
+                and other.learnedRecipes[key] == true then
+            result.learnedBy[#result.learnedBy + 1] = other.name or uid
+        end
+    end
+    table.sort(result.learnedBy)
+    return result
+end
+
 function Stats.GetCachedCraftersForStrat(strat)
     local recipeID = NormalizeRecipeID(strat and strat.recipeID)
     local profileKey = GetProfileKeyForStrat(strat)
@@ -1217,13 +1246,18 @@ function Stats.SweepOpenProfession(onDone)
     end
 
     sweepGeneration = sweepGeneration + 1
-    local generation, index, saved, read = sweepGeneration, 1, 0, 0
+    local generation, index, saved, read, learnedChanged = sweepGeneration, 1, 0, 0, false
+    local character = EnsureCache()
+    local learnedRecipes = type(character) == "table" and character.learnedRecipes or {}
+    if type(character) == "table" then character.learnedRecipes = learnedRecipes end
     local function Finish(reason)
         if GAM.Log and GAM.Log.Debug then
             GAM.Log.Debug("Stats sweep %s: %d recipes, %d read, %d updated%s", def.name, #queue, read, saved,
                 reason and (" (stopped: " .. reason .. ")") or "")
         end
-        if saved > 0 then NotifyProfessionNodeCapture(def.name, { profession = def.name, source = "recipe-sweep" }) end
+        if saved > 0 or learnedChanged then
+            NotifyProfessionNodeCapture(def.name, { profession = def.name, source = "recipe-sweep" })
+        end
         if type(onDone) == "function" then pcall(onDone, saved, read, reason) end
     end
     local function Step()
@@ -1236,6 +1270,14 @@ function Stats.SweepOpenProfession(onDone)
             if not item then break end
             index = index + 1
             local okInfo, info = pcall(api.GetRecipeInfo, item.recipeID)
+            -- Remembered per character so the strategy list can show what
+            -- this character cannot craft, and who can.
+            if okInfo and type(info) == "table" then
+                local learned, key = info.learned and true or false, tostring(item.recipeID)
+                if learnedRecipes[key] ~= learned then
+                    learnedRecipes[key], learnedChanged = learned, true
+                end
+            end
             if okInfo and type(info) == "table" and info.learned then
                 local snapshot = Stats.ReadRecipeBaseStats(item.recipeID)
                 if snapshot and (snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil) then
