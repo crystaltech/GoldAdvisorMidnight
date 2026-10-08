@@ -221,13 +221,14 @@ local compactActive   = false -- tracks whether compact mode layout is currently
 local fullWindowGeometry = nil
 local resizeGrip = nil
 local suppressFrameRelayout = false
+local StatsStamp -- defined with the scan helpers below
 local listMetricCache = StrategyListModel.NewMetricCache(function(strat, patchTag)
     local facade = GAM.PricingFacade
     if not (facade and facade.CalculateCurrent) then
         return nil, "pricing-facade-unavailable"
     end
     return facade.CalculateCurrent(strat, patchTag)
-end)
+end, function(strat) return StatsStamp and StatsStamp(strat) or nil end)
 local bestStratCardDirty = true
 local builtThemeKey   = nil
 local scrollBarTopOffset = LIST_TOP_PAD + 4
@@ -279,8 +280,12 @@ local function AddMetricSignaturePart(parts, key, value)
 end
 
 local function GetCraftingStatsRevision()
-    if GAM.CraftingStats and type(GAM.CraftingStats.GetRevision) == "function" then
-        return GAM.CraftingStats.GetRevision()
+    local stats = GAM.CraftingStats
+    if stats and type(stats.GetSharedRevision) == "function" then
+        return stats.GetSharedRevision()
+    end
+    if stats and type(stats.GetRevision) == "function" then
+        return stats.GetRevision()
     end
     return 0
 end
@@ -341,6 +346,59 @@ local function ItemsForStrategy(strat)
     scanItemsByStrat[key] = set
     return set
 end
+-- Professions whose crafting stats a strategy's estimate depends on: its own
+-- and every profession that crafts one of its materials (intermediates).
+-- A stats change in one profession then reprices only those strategies.
+local producerProfessionsByItem, professionsByStrat, professionsKey = nil, {}, nil
+local function StrategyProfessions(strat)
+    local opts = GetOpts()
+    local key = table.concat({ tostring(filterPatch), tostring(opts.pigmentCostSource),
+        tostring(opts.boltCostSource), tostring(opts.ingotCostSource) }, ":")
+    if key ~= professionsKey then
+        producerProfessionsByItem, professionsByStrat, professionsKey = nil, {}, key
+    end
+    local stratKey = strat.id or strat
+    local list = professionsByStrat[stratKey]
+    if list then return list end
+    if not producerProfessionsByItem then
+        producerProfessionsByItem = {}
+        for _, other in ipairs(GAM.Importer.GetAllStrats(filterPatch) or {}) do
+            local function Mark(item)
+                for _, id in ipairs(item and item.itemIDs or {}) do
+                    producerProfessionsByItem[id] = producerProfessionsByItem[id] or {}
+                    producerProfessionsByItem[id][other.profession or "?"] = true
+                end
+            end
+            Mark(other.output)
+            for _, output in ipairs(other.outputs or {}) do Mark(output) end
+        end
+    end
+    local seen = {}
+    list = {}
+    local function Add(profession)
+        if profession and not seen[profession] then
+            seen[profession] = true
+            list[#list + 1] = profession
+        end
+    end
+    Add(strat.profession)
+    for id in pairs(ItemsForStrategy(strat)) do
+        for profession in pairs(producerProfessionsByItem[id] or {}) do Add(profession) end
+    end
+    professionsByStrat[stratKey] = list
+    return list
+end
+
+StatsStamp = function(strat)
+    local stats = GAM.CraftingStats
+    if not (stats and stats.GetProfessionRevision) then return nil end
+    local sum = 0
+    for _, profession in ipairs(StrategyProfessions(strat)) do
+        sum = sum + stats.GetProfessionRevision(profession)
+    end
+    return sum
+end
+
 local function StrategyUsesAny(strat, items)
     for id in pairs(ItemsForStrategy(strat)) do
         if items[id] then return true end
@@ -362,6 +420,7 @@ local function BuildListMetricSignature()
     AddMetricSignaturePart(parts, "pigment", opts.pigmentCostSource or "ah")
     AddMetricSignaturePart(parts, "bolt", opts.boltCostSource or "ah")
     AddMetricSignaturePart(parts, "ingot", opts.ingotCostSource or "ah")
+    -- Profession-scoped stats changes are stamped per strategy instead.
     AddMetricSignaturePart(parts, "statsRev", GetCraftingStatsRevision())
     -- Prices and owned materials: metrics recalculate only when these change,
     -- so filtering, sorting and profession switches reuse computed values.
@@ -1312,11 +1371,17 @@ RebuildList = function()
     -- exactly once (O(n)) rather than once per comparison pair (O(n log n)).
     -- Fixes severe FPS drop on second scan when the price cache is populated
     -- and ComputePriceForQty runs the full order-book simulation per call.
+    -- One signature for the whole build: sorting asks for metrics once per
+    -- comparison, and rebuilding the signature each time dominated refreshes.
+    local signature = BuildListMetricSignature()
     filteredList = StrategyListModel.BuildVisibleList({
         strategies = all,
         matches = StratMatchesFilter,
         isFavorite = IsFavorite,
-        getMetric = GetListMetric,
+        getMetric = function(strat)
+            if not strat then return nil end
+            return listMetricCache:Get(strat, filterPatch, signature)
+        end,
         getSaleRate = function(strat)
             local result = GetListMetric(strat)
             return GAM.TSMSaleRate and GAM.TSMSaleRate.ForOutputs(result and result.outputs)
@@ -2845,10 +2910,9 @@ function MainWindow.ApplyTheme()
     end
 end
 
-function MainWindow.Refresh()
+local function RefreshAll(repriceEverything)
     if not frame then return end
-    -- Explicit refresh (settings applied, data reloaded): reprice everything.
-    ClearListMetricCache()
+    if repriceEverything then ClearListMetricCache() end
     RebuildList()
     MainWindow.RefreshRows()
     RefreshBestStratCard()
@@ -2870,7 +2934,19 @@ function MainWindow.Refresh()
     end
 end
 
+-- Explicit refresh (settings applied, data reloaded): reprice everything.
+function MainWindow.Refresh()
+    RefreshAll(true)
+end
+
+-- Crafting stats changed (profession sweep, gear set, nodes): reprice only
+-- the strategies whose professions changed; the cache stamps tell which.
+function MainWindow.RefreshStats()
+    RefreshAll(false)
+end
+
 if GAM.Log and GAM.Log.Timed then MainWindow.Refresh = GAM.Log.Timed("Strategy list full refresh", MainWindow.Refresh) end
+if GAM.Log and GAM.Log.Timed then MainWindow.RefreshStats = GAM.Log.Timed("Strategy list stats refresh", MainWindow.RefreshStats) end
 
 function MainWindow.Show()
     if not frame then Build() end
@@ -2916,7 +2992,7 @@ end
 if GAM.CraftingStats and GAM.CraftingStats.AddProfessionNodeCaptureListener then
     GAM.CraftingStats.AddProfessionNodeCaptureListener(function()
         if MainWindow.IsShown() then
-            MainWindow.Refresh()
+            MainWindow.RefreshStats()
         end
     end)
 end

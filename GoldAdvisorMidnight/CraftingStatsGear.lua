@@ -117,7 +117,7 @@ function Gear.CaptureSet(snapshot, mode)
     local linked = old and other and old.signature ~= equipment.signature
         and other.signature == old.signature and otherMode or nil
     sets[mode] = equipment
-    Cache.TouchRevision(character, cache)
+    Cache.TouchRevision(character, cache, equipment.profession)
     return equipment, nil, linked
 end
 
@@ -189,7 +189,7 @@ function Gear.StoreRecipeStats(snapshot)
             end
         end
     end
-    if changed then Cache.TouchRevision(character, cache) end
+    if changed then Cache.TouchRevision(character, cache, equipment.profession) end
     return changed
 end
 
@@ -443,7 +443,7 @@ function Gear.SetModeForStrategy(strat, mode, patchTag)
     if patch.gearModes[stratID] ~= mode then
         patch.gearModes[stratID] = mode
         local character, _, cache = Cache.Ensure()
-        Cache.TouchRevision(character, cache)
+        Cache.TouchRevision(character, cache, strat.profession)
     end
     return true, mode
 end

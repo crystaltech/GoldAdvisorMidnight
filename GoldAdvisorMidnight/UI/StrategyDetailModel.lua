@@ -292,6 +292,14 @@ function Model.GetRankMixNotice(projection)
     if not projection then return nil end
     local reason = tostring(projection.rankMixReason or "live recipe data unavailable")
     if reason == "saved-crafter-reach" then
+        -- Blizzard confirms known recipes only while that profession is open,
+        -- so the rank saved on this very character is used until then.
+        local me = UnitName and UnitName("player")
+        if me and projection.rankMixCrafter == me then
+            return string.format((GAM.L and GAM.L["UI_RANK_SAVED_SELF"]
+                or "Rank %d output, as last checked. Open the profession window to recheck it."),
+                tonumber(projection.rankMixOutputQuality) or 1)
+        end
         return string.format((GAM.L and GAM.L["UI_RANK_SAVED_CRAFTER"]
             or "Rank %d output, as last checked on %s. Log in to that character to recheck it."),
             tonumber(projection.rankMixOutputQuality) or 1, tostring(projection.rankMixCrafter or "?"))

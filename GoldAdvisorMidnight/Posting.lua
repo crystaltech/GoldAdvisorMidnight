@@ -264,7 +264,7 @@ local function DropAffected(changed)
     end
     return true
 end
-function Posting.StrategyBreakEven(itemID)
+local function SyncBreakEvenCache()
     local state = GAM.State
     local revision = state and state.GetPriceRevision and state.GetPriceRevision()
     if breakEvenCache.revision ~= revision then
@@ -275,6 +275,18 @@ function Posting.StrategyBreakEven(itemID)
             breakEvenCache = { revision = revision, values = {} }
         end
     end
+end
+
+-- A cached break-even without working it out: value, known.
+function Posting.PeekBreakEven(itemID)
+    SyncBreakEvenCache()
+    local cached = breakEvenCache.values[itemID]
+    if cached == nil then return nil, false end
+    return cached or nil, true
+end
+
+function Posting.StrategyBreakEven(itemID)
+    SyncBreakEvenCache()
     local cached = breakEvenCache.values[itemID]
     if cached ~= nil then return cached or nil end
     local best
@@ -286,6 +298,45 @@ function Posting.StrategyBreakEven(itemID)
     end
     breakEvenCache.values[itemID] = best or false
     return best
+end
+
+-- Break-evens for "other" rows (strategy items not from the queue) are worked
+-- out a few per frame instead of all at once. A bag full of strategy items
+-- made the first Posting visit price hundreds of strategies in one frame.
+-- Those rows start unticked, so the value only adds warnings and a price
+-- floor; the tab redraws once the batch is done.
+local BREAK_EVEN_PER_FRAME = 6
+local breakEvenFill = { queue = {}, queued = {}, next = 1, running = false }
+local function FillBreakEvens()
+    local fill = breakEvenFill
+    for _ = 1, BREAK_EVEN_PER_FRAME do
+        local itemID = fill.queue[fill.next]
+        if not itemID then break end
+        fill.next = fill.next + 1
+        fill.queued[itemID] = nil
+        Posting.StrategyBreakEven(itemID)
+    end
+    if fill.queue[fill.next] then
+        C_Timer.After(0, FillBreakEvens)
+    else
+        fill.queue, fill.next, fill.running = {}, 1, false
+        Changed()
+    end
+end
+local function OtherBreakEven(itemID)
+    local value, known = Posting.PeekBreakEven(itemID)
+    if known then return value, false end
+    if not (C_Timer and C_Timer.After) then return Posting.StrategyBreakEven(itemID), false end
+    local fill = breakEvenFill
+    if not fill.queued[itemID] then
+        fill.queued[itemID] = true
+        fill.queue[#fill.queue + 1] = itemID
+    end
+    if not fill.running then
+        fill.running = true
+        C_Timer.After(0, FillBreakEvens)
+    end
+    return nil, true
 end
 
 -- Verbose: each row's price, break-even and why it is ticked or not,
@@ -354,7 +405,7 @@ function Posting.Rows()
         table.sort(others, function(a, b) return a.itemID < b.itemID end)
         local history = GAM.CraftHistory
         for _, other in ipairs(others) do
-            other.breakEven = Posting.StrategyBreakEven(other.itemID)
+            other.breakEven, other.breakEvenPending = OtherBreakEven(other.itemID)
             -- Bought rather than crafted (work orders, shopping lists): what
             -- you paid sets the floor, so it is never shown as profit to sell
             -- under your purchase price.

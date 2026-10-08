@@ -595,6 +595,7 @@ L["UI_RANK2_UNREACHABLE"] = "Rank 2 materials only produce rank %d without Conce
 L["UI_RANK_SKILL_NEEDED"] = " Needs %.0f more skill for max rank."
 L["UI_RANK2_VERIFIED"] = "Rank 2 materials: rank %d output verified by Blizzard (no Concentration)."
 L["UI_RANK2_UNVERIFIED"] = "Rank 2 output not verified (%s). Open the exact recipe and click Refresh Recipe."
+L["UI_RANK_SAVED_SELF"] = "Rank %d output, as last checked. Open the profession window to recheck it."
 L["UI_RANK_SAVED_CRAFTER"] = "Rank %d output, as last checked on %s. Log in to that character to recheck it."
 L["UI_RANK_ALT_UNKNOWN"] = "This character does not know this recipe, so pricing uses rank 1 output. Open GAM once on the character who crafts it to save its rank."
 L["UI_MIXED_OUTPUTS"] = "Mixed outputs"

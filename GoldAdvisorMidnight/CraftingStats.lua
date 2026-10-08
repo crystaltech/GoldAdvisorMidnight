@@ -45,11 +45,28 @@ local EnsureCache = Cache.Ensure
 local TouchRevision = Cache.TouchRevision
 local SnapshotMateriallyEqual = Cache.SnapshotMateriallyEqual
 
+function Stats.GetSharedRevision()
+    return Cache.GetSharedRevision()
+end
+
+function Stats.GetProfessionRevision(profession)
+    return Cache.GetProfessionRevision(profession)
+end
+
 function Stats.GetRevision()
     return Cache.GetRevision()
 end
 
 local ResolveProfessionDef = Specialization.ResolveProfessionDef
+
+-- The profession a stats change belongs to (by name or by stat profile),
+-- so only strategies depending on it are repriced. nil = shared change.
+local function ProfessionKey(profession, profileKey)
+    local def = ResolveProfessionDef(profession)
+        or ResolveProfessionDef(profileKey and Specialization.GetProfessionForProfile(profileKey))
+    return def and def.name or nil
+end
+
 local GetSpecializationCatalog = Specialization.GetCatalog
 local ClampRank = Specialization.ClampRank
 local GetCatalogNode = Specialization.GetCatalogNode
@@ -559,7 +576,7 @@ function Stats.SaveSnapshot(snapshot, saveOptions)
     end
 
     if changed then
-        TouchRevision(character, cache)
+        TouchRevision(character, cache, ProfessionKey(normalized.profession, normalized.profileKey))
         return true, nil
     end
     if preservedExisting then
@@ -583,7 +600,7 @@ function Stats.SetManualProfile(profileKey, values)
     manual.capturedAt = GetCurrentTimestamp()
     if not SnapshotMateriallyEqual(character.manualProfiles[profileKey], manual) then
         character.manualProfiles[profileKey] = manual
-        TouchRevision(character, cache)
+        TouchRevision(character, cache, ProfessionKey(nil, profileKey))
     end
     return true, nil
 end
@@ -838,8 +855,12 @@ function Stats.GetRecipeKnowledge(strat)
     local character, currentUID, cache = EnsureCache()
     local key = tostring(recipeID)
     local result = { learnedBy = {}, characterName = type(character) == "table" and character.name or nil }
-    local own = type(character) == "table" and type(character.learnedRecipes) == "table"
-        and character.learnedRecipes[key]
+    -- nil until this character's profession has been opened: never read a
+    -- missing table as "not learned".
+    local own = nil
+    if type(character) == "table" and type(character.learnedRecipes) == "table" then
+        own = character.learnedRecipes[key]
+    end
     if PlayerHasProfession(strat.profession) == false then
         result.state = "no-profession"
     elseif own == true then
@@ -1187,7 +1208,7 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
         state.meta = CopySerializableTable(meta)
     end
     if pricingChanged then
-        TouchRevision(character, cache)
+        TouchRevision(character, cache, ProfessionKey(profession))
     end
     if changed then
         NotifyProfessionNodeCapture(state.profession, state)
@@ -1345,7 +1366,7 @@ function Stats.SetManualNodeRank(profession, nodeID, rank, season)
     state.manualOverrides = state.manualOverrides or {}
     state.manualOverrides[tonumber(nodeID)] = ClampRank(rank, node.maxRank)
     state.manualUpdatedAt = GetCurrentTimestamp()
-    TouchRevision(character, cache)
+    TouchRevision(character, cache, ProfessionKey(profession))
     return true, nil
 end
 
@@ -1370,7 +1391,7 @@ function Stats.ResetProfessionNodesToCaptured(profession, season)
     end
     state.manualOverrides = {}
     state.manualUpdatedAt = GetCurrentTimestamp()
-    TouchRevision(character, cache)
+    TouchRevision(character, cache, ProfessionKey(profession))
     return true, nil
 end
 
@@ -1397,7 +1418,7 @@ function Stats.ResetProfessionNodesToDefaults(profession, season)
         end
     end
     state.manualUpdatedAt = GetCurrentTimestamp()
-    TouchRevision(character, cache)
+    TouchRevision(character, cache, ProfessionKey(profession))
     return true, nil
 end
 
@@ -1544,9 +1565,12 @@ if type(CreateFrame) == "function" then
     -- again after gear or specialization changes while it stays open. The
     -- delay lets the recipe list load and folds a gear swap into one sweep.
     nodeCaptureFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-    local sweptProfession, sweepTimer = nil, 0
+    -- A reopen within a few minutes reuses the last reading; gear or
+    -- specialization changes (even with the window closed) force a new one.
+    local SWEEP_REUSE_SECONDS = 300
+    local sweptAt, sweepTimer = {}, 0
     local function scheduleSweep(force)
-        if force then sweptProfession = nil end
+        if force then sweptAt = {} end
         if not (C_Timer and type(C_Timer.After) == "function") then return end
         sweepTimer = sweepTimer + 1
         local generation = sweepTimer
@@ -1557,22 +1581,25 @@ if type(CreateFrame) == "function" then
                 if okShown and not shown then return end
             end
             local def = GetOpenProfessionDef()
-            if not def or sweptProfession == def.name then return end
+            local now = GetTime and GetTime() or 0
+            if not def or (sweptAt[def.name] and now - sweptAt[def.name] < SWEEP_REUSE_SECONDS) then return end
             if C_TradeSkillUI and type(C_TradeSkillUI.IsDataSourceChanging) == "function" then
                 local okChanging, changing = pcall(C_TradeSkillUI.IsDataSourceChanging)
                 if okChanging and changing then return scheduleSweep(false) end
             end
-            if Stats.SweepOpenProfession() then sweptProfession = def.name end
+            if Stats.SweepOpenProfession() then sweptAt[def.name] = now end
         end)
     end
 
     nodeCaptureFrame:SetScript("OnEvent", function(_, event)
         if event == "TRADE_SKILL_CLOSE" then
             captureGeneration = captureGeneration + 1
-            sweptProfession, sweepTimer = nil, sweepTimer + 1
+            sweepTimer = sweepTimer + 1
             return
         end
         if event == "PLAYER_EQUIPMENT_CHANGED" then
+            -- With the window closed, the next open reads the new gear.
+            sweptAt = {}
             if GetOpenProfessionDef() then scheduleSweep(true) end
             return
         end
