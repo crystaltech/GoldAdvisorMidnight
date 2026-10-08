@@ -265,6 +265,12 @@ local function DropAffected(changed)
     return true
 end
 local function SyncBreakEvenCache()
+    -- Crafting stats (a profession sweep, gear sets) change every estimate.
+    local stats = GAM.CraftingStats
+    local statsRevision = stats and stats.GetRevision and stats.GetRevision() or 0
+    if breakEvenCache.statsRevision ~= statsRevision then
+        breakEvenCache = { revision = nil, values = {}, statsRevision = statsRevision }
+    end
     local state = GAM.State
     local revision = state and state.GetPriceRevision and state.GetPriceRevision()
     if breakEvenCache.revision ~= revision then
@@ -272,7 +278,7 @@ local function SyncBreakEvenCache()
         if changed and DropAffected(changed) then
             breakEvenCache.revision = revision
         else
-            breakEvenCache = { revision = revision, values = {} }
+            breakEvenCache = { revision = revision, values = {}, statsRevision = statsRevision }
         end
     end
 end
@@ -314,7 +320,8 @@ local function FillBreakEvens()
         if not itemID then break end
         fill.next = fill.next + 1
         fill.queued[itemID] = nil
-        Posting.StrategyBreakEven(itemID)
+        -- One failing item must not stop the rest (or leave the fill stuck).
+        pcall(Posting.StrategyBreakEven, itemID)
     end
     if fill.queue[fill.next] then
         C_Timer.After(0, FillBreakEvens)

@@ -568,9 +568,12 @@ function Stats.SaveSnapshot(snapshot, saveOptions)
         end
     end
 
-    if ShouldPreserveExistingSnapshot(character.profiles[normalized.profileKey], normalized) then
+    -- recipeOnly (the profession sweep) skips the profile entry: recipes that
+    -- share a stat profile would overwrite each other's on every sweep.
+    local recipeOnly = saveOptions and saveOptions.recipeOnly
+    if not recipeOnly and ShouldPreserveExistingSnapshot(character.profiles[normalized.profileKey], normalized) then
         preservedExisting = true
-    elseif not SnapshotMateriallyEqual(character.profiles[normalized.profileKey], normalized) then
+    elseif not recipeOnly and not SnapshotMateriallyEqual(character.profiles[normalized.profileKey], normalized) then
         character.profiles[normalized.profileKey] = CopySnapshot(normalized)
         changed = true
     end
@@ -1242,7 +1245,17 @@ end
 local SWEEP_BATCH_SIZE = 8
 local sweepGeneration = 0
 
+-- The profession window really is open. Before Blizzard's profession UI has
+-- loaded there is no frame, and the client may still name a last profession.
+local function ProfessionWindowShown()
+    if type(ProfessionsFrame) ~= "table" then return false end
+    if type(ProfessionsFrame.IsShown) ~= "function" then return true end
+    local ok, shown = pcall(ProfessionsFrame.IsShown, ProfessionsFrame)
+    return ok and shown and true or false
+end
+
 function Stats.SweepOpenProfession(onDone)
+    if not ProfessionWindowShown() then return false, "profession-closed" end
     local def = GetOpenProfessionDef()
     if not def then return false, "no-open-profession" end
     local api = C_TradeSkillUI
@@ -1268,6 +1281,9 @@ function Stats.SweepOpenProfession(onDone)
 
     sweepGeneration = sweepGeneration + 1
     local generation, index, saved, read, learnedChanged = sweepGeneration, 1, 0, 0, false
+    -- Any change this sweep makes (recipe stats, a worn gear set filling in)
+    -- bumps the profession's revision; the list refreshes when it moved.
+    local revisionBefore = Cache.GetProfessionRevision(ProfessionKey(def.name) or def.name)
     local character = EnsureCache()
     local learnedRecipes = type(character) == "table" and character.learnedRecipes or {}
     if type(character) == "table" then character.learnedRecipes = learnedRecipes end
@@ -1276,14 +1292,15 @@ function Stats.SweepOpenProfession(onDone)
             GAM.Log.Debug("Stats sweep %s: %d recipes, %d read, %d updated%s", def.name, #queue, read, saved,
                 reason and (" (stopped: " .. reason .. ")") or "")
         end
-        if saved > 0 or learnedChanged then
+        local revisionMoved = Cache.GetProfessionRevision(ProfessionKey(def.name) or def.name) ~= revisionBefore
+        if saved > 0 or learnedChanged or revisionMoved then
             NotifyProfessionNodeCapture(def.name, { profession = def.name, source = "recipe-sweep" })
         end
         if type(onDone) == "function" then pcall(onDone, saved, read, reason) end
     end
     local function Step()
         if generation ~= sweepGeneration then return end
-        local open = GetOpenProfessionDef()
+        local open = ProfessionWindowShown() and GetOpenProfessionDef()
         if not open or open.name ~= def.name then return Finish("profession-closed") end
         if NativeCapture.ActiveTemporaryBuff(def.name) then return Finish("temporary-buff-active") end
         for _ = 1, SWEEP_BATCH_SIZE do
@@ -1305,7 +1322,7 @@ function Stats.SweepOpenProfession(onDone)
                     read = read + 1
                     snapshot.profileKey, snapshot.profession = item.profileKey, def.name
                     snapshot.recipeName, snapshot.source = info.name, "native-open"
-                    local ok, status = Stats.SaveSnapshot(snapshot, { preferVisibleStats = true })
+                    local ok, status = Stats.SaveSnapshot(snapshot, { preferVisibleStats = true, recipeOnly = true })
                     if ok and status == nil then saved = saved + 1 end
                 end
             end
