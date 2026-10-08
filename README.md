@@ -12,7 +12,7 @@ New to GAM? The [Getting Started guide (PDF)](docs/guide/GAM-Getting-Started-Gui
 - Calculates material cost, buy-now cost, net revenue, profit, return, and break-even price
 - Prices materials for the exact quantity you need, ignoring bait listings and never assuming unlisted items exist
 - Models Multicraft and Resourcefulness for mass crafting
-- Captures recipe stats, specialization bonuses, and saved profession gear sets per crafter
+- Reads your recipe stats and specialization bonuses when you open a profession, and keeps exact stats for each saved profession gear set
 - Compares saved Multicraft and Resourcefulness gear with the `Auto` option
 - Plans intermediate crafting (for example, milling herbs for your own pigments) when it is cheaper than buying
 - Optional manual material prices for materials you gathered or already bought
@@ -34,7 +34,7 @@ Existing `GoldAdvisorMidnightDB` settings are kept and upgraded in place. The se
 ## Basic Workflow
 
 1. Select a profession, then a strategy.
-2. Open the matching recipe in your profession window so GAM can capture its stats and specialization bonuses.
+2. Open that profession's window once on the crafter. GAM reads the stats of every strategy recipe the character knows, and reads them again after gear or specialization changes. Strategies this character can't craft are dimmed; hover one to see why and which of your characters has learned it.
 3. Choose the starting craft count, material quality, and profession gear.
 4. Scan prices at the Auction House.
 5. Review profit, return, break-even price, materials, and expected output.
@@ -61,13 +61,17 @@ Set the default batch for strategies without their own value in **Settings > Pri
   The output rank is checked on the character who knows the recipe. Open GAM once on each crafter; your other characters then use that crafter's rank and mix.
 - `Profession gear` chooses `Auto`, `Multicraft`, or `Resourcefulness` for the selected strategy.
 - `Intermediates` includes crafting intermediate materials yourself when that is cheaper than buying them.
-- `Refresh Recipe` (in Details) recaptures the selected recipe from the current crafter.
+- `Refresh Recipe` (in Details) recaptures the selected recipe from the current crafter. Opening the profession already does this for every recipe; use it for salvage recipes (milling, prospecting, crushing, recycling, shatter), which only show their stats with an item selected.
 
 ### Profession Gear Sets
 
 Equip a gear set, open any recipe of that profession, and use `Save MC` or `Save Res` in the Profession gear menu. A set is saved once per profession and character, and every strategy in that profession uses it together with your specialization nodes.
 
 Once saved, the button reads `Update MC` / `Update Res`. Green means you are wearing that set; orange means your equipped gear differs. Hover it to see the saved items and when they were saved. Click it with new gear equipped to replace the set.
+
+A saved set fills in its own stats: whenever the profession window is open and you are wearing that set, GAM keeps that set's exact Multicraft and Resourcefulness for every strategy recipe. Wear each set once with the profession open after saving it, and again after spending knowledge points. Sets saved by older versions don't need saving again; wear them once with the profession open. With `Auto`, GAM compares your sets recipe by recipe, usually picking Multicraft for recipes that have Multicraft and Resourcefulness for the ones that don't (salvage, enchants, gear).
+
+Stats read while Shattered Essence is active are not saved, and gear sets can't be saved during it, because its bonus lasts only minutes.
 
 ## Craft Queue and Shopping
 
