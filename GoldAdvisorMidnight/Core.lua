@@ -825,6 +825,10 @@ SlashCmdList[slashKey] = function(input)
         if GAM.Settings then GAM.Settings.OpenPanel() end
     elseif cmd == "auditrecipes" then
         if GAM.RecipeAudit then GAM.RecipeAudit.Run(argument) end
+    elseif cmd == "dev" then
+        if GAM.CraftingStats and GAM.CraftingStats.RunDevCommand then
+            GAM.CraftingStats.RunDevCommand(argument)
+        end
     elseif cmd == "help" then
         print("|cffff8800[GAM]|r " .. GAM.L["MSG_COMMAND_HELP"])
     elseif cmd == "globalstartqty" then

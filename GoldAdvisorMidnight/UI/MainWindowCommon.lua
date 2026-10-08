@@ -746,6 +746,7 @@ local RECIPE_FAILURE_KEYS = {
     ["profession-nodes-not-visible"] = { "ERR_RECIPE_WINDOW_LOADING", "The profession window did not finish loading. Open it once, then click Refresh Recipe again." },
     ["open-recipe-not-visible"] = { "ERR_RECIPE_NOT_SHOWN", "The recipe was not shown in time. Click Refresh Recipe again." },
     ["no-open-native-recipe"] = { "ERR_RECIPE_NOT_SHOWN", "The recipe was not shown in time. Click Refresh Recipe again." },
+    ["temporary-buff-active"] = { "ERR_TEMP_BUFF_ACTIVE", "Shattered Essence is raising your stats for a few minutes, so GAM won't save them. Try again when it ends." },
     ["open-recipe-mismatch"] = { "ERR_RECIPE_MISMATCH", "A different recipe stayed open. Select this recipe in the profession window, then click Refresh Recipe." },
 }
 

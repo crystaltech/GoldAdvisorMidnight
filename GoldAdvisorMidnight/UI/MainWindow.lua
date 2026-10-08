@@ -1527,6 +1527,7 @@ local function CaptureGearSet(mode)
             ["no-open-native-recipe"] = L["ERR_GEAR_NO_RECIPE"],
             ["profession-equipment-unavailable"] = L["ERR_GEAR_EQUIPMENT"],
             ["recipe-stats-unavailable"] = L["ERR_GEAR_STATS"],
+            ["temporary-buff-active"] = L["ERR_TEMP_BUFF_ACTIVE"],
         }
         GAM.Log.Warn("Gear: save %s set failed: %s", tostring(mode), tostring(err))
         print("|cffff8800[GAM]|r " .. (messages[err] or string.format(

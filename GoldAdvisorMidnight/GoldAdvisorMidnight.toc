@@ -22,6 +22,7 @@ Data\SpecializationData\Midnight\Inscription.lua
 Data\SpecializationData\Midnight\Jewelcrafting.lua
 Data\SpecializationData\Midnight\Leatherworking.lua
 Data\SpecializationData\Midnight\Tailoring.lua
+Data\RecipeCapabilities.lua
 Constants.lua
 CommodityCatalog.lua
 StrategyModel.lua

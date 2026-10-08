@@ -61,7 +61,7 @@ local function ApplyOperationBonusStats(snapshot, operationInfo)
     }
     local localized = names[GetLocale and GetLocale()] or { "Multicraft", "Resourcefulness" }
 
-    local unrecognized = 0
+    local unrecognized = {}
     for _, statInfo in ipairs(bonusStats) do
         local name = tostring(statInfo.bonusStatName or statInfo.name or ""):lower()
         if name == localized[1]:lower() or name:find("multicraft", 1, true) then
@@ -72,18 +72,20 @@ local function ApplyOperationBonusStats(snapshot, operationInfo)
             snapshot.resPercent = ReadPercentFromBonusStat(statInfo)
             snapshot.resRating = tonumber(statInfo.bonusStatValue)
             snapshot.supportsResourcefulness = snapshot.resPercent ~= nil
-        else
-            unrecognized = unrecognized + 1
+        elseif name ~= "" then
+            unrecognized[#unrecognized + 1] = name
         end
     end
     -- Missing proc types are unsupported, not an invitation to invent a chance
     -- from defaults. An entirely unreadable stat array is not a valid capture.
-    -- An unrecognized stat name may be an untranslated proc, so only a fully
-    -- recognized array may declare the other proc type unsupported.
-    if unrecognized == 0 and (snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil) then
+    -- Other stats (Ingenuity, Crafting Speed) appear on nearly every recipe, so
+    -- they must not block this. An untranslated proc name can only make GAM
+    -- price that proc at zero, which errs toward a lower profit.
+    if snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil then
         snapshot.supportsMulticraft = snapshot.multiPercent ~= nil
         snapshot.supportsResourcefulness = snapshot.resPercent ~= nil
     end
+    snapshot.otherStatNames = #unrecognized > 0 and table.concat(unrecognized, ",") or nil
 end
 
 local function AddNodeCandidate(out, nodeID, rank, maxRank, name, description, nameSource)
@@ -297,9 +299,13 @@ local function CollectProfessionTraitNodeIDs(context)
 
     -- Some client builds do not expose profession paths through GetTreeNodes.
     -- Walk the same root/child graph Blizzard's 12.1 profession UI uses.
+    -- Track walked paths separately: GetTreeNodes may already have listed a
+    -- parent, and its children must still be visited.
+    local walked = {}
     local function walkPath(pathID)
         local id = tonumber(pathID)
-        if not id or seenNodeIDs[id] then return end
+        if not id or walked[id] then return end
+        walked[id] = true
         addNodeID(id)
         if type(C_ProfSpecs.GetChildrenForPath) == "function" then
             local ok, children = pcall(C_ProfSpecs.GetChildrenForPath, id)
@@ -401,6 +407,66 @@ local function GetOpenNativeProfessionNodeRanks(profession)
     }
 end
 
+-- Short crafting buffs that raise the stats Blizzard reports. Stats read while
+-- one is active describe the next few minutes, not the crafter, so they are
+-- never saved or priced. Shattered Essence (spell 1235733): +Multicraft,
+-- Resourcefulness and Ingenuity for Midnight Enchanting, 5+ minutes.
+local TEMPORARY_CRAFTING_BUFFS = {
+    [1235733] = "Enchanting",
+}
+
+local function ActiveTemporaryBuff(profession)
+    local auras = C_UnitAuras
+    if not (auras and type(auras.GetPlayerAuraBySpellID) == "function") then return nil end
+    local text = tostring(profession or ""):lower()
+    for spellID, buffProfession in pairs(TEMPORARY_CRAFTING_BUFFS) do
+        if profession == nil or text:find(buffProfession:lower(), 1, true) then
+            local ok, aura = pcall(auras.GetPlayerAuraBySpellID, spellID)
+            if ok and aura then return spellID end
+        end
+    end
+    return nil
+end
+
+-- Reads a recipe's stats with only its first-rank required reagents. Blizzard
+-- answers by recipe ID, so the recipe does not have to be selected. Returns
+-- the raw operation info, or nil when the client gave none.
+local function ReadBaseRecipeStats(snapshot)
+    local api = C_TradeSkillUI
+    if not (api and api.GetRecipeSchematic and api.GetCraftingOperationInfo) then return nil end
+    local ok, schematic = pcall(api.GetRecipeSchematic, snapshot.recipeID, false)
+    if not ok or not schematic then return nil end
+    local allocation = {}
+    for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+        if slot.required and slot.dataSlotType == 2 and slot.reagents and slot.reagents[1] then
+            allocation[#allocation + 1] = { reagent = slot.reagents[1],
+                dataSlotIndex = slot.dataSlotIndex, quantity = slot.quantityRequired }
+        end
+    end
+    local read, operation = pcall(api.GetCraftingOperationInfo, snapshot.recipeID, allocation, nil, false)
+    if not read or not operation or (operation.recipeID and operation.recipeID ~= snapshot.recipeID) then
+        return nil
+    end
+    -- Salvage recipes (milling, prospecting, recycling, shatter) list their
+    -- procs only with an item in the salvage slot. A read that found no proc
+    -- must not wipe what the open form showed for the selected item.
+    local base = { recipeID = snapshot.recipeID }
+    ApplyOperationBonusStats(base, operation)
+    if base.multiPercent ~= nil or base.resPercent ~= nil then
+        for _, field in ipairs({ "multiPercent", "resPercent", "multiRating", "resRating",
+                "supportsMulticraft", "supportsResourcefulness", "otherStatNames" }) do
+            snapshot[field] = base[field]
+        end
+        snapshot.gearStatContext = "base-reagents"
+    elseif snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil then
+        -- Salvage has no finishing reagents, so the selected item's stats
+        -- are ordinary stats and may be saved with a gear set.
+        snapshot.gearStatContext = "base-reagents"
+    end
+    snapshot.operationStats = operation
+    return operation, schematic
+end
+
 GetOpenNativeRecipeSnapshot = function()
     local testSnapshot = deps.GetTestOpenSnapshot and deps.GetTestOpenSnapshot() or nil
     if testSnapshot ~= nil then
@@ -442,28 +508,9 @@ GetOpenNativeRecipeSnapshot = function()
 
     -- Observe ordinary recipe stats without optional/finishing reagents left
     -- in the native form. Queue verification passes its exact allocation below.
-    local api = C_TradeSkillUI
-    if api and api.GetRecipeSchematic and api.GetCraftingOperationInfo then
-        local ok, schematic = pcall(api.GetRecipeSchematic, snapshot.recipeID, false)
-        if ok and schematic then
-            local allocation = {}
-            for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
-                if slot.required and slot.dataSlotType == 2 and slot.reagents and slot.reagents[1] then
-                    allocation[#allocation + 1] = { reagent = slot.reagents[1],
-                        dataSlotIndex = slot.dataSlotIndex, quantity = slot.quantityRequired }
-                end
-            end
-            local read, operation = pcall(api.GetCraftingOperationInfo, snapshot.recipeID, allocation, nil, false)
-            if read and operation and (not operation.recipeID or operation.recipeID == snapshot.recipeID) then
-                snapshot.multiPercent, snapshot.resPercent = nil, nil
-                snapshot.multiRating, snapshot.resRating = nil, nil
-                snapshot.supportsMulticraft, snapshot.supportsResourcefulness = nil, nil
-                ApplyOperationBonusStats(snapshot, operation)
-                snapshot.gearStatContext = "base-reagents"
-            end
-        end
-    end
+    ReadBaseRecipeStats(snapshot)
 
+    local api = C_TradeSkillUI
     if api and api.GetProfessionInfoByRecipeID then
         local ok, info = pcall(api.GetProfessionInfoByRecipeID, snapshot.recipeID)
         local def = ok and ResolveProfessionDefFromInfo(info)
@@ -483,6 +530,8 @@ GetOpenNativeRecipeSnapshot = function()
             snapshot.parentSkillLineID = parentSkillLineID
         end
     end
+
+    snapshot.temporaryBuff = ActiveTemporaryBuff(snapshot.profession)
 
     -- Prefer the existing strategy registry over translated recipe-name guesses.
     if GAM.Importer and GAM.Importer.GetAllStrats then
@@ -521,5 +570,9 @@ end
         GetOpenProfessionDef = GetOpenProfessionDef,
         OpenProfessionMatches = OpenProfessionMatches,
         GetOpenProfessionNodeRanks = GetOpenNativeProfessionNodeRanks,
+        ReadBaseRecipeStats = ReadBaseRecipeStats,
+        ActiveTemporaryBuff = ActiveTemporaryBuff,
+        GetProfessionTraitContext = GetProfessionTraitContext,
+        CollectProfessionTraitNodeIDs = CollectProfessionTraitNodeIDs,
     }
 end

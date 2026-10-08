@@ -134,7 +134,81 @@ local function DeriveStat(entry, targetNodeRating)
     return percent, false
 end
 
+-- Exact stats Blizzard reported for one recipe while this set was worn.
+local function ExactRecipeStats(set, recipeID)
+    local recipes = type(set) == "table" and type(set.recipes) == "table" and set.recipes or nil
+    local entry = recipes and recipeID and recipes[tostring(recipeID)]
+    return type(entry) == "table" and entry or nil
+end
+
+-- True when the set can price this recipe: exact stats for it, or stats
+-- saved with the set to estimate from. Sets saved before stats were stored
+-- have neither until they are worn with the profession open.
+function Gear.HasStatsFor(set, recipeID)
+    return type(set) == "table" and (type(set.stats) == "table" or ExactRecipeStats(set, recipeID) ~= nil)
+end
+
+-- Called whenever a recipe's ordinary stats are read (the profession sweep,
+-- Refresh Recipe, an opened recipe). When the worn profession items are
+-- exactly a saved set, that set keeps this recipe's numbers, so sets fill
+-- themselves as they are worn, including sets saved before stats were stored.
+function Gear.StoreRecipeStats(snapshot)
+    if type(snapshot) ~= "table" or snapshot.temporaryBuff or not snapshot.recipeID
+            or snapshot.gearStatContext ~= "base-reagents"
+            or (snapshot.multiPercent == nil and snapshot.resPercent == nil) then
+        return false
+    end
+    local character, _, cache = Cache.Ensure()
+    if type(character) ~= "table" or type(character.professionGear) ~= "table"
+            or next(character.professionGear) == nil then
+        return false
+    end
+    local equipment = Gear.ReadEquipment(snapshot.recipeID, snapshot.profileKey)
+    local sets = equipment and character.professionGear and character.professionGear[equipment.profession]
+    if type(sets) ~= "table" then return false end
+    local key, changed = tostring(snapshot.recipeID), false
+    for _, mode in ipairs({ "multicraft", "resourcefulness" }) do
+        local set = sets[mode]
+        if type(set) == "table" and set.profession == equipment.profession
+                and set.signature == equipment.signature then
+            set.recipes = type(set.recipes) == "table" and set.recipes or {}
+            local old = set.recipes[key]
+            local entry = {
+                multiPercent = snapshot.multiPercent, resPercent = snapshot.resPercent,
+                supportsMulticraft = snapshot.supportsMulticraft,
+                supportsResourcefulness = snapshot.supportsResourcefulness,
+                nodeHash = snapshot.nodeHash,
+            }
+            if type(old) ~= "table" or old.multiPercent ~= entry.multiPercent
+                    or old.resPercent ~= entry.resPercent
+                    or old.supportsMulticraft ~= entry.supportsMulticraft
+                    or old.supportsResourcefulness ~= entry.supportsResourcefulness then
+                entry.capturedAt = Cache.GetCurrentTimestamp()
+                set.recipes[key] = entry
+                changed = true
+            end
+        end
+    end
+    if changed then Cache.TouchRevision(character, cache) end
+    return changed
+end
+
+-- A set's stats for one recipe: the exact numbers read while it was worn, or
+-- else an estimate from the stats saved with the set, moved to this recipe
+-- by its specialization nodes.
 function Gear.RecipeStats(character, set, recipeID, profileKey)
+    local exact = ExactRecipeStats(set, recipeID)
+    if exact then
+        return {
+            recipeID = recipeID, profileKey = profileKey, profession = set.profession,
+            multiPercent = exact.multiPercent, resPercent = exact.resPercent,
+            supportsMulticraft = exact.supportsMulticraft,
+            supportsResourcefulness = exact.supportsResourcefulness,
+            capturedAt = exact.capturedAt or set.capturedAt,
+            gearPreset = set.mode, source = "gear-set-" .. tostring(set.mode),
+            gearStatScaling = "recipe-exact",
+        }
+    end
     local nodes = NodeRatings(character, recipeID, profileKey)
     local stats = set.stats or {}
     local multi, multiScaled = DeriveStat(stats.multicraft, nodes and nodes.multicraft)
@@ -150,7 +224,17 @@ function Gear.RecipeStats(character, set, recipeID, profileKey)
     if type(recipe) == "table" then
         snapshot.supportsMulticraft = recipe.supportsMulticraft
         snapshot.supportsResourcefulness = recipe.supportsResourcefulness
+        -- Captures saved before 2.3.3 may lack the flags; the stats they did
+        -- observe still show which procs the recipe has.
+        if recipe.multiPercent ~= nil or recipe.resPercent ~= nil then
+            if snapshot.supportsMulticraft == nil then snapshot.supportsMulticraft = recipe.multiPercent ~= nil end
+            if snapshot.supportsResourcefulness == nil then snapshot.supportsResourcefulness = recipe.resPercent ~= nil end
+        end
     end
+    -- A set saved on a recipe without one proc never observed that chance for
+    -- this gear. Price it at zero rather than the workbook default.
+    if multi == nil and res ~= nil then snapshot.multiPercent = 0 end
+    if res == nil and multi ~= nil then snapshot.resPercent = 0 end
     return snapshot
 end
 
@@ -180,7 +264,9 @@ function Gear.Describe(character, recipeID, profileKey, mode, current)
         revision = set.revision,
         items = items,
         equipped = equipped,
-        needsResave = type(set.stats) ~= "table",
+        -- No stats for this recipe yet: wearing the set with the profession
+        -- open fills them in.
+        needsResave = not Gear.HasStatsFor(set, recipeID),
     }
 end
 
@@ -301,8 +387,9 @@ function Gear.GetPreset(character, recipeID, profileKey, mode)
     if not Gear.Profession(recipeID, profileKey) then return nil end
     local set = Gear.GetSet(character, recipeID, profileKey, mode)
     if set then
-        -- Sets saved before stats were stored must be saved again.
-        if type(set.stats) ~= "table" then return nil end
+        -- Sets saved before stats were stored price only the recipes read
+        -- while they were worn.
+        if not Gear.HasStatsFor(set, recipeID) then return nil end
         return Gear.RecipeStats(character, set, recipeID, profileKey)
     end
     if mode == "auto" or not recipeID or type(character) ~= "table"

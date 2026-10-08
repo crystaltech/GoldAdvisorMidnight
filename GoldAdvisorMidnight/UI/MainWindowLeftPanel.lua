@@ -488,7 +488,9 @@ function LeftPanelUI.Build(args)
         if detail then
             AddTooltipLine(FormatSavedAge(detail.capturedAt), info)
             if detail.needsResave then
-                AddTooltipLine(Lx("GEAR_SET_RESAVE", "Save it again to use it."), GEAR_STALE_COLOR)
+                AddTooltipLine(string.format(Lx("GEAR_SET_FILL",
+                    "No stats for this recipe yet. Wear this set with %s open once to read them."),
+                    profession), GEAR_STALE_COLOR)
             end
             if detail.equipped == true then
                 AddTooltipLine(Lx("GEAR_SET_EQUIPPED", "You are wearing this set now."), GEAR_EQUIPPED_COLOR)

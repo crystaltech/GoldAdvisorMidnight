@@ -438,6 +438,12 @@ local function ApplySpecializationNodeState(result, profileKey, character, recip
         result.resExtra = summary.resExtra
     end
 
+    -- The node source replaces the label below, but the Multicraft and
+    -- Resourcefulness chances may still be workbook defaults. Keep that
+    -- visible so Details never calls default chances captured.
+    if result.statSource == "workbook-default" and result.fallbackReason == nil then
+        result.fallbackReason = "stats-not-captured"
+    end
     result.statSource = summary.statSource or result.statSource
     result.nodeHash = summary.nodeHash or result.nodeHash
     result.nodeRanks = summary.nodeRanks or result.nodeRanks

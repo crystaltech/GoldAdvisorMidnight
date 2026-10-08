@@ -518,7 +518,11 @@ local function LiveStatsMatch(node, allocation, target)
         or { "multiPercent", "resPercent", "multiExtra", "resExtra" }
     for _, field in ipairs(fields) do
         local expected = node.plannedStats[field]
-        if expected ~= nil and ((live[field] == nil and expected ~= 0)
+        -- A temporary crafting buff (Shattered Essence) only raises the
+        -- chances; crafting with more than planned is fine.
+        local boosted = live.temporaryBuff and (field == "multiPercent" or field == "resPercent")
+            and expected ~= nil and (live[field] or 0) >= expected - 0.01
+        if expected ~= nil and not boosted and ((live[field] == nil and expected ~= 0)
                 or math.abs((live[field] or 0) - expected) >= 0.01) then return false end
     end
     return not node.plannedStats.nodeHash or live.nodeHash == node.plannedStats.nodeHash
