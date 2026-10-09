@@ -54,9 +54,20 @@ local function OperationSkill(info)
     return base + bonus
 end
 
+-- Blizzard's `quality` is fractional (1.48 = rank 1, 48% of the way to
+-- rank 2); the rank crafted is the whole number. Comparing fractions made a
+-- recipe whose top rank is out of reach use the highest-skill (most
+-- expensive) mix, though every mix gives the same rank.
+local function WholeRank(value)
+    value = tonumber(value)
+    return value and math.floor(value + 1e-6) or nil
+end
+
 local function OperationQuality(info)
     if type(info) ~= "table" then return nil end
-    return tonumber(info.quality) or tonumber(info.craftingQuality)
+    local crafted = tonumber(info.craftingQuality)
+    if crafted and crafted > 0 then return WholeRank(crafted) end
+    return WholeRank(info.quality)
 end
 
 local function OperationDifficulty(info)
@@ -784,8 +795,9 @@ function Optimizer.SavedReach(recipeID)
     local key = tostring(recipeID)
     local character, uid, cache = ReachStore()
     local own = type(character) == "table" and character.rankReach and character.rankReach[key]
+    -- Ranks saved before 2.3.3 can be fractional.
     if type(own) == "table" and tonumber(own.quality) then
-        return tonumber(own.quality), character.name, false, own.mix
+        return WholeRank(own.quality), character.name, false, own.mix
     end
     local best, bestName
     for otherUID, other in pairs(type(cache) == "table" and cache.characters or {}) do
@@ -796,6 +808,6 @@ function Optimizer.SavedReach(recipeID)
             best, bestName = entry, other.name
         end
     end
-    if best then return tonumber(best.quality), bestName, true, best.mix end
+    if best then return WholeRank(best.quality), bestName, true, best.mix end
     return nil
 end
