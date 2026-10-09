@@ -123,6 +123,17 @@ local runtimeRevision = 0
 -- strategies that depend on it. Anything else bumps the shared revision.
 local sharedRevision, professionRevisions = 0, {}
 
+-- Moves on every stats change of this session (cheap to read, no DB access).
+function Cache.GetRuntimeRevision()
+    return runtimeRevision
+end
+
+-- Node names or the source label changed without any rank: drops reused
+-- node summaries (shown in tooltips) without repricing anything.
+function Cache.TouchDisplayRevision()
+    runtimeRevision = runtimeRevision + 1
+end
+
 function Cache.GetSharedRevision()
     return sharedRevision
 end

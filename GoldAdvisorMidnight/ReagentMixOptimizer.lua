@@ -19,13 +19,27 @@ function Optimizer.ClearCache()
     wipe(liveModelCache)
     wipe(operationCache)
 end
+
+-- Gear, specialization and profession-window changes only mark the models to
+-- be checked: before its next use, one read of the all-rank-1 mix compares
+-- the skill with the model's. Output rank depends on skill against
+-- difficulty, so an unchanged skill keeps the model and every mix already
+-- verified. Rebuilding every model after a gear swap (many client reads per
+-- recipe) dropped the frame rate while the strategy list repriced.
+function Optimizer.MarkForCheck()
+    for _, entry in pairs(liveModelCache) do entry.check = true end
+end
+
 if type(CreateFrame) == "function" then
     local watcher = CreateFrame("Frame")
+    local checkOnly = { PLAYER_EQUIPMENT_CHANGED = true, TRAIT_CONFIG_UPDATED = true, TRADE_SKILL_SHOW = true }
     for _, event in ipairs({ "PLAYER_EQUIPMENT_CHANGED", "TRAIT_CONFIG_UPDATED", "SKILL_LINES_CHANGED",
             "TRADE_SKILL_SHOW", "LEARNED_SPELL_IN_SKILL_LINE" }) do
         pcall(watcher.RegisterEvent, watcher, event)
     end
-    watcher:SetScript("OnEvent", function() Optimizer.ClearCache() end)
+    watcher:SetScript("OnEvent", function(_, event)
+        if checkOnly[event] then Optimizer.MarkForCheck() else Optimizer.ClearCache() end
+    end)
 end
 
 local function RoundSkill(value)
@@ -305,7 +319,12 @@ local function GetLiveModel(recipeID)
     local now = type(GetTime) == "function" and GetTime() or nil
     local cached = liveModelCache[recipeID]
     if cached and now and cached.cachedAt and now - cached.cachedAt <= MODEL_TTL_SECONDS then
-        return cached.model
+        if not cached.check then return cached.model end
+        local info = CallOperationInfo(recipeID, BuildAllocation(cached.model.slots, {}))
+        if OperationSkill(info) == cached.model.lowSkill then
+            cached.check = false
+            return cached.model
+        end
     end
     -- Rebuilding the model: the recipe's mix results are rechecked too.
     operationCache[recipeID] = nil

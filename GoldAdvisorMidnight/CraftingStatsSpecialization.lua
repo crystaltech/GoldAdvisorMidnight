@@ -419,12 +419,39 @@ local function SummarizeNodeRanks(profileKey, character, includeDefaults, recipe
     }
 end
 
+-- A node summary changes only with node data, and every such change moves the
+-- stats revision. Pricing one strategy resolves stats many times (each crafted
+-- material, each gear set) and rebuilding the summary each time was nearly
+-- half of a strategy's pricing with real node data, so it is reused until the
+-- revision moves. Callers must not modify a summary.
+local summaryMemo = setmetatable({}, { __mode = "k" })
+local function CachedSummary(profileKey, character, includeDefaults, recipeID)
+    local cache = GAM.CraftingStatsCache
+    local revision = cache and cache.GetRuntimeRevision and cache.GetRuntimeRevision()
+    if type(character) ~= "table" or not revision then
+        return SummarizeNodeRanks(profileKey, character, includeDefaults, recipeID)
+    end
+    local slot = summaryMemo[character]
+    if not slot or slot.revision ~= revision then
+        slot = { revision = revision, entries = {} }
+        summaryMemo[character] = slot
+    end
+    local key = tostring(profileKey) .. "|" .. tostring(includeDefaults and true or false)
+        .. "|" .. tostring(NormalizeRecipeIDForLookup(recipeID))
+    local hit = slot.entries[key]
+    if hit == nil then
+        hit = SummarizeNodeRanks(profileKey, character, includeDefaults, recipeID) or false
+        slot.entries[key] = hit
+    end
+    return hit or nil
+end
+
 local function ApplySpecializationNodeState(result, profileKey, character, recipeID)
     if type(result) ~= "table" or not IsSpecializationProfile(profileKey) then
         return result
     end
 
-    local summary = SummarizeNodeRanks(profileKey, character, false, recipeID or result.recipeID)
+    local summary = CachedSummary(profileKey, character, false, recipeID or result.recipeID)
     if not summary then
         result.nodeBonusDetails = BuildUnavailableNodeBonusDetails(
             profileKey, recipeID or result.recipeID)
@@ -448,8 +475,10 @@ local function ApplySpecializationNodeState(result, profileKey, character, recip
     result.nodeHash = summary.nodeHash or result.nodeHash
     result.nodeRanks = summary.nodeRanks or result.nodeRanks
     result.nodeStats = summary.nodeStats or result.nodeStats
-    local nodeBonusDetails = summary.nodeBonusDetails
-    if nodeBonusDetails then
+    if summary.nodeBonusDetails then
+        -- The summary is shared: trim a copy, never the summary itself.
+        local nodeBonusDetails = {}
+        for key, value in pairs(summary.nodeBonusDetails) do nodeBonusDetails[key] = value end
         if not result.supportsMulticraft then
             nodeBonusDetails.multicraft = nil
         end

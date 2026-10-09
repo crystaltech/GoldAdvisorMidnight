@@ -163,7 +163,8 @@ function Gear.StoreRecipeStats(snapshot)
             or next(character.professionGear) == nil then
         return false
     end
-    local equipment = Gear.ReadEquipment(snapshot.recipeID, snapshot.profileKey)
+    -- The profession sweep reads the worn items once per batch.
+    local equipment = snapshot.wornEquipment or Gear.ReadEquipment(snapshot.recipeID, snapshot.profileKey)
     local sets = equipment and character.professionGear and character.professionGear[equipment.profession]
     if type(sets) ~= "table" then return false end
     local key, changed = tostring(snapshot.recipeID), false

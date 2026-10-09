@@ -113,11 +113,16 @@ local function ToggleFavoriteForPatch(patch, stratID, rankPolicy)
     return true
 end
 
+-- Pricing asks for the database thousands of times per strategy; the same
+-- table is prepared once (its sub-tables are only ever replaced, never removed).
+local preparedDB = nil
+local preparedPatches = setmetatable({}, { __mode = "k" })
 local function EnsureDB()
     local db = GAM.db or _G[ADDON_NAME .. "DB"]
     if not db then
         return nil
     end
+    if db == preparedDB then return db end
 
     GAM.db = db
     db.options = db.options or {}
@@ -127,6 +132,7 @@ local function EnsureDB()
     db.itemKeyDB = db.itemKeyDB or {}
     db.vendorPriceCache = db.vendorPriceCache or { version = 1, characters = {} }
     db.userStrats = db.userStrats or {}
+    preparedDB = db
     return db
 end
 
@@ -182,6 +188,8 @@ function State.GetPatchDB(patchTag)
         patch = {}
         db.patch[patchTag] = patch
     end
+    -- Prepared once per patch table; called thousands of times per strategy.
+    if preparedPatches[patch] then return patch end
 
     for _, key in ipairs(PATCH_TABLE_KEYS) do
         if type(patch[key]) ~= "table" then
@@ -190,6 +198,7 @@ function State.GetPatchDB(patchTag)
     end
 
     patch.favorites = NormalizeFavoritesTable(patch.favorites)
+    preparedPatches[patch] = true
 
     return patch
 end

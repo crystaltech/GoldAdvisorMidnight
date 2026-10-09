@@ -128,8 +128,13 @@ local function GetRecipeOutputItemIDForQuality(recipeID, quality)
     quality = tonumber(quality)
     local api = C_TradeSkillUI and C_TradeSkillUI.GetRecipeOutputItemData
     if recipeID and quality and quality >= 1 and type(api) == "function" then
-        local ok, outputInfo = pcall(api, recipeID, {}, nil, quality)
-        local itemID = ok and type(outputInfo) == "table" and tonumber(outputInfo.itemID) or nil
+        local itemID
+        if GAM.ItemInfoCache then
+            itemID = GAM.ItemInfoCache.RecipeOutputItem(api, recipeID, quality)
+        else
+            local ok, outputInfo = pcall(api, recipeID, {}, nil, quality)
+            itemID = ok and type(outputInfo) == "table" and tonumber(outputInfo.itemID) or nil
+        end
         if itemID and itemID > 0 then return itemID end
     end
     local itemIDs = GetRecipeQualityItemIDs(recipeID)

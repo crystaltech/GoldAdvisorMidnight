@@ -69,7 +69,7 @@ Equip a gear set, open any recipe of that profession, and use `Save MC` or `Save
 
 Once saved, the button reads `Update MC` / `Update Res`. Green means you are wearing that set; orange means your equipped gear differs. Hover it to see the saved items and when they were saved. Click it with new gear equipped to replace the set.
 
-A saved set fills in its own stats: whenever the profession window is open and you are wearing that set, GAM keeps that set's exact Multicraft and Resourcefulness for every strategy recipe. Wear each set once with the profession open after saving it, and again after spending knowledge points. Sets saved by older versions don't need saving again; wear them once with the profession open. With `Auto`, GAM compares your sets recipe by recipe, usually picking Multicraft for recipes that have Multicraft and Resourcefulness for the ones that don't (salvage, enchants, gear).
+A saved set fills in its own stats: whenever the profession window is open and you are wearing that set, GAM keeps that set's exact Multicraft and Resourcefulness for every strategy recipe of that profession, including recipes that character hasn't learned yet. Wear each set once with the profession open after saving it, and again after spending knowledge points. Sets saved by older versions don't need saving again; wear them once with the profession open. With `Auto`, GAM compares your sets recipe by recipe, usually picking Multicraft for recipes that have Multicraft and Resourcefulness for the ones that don't (salvage, enchants, gear).
 
 Stats read while Shattered Essence is active are not saved, and gear sets can't be saved during it, because its bonus lasts only minutes.
 

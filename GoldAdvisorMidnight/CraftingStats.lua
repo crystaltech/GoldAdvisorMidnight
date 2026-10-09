@@ -1195,6 +1195,7 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
         end
     end
 
+    local previousSource = state.source
     state.nodes = normalized
     state.source = source or "gam-native-nodes"
     state.capturedAt = GetCurrentTimestamp()
@@ -1212,6 +1213,9 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
     end
     if pricingChanged then
         TouchRevision(character, cache, ProfessionKey(profession))
+    elseif changed or previousSource ~= state.source then
+        -- Reused node summaries carry names and the source label.
+        Cache.TouchDisplayRevision()
     end
     if changed then
         NotifyProfessionNodeCapture(state.profession, state)
@@ -1242,7 +1246,10 @@ end
 -- stats. Runs in small batches. Skipped for another player's or a guild's
 -- profession, and while a temporary crafting buff is active. Salvage recipes
 -- show their stats only with an item selected, so they keep needing Refresh.
-local SWEEP_BATCH_SIZE = 8
+-- Reading a recipe's stats is costly in the client: at most this many per
+-- frame, and stop early once this much frame time is used.
+local SWEEP_BATCH_SIZE, SWEEP_FRAME_BUDGET_MS = 8, 4
+local function SweepClock() return debugprofilestop and debugprofilestop() or nil end
 local sweepGeneration = 0
 
 -- The profession window really is open. Before Blizzard's profession UI has
@@ -1281,6 +1288,7 @@ function Stats.SweepOpenProfession(onDone)
 
     sweepGeneration = sweepGeneration + 1
     local generation, index, saved, read, learnedChanged = sweepGeneration, 1, 0, 0, false
+    local spentMs, worstMs = 0, 0
     -- Any change this sweep makes (recipe stats, a worn gear set filling in)
     -- bumps the profession's revision; the list refreshes when it moved.
     local revisionBefore = Cache.GetProfessionRevision(ProfessionKey(def.name) or def.name)
@@ -1289,12 +1297,18 @@ function Stats.SweepOpenProfession(onDone)
     if type(character) == "table" then character.learnedRecipes = learnedRecipes end
     local function Finish(reason)
         if GAM.Log and GAM.Log.Debug then
-            GAM.Log.Debug("Stats sweep %s: %d recipes, %d read, %d updated%s", def.name, #queue, read, saved,
+            GAM.Log.Debug("Stats sweep %s: %d recipes, %d read, %d updated, %d ms (slowest frame %d ms)%s",
+                def.name, #queue, read, saved, math.floor(spentMs + 0.5), math.floor(worstMs + 0.5),
                 reason and (" (stopped: " .. reason .. ")") or "")
         end
         local revisionMoved = Cache.GetProfessionRevision(ProfessionKey(def.name) or def.name) ~= revisionBefore
         if saved > 0 or learnedChanged or revisionMoved then
             NotifyProfessionNodeCapture(def.name, { profession = def.name, source = "recipe-sweep" })
+        end
+        -- Chat (only this player sees it): say when new stats are in use.
+        if not reason and (saved > 0 or revisionMoved) and type(print) == "function" then
+            print("|cffff8800[GAM]|r " .. string.format((GAM.L and GAM.L["MSG_SWEEP_DONE"])
+                or "%s stats updated for %d recipes.", def.name, read))
         end
         if type(onDone) == "function" then pcall(onDone, saved, read, reason) end
     end
@@ -1303,9 +1317,13 @@ function Stats.SweepOpenProfession(onDone)
         local open = ProfessionWindowShown() and GetOpenProfessionDef()
         if not open or open.name ~= def.name then return Finish("profession-closed") end
         if NativeCapture.ActiveTemporaryBuff(def.name) then return Finish("temporary-buff-active") end
+        local started = SweepClock()
+        -- The worn profession items, read once per batch (gear sets compare it).
+        local worn = queue[index] and Gear.ReadEquipment(queue[index].recipeID, queue[index].profileKey)
         for _ = 1, SWEEP_BATCH_SIZE do
             local item = queue[index]
             if not item then break end
+            if started and SweepClock() - started >= SWEEP_FRAME_BUDGET_MS then break end
             index = index + 1
             local okInfo, info = pcall(api.GetRecipeInfo, item.recipeID)
             -- Remembered per character so the strategy list can show what
@@ -1322,17 +1340,40 @@ function Stats.SweepOpenProfession(onDone)
                     read = read + 1
                     snapshot.profileKey, snapshot.profession = item.profileKey, def.name
                     snapshot.recipeName, snapshot.source = info.name, "native-open"
+                    snapshot.wornEquipment = worn
                     local ok, status = Stats.SaveSnapshot(snapshot, { preferVisibleStats = true, recipeOnly = true })
                     if ok and status == nil then saved = saved + 1 end
                 end
+            elseif okInfo and type(info) == "table" then
+                -- Not learned: Blizzard still reports its stats for the worn
+                -- gear. Only a worn gear set keeps them (never the character's
+                -- own captures), so a set saved on a recipe without one proc
+                -- doesn't price this recipe's proc at zero.
+                local snapshot = Stats.ReadRecipeBaseStats(item.recipeID)
+                if snapshot and (snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil) then
+                    read = read + 1
+                    snapshot.profileKey, snapshot.profession = item.profileKey, def.name
+                    snapshot.wornEquipment = worn
+                    pcall(Gear.StoreRecipeStats, snapshot)
+                end
             end
+        end
+        if started then
+            local ms = SweepClock() - started
+            spentMs, worstMs = spentMs + ms, math.max(worstMs, ms)
         end
         if not queue[index] then return Finish(nil) end
         if C_Timer and type(C_Timer.After) == "function" then
-            C_Timer.After(0.05, Step)
+            C_Timer.After(0, Step)
         else
             return Step()
         end
+    end
+    -- Chat (only this player sees it): reading recipes can briefly cost
+    -- frame time, so say what GAM is doing.
+    if queue[1] and type(print) == "function" then
+        print("|cffff8800[GAM]|r " .. string.format((GAM.L and GAM.L["MSG_SWEEP_START"])
+            or "Updating your %s stats for pricing...", def.name))
     end
     Step()
     return true, nil

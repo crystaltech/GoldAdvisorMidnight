@@ -311,13 +311,18 @@ end
 -- made the first Posting visit price hundreds of strategies in one frame.
 -- Those rows start unticked, so the value only adds warnings and a price
 -- floor; the tab redraws once the batch is done.
-local BREAK_EVEN_PER_FRAME = 6
+-- One item can have several strategies (ranks), so a frame also stops once
+-- it has spent its time budget (always at least one item).
+local BREAK_EVEN_PER_FRAME, BREAK_EVEN_FRAME_MS = 6, 12
 local breakEvenFill = { queue = {}, queued = {}, next = 1, running = false }
 local function FillBreakEvens()
     local fill = breakEvenFill
-    for _ = 1, BREAK_EVEN_PER_FRAME do
+    local clock = type(debugprofilestop) == "function" and debugprofilestop or nil
+    local started = clock and clock()
+    for done = 1, BREAK_EVEN_PER_FRAME do
         local itemID = fill.queue[fill.next]
         if not itemID then break end
+        if done > 1 and started and clock() - started >= BREAK_EVEN_FRAME_MS then break end
         fill.next = fill.next + 1
         fill.queued[itemID] = nil
         -- One failing item must not stop the rest (or leave the fill stuck).

@@ -798,8 +798,13 @@ local function ClearListMetricCache()
     bestStratCardDirty = true
 end
 
+-- While the list warms up (see Warm.Start), drawing and sorting use only
+-- estimates already worked out; the warmer prices the rest a few per frame.
+-- Warm.active, Warm.Start and Warm.NeedsWarm are defined above Build.
+local Warm = { active = false, generation = 0, budgetMs = 6, maxPerFrame = 4 }
 local function GetListMetric(strat)
     if not strat then return nil end
+    if Warm.active then return (listMetricCache:Peek(strat, filterPatch, BuildListMetricSignature())) end
     return listMetricCache:Get(strat, filterPatch, BuildListMetricSignature())
 end
 
@@ -1050,9 +1055,19 @@ local function FinalizeBuildOnShow(sb)
         sb:SetPoint("TOPRIGHT",    centerPanel, "TOPRIGHT",    -6,  -scrollBarTopOffset)
         sb:SetPoint("BOTTOMRIGHT", centerPanel, "BOTTOMRIGHT", -6,  0)
         if leftPanel and leftPanel.refreshProfessions then leftPanel.refreshProfessions() end
+        -- Opening the window: show the list at once and price what is missing
+        -- over the next frames instead of in this one.
+        Warm.active = Warm.NeedsWarm()
         RebuildList()
         MainWindow.RefreshRows()
         RefreshBestStratCard()
+        if Warm.active then
+            Warm.Start(function()
+                RebuildList()
+                MainWindow.RefreshRows()
+                RefreshBestStratCard()
+            end)
+        end
         if leftPanel and leftPanel.refreshRankDropdown then
             leftPanel.refreshRankDropdown()
         end
@@ -1380,6 +1395,7 @@ RebuildList = function()
         isFavorite = IsFavorite,
         getMetric = function(strat)
             if not strat then return nil end
+            if Warm.active then return (listMetricCache:Peek(strat, filterPatch, signature)) end
             return listMetricCache:Get(strat, filterPatch, signature)
         end,
         getSaleRate = function(strat)
@@ -2754,6 +2770,127 @@ local function BuildCenterContent(L, C, layout)
 end
 
 -- ===== Build =====
+-- ===== List warm-up =====
+-- Pricing one strategy can take several milliseconds in the client, so
+-- working out the whole list at once (opening the window, after a profession
+-- sweep or gear change) froze the game. The list shows at once with the
+-- estimates already known; missing or outdated ones are priced within a small
+-- time budget per frame, visible rows first, and the list re-sorts when done.
+function Warm.Clock() return debugprofilestop and debugprofilestop() or nil end
+-- Debug diagnostics: the slowest strategies and how many crafting calls the
+-- client answered while GAM priced them. hooksecurefunc only observes calls
+-- (it never taints Blizzard's crafting UI); hooks go in once, at Debug level.
+Warm.watchedApi = { "GetCraftingOperationInfo", "GetRecipeSchematic", "GetRecipeInfo",
+    "GetRecipeQualityItemIDs", "GetRecipeCooldown", "GetItemReagentQualityByItemInfo",
+    "GetItemCraftedQualityByItemInfo", "GetRecipeOutputItemData" }
+function Warm.EnsureApiCounter()
+    if Warm.apiHooked or type(hooksecurefunc) ~= "function" or type(C_TradeSkillUI) ~= "table" then return end
+    Warm.apiHooked, Warm.apiCounts = true, {}
+    for _, name in ipairs(Warm.watchedApi) do
+        if type(C_TradeSkillUI[name]) == "function" then
+            pcall(hooksecurefunc, C_TradeSkillUI, name, function()
+                if Warm.counting then Warm.apiCounts[name] = (Warm.apiCounts[name] or 0) + 1 end
+            end)
+        end
+    end
+end
+
+function Warm.Start(onDone, round)
+    round = round or 1
+    Warm.generation = Warm.generation + 1
+    local generation = Warm.generation
+    -- Visible rows first, then every strategy the current filter shows.
+    local queue, queued = {}, {}
+    local function Add(strat)
+        if strat and strat.id and not queued[strat.id] then
+            queued[strat.id] = true
+            queue[#queue + 1] = strat
+        end
+    end
+    local visibleRows = GetVisibleListRows and GetVisibleListRows() or 20
+    for i = 1, visibleRows do Add(filteredList[scrollOffset + i]) end
+    for _, strat in ipairs(GAM.Importer.GetAllStrats(filterPatch) or {}) do
+        if StratMatchesFilter(strat) then Add(strat) end
+    end
+    Warm.active = true
+    local index, priced, spent, startedAll = 1, 0, 0, Warm.Clock()
+    local diagnose = GAM.Log and GAM.Log.Enabled and GAM.Log.Enabled("DEBUG")
+    local slowest = {}
+    if diagnose then
+        Warm.EnsureApiCounter()
+        Warm.apiCounts = {}
+    end
+    local function Finish()
+        -- Stats changed again while warming (another sweep, a gear swap):
+        -- warm again rather than pricing the rest in one frame. A few rounds
+        -- at most, then the refresh runs regardless.
+        if round < 4 and Warm.NeedsWarm() then return Warm.Start(onDone, round + 1) end
+        Warm.active = false
+        if GAM.Log and GAM.Log.Debug then
+            local detail = ""
+            if diagnose then
+                table.sort(slowest, function(a, b) return a.ms > b.ms end)
+                local parts, calls = {}, {}
+                for i = 1, math.min(3, #slowest) do
+                    parts[#parts + 1] = string.format("%s %d ms", tostring(slowest[i].name), math.floor(slowest[i].ms + 0.5))
+                end
+                for name, count in pairs(Warm.apiCounts or {}) do calls[#calls + 1] = { name, count } end
+                table.sort(calls, function(a, b) return a[2] > b[2] end)
+                for i = 1, #calls do calls[i] = calls[i][1] .. " " .. calls[i][2] end
+                detail = string.format("; slowest: %s; crafting calls: %s",
+                    #parts > 0 and table.concat(parts, ", ") or "-", #calls > 0 and table.concat(calls, ", ") or "-")
+            end
+            GAM.Log.Debug("List warm-up: %d strategies priced, %d ms of frame time over %d ms%s",
+                priced, math.floor(spent + 0.5), math.floor(((Warm.Clock() or 0) - (startedAll or 0)) + 0.5), detail)
+        end
+        if type(onDone) == "function" then onDone() end
+    end
+    local function Step()
+        if generation ~= Warm.generation then return end
+        -- Hidden: stop; the next show warms what is still missing.
+        if not (frame and frame:IsShown()) then Warm.active = false; return end
+        local started, done = Warm.Clock(), 0
+        local signature = BuildListMetricSignature()
+        while queue[index] and done < Warm.maxPerFrame do
+            local strat = queue[index]
+            index = index + 1
+            local _, fresh = listMetricCache:Peek(strat, filterPatch, signature)
+            if not fresh then
+                local t0 = diagnose and Warm.Clock()
+                Warm.counting = diagnose and true or false
+                listMetricCache:Get(strat, filterPatch, signature)
+                Warm.counting = false
+                if t0 then slowest[#slowest + 1] = { name = strat.stratName, ms = Warm.Clock() - t0 } end
+                priced, done = priced + 1, done + 1
+                if started and Warm.Clock() - started >= Warm.budgetMs then break end
+            end
+        end
+        if started then spent = spent + (Warm.Clock() - started) end
+        if done > 0 and Warm.active then MainWindow.RefreshRows() end
+        if queue[index] and C_Timer and C_Timer.After then
+            C_Timer.After(0, Step)
+        elseif queue[index] then
+            Step()
+        else
+            Finish()
+        end
+    end
+    Step()
+end
+
+-- True when some strategy the filter shows has no current estimate.
+function Warm.NeedsWarm()
+    local signature = BuildListMetricSignature()
+    for _, strat in ipairs(GAM.Importer.GetAllStrats(filterPatch) or {}) do
+        -- Strategies without an ID are never cached, so never wait for them.
+        if strat.id and StratMatchesFilter(strat) then
+            local _, fresh = listMetricCache:Peek(strat, filterPatch, signature)
+            if not fresh then return true end
+        end
+    end
+    return false
+end
+
 local function Build()
     local L = GetL()
     local C = GAM.C
@@ -2910,9 +3047,18 @@ function MainWindow.ApplyTheme()
     end
 end
 
-local function RefreshAll(repriceEverything)
+local function RefreshAll(repriceEverything, warmed)
     if not frame then return end
     if repriceEverything then ClearListMetricCache() end
+    -- Show the list at once, then price what is missing a few per frame and
+    -- finish this refresh once that is done.
+    if not warmed and frame:IsShown() and Warm.NeedsWarm() then
+        Warm.active = true
+        RebuildList()
+        MainWindow.RefreshRows()
+        Warm.Start(function() RefreshAll(false, true) end)
+        return
+    end
     RebuildList()
     MainWindow.RefreshRows()
     RefreshBestStratCard()
