@@ -68,6 +68,7 @@ GAM.C = {
     MAX_RETRY            = 5,
     EVENT_PROCESS_DELAY  = 0.8,    -- wait after event before reading results
     AH_POLL_INTERVAL     = 0.35,   -- cache polling when Blizzard omits a result event
+    AH_PAGE_WAIT         = 3.0,    -- wait for a requested extra page of results
     AH_MAX_MORE_REQUESTS = 5,      -- bounded result-depth pagination per query
     SCAN_UI_REFRESH_INTERVAL = 5.0, -- while scanning, reprice changed visible rows at most this often
 

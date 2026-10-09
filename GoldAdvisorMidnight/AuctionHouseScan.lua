@@ -20,6 +20,11 @@ local RESULT_RETRY_DELAY  = GAM.C.RESULT_RETRY_DELAY
 local MAX_RETRY           = GAM.C.MAX_RETRY
 local EVENT_PROCESS_DELAY = GAM.C.EVENT_PROCESS_DELAY
 local POLL_INTERVAL       = GAM.C.AH_POLL_INTERVAL or 0.35
+-- A requested extra page normally arrives within a fraction of a second. When
+-- Blizzard says there is more but sends nothing (seen for salvage parts whose
+-- needed depth exceeds the market), waiting the full result wait cost about
+-- ten seconds per item; the rows already read are used after this instead.
+local PAGE_WAIT           = GAM.C.AH_PAGE_WAIT or 3.0
 local MAX_MORE_REQUESTS   = GAM.C.AH_MAX_MORE_REQUESTS or 5
 
 local Results = assert(GAM.AuctionHouseResults, "AuctionHouseResults must load before AuctionHouseScan")
@@ -365,7 +370,7 @@ local function RequestMoreIfNeeded(entry, attempt, resultType, rows)
     -- instead of asking again, for up to the result wait.
     if entry.awaitingPage and full ~= true then
         if entry.rowCount == entry.awaitingFrom then
-            if GetTime() - entry.awaitingSince < (RESULT_WAIT or 5) then
+            if GetTime() - entry.awaitingSince < math.min(PAGE_WAIT, RESULT_WAIT or PAGE_WAIT) then
                 SchedulePendingPoll(entry, attempt, POLL_INTERVAL)
                 return true, false
             end
