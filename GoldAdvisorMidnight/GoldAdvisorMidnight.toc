@@ -1,8 +1,8 @@
-## Interface: 120100
+## Interface: 120100, 120105
 ## Title: Gold Advisor Midnight
 ## Category: Professions
 ## Notes: Compare Midnight crafting profits with live Auction House prices.
-## Version: 2.3.2
+## Version: 2.3.3
 ## Author: Celaida
 ## SavedVariables: GoldAdvisorMidnightDB
 ## DefaultState: enabled
@@ -22,6 +22,7 @@ Data\SpecializationData\Midnight\Inscription.lua
 Data\SpecializationData\Midnight\Jewelcrafting.lua
 Data\SpecializationData\Midnight\Leatherworking.lua
 Data\SpecializationData\Midnight\Tailoring.lua
+Data\RecipeCapabilities.lua
 Constants.lua
 CommodityCatalog.lua
 StrategyModel.lua

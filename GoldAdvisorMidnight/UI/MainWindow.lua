@@ -221,13 +221,14 @@ local compactActive   = false -- tracks whether compact mode layout is currently
 local fullWindowGeometry = nil
 local resizeGrip = nil
 local suppressFrameRelayout = false
+local StatsStamp -- defined with the scan helpers below
 local listMetricCache = StrategyListModel.NewMetricCache(function(strat, patchTag)
     local facade = GAM.PricingFacade
     if not (facade and facade.CalculateCurrent) then
         return nil, "pricing-facade-unavailable"
     end
     return facade.CalculateCurrent(strat, patchTag)
-end)
+end, function(strat) return StatsStamp and StatsStamp(strat) or nil end)
 local bestStratCardDirty = true
 local builtThemeKey   = nil
 local scrollBarTopOffset = LIST_TOP_PAD + 4
@@ -279,8 +280,12 @@ local function AddMetricSignaturePart(parts, key, value)
 end
 
 local function GetCraftingStatsRevision()
-    if GAM.CraftingStats and type(GAM.CraftingStats.GetRevision) == "function" then
-        return GAM.CraftingStats.GetRevision()
+    local stats = GAM.CraftingStats
+    if stats and type(stats.GetSharedRevision) == "function" then
+        return stats.GetSharedRevision()
+    end
+    if stats and type(stats.GetRevision) == "function" then
+        return stats.GetRevision()
     end
     return 0
 end
@@ -341,6 +346,59 @@ local function ItemsForStrategy(strat)
     scanItemsByStrat[key] = set
     return set
 end
+-- Professions whose crafting stats a strategy's estimate depends on: its own
+-- and every profession that crafts one of its materials (intermediates).
+-- A stats change in one profession then reprices only those strategies.
+local producerProfessionsByItem, professionsByStrat, professionsKey = nil, {}, nil
+local function StrategyProfessions(strat)
+    local opts = GetOpts()
+    local key = table.concat({ tostring(filterPatch), tostring(opts.pigmentCostSource),
+        tostring(opts.boltCostSource), tostring(opts.ingotCostSource) }, ":")
+    if key ~= professionsKey then
+        producerProfessionsByItem, professionsByStrat, professionsKey = nil, {}, key
+    end
+    local stratKey = strat.id or strat
+    local list = professionsByStrat[stratKey]
+    if list then return list end
+    if not producerProfessionsByItem then
+        producerProfessionsByItem = {}
+        for _, other in ipairs(GAM.Importer.GetAllStrats(filterPatch) or {}) do
+            local function Mark(item)
+                for _, id in ipairs(item and item.itemIDs or {}) do
+                    producerProfessionsByItem[id] = producerProfessionsByItem[id] or {}
+                    producerProfessionsByItem[id][other.profession or "?"] = true
+                end
+            end
+            Mark(other.output)
+            for _, output in ipairs(other.outputs or {}) do Mark(output) end
+        end
+    end
+    local seen = {}
+    list = {}
+    local function Add(profession)
+        if profession and not seen[profession] then
+            seen[profession] = true
+            list[#list + 1] = profession
+        end
+    end
+    Add(strat.profession)
+    for id in pairs(ItemsForStrategy(strat)) do
+        for profession in pairs(producerProfessionsByItem[id] or {}) do Add(profession) end
+    end
+    professionsByStrat[stratKey] = list
+    return list
+end
+
+StatsStamp = function(strat)
+    local stats = GAM.CraftingStats
+    if not (stats and stats.GetProfessionRevision) then return nil end
+    local sum = 0
+    for _, profession in ipairs(StrategyProfessions(strat)) do
+        sum = sum + stats.GetProfessionRevision(profession)
+    end
+    return sum
+end
+
 local function StrategyUsesAny(strat, items)
     for id in pairs(ItemsForStrategy(strat)) do
         if items[id] then return true end
@@ -362,6 +420,7 @@ local function BuildListMetricSignature()
     AddMetricSignaturePart(parts, "pigment", opts.pigmentCostSource or "ah")
     AddMetricSignaturePart(parts, "bolt", opts.boltCostSource or "ah")
     AddMetricSignaturePart(parts, "ingot", opts.ingotCostSource or "ah")
+    -- Profession-scoped stats changes are stamped per strategy instead.
     AddMetricSignaturePart(parts, "statsRev", GetCraftingStatsRevision())
     -- Prices and owned materials: metrics recalculate only when these change,
     -- so filtering, sorting and profession switches reuse computed values.
@@ -674,6 +733,7 @@ local function BuildDiscordPopup(L)
     local title = discordPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", discordPopup, "TOP", 0, -14)
     title:SetText((L and L["DISCORD_TITLE"]) or "Discord")
+    discordPopup._gamTitle = title
 
     local closeX = CreateFrame("Button", nil, discordPopup, "UIPanelCloseButton")
     closeX:SetPoint("TOPRIGHT", discordPopup, "TOPRIGHT", -4, -4)
@@ -739,8 +799,13 @@ local function ClearListMetricCache()
     bestStratCardDirty = true
 end
 
+-- While the list warms up (see Warm.Start), drawing and sorting use only
+-- estimates already worked out; the warmer prices the rest a few per frame.
+-- Warm.active, Warm.Start and Warm.NeedsWarm are defined above Build.
+local Warm = { active = false, generation = 0, budgetMs = 6, maxPerFrame = 4 }
 local function GetListMetric(strat)
     if not strat then return nil end
+    if Warm.active then return (listMetricCache:Peek(strat, filterPatch, BuildListMetricSignature())) end
     return listMetricCache:Get(strat, filterPatch, BuildListMetricSignature())
 end
 
@@ -849,8 +914,20 @@ local function BuildFrameHeader(L, HDR_PX)
     if comfortable and Common.StyleComfortableButton then
         Common.StyleComfortableButton(compactBtn, false)
     end
+    -- Settings had no button in the window (only /gam settings or the
+    -- minimap icon), though the guide sends players there.
+    local settingsBtn = CreateFrame("Button", nil, frame)
+    settingsBtn:SetSize(22, 22); settingsBtn:SetPoint("RIGHT", compactBtn, "LEFT", -6, 0)
+    settingsBtn:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
+    settingsBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    settingsBtn:SetScript("OnClick", function()
+        if GAM.Settings and GAM.Settings.OpenPanel then GAM.Settings.OpenPanel() end
+    end)
+    AttachButtonTooltip(settingsBtn, (GAM.L and GAM.L["TT_SETTINGS_TITLE"]) or "Settings",
+        (GAM.L and GAM.L["TT_SETTINGS_BODY"]) or "Open GAM's settings (/gam settings).")
+    frame.settingsButton = settingsBtn
     local paneButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    paneButton:SetSize(80, 24); paneButton:SetPoint("RIGHT", compactBtn, "LEFT", -6, 0)
+    paneButton:SetSize(80, 24); paneButton:SetPoint("RIGHT", settingsBtn, "LEFT", -6, 0)
     paneButton:SetText((GAM.L and GAM.L["UI_HIDE_PANE"] or "Hide pane"))
     paneButton:SetScript("OnClick", function()
         if not workspace then return end
@@ -991,9 +1068,19 @@ local function FinalizeBuildOnShow(sb)
         sb:SetPoint("TOPRIGHT",    centerPanel, "TOPRIGHT",    -6,  -scrollBarTopOffset)
         sb:SetPoint("BOTTOMRIGHT", centerPanel, "BOTTOMRIGHT", -6,  0)
         if leftPanel and leftPanel.refreshProfessions then leftPanel.refreshProfessions() end
+        -- Opening the window: show the list at once and price what is missing
+        -- over the next frames instead of in this one.
+        Warm.active = Warm.NeedsWarm()
         RebuildList()
         MainWindow.RefreshRows()
         RefreshBestStratCard()
+        if Warm.active then
+            Warm.Start(function()
+                RebuildList()
+                MainWindow.RefreshRows()
+                RefreshBestStratCard()
+            end)
+        end
         if leftPanel and leftPanel.refreshRankDropdown then
             leftPanel.refreshRankDropdown()
         end
@@ -1312,11 +1399,18 @@ RebuildList = function()
     -- exactly once (O(n)) rather than once per comparison pair (O(n log n)).
     -- Fixes severe FPS drop on second scan when the price cache is populated
     -- and ComputePriceForQty runs the full order-book simulation per call.
+    -- One signature for the whole build: sorting asks for metrics once per
+    -- comparison, and rebuilding the signature each time dominated refreshes.
+    local signature = BuildListMetricSignature()
     filteredList = StrategyListModel.BuildVisibleList({
         strategies = all,
         matches = StratMatchesFilter,
         isFavorite = IsFavorite,
-        getMetric = GetListMetric,
+        getMetric = function(strat)
+            if not strat then return nil end
+            if Warm.active then return (listMetricCache:Peek(strat, filterPatch, signature)) end
+            return listMetricCache:Get(strat, filterPatch, signature)
+        end,
         getSaleRate = function(strat)
             local result = GetListMetric(strat)
             return GAM.TSMSaleRate and GAM.TSMSaleRate.ForOutputs(result and result.outputs)
@@ -1527,6 +1621,7 @@ local function CaptureGearSet(mode)
             ["no-open-native-recipe"] = L["ERR_GEAR_NO_RECIPE"],
             ["profession-equipment-unavailable"] = L["ERR_GEAR_EQUIPMENT"],
             ["recipe-stats-unavailable"] = L["ERR_GEAR_STATS"],
+            ["temporary-buff-active"] = L["ERR_TEMP_BUFF_ACTIVE"],
         }
         GAM.Log.Warn("Gear: save %s set failed: %s", tostring(mode), tostring(err))
         print("|cffff8800[GAM]|r " .. (messages[err] or string.format(
@@ -2688,6 +2783,127 @@ local function BuildCenterContent(L, C, layout)
 end
 
 -- ===== Build =====
+-- ===== List warm-up =====
+-- Pricing one strategy can take several milliseconds in the client, so
+-- working out the whole list at once (opening the window, after a profession
+-- sweep or gear change) froze the game. The list shows at once with the
+-- estimates already known; missing or outdated ones are priced within a small
+-- time budget per frame, visible rows first, and the list re-sorts when done.
+function Warm.Clock() return debugprofilestop and debugprofilestop() or nil end
+-- Debug diagnostics: the slowest strategies and how many crafting calls the
+-- client answered while GAM priced them. hooksecurefunc only observes calls
+-- (it never taints Blizzard's crafting UI); hooks go in once, at Debug level.
+Warm.watchedApi = { "GetCraftingOperationInfo", "GetRecipeSchematic", "GetRecipeInfo",
+    "GetRecipeQualityItemIDs", "GetRecipeCooldown", "GetItemReagentQualityByItemInfo",
+    "GetItemCraftedQualityByItemInfo", "GetRecipeOutputItemData" }
+function Warm.EnsureApiCounter()
+    if Warm.apiHooked or type(hooksecurefunc) ~= "function" or type(C_TradeSkillUI) ~= "table" then return end
+    Warm.apiHooked, Warm.apiCounts = true, {}
+    for _, name in ipairs(Warm.watchedApi) do
+        if type(C_TradeSkillUI[name]) == "function" then
+            pcall(hooksecurefunc, C_TradeSkillUI, name, function()
+                if Warm.counting then Warm.apiCounts[name] = (Warm.apiCounts[name] or 0) + 1 end
+            end)
+        end
+    end
+end
+
+function Warm.Start(onDone, round)
+    round = round or 1
+    Warm.generation = Warm.generation + 1
+    local generation = Warm.generation
+    -- Visible rows first, then every strategy the current filter shows.
+    local queue, queued = {}, {}
+    local function Add(strat)
+        if strat and strat.id and not queued[strat.id] then
+            queued[strat.id] = true
+            queue[#queue + 1] = strat
+        end
+    end
+    local visibleRows = GetVisibleListRows and GetVisibleListRows() or 20
+    for i = 1, visibleRows do Add(filteredList[scrollOffset + i]) end
+    for _, strat in ipairs(GAM.Importer.GetAllStrats(filterPatch) or {}) do
+        if StratMatchesFilter(strat) then Add(strat) end
+    end
+    Warm.active = true
+    local index, priced, spent, startedAll = 1, 0, 0, Warm.Clock()
+    local diagnose = GAM.Log and GAM.Log.Enabled and GAM.Log.Enabled("DEBUG")
+    local slowest = {}
+    if diagnose then
+        Warm.EnsureApiCounter()
+        Warm.apiCounts = {}
+    end
+    local function Finish()
+        -- Stats changed again while warming (another sweep, a gear swap):
+        -- warm again rather than pricing the rest in one frame. A few rounds
+        -- at most, then the refresh runs regardless.
+        if round < 4 and Warm.NeedsWarm() then return Warm.Start(onDone, round + 1) end
+        Warm.active = false
+        if GAM.Log and GAM.Log.Debug then
+            local detail = ""
+            if diagnose then
+                table.sort(slowest, function(a, b) return a.ms > b.ms end)
+                local parts, calls = {}, {}
+                for i = 1, math.min(3, #slowest) do
+                    parts[#parts + 1] = string.format("%s %d ms", tostring(slowest[i].name), math.floor(slowest[i].ms + 0.5))
+                end
+                for name, count in pairs(Warm.apiCounts or {}) do calls[#calls + 1] = { name, count } end
+                table.sort(calls, function(a, b) return a[2] > b[2] end)
+                for i = 1, #calls do calls[i] = calls[i][1] .. " " .. calls[i][2] end
+                detail = string.format("; slowest: %s; crafting calls: %s",
+                    #parts > 0 and table.concat(parts, ", ") or "-", #calls > 0 and table.concat(calls, ", ") or "-")
+            end
+            GAM.Log.Debug("List warm-up: %d strategies priced, %d ms of frame time over %d ms%s",
+                priced, math.floor(spent + 0.5), math.floor(((Warm.Clock() or 0) - (startedAll or 0)) + 0.5), detail)
+        end
+        if type(onDone) == "function" then onDone() end
+    end
+    local function Step()
+        if generation ~= Warm.generation then return end
+        -- Hidden: stop; the next show warms what is still missing.
+        if not (frame and frame:IsShown()) then Warm.active = false; return end
+        local started, done = Warm.Clock(), 0
+        local signature = BuildListMetricSignature()
+        while queue[index] and done < Warm.maxPerFrame do
+            local strat = queue[index]
+            index = index + 1
+            local _, fresh = listMetricCache:Peek(strat, filterPatch, signature)
+            if not fresh then
+                local t0 = diagnose and Warm.Clock()
+                Warm.counting = diagnose and true or false
+                listMetricCache:Get(strat, filterPatch, signature)
+                Warm.counting = false
+                if t0 then slowest[#slowest + 1] = { name = strat.stratName, ms = Warm.Clock() - t0 } end
+                priced, done = priced + 1, done + 1
+                if started and Warm.Clock() - started >= Warm.budgetMs then break end
+            end
+        end
+        if started then spent = spent + (Warm.Clock() - started) end
+        if done > 0 and Warm.active then MainWindow.RefreshRows() end
+        if queue[index] and C_Timer and C_Timer.After then
+            C_Timer.After(0, Step)
+        elseif queue[index] then
+            Step()
+        else
+            Finish()
+        end
+    end
+    Step()
+end
+
+-- True when some strategy the filter shows has no current estimate.
+function Warm.NeedsWarm()
+    local signature = BuildListMetricSignature()
+    for _, strat in ipairs(GAM.Importer.GetAllStrats(filterPatch) or {}) do
+        -- Strategies without an ID are never cached, so never wait for them.
+        if strat.id and StratMatchesFilter(strat) then
+            local _, fresh = listMetricCache:Peek(strat, filterPatch, signature)
+            if not fresh then return true end
+        end
+    end
+    return false
+end
+
 local function Build()
     local L = GetL()
     local C = GAM.C
@@ -2823,6 +3039,8 @@ function MainWindow.OnScanComplete()
     end
 end
 
+if GAM.Log and GAM.Log.Timed then MainWindow.OnScanComplete = GAM.Log.Timed("Strategy list after scan", MainWindow.OnScanComplete) end
+
 function MainWindow.ApplyTheme()
     if not frame then
         return
@@ -2842,10 +3060,18 @@ function MainWindow.ApplyTheme()
     end
 end
 
-function MainWindow.Refresh()
+local function RefreshAll(repriceEverything, warmed)
     if not frame then return end
-    -- Explicit refresh (settings applied, data reloaded): reprice everything.
-    ClearListMetricCache()
+    if repriceEverything then ClearListMetricCache() end
+    -- Show the list at once, then price what is missing a few per frame and
+    -- finish this refresh once that is done.
+    if not warmed and frame:IsShown() and Warm.NeedsWarm() then
+        Warm.active = true
+        RebuildList()
+        MainWindow.RefreshRows()
+        Warm.Start(function() RefreshAll(false, true) end)
+        return
+    end
     RebuildList()
     MainWindow.RefreshRows()
     RefreshBestStratCard()
@@ -2866,6 +3092,20 @@ function MainWindow.Refresh()
         end
     end
 end
+
+-- Explicit refresh (settings applied, data reloaded): reprice everything.
+function MainWindow.Refresh()
+    RefreshAll(true)
+end
+
+-- Crafting stats changed (profession sweep, gear set, nodes): reprice only
+-- the strategies whose professions changed; the cache stamps tell which.
+function MainWindow.RefreshStats()
+    RefreshAll(false)
+end
+
+if GAM.Log and GAM.Log.Timed then MainWindow.Refresh = GAM.Log.Timed("Strategy list full refresh", MainWindow.Refresh) end
+if GAM.Log and GAM.Log.Timed then MainWindow.RefreshStats = GAM.Log.Timed("Strategy list stats refresh", MainWindow.RefreshStats) end
 
 function MainWindow.Show()
     if not frame then Build() end
@@ -2911,7 +3151,7 @@ end
 if GAM.CraftingStats and GAM.CraftingStats.AddProfessionNodeCaptureListener then
     GAM.CraftingStats.AddProfessionNodeCaptureListener(function()
         if MainWindow.IsShown() then
-            MainWindow.Refresh()
+            MainWindow.RefreshStats()
         end
     end)
 end

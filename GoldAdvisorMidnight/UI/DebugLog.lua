@@ -81,6 +81,7 @@ local function BuildARPExportPopup()
     title:SetJustifyH("LEFT")
     title:SetText((GAM.L and GAM.L["BTN_ARP_EXPORT"]) or "ARP Export")
     title:SetTextColor(1, 0.82, 0, 1)
+    arpPopup._gamTitle = title
     arpPopupTitle = title
     local hint = arpPopup:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     hint:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
@@ -296,6 +297,7 @@ local function BuildLogPage(page, Layout, styleButton)
     })
     areaMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
     areaMenu:SetBackdropBorderColor(0.48, 0.40, 0.16, 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(areaMenu) end
     areaMenu:Hide()
     local areaRows = {}
     local function OpenAreaMenu()
@@ -584,6 +586,7 @@ Build = function()
     title:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -14)
     title:SetText(T("LOG_TITLE", "Debug Log"))
     title:SetTextColor(Layout.GOLD[1], Layout.GOLD[2], Layout.GOLD[3])
+    frame._gamTitle = title
     local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -4)
     closeBtn:SetScript("OnClick", function() frame:Hide() end)

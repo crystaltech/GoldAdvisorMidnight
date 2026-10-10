@@ -543,9 +543,12 @@ function QuickBuy.GetPresentation()
     local vendorEntry, offer = controller:GetVendorEntry()
     local entry = state.pendingEntry or (state.vendorPending and state.vendorPending.entry)
         or (context == "vendor" and vendorEntry) or (context ~= "vendor" and FirstEntry(list))
-    local title = context == "vendor" and L("WF_QUICK_BUY_VENDOR", "Quick Buy - Vendor") or L("WF_QUICK_BUY_AH", "Quick Buy - Auction House")
+    local title = context == "vendor" and L("WF_QUICK_BUY_VENDOR", "Quick Buy: Craft Queue - Vendor") or L("WF_QUICK_BUY_AH", "Quick Buy: Craft Queue - Auction House")
     local progress = L("WF_BUY_REMAINING", "%d remaining", #(list.entries or {}) + #(list.vendorEntries or {}))
-    local itemText = entry and (entry.name or tostring(entry.itemID)) or L("WF_NO_MATERIALS_HERE", "No materials needed here")
+    local listEmpty = #(list.entries or {}) == 0 and #(list.vendorEntries or {}) == 0
+    local itemText = entry and (entry.name or tostring(entry.itemID))
+        or (listEmpty and L("WF_QUICK_BUY_EMPTY_TITLE", "Your shopping list is empty"))
+        or L("WF_NO_MATERIALS_HERE", "No materials needed here")
     local quantity = entry and math.max(0, tonumber(entry.quantity) or 0) or 0
     local total = state.quoteTotalPrice or (entry and entry.unitPrice and quantity * entry.unitPrice)
     if context == "vendor" and offer and entry then
@@ -564,6 +567,11 @@ function QuickBuy.GetPresentation()
         label, message, enabled = (GAM.L and GAM.L["WF_PURCHASING"] or "Purchasing…"), (GAM.L and GAM.L["WF_WAIT_PURCHASE"] or "Waiting for purchase confirmation."), false
     elseif state.phase == "approval" then
         label, message = (GAM.L and GAM.L["WF_ACCEPT_PRICE"] or "Accept price"), (GAM.L and GAM.L["WF_REVIEW_PRICE"] or "Review the live total before buying.")
+    elseif not entry and listEmpty then
+        -- Quick Buy buys the Craft Queue's materials; with nothing queued,
+        -- say so instead of opening an empty window.
+        enabled = false
+        message = L("WF_QUICK_BUY_EMPTY", "Add strategies to the Craft Queue (Add to Queue in Details), then use Quick Buy at the Auction House or a vendor.")
     elseif not context then
         message = L("WF_VISIT_PURCHASE", "Visit a vendor or the Auction House.")
     elseif not entry then
@@ -618,7 +626,8 @@ RefreshContext = function(syncList)
             end
             window:Show()
         end
-    elseif window:IsShown() and (InlineVisible() or not context or idle) then
+    elseif window:IsShown() and (InlineVisible()
+            or ((not context or idle) and not window._gamUserOpened)) then
         window._gamDismissInProgress = true
         window:Hide()
         window._gamDismissInProgress = nil
@@ -646,6 +655,7 @@ local function BuildWindow()
     -- Initial hide precedes any callback that accesses the controls below.
     window:Hide()
     window:SetScript("OnHide", function(self)
+        self._gamUserOpened = nil
         if not self._gamDismissInProgress and not self._gamConfirmedComplete then
             dismissedContext = QuickBuy.GetContext()
             controller:Reset()
@@ -664,6 +674,7 @@ local function BuildWindow()
     refs.title = Field("GameFontNormal", -10)
     refs.title:ClearAllPoints(); refs.title:SetPoint("TOPLEFT", 12, -10)
     refs.title:SetTextColor(0.96, 0.82, 0.36, 1)
+    window._gamTitle = refs.title
     refs.progress = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     refs.progress:SetPoint("TOPRIGHT", -36, -11)
     local rule = window:CreateTexture(nil, "ARTWORK")
@@ -769,8 +780,8 @@ function QuickBuy.Init()
     events:SetScript("OnEvent", function(_, event)
         if event == "MERCHANT_SHOW" then vendorOpen = true; dismissedContext = nil end
         if event == "AUCTION_HOUSE_SHOW" then auctionOpen = true; dismissedContext = nil end
-        if event == "MERCHANT_CLOSED" then vendorOpen = false; controller:Reset() end
-        if event == "AUCTION_HOUSE_CLOSED" then auctionOpen = false; controller:Reset() end
+        if event == "MERCHANT_CLOSED" then vendorOpen = false; controller:Reset(); window._gamUserOpened = nil end
+        if event == "AUCTION_HOUSE_CLOSED" then auctionOpen = false; controller:Reset(); window._gamUserOpened = nil end
         if event == "BAG_UPDATE_DELAYED" then controller:OnVendorBagUpdate() end
         local function refresh()
             RefreshContext(true)
@@ -785,12 +796,18 @@ function QuickBuy.SetList(list)
     if controller then controller:SetList(list) end
 end
 
+-- Opened by the player: stays open (an empty list explains how to fill it)
+-- until closed or the vendor / Auction House closes. It used to hide again
+-- in the same click when nothing was left to buy here.
 function QuickBuy.Show()
     QuickBuy.Init()
     dismissedContext = nil
-    if not InlineVisible() then window:Show(); window:Raise() end
-    RefreshWindow()
-    if QuickBuy.GetContext() then RefreshContext(false) end
+    if not InlineVisible() then
+        window._gamUserOpened = true
+        window:Show(); window:Raise()
+    end
+    -- Rebuild from the Craft Queue so the list is current.
+    if QuickBuy.GetContext() then RefreshContext(true) else RefreshWindow() end
 end
 
 function QuickBuy.Toggle()

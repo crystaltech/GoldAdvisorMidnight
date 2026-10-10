@@ -117,6 +117,7 @@ function LeftPanelUI.Build(args)
         self:SetBackdropColor(0.035, 0.035, 0.035, 1)
     end)
     profMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(profMenu) end
     profMenu:Hide()
 
     local ddPool, profRows = {}, {}
@@ -344,6 +345,7 @@ function LeftPanelUI.Build(args)
     })
     rankMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
     rankMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(rankMenu) end
     rankMenu:Hide()
     panel:HookScript("OnHide", function() rankMenu:Hide() end)
 
@@ -411,6 +413,7 @@ function LeftPanelUI.Build(args)
     })
     gearMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
     gearMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(gearMenu) end
     gearMenu:Hide()
 
     local gearGap = 3
@@ -488,7 +491,9 @@ function LeftPanelUI.Build(args)
         if detail then
             AddTooltipLine(FormatSavedAge(detail.capturedAt), info)
             if detail.needsResave then
-                AddTooltipLine(Lx("GEAR_SET_RESAVE", "Save it again to use it."), GEAR_STALE_COLOR)
+                AddTooltipLine(string.format(Lx("GEAR_SET_FILL",
+                    "No stats for this recipe yet. Wear this set with %s open once to read them."),
+                    profession), GEAR_STALE_COLOR)
             end
             if detail.equipped == true then
                 AddTooltipLine(Lx("GEAR_SET_EQUIPPED", "You are wearing this set now."), GEAR_EQUIPPED_COLOR)
@@ -702,6 +707,7 @@ function LeftPanelUI.Build(args)
     })
     toolsMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
     toolsMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(toolsMenu) end
     toolsMenu:Hide()
 
     local menuBtnW = halfBtnW - 2
@@ -719,8 +725,10 @@ function LeftPanelUI.Build(args)
         return button
     end
 
+    -- Not the Shopping tab: an Auctionator shopping list for the selected
+    -- strategy, bought from Auctionator's own Shopping tab.
     selectedShoppingBtn = MakeToolsButton(
-        (L and L["BTN_SHOPPING_SHORT"]) or (GAM.L and GAM.L["WF_SHOPPING"] or "Shopping"), 1, 1, toggleShoppingSync)
+        (GAM.L and GAM.L["BTN_AUCTIONATOR_LIST"]) or "Auctionator List", 1, 1, toggleShoppingSync)
     local quickBuyBtn = MakeToolsButton(
         (L and L["BTN_QUICK_BUY_SHORT"]) or "Quick Buy", 2, 1, showQuickBuy)
     cooldownsBtn = MakeToolsButton(
@@ -729,11 +737,29 @@ function LeftPanelUI.Build(args)
         (L and L["BTN_CRAFTSIM_SHORT"]) or "CraftSim", 2, 2, pushSelectedToCraftSim)
     local btnARP = MakeToolsButton(
         (L and L["BTN_EXPORT_SHORT"]) or "Export", 1, 3, showARPExport)
-    local craftPlanBtn = MakeToolsButton((GAM.L and GAM.L["WF_QUEUE"] or "Craft Queue"), 2, 3, function()
-        if GAM.UI.CraftPlanWindow then GAM.UI.CraftPlanWindow.Show() end
+    -- The Craft Queue has its own tab; the log holds troubleshooting checks
+    -- and what Discord support asks for.
+    local debugLogBtn = MakeToolsButton((GAM.L and GAM.L["BTN_DEBUG_LOG"]) or "Debug Log", 2, 3, function()
+        if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.Show then GAM.UI.DebugLog.Show() end
     end)
     selectedCraftSimBtn:Disable()
     selectedShoppingBtn:Disable()
+    -- Disabled buttons still explain themselves (missing addon, no strategy).
+    for _, button in ipairs({ selectedShoppingBtn, selectedCraftSimBtn }) do
+        if button.SetMotionScriptsWhileDisabled then button:SetMotionScriptsWhileDisabled(true) end
+    end
+    attachButtonTooltip(
+        selectedShoppingBtn,
+        (GAM.L and GAM.L["TT_AUCTIONATOR_LIST_TITLE"]) or "Auctionator Shopping List",
+        (GAM.L and GAM.L["TT_AUCTIONATOR_LIST_BODY"])
+            or "Creates an Auctionator shopping list with the selected strategy's materials and keeps it updated as your bags change. Buy from it in Auctionator's Shopping tab at the Auction House. Click again to stop updating it. Needs Auctionator.\n\nFor your Craft Queue's materials, use Quick Buy."
+    )
+    attachButtonTooltip(
+        debugLogBtn,
+        (GAM.L and GAM.L["BTN_DEBUG_LOG"]) or "Debug Log",
+        (GAM.L and GAM.L["TT_DEBUG_LOG_BODY"])
+            or "GAM's log and Troubleshooting checks (/gam log). Copy it when asking for help on Discord."
+    )
     attachButtonTooltip(
         quickBuyBtn,
         (L and L["TT_QUICK_BUY_TITLE"]) or "Quick Buy",
@@ -805,6 +831,7 @@ function LeftPanelUI.Build(args)
         scanMenu:SetBackdrop(profMenu:GetBackdrop())
         scanMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
         scanMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+        if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(scanMenu) end
         scanMenu:Hide()
         local scanRows = {}
         panel.scanMenuRows = scanRows
@@ -1037,7 +1064,7 @@ function LeftPanelUI.Build(args)
         local toolButtons = {
             { selectedShoppingBtn, 1, 1 }, { quickBuyBtn, 2, 1 },
             { cooldownsBtn, 1, 2 }, { selectedCraftSimBtn, 2, 2 },
-            { btnARP, 1, 3 }, { craftPlanBtn, 2, 3 },
+            { btnARP, 1, 3 }, { debugLogBtn, 2, 3 },
         }
         for _, entry in ipairs(toolButtons) do
             entry[1]:SetParent(toolsMenu)
@@ -1051,7 +1078,7 @@ function LeftPanelUI.Build(args)
         for _, button in ipairs({
             ddProf, moreToolsBtn,
             ddRank, gearPlanBtn, selectedShoppingBtn, quickBuyBtn, cooldownsBtn,
-            selectedCraftSimBtn, selectedScanBtn, btnARP, craftPlanBtn,
+            selectedCraftSimBtn, selectedScanBtn, btnARP, debugLogBtn,
             captureButtons.multicraft, captureButtons.resourcefulness,
         }) do
             styleButton(button, false)

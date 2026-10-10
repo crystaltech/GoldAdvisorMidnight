@@ -45,11 +45,28 @@ local EnsureCache = Cache.Ensure
 local TouchRevision = Cache.TouchRevision
 local SnapshotMateriallyEqual = Cache.SnapshotMateriallyEqual
 
+function Stats.GetSharedRevision()
+    return Cache.GetSharedRevision()
+end
+
+function Stats.GetProfessionRevision(profession)
+    return Cache.GetProfessionRevision(profession)
+end
+
 function Stats.GetRevision()
     return Cache.GetRevision()
 end
 
 local ResolveProfessionDef = Specialization.ResolveProfessionDef
+
+-- The profession a stats change belongs to (by name or by stat profile),
+-- so only strategies depending on it are repriced. nil = shared change.
+local function ProfessionKey(profession, profileKey)
+    local def = ResolveProfessionDef(profession)
+        or ResolveProfessionDef(profileKey and Specialization.GetProfessionForProfile(profileKey))
+    return def and def.name or nil
+end
+
 local GetSpecializationCatalog = Specialization.GetCatalog
 local ClampRank = Specialization.ClampRank
 local GetCatalogNode = Specialization.GetCatalogNode
@@ -90,10 +107,17 @@ local function GetProfileKeyForStrat(strat)
     return strat.statProfileKey or strat.formulaProfile
 end
 
-local function GetProfileDefaults(profileKey, opts)
+local function GetProfileDefaults(profileKey, opts, recipeID)
     local profile = profileKey and GetFormulaProfiles()[profileKey] or nil
     local supportsMulticraft = profile and profile.multiKey ~= nil or false
     local supportsResourcefulness = profile and profile.resKey ~= nil or false
+    -- The shipped table only removes procs a recipe lacks; a profile with no
+    -- default chance for a proc has nothing sensible to add.
+    local capability = recipeID and GAM.RecipeCapabilities and GAM.RecipeCapabilities[tonumber(recipeID)]
+    if type(capability) == "string" then
+        supportsMulticraft = supportsMulticraft and capability:find("M", 1, true) ~= nil
+        supportsResourcefulness = supportsResourcefulness and capability:find("R", 1, true) ~= nil
+    end
 
     local multiValue = supportsMulticraft and tonumber(opts and opts[profile.multiKey]) or nil
     local resValue = supportsResourcefulness and tonumber(opts and opts[profile.resKey]) or nil
@@ -279,15 +303,28 @@ local function ApplySnapshotToDefaults(defaults, snapshot, statSource, fallbackR
         result.nodeCount = snapshot.nodeCount
     end
 
-    if snapshot.supportsMulticraft ~= nil then
-        result.supportsMulticraft = snapshot.supportsMulticraft and true or false
+    -- A capture that read this recipe's stats but saw no chance for a proc
+    -- means the recipe lacks it. Captures saved before 2.3.3 left the flag
+    -- unset whenever Ingenuity or Crafting Speed was listed, which let the
+    -- workbook default chance leak in. Manual entries may omit fields on
+    -- purpose, and a profile snapshot describes some other recipe.
+    local supportsMulticraft = snapshot.supportsMulticraft
+    local supportsResourcefulness = snapshot.supportsResourcefulness
+    if statSource ~= "manual" and fallbackReason ~= "profile-visible-stats-only"
+            and (snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil) then
+        if supportsMulticraft == nil then supportsMulticraft = snapshot.multiPercent ~= nil end
+        if supportsResourcefulness == nil then supportsResourcefulness = snapshot.resPercent ~= nil end
+    end
+
+    if supportsMulticraft ~= nil then
+        result.supportsMulticraft = supportsMulticraft and true or false
         if not result.supportsMulticraft then
             result.multiPercent = 0
             result.multiExtra = 0
         end
     end
-    if snapshot.supportsResourcefulness ~= nil then
-        result.supportsResourcefulness = snapshot.supportsResourcefulness and true or false
+    if supportsResourcefulness ~= nil then
+        result.supportsResourcefulness = supportsResourcefulness and true or false
         if not result.supportsResourcefulness then
             result.resPercent = 0
             result.resExtra = 0
@@ -493,6 +530,11 @@ local GetOpenProfessionDef = NativeCapture.GetOpenProfessionDef
 local GetOpenNativeProfessionNodeRanks = NativeCapture.GetOpenProfessionNodeRanks
 
 function Stats.SaveSnapshot(snapshot, saveOptions)
+    if type(snapshot) == "table" and snapshot.temporaryBuff then
+        return false, "temporary-buff-active"
+    end
+    -- Worn items that match a saved gear set fill that set's stats too.
+    pcall(Gear.StoreRecipeStats, snapshot)
     local normalized = CopySnapshot(snapshot)
     if not normalized or not normalized.profileKey then
         return false, "missing-profile"
@@ -526,15 +568,18 @@ function Stats.SaveSnapshot(snapshot, saveOptions)
         end
     end
 
-    if ShouldPreserveExistingSnapshot(character.profiles[normalized.profileKey], normalized) then
+    -- recipeOnly (the profession sweep) skips the profile entry: recipes that
+    -- share a stat profile would overwrite each other's on every sweep.
+    local recipeOnly = saveOptions and saveOptions.recipeOnly
+    if not recipeOnly and ShouldPreserveExistingSnapshot(character.profiles[normalized.profileKey], normalized) then
         preservedExisting = true
-    elseif not SnapshotMateriallyEqual(character.profiles[normalized.profileKey], normalized) then
+    elseif not recipeOnly and not SnapshotMateriallyEqual(character.profiles[normalized.profileKey], normalized) then
         character.profiles[normalized.profileKey] = CopySnapshot(normalized)
         changed = true
     end
 
     if changed then
-        TouchRevision(character, cache)
+        TouchRevision(character, cache, ProfessionKey(normalized.profession, normalized.profileKey))
         return true, nil
     end
     if preservedExisting then
@@ -558,7 +603,7 @@ function Stats.SetManualProfile(profileKey, values)
     manual.capturedAt = GetCurrentTimestamp()
     if not SnapshotMateriallyEqual(character.manualProfiles[profileKey], manual) then
         character.manualProfiles[profileKey] = manual
-        TouchRevision(character, cache)
+        TouchRevision(character, cache, ProfessionKey(nil, profileKey))
     end
     return true, nil
 end
@@ -705,16 +750,20 @@ function Stats.CaptureOpenRecipeAsGearPreset(mode)
     if not snapshot or not snapshot.recipeID then
         return nil, "no-open-native-recipe"
     end
+    if snapshot.temporaryBuff then return nil, "temporary-buff-active" end
     local set, err, linked = Gear.CaptureSet(snapshot, mode)
     if not set then return nil, err end
     Stats.SaveSnapshot(snapshot)
+    -- Read every other strategy recipe with these items on, so the new set
+    -- has exact stats everywhere right away.
+    pcall(Stats.SweepOpenProfession)
     return set, nil, linked
 end
 
 function Stats.ReadPlannedOperation(recipeID, allocation, targetGUID)
     local snapshot, operation = NativeCapture.GetOperationSnapshot(recipeID, allocation, targetGUID)
     if snapshot then
-        local defaults = GetProfileDefaults(snapshot.profileKey, (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {})
+        local defaults = GetProfileDefaults(snapshot.profileKey, (GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {}, recipeID)
         snapshot.multiExtra, snapshot.resExtra = defaults.multiExtra, defaults.resExtra
         if snapshot.supportsMulticraft == false then snapshot.multiExtra = 0 end
         if snapshot.supportsResourcefulness == false then snapshot.resExtra = 0 end
@@ -797,6 +846,39 @@ end
 
 function Stats.PlayerHasProfession(profession)
     return PlayerHasProfession(profession)
+end
+
+-- Whether this character can craft a strategy's recipe, for the strategy
+-- list. state: "learned", "not-learned" (from the last profession sweep),
+-- "no-profession", or nil when this character's profession has not been
+-- opened since. learnedBy lists other characters known to have learned it.
+function Stats.GetRecipeKnowledge(strat)
+    local recipeID = NormalizeRecipeID(strat and strat.recipeID)
+    if not recipeID then return nil end
+    local character, currentUID, cache = EnsureCache()
+    local key = tostring(recipeID)
+    local result = { learnedBy = {}, characterName = type(character) == "table" and character.name or nil }
+    -- nil until this character's profession has been opened: never read a
+    -- missing table as "not learned".
+    local own = nil
+    if type(character) == "table" and type(character.learnedRecipes) == "table" then
+        own = character.learnedRecipes[key]
+    end
+    if PlayerHasProfession(strat.profession) == false then
+        result.state = "no-profession"
+    elseif own == true then
+        result.state = "learned"
+    elseif own == false then
+        result.state = "not-learned"
+    end
+    for uid, other in pairs(type(cache) == "table" and cache.characters or {}) do
+        if uid ~= currentUID and type(other) == "table" and type(other.learnedRecipes) == "table"
+                and other.learnedRecipes[key] == true then
+            result.learnedBy[#result.learnedBy + 1] = other.name or uid
+        end
+    end
+    table.sort(result.learnedBy)
+    return result
 end
 
 function Stats.GetCachedCraftersForStrat(strat)
@@ -1113,6 +1195,7 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
         end
     end
 
+    local previousSource = state.source
     state.nodes = normalized
     state.source = source or "gam-native-nodes"
     state.capturedAt = GetCurrentTimestamp()
@@ -1129,13 +1212,180 @@ function Stats.CaptureProfessionNodes(profession, nodes, source, meta)
         state.meta = CopySerializableTable(meta)
     end
     if pricingChanged then
-        TouchRevision(character, cache)
+        TouchRevision(character, cache, ProfessionKey(profession))
+    elseif changed or previousSource ~= state.source then
+        -- Reused node summaries carry names and the source label.
+        Cache.TouchDisplayRevision()
     end
     if changed then
         NotifyProfessionNodeCapture(state.profession, state)
     end
 
     return CopySerializableTable(state), nil
+end
+
+-- Base-reagent stats for any recipe of the open profession, selected or not.
+function Stats.ReadRecipeBaseStats(recipeID)
+    local snapshot = { recipeID = NormalizeRecipeID(recipeID) }
+    if not snapshot.recipeID then return nil end
+    local operation, schematic = NativeCapture.ReadBaseRecipeStats(snapshot)
+    if not operation then return nil end
+    return snapshot, operation, schematic
+end
+
+function Stats.GetOpenNativeRecipeSnapshot()
+    return GetOpenNativeRecipeSnapshot()
+end
+
+function Stats.ActiveTemporaryBuff(profession)
+    return NativeCapture.ActiveTemporaryBuff(profession)
+end
+
+-- Reads every strategy recipe of the open profession without selecting it and
+-- saves each like Refresh Recipe, so pricing uses this character's real
+-- stats. Runs in small batches. Skipped for another player's or a guild's
+-- profession, and while a temporary crafting buff is active. Salvage recipes
+-- show their stats only with an item selected, so they keep needing Refresh.
+-- Reading a recipe's stats is costly in the client: at most this many per
+-- frame, and stop early once this much frame time is used.
+local SWEEP_BATCH_SIZE, SWEEP_FRAME_BUDGET_MS = 8, 4
+local function SweepClock() return debugprofilestop and debugprofilestop() or nil end
+local sweepGeneration = 0
+
+-- The profession window really is open. Before Blizzard's profession UI has
+-- loaded there is no frame, and the client may still name a last profession.
+local function ProfessionWindowShown()
+    if type(ProfessionsFrame) ~= "table" then return false end
+    if type(ProfessionsFrame.IsShown) ~= "function" then return true end
+    local ok, shown = pcall(ProfessionsFrame.IsShown, ProfessionsFrame)
+    return ok and shown and true or false
+end
+
+function Stats.SweepOpenProfession(onDone)
+    if not ProfessionWindowShown() then return false, "profession-closed" end
+    local def = GetOpenProfessionDef()
+    if not def then return false, "no-open-profession" end
+    local api = C_TradeSkillUI
+    if not (api and api.GetRecipeInfo and GAM.Importer and GAM.Importer.GetStratsByProfession) then
+        return false, "profession-api-unavailable"
+    end
+    for _, check in ipairs({ "IsTradeSkillLinked", "IsTradeSkillGuild", "IsNPCCrafting" }) do
+        if type(api[check]) == "function" then
+            local ok, result = pcall(api[check])
+            if ok and result then return false, "not-own-profession" end
+        end
+    end
+    if NativeCapture.ActiveTemporaryBuff(def.name) then return false, "temporary-buff-active" end
+
+    local queue, seen = {}, {}
+    for _, strat in ipairs(GAM.Importer.GetStratsByProfession(def.name) or {}) do
+        local recipeID, profileKey = NormalizeRecipeID(strat.recipeID), GetProfileKeyForStrat(strat)
+        if recipeID and profileKey and not seen[recipeID] then
+            seen[recipeID] = true
+            queue[#queue + 1] = { recipeID = recipeID, profileKey = profileKey }
+        end
+    end
+
+    sweepGeneration = sweepGeneration + 1
+    local generation, index, saved, read, learnedChanged = sweepGeneration, 1, 0, 0, false
+    local spentMs, worstMs = 0, 0
+    -- Any change this sweep makes (recipe stats, a worn gear set filling in)
+    -- bumps the profession's revision; the list refreshes when it moved.
+    local revisionBefore = Cache.GetProfessionRevision(ProfessionKey(def.name) or def.name)
+    local character = EnsureCache()
+    local learnedRecipes = type(character) == "table" and character.learnedRecipes or {}
+    if type(character) == "table" then character.learnedRecipes = learnedRecipes end
+    local function Finish(reason)
+        if GAM.Log and GAM.Log.Debug then
+            GAM.Log.Debug("Stats sweep %s: %d recipes, %d read, %d updated, %d ms (slowest frame %d ms)%s",
+                def.name, #queue, read, saved, math.floor(spentMs + 0.5), math.floor(worstMs + 0.5),
+                reason and (" (stopped: " .. reason .. ")") or "")
+        end
+        local revisionMoved = Cache.GetProfessionRevision(ProfessionKey(def.name) or def.name) ~= revisionBefore
+        if saved > 0 or learnedChanged or revisionMoved then
+            NotifyProfessionNodeCapture(def.name, { profession = def.name, source = "recipe-sweep" })
+        end
+        -- Chat (only this player sees it): say when new stats are in use.
+        if not reason and (saved > 0 or revisionMoved) and type(print) == "function" then
+            print("|cffff8800[GAM]|r " .. string.format((GAM.L and GAM.L["MSG_SWEEP_DONE"])
+                or "%s stats updated for %d recipes.", def.name, read))
+        end
+        if type(onDone) == "function" then pcall(onDone, saved, read, reason) end
+    end
+    local function Step()
+        if generation ~= sweepGeneration then return end
+        local open = ProfessionWindowShown() and GetOpenProfessionDef()
+        if not open or open.name ~= def.name then return Finish("profession-closed") end
+        if NativeCapture.ActiveTemporaryBuff(def.name) then return Finish("temporary-buff-active") end
+        local started = SweepClock()
+        -- The worn profession items, read once per batch (gear sets compare it).
+        local worn = queue[index] and Gear.ReadEquipment(queue[index].recipeID, queue[index].profileKey)
+        for _ = 1, SWEEP_BATCH_SIZE do
+            local item = queue[index]
+            if not item then break end
+            if started and SweepClock() - started >= SWEEP_FRAME_BUDGET_MS then break end
+            index = index + 1
+            local okInfo, info = pcall(api.GetRecipeInfo, item.recipeID)
+            -- Remembered per character so the strategy list can show what
+            -- this character cannot craft, and who can.
+            if okInfo and type(info) == "table" then
+                local learned, key = info.learned and true or false, tostring(item.recipeID)
+                if learnedRecipes[key] ~= learned then
+                    learnedRecipes[key], learnedChanged = learned, true
+                end
+            end
+            if okInfo and type(info) == "table" and info.learned then
+                local snapshot = Stats.ReadRecipeBaseStats(item.recipeID)
+                if snapshot and (snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil) then
+                    read = read + 1
+                    snapshot.profileKey, snapshot.profession = item.profileKey, def.name
+                    snapshot.recipeName, snapshot.source = info.name, "native-open"
+                    snapshot.wornEquipment = worn
+                    local ok, status = Stats.SaveSnapshot(snapshot, { preferVisibleStats = true, recipeOnly = true })
+                    if ok and status == nil then saved = saved + 1 end
+                end
+            elseif okInfo and type(info) == "table" then
+                -- Not learned: Blizzard still reports its stats for the worn
+                -- gear. Only a worn gear set keeps them (never the character's
+                -- own captures), so a set saved on a recipe without one proc
+                -- doesn't price this recipe's proc at zero.
+                local snapshot = Stats.ReadRecipeBaseStats(item.recipeID)
+                if snapshot and (snapshot.multiPercent ~= nil or snapshot.resPercent ~= nil) then
+                    read = read + 1
+                    snapshot.profileKey, snapshot.profession = item.profileKey, def.name
+                    snapshot.wornEquipment = worn
+                    pcall(Gear.StoreRecipeStats, snapshot)
+                end
+            end
+        end
+        if started then
+            local ms = SweepClock() - started
+            spentMs, worstMs = spentMs + ms, math.max(worstMs, ms)
+        end
+        if not queue[index] then return Finish(nil) end
+        if C_Timer and type(C_Timer.After) == "function" then
+            C_Timer.After(0, Step)
+        else
+            return Step()
+        end
+    end
+    -- Chat (only this player sees it): reading recipes can briefly cost
+    -- frame time, so say what GAM is doing.
+    if queue[1] and type(print) == "function" then
+        print("|cffff8800[GAM]|r " .. string.format((GAM.L and GAM.L["MSG_SWEEP_START"])
+            or "Updating your %s stats for pricing...", def.name))
+    end
+    Step()
+    return true, nil
+end
+
+function Stats.GetOpenProfessionTraitContext()
+    local def = GetOpenProfessionDef()
+    return def and NativeCapture.GetProfessionTraitContext(def.name) or nil
+end
+
+function Stats.CollectProfessionTraitNodeIDs(context)
+    return NativeCapture.CollectProfessionTraitNodeIDs(context)
 end
 
 function Stats.CaptureOpenProfessionNodes(profession)
@@ -1174,7 +1424,7 @@ function Stats.SetManualNodeRank(profession, nodeID, rank, season)
     state.manualOverrides = state.manualOverrides or {}
     state.manualOverrides[tonumber(nodeID)] = ClampRank(rank, node.maxRank)
     state.manualUpdatedAt = GetCurrentTimestamp()
-    TouchRevision(character, cache)
+    TouchRevision(character, cache, ProfessionKey(profession))
     return true, nil
 end
 
@@ -1199,7 +1449,7 @@ function Stats.ResetProfessionNodesToCaptured(profession, season)
     end
     state.manualOverrides = {}
     state.manualUpdatedAt = GetCurrentTimestamp()
-    TouchRevision(character, cache)
+    TouchRevision(character, cache, ProfessionKey(profession))
     return true, nil
 end
 
@@ -1226,7 +1476,7 @@ function Stats.ResetProfessionNodesToDefaults(profession, season)
         end
     end
     state.manualUpdatedAt = GetCurrentTimestamp()
-    TouchRevision(character, cache)
+    TouchRevision(character, cache, ProfessionKey(profession))
     return true, nil
 end
 
@@ -1369,11 +1619,49 @@ if type(CreateFrame) == "function" then
         end
     end
 
+    -- Recipe stats: one sweep per profession each time the window opens, and
+    -- again after gear or specialization changes while it stays open. The
+    -- delay lets the recipe list load and folds a gear swap into one sweep.
+    nodeCaptureFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+    -- A reopen within a few minutes reuses the last reading; gear or
+    -- specialization changes (even with the window closed) force a new one.
+    local SWEEP_REUSE_SECONDS = 300
+    local sweptAt, sweepTimer = {}, 0
+    local function scheduleSweep(force)
+        if force then sweptAt = {} end
+        if not (C_Timer and type(C_Timer.After) == "function") then return end
+        sweepTimer = sweepTimer + 1
+        local generation = sweepTimer
+        C_Timer.After(1.0, function()
+            if generation ~= sweepTimer then return end
+            if type(ProfessionsFrame) == "table" and type(ProfessionsFrame.IsShown) == "function" then
+                local okShown, shown = pcall(ProfessionsFrame.IsShown, ProfessionsFrame)
+                if okShown and not shown then return end
+            end
+            local def = GetOpenProfessionDef()
+            local now = GetTime and GetTime() or 0
+            if not def or (sweptAt[def.name] and now - sweptAt[def.name] < SWEEP_REUSE_SECONDS) then return end
+            if C_TradeSkillUI and type(C_TradeSkillUI.IsDataSourceChanging) == "function" then
+                local okChanging, changing = pcall(C_TradeSkillUI.IsDataSourceChanging)
+                if okChanging and changing then return scheduleSweep(false) end
+            end
+            if Stats.SweepOpenProfession() then sweptAt[def.name] = now end
+        end)
+    end
+
     nodeCaptureFrame:SetScript("OnEvent", function(_, event)
         if event == "TRADE_SKILL_CLOSE" then
             captureGeneration = captureGeneration + 1
+            sweepTimer = sweepTimer + 1
             return
         end
+        if event == "PLAYER_EQUIPMENT_CHANGED" then
+            -- With the window closed, the next open reads the new gear.
+            sweptAt = {}
+            if GetOpenProfessionDef() then scheduleSweep(true) end
+            return
+        end
+        scheduleSweep(event == "TRAIT_CONFIG_UPDATED")
         if not captureOpenProfession() then
             scheduleRetry()
         end

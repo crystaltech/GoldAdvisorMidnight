@@ -595,6 +595,16 @@ local function BuildPanel()
     AddRow(content, L["OPT_MANUAL_PRICES_CLEAR"], btnClearManualPrices, nil, 170)
     RefreshManualPriceCount()
 
+    -- CraftSim: optional price overrides after each scan (off by default).
+    MakeSectionHeader(content, L["SETTINGS_SECTION_CRAFTSIM"])
+    local cbCraftSimPush = MakeCheckbox(content, L["OPT_CRAFTSIM_AUTO_PUSH"], L["OPT_CRAFTSIM_AUTO_PUSH_TIP"])
+    cbCraftSimPush:SetChecked(opts.craftSimAutoPush == true)
+    local craftSimBridge = GAM.CraftSimBridge
+    local craftSimInstalled = craftSimBridge and craftSimBridge.CanPushPrices and craftSimBridge.CanPushPrices()
+    cbCraftSimPush:SetEnabled(craftSimInstalled and true or false)
+    AddText(content, craftSimInstalled and L["OPT_CRAFTSIM_AUTO_PUSH_NOTE"]
+        or (L["OPT_CRAFTSIM_NOT_INSTALLED"] .. " " .. L["OPT_CRAFTSIM_AUTO_PUSH_NOTE"]))
+
     -- ── Posting ────────────────────────────────────────────────────────────
     FinalizeContentLayout()
     content = pages.posting.content
@@ -1476,6 +1486,7 @@ local function BuildPanel()
         if GAM.Pricing and GAM.Pricing.SetKeepManualPrices then
             GAM.Pricing.SetKeepManualPrices(cbKeepManualPrices:GetChecked())
         end
+        currentOpts.craftSimAutoPush = cbCraftSimPush:GetChecked() and true or false
         local prevPosting = GAM.PostingModel.Options(currentOpts.posting)
         local function Slider(slider, fallback) return tonumber((slider:GetValue())) or fallback end
         currentOpts.posting = {
@@ -1537,6 +1548,7 @@ local function BuildPanel()
         ebGoldReserve:SetText(tostring(ClampReserve(o.goldReservePct)))
         cbManualPrices:SetChecked(o.manualPricesEnabled == true)
         cbKeepManualPrices:SetChecked(o.manualPricesKeep == true)
+        cbCraftSimPush:SetChecked(o.craftSimAutoPush == true)
         SyncManualPriceControls()
         RefreshManualPriceCount()
         local po = GAM.PostingModel.Options(o.posting)
@@ -1671,7 +1683,6 @@ function SettingsMod.Init()
         wbg:SetAllPoints()
         wbg:SetColorTexture(0.055, 0.055, 0.062, 1)
         wrapper._gamBackground = wbg
-        wrapper._gamIsSettingsFrame = true
         wrapper:Hide()
         WindowManager.Register(wrapper, "dialog")
 
@@ -1679,6 +1690,7 @@ function SettingsMod.Init()
         wTitle:SetPoint("TOPLEFT", wrapper, "TOPLEFT", 18, -14)
         wTitle:SetText(GAM.L["SETTINGS_NAME"])
         wTitle:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
+        wrapper._gamTitle = wTitle
 
         local wClose = CreateFrame("Button", nil, wrapper, "UIPanelCloseButton")
         wClose:SetPoint("TOPRIGHT", wrapper, "TOPRIGHT", -4, -4)

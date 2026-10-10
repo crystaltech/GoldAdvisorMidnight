@@ -33,16 +33,56 @@ local function CallItemInfoAPI(api, itemID)
     return nil
 end
 
--- Quality tiers are fixed per item. nil means "item data not loaded yet"
--- and is never cached, so a later call can still get the real answer.
+-- An empty answer may mean "data not loaded yet", so it is not kept for the
+-- session, but it is remembered for a short while: an item with no crafted
+-- rank, or a recipe without ranked outputs, always answers empty, and asking
+-- again on every call made one strategy cost tens of thousands of client
+-- calls (about 200 ms in game).
+local MISS_SECONDS = 30
+local MISS = {}
+local function Now() return type(GetTime) == "function" and GetTime() or nil end
+local function RecentMiss(store, key)
+    local miss = store[MISS] and store[MISS][key]
+    local now = Now()
+    return miss and now and now < miss or false
+end
+local function RememberMiss(store, key)
+    local now = Now()
+    if not now then return end
+    store[MISS] = store[MISS] or {}
+    store[MISS][key] = now + MISS_SECONDS
+end
+
+-- Quality tiers are fixed per item. nil means "no rank" or "item data not
+-- loaded yet": remembered briefly, so a later call can still get the answer.
 function Cache.ItemInfo(api, itemID)
     if type(api) ~= "function" or not itemID then return nil end
     local store = Store(api)
     local cached = store[itemID]
     if cached ~= nil then return cached end
+    if RecentMiss(store, itemID) then return nil end
     local value = CallItemInfoAPI(api, itemID)
-    if value ~= nil then store[itemID] = value end
+    if value ~= nil then store[itemID] = value else RememberMiss(store, itemID) end
     return value
+end
+
+-- The item a recipe makes at one crafted rank (GetRecipeOutputItemData) is
+-- fixed; an empty answer is remembered briefly like the others.
+function Cache.RecipeOutputItem(api, recipeID, quality)
+    if type(api) ~= "function" or not recipeID or not quality then return nil end
+    local store = Store(api)
+    local key = recipeID .. ":" .. quality
+    local cached = store[key]
+    if cached ~= nil then return cached end
+    if RecentMiss(store, key) then return nil end
+    local ok, outputInfo = pcall(api, recipeID, {}, nil, quality)
+    local itemID = ok and type(outputInfo) == "table" and tonumber(outputInfo.itemID) or nil
+    if itemID and itemID > 0 then
+        store[key] = itemID
+        return itemID
+    end
+    RememberMiss(store, key)
+    return nil
 end
 
 function Cache.RequestLoad(itemID)
@@ -77,14 +117,19 @@ function Cache.ProfessionInfoByRecipe(api, recipeID)
 end
 
 -- A recipe's ranked output item list is fixed. An empty answer (recipe data
--- still loading) is never kept. Callers must not modify the returned list.
+-- still loading, or no ranked outputs) is remembered only briefly. Callers
+-- must not modify the returned list.
 function Cache.RecipeList(api, recipeID)
     if type(api) ~= "function" or not recipeID then return nil end
     local store = Store(api)
     local cached = store[recipeID]
     if cached ~= nil then return cached end
+    if RecentMiss(store, recipeID) then return nil end
     local ok, list = pcall(api, recipeID)
-    if not ok or type(list) ~= "table" or #list == 0 then return nil end
+    if not ok or type(list) ~= "table" or #list == 0 then
+        RememberMiss(store, recipeID)
+        return nil
+    end
     store[recipeID] = list
     return list
 end
@@ -118,6 +163,10 @@ end
 -- Owned counts change with bags and banks, so they are shared only within
 -- one frame (one repricing pass) and dropped on any bag update.
 local countFrame, countGeneration, generation, counts = nil, nil, 0, {}
+-- Every item pricing has asked about, with the count it saw. A bag update
+-- moves the generation only when one of those counts changed, so swapping
+-- gear, looting or opening mail no longer reprices every strategy.
+local watched, bagsDirty = {}, false
 function Cache.OwnedCount(itemID, read)
     local now = type(GetTime) == "function" and GetTime() or nil
     if not now then return read(itemID) end
@@ -128,16 +177,40 @@ function Cache.OwnedCount(itemID, read)
     if cached == nil then
         cached = read(itemID)
         counts[itemID] = cached
+        -- A read after a bag update may be the first to see the change (a
+        -- detail panel priced before the list checked): move the generation
+        -- here too, or the list would keep the old profit.
+        local seen = watched[itemID]
+        if seen == nil then
+            watched[itemID] = { read = read, count = cached }
+        elseif seen.count ~= cached then
+            seen.count = cached
+            generation = generation + 1
+            countGeneration = generation
+        end
     end
     return cached
 end
 
 function Cache.InvalidateCounts()
-    generation = generation + 1
+    -- Read again on the next request; whether anything relevant changed is
+    -- decided when the generation is asked for.
+    counts, bagsDirty = {}, true
 end
 
--- Changes whenever bags or banks change; owned materials affect metrics.
+-- Changes when the owned count of an item pricing uses changed.
 function Cache.GetInventoryGeneration()
+    if bagsDirty then
+        bagsDirty = false
+        local changed = false
+        for itemID, entry in pairs(watched) do
+            local ok, count = pcall(entry.read, itemID)
+            if ok and count ~= entry.count then
+                entry.count, changed = count, true
+            end
+        end
+        if changed then generation = generation + 1 end
+    end
     return generation
 end
 

@@ -675,6 +675,24 @@ function Engine.Install(Pricing, deps)
         if baseYield <= 0 then return nil end
         local crafts = GetProducerCraftAllowance(state, producer, requiredQty / baseYield)
         if crafts <= 0 then return nil end
+        -- Each trial prices the intermediate's own chain, whose intermediates
+        -- choose again inside both trials, so a deep chain (rune <- ink <-
+        -- pigment) made the same decision many times. Within one price check
+        -- the same producer, craft count and chain state give the same answer.
+        -- Trials copy ctx shallowly, so they share this memo.
+        ctx.autoStatsMemo = ctx.autoStatsMemo or {}
+        -- The output item is part of the key: one recipe can appear at two
+        -- output ranks in one chain, with different prices and winners.
+        local memoParts = { tostring(producer.key), tostring(producer.outputItemID), string.format("%.4f", crafts) }
+        for _, map in ipairs({ state.activeProducerKeys or {}, state.producerCraftsRemaining or {} }) do
+            local keys = {}
+            for key, value in pairs(map) do keys[#keys + 1] = tostring(key) .. "=" .. tostring(value) end
+            table.sort(keys)
+            memoParts[#memoParts + 1] = table.concat(keys, ",")
+        end
+        local memoKey = table.concat(memoParts, "|")
+        local remembered = ctx.autoStatsMemo[memoKey]
+        if remembered then return snapshots[remembered] end
         local candidates = {}
         for _, mode in ipairs({ "multicraft", "resourcefulness" }) do
             local trial = CopyMap(ctx)
@@ -695,6 +713,7 @@ function Engine.Install(Pricing, deps)
             candidates[mode] = cost
         end
         local _, mode = Engine.SelectGearMetrics(candidates.multicraft, candidates.resourcefulness)
+        ctx.autoStatsMemo[memoKey] = mode
         return snapshots[mode]
     end
 

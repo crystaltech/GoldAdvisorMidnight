@@ -23,6 +23,7 @@ local AREAS = {
     Settings = "Settings",
     ["Craft Queue"] = "Queue", ["Craft Plan"] = "Queue",
     Diagnostics = "Diagnostics",
+    Posting = "Posting", Perf = "Performance",
 }
 Log.GENERAL_AREA = "General"
 
@@ -103,6 +104,50 @@ end
 function Log.Verbose(msg, ...)
     if level < CAPTURE_LEVEL.VERBOSE then return end
     emit("VERBOSE", msg, ...)
+end
+
+-- True when messages of this level ("DEBUG", "VERBOSE") are captured: check
+-- before building a costly message.
+function Log.Enabled(levelName)
+    return level >= (CAPTURE_LEVEL[levelName] or 0)
+end
+
+-- Plain-text gold for log lines: 183g 05s 00c (no colour codes).
+function Log.Money(copper)
+    copper = tonumber(copper)
+    if not copper then return "?" end
+    local sign = copper < 0 and "-" or ""
+    copper = math.floor(math.abs(copper) + 0.5)
+    return string.format("%s%dg %02ds %02dc", sign, math.floor(copper / 10000),
+        math.floor(copper % 10000 / 100), copper % 100)
+end
+
+-- "Weighted Boomshots R2 (257752)": name when the client has it, rank when known.
+function Log.Item(itemID)
+    if not itemID then return "?" end
+    local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID)
+    local rank = GAM.ItemRanks and GAM.ItemRanks[itemID]
+    return string.format("%s%s (%s)", name or "item", rank and (" R" .. rank) or "", tostring(itemID))
+end
+
+-- Verbose only: report work that took longer than a frame should. `started`
+-- is a debugprofilestop() value taken before the work.
+local SLOW_MS = 50
+function Log.Slow(label, started)
+    if level < CAPTURE_LEVEL.VERBOSE or not started or not debugprofilestop then return end
+    local ms = debugprofilestop() - started
+    if ms >= SLOW_MS then emit("VERBOSE", "Perf: %s took %d ms", label, math.floor(ms + 0.5)) end
+end
+
+-- Wraps a function that returns nothing so Verbose reports slow calls.
+-- Below Verbose it is a plain call.
+function Log.Timed(label, fn)
+    return function(...)
+        if level < CAPTURE_LEVEL.VERBOSE or not debugprofilestop then return fn(...) end
+        local started = debugprofilestop()
+        fn(...)
+        Log.Slow(label, started)
+    end
 end
 
 -- Ordered list of current entries (oldest → newest).

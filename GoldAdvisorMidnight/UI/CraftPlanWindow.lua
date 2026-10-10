@@ -194,7 +194,11 @@ local function LayoutRows()
     scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), math.max(0, offset - scroll:GetHeight())))
 end
 function UI.Refresh()
-    if not window or not window:IsShown() or busyRefresh then return end
+    -- Embedded in the GAM window, the panel keeps its own shown flag while
+    -- another tab (or a closed window) hides it: refresh only when on screen,
+    -- or a bag update could switch from Details to the Craft Queue.
+    local onScreen = window and (embedded and window:IsVisible() or (not embedded and window:IsShown()))
+    if not onScreen or busyRefresh then return end
     -- Inventory events must not recycle the row underneath a quantity draft.
     -- The next action commits the draft and then uses the newly rendered queue.
     if editing then return end
@@ -618,7 +622,7 @@ local function Build(parent)
     end
     window:Hide()
     title = Text(window, "GameFontNormalLarge"); title:SetPoint("TOPLEFT", 16, -16)
-    if embedded then title:Hide() end
+    if embedded then title:Hide() else window._gamTitle = title end
     local close = CreateFrame("Button", nil, window, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", -1, -1)
     if embedded then close:Hide() end
     close:SetScript("OnClick", function() window:Hide() end)
@@ -678,7 +682,11 @@ function UI.Show(strat, patchTag)
 end
 function UI.Hide() if window then window:Hide() end end
 function UI.IsShown() return window and window:IsShown() or false end
-function UI.IsShoppingVisible() return embedded and viewMode == "shopping" and UI.IsShown() end
+-- On screen, not just shown: the embedded panel keeps its own shown flag after
+-- the GAM window closes, which kept Quick Buy hidden at the Auction House.
+function UI.IsShoppingVisible()
+    return embedded and viewMode == "shopping" and window and window:IsVisible() or false
+end
 function UI.Add(strat, patchTag)
     local workspace = GAM.UI.MainWindow and GAM.UI.MainWindow.OpenWorkspace
     if not workspace then Build() end

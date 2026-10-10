@@ -504,6 +504,9 @@ function UI.Refresh()
     button:SetEnabled(kind ~= nil and GAM.ahOpen and not posting.IsBusy())
 end
 
+-- Verbose reports slow redraws (Settings: Debug log > Capture level).
+if GAM.Log and GAM.Log.Timed then UI.Refresh = GAM.Log.Timed("Posting tab redraw", UI.Refresh) end
+
 function UI.Embed(parent)
     if host then return end
     host = CreateFrame("Frame", nil, parent)
@@ -561,7 +564,7 @@ function UI.Embed(parent)
     recheck:SetScript("OnClick", function() GAM.Posting.Recheck() end)
     Hover(recheck, function(self)
         Tip(self, L("PT_RECHECK", "Recheck"), nil, L("PT_TIP_RECHECK",
-            "Re-read your auctions and check the current prices of every item here. Prices are also checked automatically when the Auction House opens."))
+            "Re-read your auctions and check the current prices of the items here. Items scanned in the last 2 minutes are skipped unless you posted or cancelled them since. To have prices checked on their own, turn on Check prices automatically in Settings › Posting."))
     end)
     ahSection.caption:ClearAllPoints()
     ahSection.caption:SetPoint("RIGHT", recheck, "LEFT", -8, 0)

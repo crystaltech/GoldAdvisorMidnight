@@ -31,7 +31,7 @@ function Resolution.Create(deps)
 local function ResolveForStrat(strat, opts)
     opts = opts or ((GAM.GetOptions and GAM:GetOptions()) or (GAM.db and GAM.db.options) or {})
     local profileKey = GetProfileKeyForStrat(strat)
-    local defaults = GetProfileDefaults(profileKey, opts)
+    local defaults = GetProfileDefaults(profileKey, opts, strat and strat.recipeID)
     local recipeID = NormalizeRecipeID(strat and strat.recipeID)
     local character, currentUID, cache = EnsureCache()
     local manualDefaults = defaults
@@ -92,6 +92,9 @@ local function ResolveForStrat(strat, opts)
         and GetCachedProfileSnapshot(character, profileKey)
         or nil
     local openSnapshot = GetOpenNativeRecipeSnapshot()
+    -- Stats shown under a temporary crafting buff last minutes; price with the
+    -- crafter's saved stats instead.
+    if type(openSnapshot) == "table" and openSnapshot.temporaryBuff then openSnapshot = nil end
     local openMatchKind = GetSnapshotMatchKind(openSnapshot, strat, profileKey)
 
     -- CraftSim remains an optional exact-recipe/capability source. Hidden node

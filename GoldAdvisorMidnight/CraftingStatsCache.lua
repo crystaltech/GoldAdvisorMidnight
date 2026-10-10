@@ -118,9 +118,37 @@ function Cache.Ensure()
 end
 
 local runtimeRevision = 0
+-- Changes scoped to one profession (a recipe capture, its gear sets, its
+-- nodes) bump only that profession, so the strategy list reprices only the
+-- strategies that depend on it. Anything else bumps the shared revision.
+local sharedRevision, professionRevisions = 0, {}
 
-function Cache.TouchRevision(character, cache)
+-- Moves on every stats change of this session (cheap to read, no DB access).
+function Cache.GetRuntimeRevision()
+    return runtimeRevision
+end
+
+-- Node names or the source label changed without any rank: drops reused
+-- node summaries (shown in tooltips) without repricing anything.
+function Cache.TouchDisplayRevision()
     runtimeRevision = runtimeRevision + 1
+end
+
+function Cache.GetSharedRevision()
+    return sharedRevision
+end
+
+function Cache.GetProfessionRevision(profession)
+    return professionRevisions[profession] or 0
+end
+
+function Cache.TouchRevision(character, cache, profession)
+    runtimeRevision = runtimeRevision + 1
+    if profession then
+        professionRevisions[profession] = (professionRevisions[profession] or 0) + 1
+    else
+        sharedRevision = sharedRevision + 1
+    end
     if type(cache) ~= "table" then
         cache = select(3, Cache.Ensure())
     end

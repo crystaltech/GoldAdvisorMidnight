@@ -634,6 +634,7 @@ local function Build()
     local bgTex = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     bgTex:SetAllPoints()
     bgTex:SetColorTexture(0.055, 0.055, 0.062, 1)
+    frame._gamBackground = bgTex -- recolored with the theme (appearance profiles)
     frame:Hide()
     WindowManager.Register(frame, "dialog")
 
@@ -642,6 +643,7 @@ local function Build()
     titleFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -10)
     titleFS:SetText(L["DETAIL_TITLE"])
     frame.titleFS = titleFS
+    frame._gamTitle = titleFS
 
     -- Thin gold underline below title
     local titleRule = frame:CreateTexture(nil, "ARTWORK")

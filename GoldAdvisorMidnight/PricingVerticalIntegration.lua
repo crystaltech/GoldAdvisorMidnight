@@ -291,11 +291,18 @@ PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputIt
             crafts = crafts,
             recipeView = active,
             highestOnly = policy == "highest",
+            -- Each rank at the cheaper of its own Auction House price and its
+            -- crafted cost. The crafted cost (intermediates on) is the same
+            -- for every rank of an ink or pigment, so on its own it priced
+            -- rank 1 inks like rank 2 and the mix used rank 2 for a rank 1
+            -- output. This only chooses the mix; its cost is worked out later.
             priceGetter = function(itemID, quantity)
-                return Pricing.GetEffectivePriceForItem({
-                    itemIDs = { itemID },
-                    rankPolicyOverride = "highest",
-                }, ctx.patchTag, quantity)
+                local item = { itemIDs = { itemID }, rankPolicyOverride = "highest" }
+                local derived, derivedStale = Pricing.GetEffectivePriceForItem(item, ctx.patchTag, quantity)
+                local direct, directStale = GetDirectEffectivePriceForItem(item, ctx.patchTag, quantity)
+                derived, direct = tonumber(derived), tonumber(direct)
+                if direct and (not derived or direct < derived) then return direct, directStale end
+                return derived, derivedStale
             end,
         })
     end

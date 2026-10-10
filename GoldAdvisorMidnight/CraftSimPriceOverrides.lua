@@ -134,6 +134,23 @@ function Overrides.Install(Bridge, deps)
         return nil
     end
 
+    -- One global (material) override, through CraftSim's repository when it
+    -- has one, else straight into its saved table.
+    local function SaveOverride(itemID, price)
+        CraftSimDB.priceOverrideDB = CraftSimDB.priceOverrideDB or {}
+        CraftSimDB.priceOverrideDB.data = CraftSimDB.priceOverrideDB.data or {}
+        local overrides = CraftSimDB.priceOverrideDB.data.globalOverrides or {}
+        CraftSimDB.priceOverrideDB.data.globalOverrides = overrides
+        local overrideData = { itemID = itemID, price = price }
+        local craftSim = GetCraftSimAddon()
+        local repo = craftSim and craftSim.DB and craftSim.DB.PRICE_OVERRIDE
+        if repo and type(repo.SaveGlobalOverride) == "function"
+                and pcall(function() repo:SaveGlobalOverride(overrideData) end) then
+            return
+        end
+        overrides[itemID] = overrideData
+    end
+
     -- PushStratPrices(strat, patchTag, metrics) -> pushed (number), err (string or nil)
     -- Writes direct AH-backed prices for this strat's active items into CraftSim
     -- global overrides, using CraftSim's override API when available.
@@ -150,35 +167,65 @@ function Overrides.Install(Bridge, deps)
             return 0, "canonical pricing unavailable"
         end
 
-        CraftSimDB.priceOverrideDB = CraftSimDB.priceOverrideDB or {}
-        CraftSimDB.priceOverrideDB.data = CraftSimDB.priceOverrideDB.data or {}
-        local overrides = CraftSimDB.priceOverrideDB.data.globalOverrides or {}
-        CraftSimDB.priceOverrideDB.data.globalOverrides = overrides
-
         local pushed = 0
         for _, entry in ipairs(BuildPushOverrideEntries(strat, patchTag, metrics)) do
-            local overrideData = {
-                itemID = entry.itemID,
-                price = entry.price,
-            }
-            local savedByAPI = false
-            local craftSim = GetCraftSimAddon()
-            local repo = craftSim
-                and craftSim.DB
-                and craftSim.DB.PRICE_OVERRIDE
-            if repo and type(repo.SaveGlobalOverride) == "function" then
-                local ok = pcall(function()
-                    repo:SaveGlobalOverride(overrideData)
-                end)
-                savedByAPI = ok and true or false
-            end
-            if not savedByAPI then
-                overrides[entry.itemID] = overrideData
-            end
+            SaveOverride(entry.itemID, entry.price)
             pushed = pushed + 1
         end
-
+        if pushed > 0 then Bridge.RefreshCraftSim() end
         return pushed, nil
+    end
+
+    -- CraftSim reads overrides whenever it prices a recipe; this is the event
+    -- its own Price Overrides window fires after a change, so the recipe on
+    -- screen is worked out again (others when they are opened).
+    function Bridge.RefreshCraftSim()
+        local craftSim = GetCraftSimAddon()
+        local gutil = craftSim and craftSim.GUTIL
+        if gutil and type(gutil.TriggerCustomEvent) == "function" then
+            pcall(gutil.TriggerCustomEvent, gutil, "CRAFTSIM_RECIPE_DATA_MODIFIED")
+        end
+    end
+
+    -- Settings > CraftSim (off by default): after a scan, send the material
+    -- prices that scan read. Only strategy materials; sale prices are left
+    -- to CraftSim. Overrides stay in CraftSim until replaced or cleared there.
+    function Bridge.OnScanComplete(pricedItems)
+        local opts = GetOpts and GetOpts() or {}
+        if opts.craftSimAutoPush ~= true or type(pricedItems) ~= "table" or not CraftSimDBAvailable() then
+            return 0
+        end
+        local materials = {}
+        for _, strat in ipairs(GAM.Importer and GAM.Importer.GetAllStrats and GAM.Importer.GetAllStrats() or {}) do
+            for _, reagent in ipairs(strat.reagents or {}) do
+                for _, id in ipairs(reagent.itemIDs or {}) do materials[id] = true end
+                for _, alternative in ipairs(reagent.cheapestOf or {}) do
+                    for _, id in ipairs(alternative.itemIDs or {}) do materials[id] = true end
+                end
+            end
+        end
+        local pushed = 0
+        for itemID in pairs(pricedItems) do
+            if materials[itemID] then
+                local price = GetDirectOverridePrice(itemID, GAM.C.DEFAULT_PATCH, GetOutputPushQty())
+                if price and price > 0 then
+                    SaveOverride(itemID, price)
+                    pushed = pushed + 1
+                end
+            end
+        end
+        if pushed > 0 then
+            Bridge.RefreshCraftSim()
+            if GAM.Log and GAM.Log.Info then GAM.Log.Info("CraftSim: sent %d material prices from this scan.", pushed) end
+            print("|cffff8800[GAM]|r " .. string.format((GAM.L and GAM.L["MSG_CRAFTSIM_AUTO_PUSHED"])
+                or "Sent %d material prices to CraftSim.", pushed))
+        end
+        return pushed
+    end
+
+    -- What PushStratPrices needs: CraftSim's saved data, not its full API.
+    function Bridge.CanPushPrices()
+        return CraftSimDBAvailable() and true or false
     end
 
     Bridge._BuildPushOverrideEntries = BuildPushOverrideEntries

@@ -483,6 +483,9 @@ function UI.Refresh()
     filterButton:SetText(fLabel and L(fLabel[1], fLabel[2]) or L("HT_EVERYTHING", "Everything"))
 end
 
+-- Verbose reports slow redraws (Settings: Debug log > Capture level).
+if GAM.Log and GAM.Log.Timed then UI.Refresh = GAM.Log.Timed("History tab redraw", UI.Refresh) end
+
 function UI.Embed(parent)
     if host then return end
     host = CreateFrame("Frame", nil, parent)

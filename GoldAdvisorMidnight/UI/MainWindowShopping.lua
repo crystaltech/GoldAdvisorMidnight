@@ -95,6 +95,9 @@ local function BuildAuctionatorShoppingPayload(strat, patchTag)
     }
 end
 
+-- An Auctionator list is bought in Auctionator. It no longer feeds Quick Buy,
+-- which always buys the Craft Queue (one strategy's list replaced the queue's
+-- there, so the same button bought different things).
 local function CreateAuctionatorShoppingList(strat, patchTag, quiet)
     local payload = BuildAuctionatorShoppingPayload(strat, patchTag)
     if not payload then return nil end
@@ -104,17 +107,6 @@ local function CreateAuctionatorShoppingList(strat, patchTag, quiet)
     end
 
     Auctionator.API.v1.CreateShoppingList(payload.addonName, payload.listName, payload.searchStrings)
-    local quickBuyList = {
-        listName = payload.listName,
-        entries = payload.items,
-        vendorEntries = payload.vendorItems,
-        signature = payload.signature,
-    }
-    if GAM.QuickBuy and GAM.QuickBuy.SetList then
-        GAM.QuickBuy.SetList(quickBuyList)
-    else
-        GAM.quickBuyList = quickBuyList
-    end
     if not quiet then
         print(string.format("|cffff8800[GAM]|r " .. GAM.L["MSG_AUCTIONATOR_CREATED"], payload.listName, #payload.searchStrings))
     end
@@ -126,9 +118,11 @@ local function DisableShoppingSync(silent)
     shoppingSync.stratID = nil
     shoppingSync.patchTag = nil
     shoppingSync.lastSignature = nil
+    shoppingSync.listName = nil
     shoppingSync.pending = false
     if shoppingSyncFrame then
         shoppingSyncFrame:UnregisterEvent("BAG_UPDATE_DELAYED")
+        shoppingSyncFrame:UnregisterEvent("AUCTION_HOUSE_SHOW")
         shoppingSyncFrame:UnregisterEvent("AUCTION_HOUSE_CLOSED")
     end
     if not silent then
@@ -138,10 +132,6 @@ end
 
 local function RefreshShoppingSync()
     if not shoppingSync.active then return end
-    -- A background refresh of one strategy must not replace the combined plan
-    -- or discard its purchase-confirmation callback. Explicit Shopping still
-    -- switches back to that strategy's list.
-    if GAM.quickBuyList and GAM.quickBuyList.craftPlan then return end
     local strat = shoppingSync.stratID and GAM.Importer.GetStratByID(shoppingSync.stratID) or nil
     if not strat then
         DisableShoppingSync(true)
@@ -158,17 +148,6 @@ local function RefreshShoppingSync()
     end
 
     Auctionator.API.v1.CreateShoppingList(payload.addonName, payload.listName, payload.searchStrings)
-    local quickBuyList = {
-        listName = payload.listName,
-        entries = payload.items,
-        vendorEntries = payload.vendorItems,
-        signature = payload.signature,
-    }
-    if GAM.QuickBuy and GAM.QuickBuy.SetList then
-        GAM.QuickBuy.SetList(quickBuyList)
-    else
-        GAM.quickBuyList = quickBuyList
-    end
     shoppingSync.lastSignature = payload.signature
     if type(deps.OnRefresh) == "function" then
         deps.OnRefresh()
@@ -186,6 +165,12 @@ local function EnsureShoppingSyncFrame()
                 shoppingSync.pending = false
                 RefreshShoppingSync()
             end)
+        elseif event == "AUCTION_HOUSE_SHOW" then
+            -- Say where the list is: Auctionator's tab, not GAM's Shopping tab.
+            if shoppingSync.active and shoppingSync.listName then
+                print("|cffff8800[GAM]|r " .. string.format(GAM.L["MSG_AUCTIONATOR_AT_AH"]
+                    or "Your Auctionator list '%s' is in Auctionator's Shopping tab.", shoppingSync.listName))
+            end
         elseif event == "AUCTION_HOUSE_CLOSED" then
             DisableShoppingSync(true)
         end
@@ -207,10 +192,13 @@ local function ToggleShoppingSync(strat, patchTag)
     shoppingSync.stratID = strat.id
     shoppingSync.patchTag = patchTag or GAM.C.DEFAULT_PATCH
     shoppingSync.lastSignature = payload.signature
+    shoppingSync.listName = payload.listName
     shoppingSync.pending = false
     shoppingSyncFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+    shoppingSyncFrame:RegisterEvent("AUCTION_HOUSE_SHOW")
     shoppingSyncFrame:RegisterEvent("AUCTION_HOUSE_CLOSED")
-    print(string.format("|cffff8800[GAM]|r Auctionator shopping sync armed for '%s'.", strat.stratName or "strategy"))
+    print("|cffff8800[GAM]|r " .. (GAM.L["MSG_AUCTIONATOR_SYNCING"]
+        or "GAM keeps this list updated as your bags change, until you leave the Auction House or click Auctionator List again."))
 end
 
     return {

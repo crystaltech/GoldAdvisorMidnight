@@ -3,6 +3,12 @@
 -- Module: GAM (root)
 
 local ADDON_NAME, GAM = ...
+
+-- Patch 12.1.5 removed the global GetItemInfo; C_Item.GetItemInfo replaces it.
+local function GetItemInfo(item)
+    local api = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
+    if api then return api(item) end
+end
 local workbookProfiles = (GAM.WorkbookGenerated and GAM.WorkbookGenerated.formulaProfiles) or {}
 -- Reuse production SavedVariables; isolated development settings are not imported.
 local DB_GLOBAL_NAME = "GoldAdvisorMidnightDB"
@@ -88,6 +94,8 @@ local DB_DEFAULTS = {
         -- Manual input prices: off by default; kept for the session only unless saved.
         manualPricesEnabled = false,
         manualPricesKeep    = false,
+        -- Send material prices to CraftSim after each scan: off by default.
+        craftSimAutoPush    = false,
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
         leftPanelCollapsed  = false,   -- left panel collapse state
@@ -819,6 +827,10 @@ SlashCmdList[slashKey] = function(input)
         if GAM.Settings then GAM.Settings.OpenPanel() end
     elseif cmd == "auditrecipes" then
         if GAM.RecipeAudit then GAM.RecipeAudit.Run(argument) end
+    elseif cmd == "dev" then
+        if GAM.CraftingStats and GAM.CraftingStats.RunDevCommand then
+            GAM.CraftingStats.RunDevCommand(argument)
+        end
     elseif cmd == "help" then
         print("|cffff8800[GAM]|r " .. GAM.L["MSG_COMMAND_HELP"])
     elseif cmd == "globalstartqty" then

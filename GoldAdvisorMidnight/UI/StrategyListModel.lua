@@ -10,10 +10,15 @@ GAM.UI.StrategyListModel = ListModel
 local MetricCache = {}
 MetricCache.__index = MetricCache
 
-function ListModel.NewMetricCache(calculate)
+-- stampFor(strategy), optional: a value that changes when something only
+-- some strategies depend on changes (a profession's crafting stats). An
+-- entry with an old stamp is recalculated alone; the signature still resets
+-- everything.
+function ListModel.NewMetricCache(calculate, stampFor)
     assert(type(calculate) == "function", "strategy list metric cache requires a calculator")
     return setmetatable({
         calculate = calculate,
+        stampFor = stampFor,
         entries = {},
         patchTag = nil,
         signature = nil,
@@ -39,14 +44,27 @@ function MetricCache:Get(strategy, patchTag, signature)
         return self.calculate(strategy, patchTag)
     end
 
+    local stamp = self.stampFor and self.stampFor(strategy) or nil
     local cached = self.entries[strategyID]
-    if cached then
+    if cached and cached.stamp == stamp then
         return cached.result, cached.error
     end
 
     local result, err = self.calculate(strategy, patchTag)
-    self.entries[strategyID] = { result = result, error = err }
+    self.entries[strategyID] = { result = result, error = err, stamp = stamp }
     return result, err
+end
+
+-- The cached value when it is still current, without calculating anything:
+-- result, true. Nothing usable: nil, false.
+function MetricCache:Peek(strategy, patchTag, signature)
+    if not (strategy and strategy.id) or self.patchTag ~= patchTag or self.signature ~= signature then
+        return nil, false
+    end
+    local cached = self.entries[strategy.id]
+    local stamp = self.stampFor and self.stampFor(strategy) or nil
+    if cached and cached.stamp == stamp then return cached.result, true end
+    return nil, false
 end
 
 function MetricCache:Invalidate(strategyID, patchTag)

@@ -5,6 +5,12 @@
 
 local ADDON_NAME, GAM = ...
 local AHScan = {}
+
+-- Patch 12.1.5 removed the global GetItemInfo; C_Item.GetItemInfo replaces it.
+local function GetItemInfo(item)
+    local api = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
+    if api then return api(item) end
+end
 GAM.AHScan = AHScan
 
 -- ===== Configuration (hot-swappable via SetScanDelay) =====
@@ -14,6 +20,11 @@ local RESULT_RETRY_DELAY  = GAM.C.RESULT_RETRY_DELAY
 local MAX_RETRY           = GAM.C.MAX_RETRY
 local EVENT_PROCESS_DELAY = GAM.C.EVENT_PROCESS_DELAY
 local POLL_INTERVAL       = GAM.C.AH_POLL_INTERVAL or 0.35
+-- A requested extra page normally arrives within a fraction of a second. When
+-- Blizzard says there is more but sends nothing (seen for salvage parts whose
+-- needed depth exceeds the market), waiting the full result wait cost about
+-- ten seconds per item; the rows already read are used after this instead.
+local PAGE_WAIT           = GAM.C.AH_PAGE_WAIT or 3.0
 local MAX_MORE_REQUESTS   = GAM.C.AH_MAX_MORE_REQUESTS or 5
 
 local Results = assert(GAM.AuctionHouseResults, "AuctionHouseResults must load before AuctionHouseScan")
@@ -35,6 +46,8 @@ local pendingEntry      = nil   -- { itemID, callback, isNameScan, name, patchTa
 local waitingForResults = false
 local lastQueryTime     = 0
 local scanSuccessCount  = 0
+-- Items given a price during the current scan (for the CraftSim push).
+local pricedThisScan    = {}
 local scanFailCount     = 0
 local failedQueue       = {}
 local isRetryPass       = false
@@ -45,6 +58,13 @@ local completedDiagnostics = {}
 -- Progress tracking
 local totalEver   = 0   -- total items ever enqueued in this scan session
 local doneCount   = 0   -- items completed (success or fail)
+local scanStartedAt      -- GetTime() when the current scan started (for the log)
+
+-- Detailed log lines are built only when their level is captured.
+local function LogEnabled(levelName)
+    local Log = GAM.Log
+    return Log and Log.Enabled and Log.Enabled(levelName) or false
+end
 
 local progressCallback = nil  -- fn(done, total, isComplete)
 
@@ -208,7 +228,7 @@ local function SendPriceQuery(entry)
     local ok = Query.SendSearch(itemKey)
     if ok then
         lastQueryTime = GetTime()
-        GAM.Log.Debug("AHScan: query itemID=%d", entry.itemID)
+        if LogEnabled("VERBOSE") then GAM.Log.Verbose("AHScan: query %s", GAM.Log.Item(entry.itemID)) end
     else
         GAM.Log.Warn("AHScan: SendSearchQuery failed for itemID=%d", entry.itemID)
     end
@@ -284,6 +304,32 @@ local ScheduleAttemptTimeout
 local SchedulePendingPoll
 local BeginBrowseFallback
 
+-- One Debug line per priced item: lowest listing, the sample average GAM
+-- prices materials with, units listed, and anything unusual. Verbose adds
+-- the first price tiers.
+local function LogPriceResult(entry, avg, rows, depthComplete)
+    local Log = GAM.Log
+    local snapshot = Results.GetRawScanSnapshot(entry.itemID)
+    local prices = snapshot and snapshot.prices or {}
+    local lowest = prices[1] and prices[1].unitPrice
+    local notes = {}
+    if lowest and avg >= lowest * 2 then notes[#notes + 1] = "thin market: average far above lowest" end
+    if not depthComplete then notes[#notes + 1] = "read to the needed depth only" end
+    local normal, unreliable = GAM.Pricing.UnreliableSale and GAM.Pricing.UnreliableSale(entry.itemID)
+    if unreliable then notes[#notes + 1] = "unreliable sale price, normal " .. Log.Money(normal) end
+    Log.Debug("AHScan: %s lowest %s, %d-unit avg %s, %d listed%s%s", Log.Item(entry.itemID), Log.Money(lowest),
+        GAM.C.MARKET_SAMPLE_UNITS or 50, Log.Money(avg), Results.GetListedQuantity(rows),
+        #notes > 0 and "; " or "", table.concat(notes, "; "))
+    if LogEnabled("VERBOSE") then
+        local tiers = {}
+        for index = 1, math.min(3, #prices) do
+            tiers[#tiers + 1] = string.format("%d at %s", prices[index].quantity or 0, Log.Money(prices[index].unitPrice))
+        end
+        Log.Verbose("AHScan: %s first tiers: %s; queued for %s", Log.Item(entry.itemID), table.concat(tiers, ", "),
+            table.concat(entry.reasons or { "?" }, ", "))
+    end
+end
+
 local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
     -- Reference price: the fixed sample depth with bait removed.
     local targetQty = GAM.C.MARKET_SAMPLE_UNITS or 50
@@ -298,6 +344,7 @@ local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
 
     GAM.Pricing.StorePrice(entry.itemID, avg, minPrice, Results.BuildDepthCurve(rows))
     changedItems[entry.itemID] = true
+    pricedThisScan[entry.itemID] = true
     if entry.callback then
         pcall(entry.callback, entry.itemID, avg, minPrice, maxPrice, count)
     end
@@ -310,8 +357,7 @@ local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
     pollToken = pollToken + 1
     waitingForResults = false
     pendingEntry = nil
-    GAM.Log.Debug("AHScan: price itemID=%d avg=%d source=%s depth=%s",
-        entry.itemID, math.floor(avg), resultType, tostring(depthComplete))
+    if LogEnabled("DEBUG") then LogPriceResult(entry, avg, rows, depthComplete) end
     FireProgress(false)
     return true
 end
@@ -327,7 +373,7 @@ local function RequestMoreIfNeeded(entry, attempt, resultType, rows)
     -- instead of asking again, for up to the result wait.
     if entry.awaitingPage and full ~= true then
         if entry.rowCount == entry.awaitingFrom then
-            if GetTime() - entry.awaitingSince < (RESULT_WAIT or 5) then
+            if GetTime() - entry.awaitingSince < math.min(PAGE_WAIT, RESULT_WAIT or PAGE_WAIT) then
                 SchedulePendingPoll(entry, attempt, POLL_INTERVAL)
                 return true, false
             end
@@ -519,11 +565,15 @@ local function ProcessNextInQueue()
         isRetryPass = false
         if ticker then ticker:Cancel(); ticker = nil end
         GAM.Log.Info(GAM.L["SCAN_COMPLETE"], scanSuccessCount, scanFailCount)
+        if scanStartedAt then GAM.Log.Debug("AHScan: finished in %d s", math.floor(GetTime() - scanStartedAt + 0.5)) end
         FireProgress(true)
         local win = GAM.GetActiveMainWindow and GAM:GetActiveMainWindow() or (GAM.UI and GAM.UI.MainWindow)
         if win and win.OnScanComplete then
             win.OnScanComplete()
         end
+        -- Optional (off by default): send the new material prices to CraftSim.
+        local bridge = GAM.CraftSimBridge
+        if bridge and bridge.OnScanComplete then pcall(bridge.OnScanComplete, pricedThisScan) end
         return
     end
 
@@ -980,6 +1030,7 @@ function AHScan.StartScan()
     AHScan._pendingResume = false
     scanning = true
     if not isResume then
+        pricedThisScan = {}
         scanSuccessCount = 0
         scanFailCount    = 0
         doneCount        = 0
@@ -989,6 +1040,20 @@ function AHScan.StartScan()
         failedQueue      = {}
         isRetryPass      = false
         GAM.Log.Info(GAM.L["SCAN_STARTED"], totalEver)
+        scanStartedAt = GetTime()
+        if LogEnabled("DEBUG") then
+            -- Why these items are scanned: "strategy input 120, posting 14".
+            local counts, order = {}, {}
+            for index = queueHead, #scanQueue do
+                for _, reason in ipairs(scanQueue[index].reasons or { "other" }) do
+                    if not counts[reason] then counts[reason] = 0; order[#order + 1] = reason end
+                    counts[reason] = counts[reason] + 1
+                end
+            end
+            local parts = {}
+            for _, reason in ipairs(order) do parts[#parts + 1] = reason .. " " .. counts[reason] end
+            GAM.Log.Debug("AHScan: scanning for %s", table.concat(parts, ", "))
+        end
     else
         GAM.Log.Info("AHScan: resumed with %d of %d items complete", doneCount, totalEver)
     end
