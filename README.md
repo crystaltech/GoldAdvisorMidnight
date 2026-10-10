@@ -19,7 +19,7 @@ New to GAM? The [Getting Started guide (PDF)](docs/guide/GAM-Getting-Started-Gui
 - Craft Queue with combined Shopping, a gold check, Quick Buy, and confirmed crafting progress
 - Posting tab: post what you crafted at the lowest listing (never undercutting), and cancel and repost undercut auctions
 - History tab: what you bought, crafted, posted and sold, realized profit per item and per batch, and suggestions on what to craft more or post less
-- Creates Auctionator shopping lists and can send prices and plans to CraftSim
+- Creates Auctionator shopping lists and can send prices and plans to CraftSim, optionally after every scan
 - Shows TradeSkillMaster region sale rates when TSM is installed
 - Tracks recipe cooldowns and charges across your characters
 
@@ -42,7 +42,7 @@ Existing `GoldAdvisorMidnightDB` settings are kept and upgraded in place. The se
 7. Click `Add to Queue` in Details, then use the `Shopping` and `Craft Queue` tabs. Add more strategies to combine their shopping.
 8. Post your crafts from the `Posting` tab, and check `History` to see what really made gold.
 
-`Scan prices` scans the strategies in the list. Ctrl-click scans all strategies, Alt-click scans favorites, and Shift-click scans the selected strategy; the arrow beside it offers the same choices. Click again during a scan to stop it. Cooldowns, Quick Buy, CraftSim, exports, and the Craft Queue are also under `Tools`.
+`Scan prices` scans the strategies in the list. Ctrl-click scans all strategies, Alt-click scans favorites, and Shift-click scans the selected strategy; the arrow beside it offers the same choices. Click again during a scan to stop it. `Tools` holds Quick Buy, Cooldowns, Auctionator List, CraftSim, Export and the Debug Log. The gear icon at the top of the window opens Settings.
 
 Set the default batch for strategies without their own value in **Settings > Pricing > Default starting crafts**, or with `/gam globalstartqty 50`. Editing **Starting crafts** on a strategy overrides it for that strategy.
 
@@ -79,7 +79,9 @@ Stats read while Shattered Essence is active are not saved, and gear sets can't 
 - **Shopping** combines materials across all queued plans and counts what you already own in your bags, bank, reagent bank, and Warband bank once.
 - **Gold check:** Shopping shows the estimated cost and how much you can spend. If buying everything would leave less than your gold reserve (default 20%, **Settings > Pricing > Gold reserve**), it warns you and offers a button to lower the craft count to what fits. With several plans queued, they are reduced together.
 - Select a material in Shopping to buy it. Price increases over 5% need your confirmation, and nothing is bought without a click.
-- A compact **Quick Buy** panel appears beside the Auction House or a vendor when the queue needs materials sold there. Closing it keeps it closed until your next visit. A vendor purchase is skipped when a fresh Auction House price is cheaper.
+- A compact **Quick Buy** panel appears beside the Auction House or a vendor when the queue needs materials sold there. It buys the same list as Shopping, so you can buy with GAM closed. Closing it keeps it closed until your next visit; `Tools > Quick Buy` opens it again. A vendor purchase is skipped when a fresh Auction House price is cheaper.
+- `Tools > Auctionator List` is separate: it makes an Auctionator shopping list for the selected strategy, which you buy in Auctionator's own Shopping tab. Quick Buy never buys it.
+- **CraftSim** (off by default): **Settings > CraftSim > Send material prices to CraftSim after each scan** sets CraftSim's price overrides for the strategy materials each scan reads, so CraftSim costs materials like GAM does. Sale prices are left to CraftSim. The overrides stay in CraftSim until a later scan replaces them or you remove them in CraftSim's Price Overrides window.
 - Auction House purchases count toward Shopping while they wait in your mailbox, but only materials you have collected can be crafted. If a delivery was collected across a reload, use `Collected` in Shopping after you receive it.
 
 ### Crafting
@@ -135,7 +137,7 @@ Stats read while Shattered Essence is active are not saved, and gear sets can't 
 
 - `/gam` or `/goldadvisor` toggles the main window.
 - `/gam log` opens the Debug Log. Its Log page filters messages by severity, area, and text; its Troubleshooting page runs checks (scan results, gear sets, stat sources, recipe audits, support summary) and writes the results to the log.
-- `/gam settings` opens the settings window.
+- `/gam settings` (or the gear icon at the top of the GAM window) opens the settings window.
 - `/gam help` lists the available commands.
 
 ## Versioning

@@ -721,8 +721,10 @@ function LeftPanelUI.Build(args)
         return button
     end
 
+    -- Not the Shopping tab: an Auctionator shopping list for the selected
+    -- strategy, bought from Auctionator's own Shopping tab.
     selectedShoppingBtn = MakeToolsButton(
-        (L and L["BTN_SHOPPING_SHORT"]) or (GAM.L and GAM.L["WF_SHOPPING"] or "Shopping"), 1, 1, toggleShoppingSync)
+        (GAM.L and GAM.L["BTN_AUCTIONATOR_LIST"]) or "Auctionator List", 1, 1, toggleShoppingSync)
     local quickBuyBtn = MakeToolsButton(
         (L and L["BTN_QUICK_BUY_SHORT"]) or "Quick Buy", 2, 1, showQuickBuy)
     cooldownsBtn = MakeToolsButton(
@@ -731,11 +733,29 @@ function LeftPanelUI.Build(args)
         (L and L["BTN_CRAFTSIM_SHORT"]) or "CraftSim", 2, 2, pushSelectedToCraftSim)
     local btnARP = MakeToolsButton(
         (L and L["BTN_EXPORT_SHORT"]) or "Export", 1, 3, showARPExport)
-    local craftPlanBtn = MakeToolsButton((GAM.L and GAM.L["WF_QUEUE"] or "Craft Queue"), 2, 3, function()
-        if GAM.UI.CraftPlanWindow then GAM.UI.CraftPlanWindow.Show() end
+    -- The Craft Queue has its own tab; the log holds troubleshooting checks
+    -- and what Discord support asks for.
+    local debugLogBtn = MakeToolsButton((GAM.L and GAM.L["BTN_DEBUG_LOG"]) or "Debug Log", 2, 3, function()
+        if GAM.UI and GAM.UI.DebugLog and GAM.UI.DebugLog.Show then GAM.UI.DebugLog.Show() end
     end)
     selectedCraftSimBtn:Disable()
     selectedShoppingBtn:Disable()
+    -- Disabled buttons still explain themselves (missing addon, no strategy).
+    for _, button in ipairs({ selectedShoppingBtn, selectedCraftSimBtn }) do
+        if button.SetMotionScriptsWhileDisabled then button:SetMotionScriptsWhileDisabled(true) end
+    end
+    attachButtonTooltip(
+        selectedShoppingBtn,
+        (GAM.L and GAM.L["TT_AUCTIONATOR_LIST_TITLE"]) or "Auctionator Shopping List",
+        (GAM.L and GAM.L["TT_AUCTIONATOR_LIST_BODY"])
+            or "Creates an Auctionator shopping list with the selected strategy's materials and keeps it updated as your bags change. Buy from it in Auctionator's Shopping tab at the Auction House. Click again to stop updating it. Needs Auctionator.\n\nFor your Craft Queue's materials, use Quick Buy."
+    )
+    attachButtonTooltip(
+        debugLogBtn,
+        (GAM.L and GAM.L["BTN_DEBUG_LOG"]) or "Debug Log",
+        (GAM.L and GAM.L["TT_DEBUG_LOG_BODY"])
+            or "GAM's log and Troubleshooting checks (/gam log). Copy it when asking for help on Discord."
+    )
     attachButtonTooltip(
         quickBuyBtn,
         (L and L["TT_QUICK_BUY_TITLE"]) or "Quick Buy",
@@ -1039,7 +1059,7 @@ function LeftPanelUI.Build(args)
         local toolButtons = {
             { selectedShoppingBtn, 1, 1 }, { quickBuyBtn, 2, 1 },
             { cooldownsBtn, 1, 2 }, { selectedCraftSimBtn, 2, 2 },
-            { btnARP, 1, 3 }, { craftPlanBtn, 2, 3 },
+            { btnARP, 1, 3 }, { debugLogBtn, 2, 3 },
         }
         for _, entry in ipairs(toolButtons) do
             entry[1]:SetParent(toolsMenu)
@@ -1053,7 +1073,7 @@ function LeftPanelUI.Build(args)
         for _, button in ipairs({
             ddProf, moreToolsBtn,
             ddRank, gearPlanBtn, selectedShoppingBtn, quickBuyBtn, cooldownsBtn,
-            selectedCraftSimBtn, selectedScanBtn, btnARP, craftPlanBtn,
+            selectedCraftSimBtn, selectedScanBtn, btnARP, debugLogBtn,
             captureButtons.multicraft, captureButtons.resourcefulness,
         }) do
             styleButton(button, false)

@@ -94,6 +94,8 @@ local DB_DEFAULTS = {
         -- Manual input prices: off by default; kept for the session only unless saved.
         manualPricesEnabled = false,
         manualPricesKeep    = false,
+        -- Send material prices to CraftSim after each scan: off by default.
+        craftSimAutoPush    = false,
         -- Per-session panel state
         hasSeenOnboarding   = false,   -- set true after first onboarding dismiss
         leftPanelCollapsed  = false,   -- left panel collapse state

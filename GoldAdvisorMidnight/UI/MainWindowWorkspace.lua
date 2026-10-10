@@ -135,6 +135,12 @@ function Workspace.Create(panel, deps)
         button.selected = button:CreateTexture(nil, "OVERLAY")
         button.selected:SetHeight(2); button.selected:SetPoint("BOTTOMLEFT", 2, 0)
         button.selected:SetPoint("BOTTOMRIGHT", -2, 0); button.selected:SetColorTexture(1, 0.82, 0, 1)
+        -- Shopping, the Quick Buy panel and the Auctionator List are easy to
+        -- mix up: say which list this is and what else buys it.
+        if key == "shopping" and common and common.AttachButtonTooltip then
+            common.AttachButtonTooltip(button, spec[2], (GAM.L and GAM.L["WF_SHOPPING_TAB_TIP"])
+                or "Everything your Craft Queue still needs. Buy here, or with the Quick Buy panel beside the Auction House or a vendor: both buy this same list.\n\nTools > Auctionator List is separate: it makes an Auctionator list for one strategy, bought in Auctionator.")
+        end
         self.buttons[key] = button
     end
     close = CreateFrame("Button", nil, bar, "UIPanelCloseButton")

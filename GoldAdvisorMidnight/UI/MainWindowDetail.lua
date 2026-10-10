@@ -480,14 +480,18 @@ function Detail.Render(args)
         args.selectedScanBtn:Enable()
         args.selectedScanBtn:SetAlpha(1)
     end
+    -- Tools that hand data to another addon stay off without it (their
+    -- tooltips say what they need).
     if args.selectedCraftSimBtn then
-        args.selectedCraftSimBtn:Enable()
+        local bridge = GAM.CraftSimBridge
+        args.selectedCraftSimBtn:SetEnabled(bridge and bridge.CanPushPrices and bridge.CanPushPrices() or false)
     end
     if args.selectedVIBreakdownBtn then
         args.selectedVIBreakdownBtn:Enable()
     end
     if args.selectedShoppingBtn then
-        args.selectedShoppingBtn:Enable()
+        local api = Auctionator and Auctionator.API and Auctionator.API.v1
+        args.selectedShoppingBtn:SetEnabled(api and type(api.CreateShoppingList) == "function" or false)
     end
     if selectionChanged and rpDetail.reagentScrollFrame then
         rpDetail.reagentScrollFrame:SetVerticalScroll(0)

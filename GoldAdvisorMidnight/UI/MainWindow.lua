@@ -913,8 +913,20 @@ local function BuildFrameHeader(L, HDR_PX)
     if comfortable and Common.StyleComfortableButton then
         Common.StyleComfortableButton(compactBtn, false)
     end
+    -- Settings had no button in the window (only /gam settings or the
+    -- minimap icon), though the guide sends players there.
+    local settingsBtn = CreateFrame("Button", nil, frame)
+    settingsBtn:SetSize(22, 22); settingsBtn:SetPoint("RIGHT", compactBtn, "LEFT", -6, 0)
+    settingsBtn:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
+    settingsBtn:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    settingsBtn:SetScript("OnClick", function()
+        if GAM.Settings and GAM.Settings.OpenPanel then GAM.Settings.OpenPanel() end
+    end)
+    AttachButtonTooltip(settingsBtn, (GAM.L and GAM.L["TT_SETTINGS_TITLE"]) or "Settings",
+        (GAM.L and GAM.L["TT_SETTINGS_BODY"]) or "Open GAM's settings (/gam settings).")
+    frame.settingsButton = settingsBtn
     local paneButton = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    paneButton:SetSize(80, 24); paneButton:SetPoint("RIGHT", compactBtn, "LEFT", -6, 0)
+    paneButton:SetSize(80, 24); paneButton:SetPoint("RIGHT", settingsBtn, "LEFT", -6, 0)
     paneButton:SetText((GAM.L and GAM.L["UI_HIDE_PANE"] or "Hide pane"))
     paneButton:SetScript("OnClick", function()
         if not workspace then return end

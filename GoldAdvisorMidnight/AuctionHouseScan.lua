@@ -46,6 +46,8 @@ local pendingEntry      = nil   -- { itemID, callback, isNameScan, name, patchTa
 local waitingForResults = false
 local lastQueryTime     = 0
 local scanSuccessCount  = 0
+-- Items given a price during the current scan (for the CraftSim push).
+local pricedThisScan    = {}
 local scanFailCount     = 0
 local failedQueue       = {}
 local isRetryPass       = false
@@ -342,6 +344,7 @@ local function CompletePriceSuccess(entry, resultType, rows, depthComplete)
 
     GAM.Pricing.StorePrice(entry.itemID, avg, minPrice, Results.BuildDepthCurve(rows))
     changedItems[entry.itemID] = true
+    pricedThisScan[entry.itemID] = true
     if entry.callback then
         pcall(entry.callback, entry.itemID, avg, minPrice, maxPrice, count)
     end
@@ -568,6 +571,9 @@ local function ProcessNextInQueue()
         if win and win.OnScanComplete then
             win.OnScanComplete()
         end
+        -- Optional (off by default): send the new material prices to CraftSim.
+        local bridge = GAM.CraftSimBridge
+        if bridge and bridge.OnScanComplete then pcall(bridge.OnScanComplete, pricedThisScan) end
         return
     end
 
@@ -1024,6 +1030,7 @@ function AHScan.StartScan()
     AHScan._pendingResume = false
     scanning = true
     if not isResume then
+        pricedThisScan = {}
         scanSuccessCount = 0
         scanFailCount    = 0
         doneCount        = 0
