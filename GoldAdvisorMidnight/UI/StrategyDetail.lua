@@ -634,6 +634,7 @@ local function Build()
     local bgTex = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
     bgTex:SetAllPoints()
     bgTex:SetColorTexture(0.055, 0.055, 0.062, 1)
+    frame._gamBackground = bgTex -- recolored with the theme (appearance profiles)
     frame:Hide()
     WindowManager.Register(frame, "dialog")
 
