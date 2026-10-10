@@ -322,6 +322,7 @@ local function EnsureCrushingWindow()
     title:SetPoint("TOPLEFT", crushingWindow, "TOPLEFT", 16, -14)
     title:SetText(GAM.L["CRUSHING_TITLE"])
     title:SetTextColor(DEFAULT_GOLD[1], DEFAULT_GOLD[2], DEFAULT_GOLD[3])
+    crushingWindow._gamTitle = title
     crushingWindow.titleFS = title
 
     local subtitle = crushingWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -329,6 +330,7 @@ local function EnsureCrushingWindow()
     subtitle:SetWidth(CRUSHING_WINDOW_W - 40)
     subtitle:SetJustifyH("LEFT")
     subtitle:SetTextColor(0.75, 0.72, 0.64, 1)
+    crushingWindow._gamSubtitle = subtitle
     crushingWindow.subtitleFS = subtitle
 
     local summaryCard = CreateFrame("Frame", nil, crushingWindow, "BackdropTemplate")

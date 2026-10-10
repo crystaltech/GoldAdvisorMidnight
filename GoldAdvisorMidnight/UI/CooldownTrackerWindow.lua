@@ -306,6 +306,7 @@ local function EnsureWindow()
     title:SetPoint("TOPLEFT", window, "TOPLEFT", 18, -14)
     title:SetText(L("COOLDOWN_TITLE", "Craft Cooldowns"))
     title:SetTextColor(0.96, 0.82, 0.36, 1)
+    window._gamTitle = title
 
     local closeBtn = CreateFrame("Button", nil, window, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", window, "TOPRIGHT", -4, -4)
@@ -360,7 +361,7 @@ local function EnsureWindow()
     })
     window.crafterMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.99)
     window.crafterMenu:SetBackdropBorderColor(0.7, 0.57, 0, 0.9)
-    window.crafterMenu._gamComfortSurface = true
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(window.crafterMenu) end
     window.crafterMenu:Hide()
 
     window.crafterMenuScroll = CreateFrame("ScrollFrame", nil, window.crafterMenu, "UIPanelScrollFrameTemplate")

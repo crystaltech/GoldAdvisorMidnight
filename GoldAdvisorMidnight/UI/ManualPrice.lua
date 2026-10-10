@@ -105,6 +105,7 @@ local function BuildPopup()
     WindowManager.Register(popup, "modal")
 
     popup.title = popup:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    popup._gamTitle = popup.title
     popup.title:SetPoint("TOPLEFT", popup, "TOPLEFT", 20, -18)
     popup.title:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -20, -18)
     popup.title:SetJustifyH("LEFT")

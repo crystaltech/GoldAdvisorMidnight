@@ -1683,7 +1683,6 @@ function SettingsMod.Init()
         wbg:SetAllPoints()
         wbg:SetColorTexture(0.055, 0.055, 0.062, 1)
         wrapper._gamBackground = wbg
-        wrapper._gamIsSettingsFrame = true
         wrapper:Hide()
         WindowManager.Register(wrapper, "dialog")
 
@@ -1691,6 +1690,7 @@ function SettingsMod.Init()
         wTitle:SetPoint("TOPLEFT", wrapper, "TOPLEFT", 18, -14)
         wTitle:SetText(GAM.L["SETTINGS_NAME"])
         wTitle:SetTextColor(GOLD_R, GOLD_G, GOLD_B)
+        wrapper._gamTitle = wTitle
 
         local wClose = CreateFrame("Button", nil, wrapper, "UIPanelCloseButton")
         wClose:SetPoint("TOPRIGHT", wrapper, "TOPRIGHT", -4, -4)

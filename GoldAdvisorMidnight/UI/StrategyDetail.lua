@@ -642,6 +642,7 @@ local function Build()
     titleFS:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -10)
     titleFS:SetText(L["DETAIL_TITLE"])
     frame.titleFS = titleFS
+    frame._gamTitle = titleFS
 
     -- Thin gold underline below title
     local titleRule = frame:CreateTexture(nil, "ARTWORK")

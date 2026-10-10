@@ -365,6 +365,7 @@ Common.THEMES.comfortable = {
         borderColor = { 0.48, 0.40, 0.16, 0.90 },
     },
     headerBackdrop = { 0.070, 0.070, 0.078, 1.0 },
+    menuBackground = { 0.035, 0.035, 0.035, 0.98 },
     titleText = { 0.96, 0.82, 0.36, 1.0 },
     subtitleText = { 0.68, 0.68, 0.70, 1.0 },
     cardBanner = { 0, 0, 0, 0 },
@@ -612,6 +613,9 @@ local function ApplyPaletteToTheme(theme, palette)
     end
 
     SetThemeColor(theme.frame and theme.frame.bgColor, palette.windowBackground)
+    -- Menus sit a little darker than the window they open from.
+    local window = palette.windowBackground or { 0.055, 0.055, 0.062, 1 }
+    theme.menuBackground = { window[1] * 0.65, window[2] * 0.65, window[3] * 0.65, 0.98 }
     setShellColor("outerBgColor", palette.panelBackground)
     setShellColor("innerBgColor", palette.cardBackground)
     SetThemeColor(theme.frame and theme.frame.borderColor, palette.border)
@@ -1277,14 +1281,46 @@ function Common.GetScanMode(ctrl, alt, shift)
 end
 Common.SCAN_HELP = "Click: current list\nCtrl-click: everything\nAlt-click: all favorites\nShift-click: selected strategy\nWhile scanning: click to stop.\nCombined keys: Ctrl takes priority, then Alt, then Shift."
 
+-- Drop-down menus (Tools, Professions, gear, scan, log areas): the same
+-- near-black surface and window border everywhere, following appearance
+-- profiles. Styled again whenever shown, so a theme change reaches them.
+function Common.StyleMenu(menu)
+    if not (menu and menu.SetBackdropColor) then return end
+    local theme = Common.GetThemeDef()
+    local bg = theme.menuBackground or { 0.035, 0.035, 0.035, 0.98 }
+    menu:SetBackdropColor(bg[1], bg[2], bg[3], menu._gamOpaqueBackground and 1 or (bg[4] or 0.98))
+    local border = theme.frame and theme.frame.borderColor
+    if border and menu.SetBackdropBorderColor then menu:SetBackdropBorderColor(unpack(border)) end
+    if not menu._gamMenuStyled and menu.HookScript then
+        menu._gamMenuStyled = true
+        menu:HookScript("OnShow", Common.StyleMenu)
+    end
+end
+
 function Common.StyleSecondaryWindow(frame)
     if not frame or not ((GAM.C and GAM.C.USE_COMFORTABLE_UI) or Common.IsCustomThemeActive()) then return end
     local theme = Common.GetThemeDef()
+    -- Same border as the main window (some windows had 2px or Blizzard's
+    -- dialog border), and the same colors, so appearance profiles reach them.
+    if frame.SetBackdrop and theme.frame.backdrop and not frame._gamKeepBackdrop then
+        frame:SetBackdrop(theme.frame.backdrop)
+    end
     if frame.SetBackdropColor then
         local color = theme.frame.bgColor
         frame:SetBackdropColor(color[1], color[2], color[3], frame._gamOpaqueBackground and 1 or color[4])
     end
     if frame.SetBackdropBorderColor then frame:SetBackdropBorderColor(unpack(theme.frame.borderColor)) end
+    -- A solid fill some windows add under their content (Settings).
+    if frame._gamBackground and frame._gamBackground.SetColorTexture then
+        local color = theme.frame.bgColor
+        frame._gamBackground:SetDrawLayer("BACKGROUND", -8)
+        frame._gamBackground:SetColorTexture(color[1], color[2], color[3], 1)
+    end
+    -- Titles use the accent color, subtitles the secondary text color.
+    if frame._gamTitle and frame._gamTitle.SetTextColor then frame._gamTitle:SetTextColor(unpack(theme.titleText)) end
+    if frame._gamSubtitle and frame._gamSubtitle.SetTextColor and theme.subtitleText then
+        frame._gamSubtitle:SetTextColor(unpack(theme.subtitleText))
+    end
     if not frame._gamComfortHeader then
         local header = frame:CreateTexture(nil, "BACKGROUND", nil, -6)
         header:SetPoint("TOPLEFT", frame, "TOPLEFT", 2, -2)
@@ -1299,6 +1335,7 @@ function Common.StyleSecondaryWindow(frame)
         if not parent.GetChildren then return end
         for _, child in ipairs({parent:GetChildren()}) do
             if child.IsObjectType and child:IsObjectType("Button")
+                and not child:IsObjectType("CheckButton")
                 and child.GetText and child:GetText() and child:GetText() ~= ""
                 and (not child._gamComfortBorder or child._gamComfortPrimary ~= nil) then
                 Common.StyleComfortableButton(child, child._gamComfortPrimary)

@@ -117,6 +117,7 @@ function LeftPanelUI.Build(args)
         self:SetBackdropColor(0.035, 0.035, 0.035, 1)
     end)
     profMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(profMenu) end
     profMenu:Hide()
 
     local ddPool, profRows = {}, {}
@@ -344,6 +345,7 @@ function LeftPanelUI.Build(args)
     })
     rankMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
     rankMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(rankMenu) end
     rankMenu:Hide()
     panel:HookScript("OnHide", function() rankMenu:Hide() end)
 
@@ -411,6 +413,7 @@ function LeftPanelUI.Build(args)
     })
     gearMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
     gearMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(gearMenu) end
     gearMenu:Hide()
 
     local gearGap = 3
@@ -704,6 +707,7 @@ function LeftPanelUI.Build(args)
     })
     toolsMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
     toolsMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+    if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(toolsMenu) end
     toolsMenu:Hide()
 
     local menuBtnW = halfBtnW - 2
@@ -827,6 +831,7 @@ function LeftPanelUI.Build(args)
         scanMenu:SetBackdrop(profMenu:GetBackdrop())
         scanMenu:SetBackdropColor(0.035, 0.035, 0.035, 0.98)
         scanMenu:SetBackdropBorderColor(rule[1], rule[2], rule[3], 0.9)
+        if GAM.UI.MainWindowCommon then GAM.UI.MainWindowCommon.StyleMenu(scanMenu) end
         scanMenu:Hide()
         local scanRows = {}
         panel.scanMenuRows = scanRows

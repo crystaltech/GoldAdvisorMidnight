@@ -622,7 +622,7 @@ local function Build(parent)
     end
     window:Hide()
     title = Text(window, "GameFontNormalLarge"); title:SetPoint("TOPLEFT", 16, -16)
-    if embedded then title:Hide() end
+    if embedded then title:Hide() else window._gamTitle = title end
     local close = CreateFrame("Button", nil, window, "UIPanelCloseButton"); close:SetPoint("TOPRIGHT", -1, -1)
     if embedded then close:Hide() end
     close:SetScript("OnClick", function() window:Hide() end)

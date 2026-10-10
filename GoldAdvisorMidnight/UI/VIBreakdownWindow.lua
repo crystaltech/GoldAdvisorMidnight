@@ -556,6 +556,7 @@ local function EnsureVIBreakdownWindow()
     title:SetPoint("TOPLEFT", viBreakdownWindow, "TOPLEFT", 16, -14)
     title:SetText((GetL()["VI_BREAKDOWN_TITLE"]) or "VI Breakdown")
     title:SetTextColor(DEFAULT_GOLD[1], DEFAULT_GOLD[2], DEFAULT_GOLD[3])
+    viBreakdownWindow._gamTitle = title
     viBreakdownWindow.titleFS = title
 
     local subtitle = viBreakdownWindow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -563,6 +564,7 @@ local function EnsureVIBreakdownWindow()
     subtitle:SetWidth(VI_WINDOW_W - 40)
     subtitle:SetJustifyH("LEFT")
     subtitle:SetTextColor(0.75, 0.72, 0.64, 1)
+    viBreakdownWindow._gamSubtitle = subtitle
     viBreakdownWindow.subtitleFS = subtitle
 
     local summaryCard = CreateFrame("Frame", nil, viBreakdownWindow, "BackdropTemplate")

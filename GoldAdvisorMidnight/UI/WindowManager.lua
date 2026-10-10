@@ -45,10 +45,10 @@ local function IsSettingsFrame(frame)
     if not frame then return false end
     if frame._gamIsSettingsFrame then return true end
     local name = frame.GetName and frame:GetName()
-    -- The standalone fallback is deliberately kept native-looking.  Use the
-    -- runtime name suffix so this remains valid for both Dev and production
-    -- prefixes without requiring Settings.lua to depend on this helper.
-    return name and (name:find("SettingsWrapper", 1, true) or name:find("SettingsPanel", 1, true)) ~= nil
+    -- The Settings window itself (its wrapper) is themed like every other
+    -- window; only the content panels inside it are left alone. Use the
+    -- runtime name suffix so this stays valid for Dev and production prefixes.
+    return name and (name:find("SettingsPanel", 1, true) or name:find("SettingsCategoryPanel", 1, true)) ~= nil
 end
 
 -- Secondary windows may contain a small number of deliberate card/menu

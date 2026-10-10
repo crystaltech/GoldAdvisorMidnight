@@ -733,6 +733,7 @@ local function BuildDiscordPopup(L)
     local title = discordPopup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", discordPopup, "TOP", 0, -14)
     title:SetText((L and L["DISCORD_TITLE"]) or "Discord")
+    discordPopup._gamTitle = title
 
     local closeX = CreateFrame("Button", nil, discordPopup, "UIPanelCloseButton")
     closeX:SetPoint("TOPRIGHT", discordPopup, "TOPRIGHT", -4, -4)

@@ -674,6 +674,7 @@ local function BuildWindow()
     refs.title = Field("GameFontNormal", -10)
     refs.title:ClearAllPoints(); refs.title:SetPoint("TOPLEFT", 12, -10)
     refs.title:SetTextColor(0.96, 0.82, 0.36, 1)
+    window._gamTitle = refs.title
     refs.progress = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     refs.progress:SetPoint("TOPRIGHT", -36, -11)
     local rule = window:CreateTexture(nil, "ARTWORK")
