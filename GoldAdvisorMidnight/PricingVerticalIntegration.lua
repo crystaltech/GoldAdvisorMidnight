@@ -270,6 +270,12 @@ PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputIt
     if not ctx or not strat or not active or (policy ~= "optimal" and policy ~= "highest") then
         return active
     end
+    -- Salvage (milling, prospecting, recycling): the output rank is the
+    -- input rank, not a skill threshold. The optimizer cannot model these
+    -- and its lowest-rank fallback would price R2 mats as R1 output.
+    if strat.outputQualityMode == "match_input" then
+        return active
+    end
 
     local output = (active.outputs and active.outputs[1]) or active.output
     local targetQuality = GetOutputQualityForItem(targetOutputItemID, strat.recipeID)
