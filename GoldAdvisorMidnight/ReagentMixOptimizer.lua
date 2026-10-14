@@ -811,3 +811,83 @@ function Optimizer.SavedReach(recipeID)
     if best then return WholeRank(best.quality), bestName, true, best.mix end
     return nil
 end
+
+-- Salvage recipes (milling, prospecting, crushing, recycling) rank like any
+-- craft: skill against difficulty. Blizzard cannot score a material mix for
+-- them without an item in the salvage slot, so this uses the client's rule:
+-- rank 2 materials in every slot add 40% of the difficulty (in game:
+-- Prospecting 220 + 146 = 366 of 365, Crushing 265 + 176 = 441 of 440).
+-- The base read (rank 1 materials, empty salvage slot) gives the skill.
+local SALVAGE_HIGH_SKILL_SHARE = 0.4
+
+local function ReadSalvageSkill(recipeID)
+    local stats = GAM.CraftingStats
+    if not (stats and type(stats.ReadRecipeBaseStats) == "function") then return nil end
+    local _, operation = stats.ReadRecipeBaseStats(recipeID)
+    local skill, difficulty = OperationSkill(operation), OperationDifficulty(operation)
+    if not skill or not difficulty or difficulty <= 1 then return nil end
+    return skill, difficulty
+end
+
+local function SaveSalvageSkill(recipeID, skill, difficulty)
+    local character = ReachStore()
+    if type(character) ~= "table" then return end
+    character.salvageSkill = character.salvageSkill or {}
+    local key, now = tostring(recipeID), Now()
+    local entry = character.salvageSkill[key]
+    if type(entry) == "table" and entry.skill == skill and entry.difficulty == difficulty
+            and now - (tonumber(entry.at) or 0) < REACH_REFRESH_SECONDS then
+        return
+    end
+    character.salvageSkill[key] = { skill = skill, difficulty = difficulty, at = now }
+end
+
+-- This character's own saved skill wins; otherwise the most recent alt's.
+local function SavedSalvageSkill(recipeID)
+    local key = tostring(recipeID)
+    local character, uid, cache = ReachStore()
+    local own = type(character) == "table" and character.salvageSkill and character.salvageSkill[key]
+    if type(own) == "table" and tonumber(own.skill) and tonumber(own.difficulty) then
+        return own.skill, own.difficulty, character.name
+    end
+    local best, bestName
+    for otherUID, other in pairs(type(cache) == "table" and cache.characters or {}) do
+        local entry = otherUID ~= uid and type(other) == "table" and type(other.salvageSkill) == "table"
+            and other.salvageSkill[key] or nil
+        if type(entry) == "table" and tonumber(entry.skill) and tonumber(entry.difficulty)
+                and (not best or (tonumber(entry.at) or 0) > (tonumber(best.at) or 0)) then
+            best, bestName = entry, other.name
+        end
+    end
+    if best then return best.skill, best.difficulty, bestName end
+    return nil
+end
+
+-- highInputs: rank 2 materials in every slot. Returns the rank made, then
+-- "live" (read now) or "saved" with the crafter's name; nil when no
+-- character's skill is known yet.
+function Optimizer.SalvageReach(recipeID, highInputs, topRank)
+    recipeID, topRank = tonumber(recipeID), tonumber(topRank) or 2
+    if not recipeID then return nil end
+    local skill, difficulty, crafter, source
+    if Optimizer.KnowsRecipe(recipeID) then
+        if GAM.ItemInfoCache then
+            skill, difficulty = GAM.ItemInfoCache.ThisFrame("salvageSkill", recipeID, function()
+                return ReadSalvageSkill(recipeID)
+            end)
+        else
+            skill, difficulty = ReadSalvageSkill(recipeID)
+        end
+        if skill then
+            SaveSalvageSkill(recipeID, skill, difficulty)
+            source = "live"
+        end
+    end
+    if not skill then
+        skill, difficulty, crafter = SavedSalvageSkill(recipeID)
+        if not skill then return nil end
+        source = "saved"
+    end
+    local bonus = highInputs and math.floor(SALVAGE_HIGH_SKILL_SHARE * difficulty + 1e-6) or 0
+    return (skill + bonus >= difficulty) and topRank or 1, source, crafter
+end

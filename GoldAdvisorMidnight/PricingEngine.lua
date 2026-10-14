@@ -910,6 +910,8 @@ function Engine.Install(Pricing, deps)
             -- scan into an all-dash strategy list. When Blizzard does provide
             -- an all-high reachable quality, output pricing is pinned to it.
             rankMixStatus = ctx.rankMixReason == "saved-crafter-reach" and "saved"
+                or (ctx.rankMixReason == "salvage-skill" or ctx.rankMixReason == "salvage-skill-unknown")
+                    and "salvage"
                 or ctx.rankMixPlan
                 and (ctx.rankMixReason == "target-quality-unreachable" and "reachable" or "verified")
                 or ctx.rankMixReason and "fallback" or nil,

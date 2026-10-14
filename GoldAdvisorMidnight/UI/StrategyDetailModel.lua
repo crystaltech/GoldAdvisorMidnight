@@ -308,6 +308,21 @@ function Model.GetRankMixNotice(projection)
         return (GAM.L and GAM.L["UI_RANK_ALT_UNKNOWN"])
             or "This character does not know this recipe, so pricing uses rank 1 output. Open GAM once on the character who crafts it to save its rank."
     end
+    -- Salvage: the rank follows skill, read when the profession is opened.
+    if reason == "salvage-skill-unknown" then
+        return (GAM.L and GAM.L["UI_RANK_SALVAGE_UNKNOWN"])
+            or "Pricing uses rank 1 output until GAM knows your skill for this recipe. Open the profession once on the character who crafts it."
+    end
+    if reason == "salvage-skill" then
+        local reachable = tonumber(projection.rankMixOutputQuality)
+        local target = tonumber(projection.rankMixTargetQuality)
+        local policy = projection.rankMixMaterialPolicy
+        if reachable and target and reachable < target and (policy == "highest" or policy == "optimal") then
+            return string.format((GAM.L and GAM.L["UI_RANK_SALVAGE_SHORT"]
+                or "Rank 2 materials make rank %d at your skill. Pricing uses rank %d output."), reachable, reachable)
+        end
+        return nil
+    end
     if projection.rankMixMaterialPolicy == "highest" and projection.rankMixStatus then
         local reachable = tonumber(projection.rankMixOutputQuality)
         if reason == "target-quality-unreachable" and reachable then
