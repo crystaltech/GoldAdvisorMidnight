@@ -265,15 +265,52 @@ local function GetExpectedOutputPerCraft(strat, active, opts)
     return qtyRaw
 end
 
+-- Salvage strategies whose output rank follows skill, which rank 2 materials
+-- raise: milling, prospecting and recycling (match_input in the catalog) and
+-- Midnight Crushing (gem and stone ranks both add skill).
+local SALVAGE_SKILL_RECIPES = { [1231132] = true }
+
+local function IsSalvageSkillStrategy(strat)
+    return strat.outputQualityMode == "match_input" or SALVAGE_SKILL_RECIPES[tonumber(strat.recipeID)] == true
+end
+
+-- The rank-mix optimizer cannot score salvage (the item goes in the salvage
+-- slot), so the rank comes from this character's skill, else a saved one.
+-- Unknown skill prices rank 1: never a rank the crafter may not reach.
+local function PrepareSalvageView(ctx, strat, active)
+    local output = (active.outputs and active.outputs[1]) or active.output
+    local topQuality = GetHighestOutputQuality(output, ctx.patchTag, strat.recipeID)
+    if not topQuality or topQuality <= 1 then
+        return active
+    end
+    local policy = GetInputRankPolicy(strat)
+    local optimizer = GAM.ReagentMixOptimizer
+    local reach, source, crafter
+    if optimizer and type(optimizer.SalvageReach) == "function" then
+        reach, source, crafter = optimizer.SalvageReach(
+            strat.recipeID, policy == "highest" or policy == "optimal", topQuality)
+    end
+    if not reach then
+        return active, nil, "salvage-skill-unknown", topQuality, 1
+    end
+    if source == "saved" then
+        return active, nil, "saved-crafter-reach", topQuality, reach, crafter
+    end
+    return active, nil, "salvage-skill", topQuality, reach
+end
+
 PrepareOptimizedRecipeView = function(ctx, strat, active, crafts, targetOutputItemID)
+    if ctx and strat and active and IsSalvageSkillStrategy(strat) then
+        return PrepareSalvageView(ctx, strat, active)
+    end
     local policy = strat and GetInputRankPolicy(strat)
     if not ctx or not strat or not active or (policy ~= "optimal" and policy ~= "highest") then
         return active
     end
-    -- Salvage (milling, prospecting, recycling): the output rank is the
-    -- input rank, not a skill threshold. The optimizer cannot model these
-    -- and its lowest-rank fallback would price R2 mats as R1 output.
-    if strat.outputQualityMode == "match_input" then
+    -- One output item (Refine makes rank 2; each Shatter variant makes one
+    -- rank): no rank to reach, and a reach would only mislabel the output.
+    local fixedOutput = (active.outputs and active.outputs[1]) or active.output
+    if fixedOutput and type(fixedOutput.itemIDs) == "table" and #fixedOutput.itemIDs == 1 then
         return active
     end
 

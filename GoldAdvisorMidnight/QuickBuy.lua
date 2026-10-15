@@ -335,6 +335,18 @@ function QuickBuy.CreateController(deps)
         if not itemID or itemID <= 0 or quantity <= 0 then
             return Fail(L("QB_ERR_INVALID_ENTRY", "The next shopping-list entry has no valid commodity or quantity."))
         end
+        -- Check before asking the Auction House: a quote requested only to be
+        -- cancelled makes the server answer "Internal auction error".
+        if self.list.validatePurchase then
+            local valid, reason = self.list.validatePurchase(entry, quantity)
+            if not valid then
+                ClearPending()
+                state.phase = "idle"
+                state.lastError = reason
+                Changed()
+                return false, reason
+            end
+        end
 
         state.active = true
         state.phase = "quoting"
