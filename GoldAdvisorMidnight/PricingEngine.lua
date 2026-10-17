@@ -339,6 +339,7 @@ function Engine.Install(Pricing, deps)
         result.gearRequirement = statSnapshot and statSnapshot.gearRequirement
         result.gearStatValidity = statSnapshot and statSnapshot.gearStatValidity
         result.pricingMode = input.pricingMode
+        result.yieldMultiplier = formula and formula.YieldMultiplier and formula.YieldMultiplier(result) or 1
         result.nodeStats = statSnapshot and statSnapshot.nodeStats or nil
         result.nodeBonusDetails = statSnapshot and statSnapshot.nodeBonusDetails or nil
         result.totalStats = statSnapshot and statSnapshot.totalStats or nil
@@ -591,6 +592,7 @@ function Engine.Install(Pricing, deps)
             expectedYieldPerActualCraft = formulaResult.expectedYieldPerActualCraft,
             effectiveCrafts = formulaResult.effectiveCrafts,
             consumptionFactor = formulaResult.consumptionFactor,
+            yieldMultiplier = formulaResult.yieldMultiplier,
             gearModeRequested = formulaResult.gearModeRequested,
             gearModeResolved = formulaResult.gearModeResolved,
             gearPresetMissing = formulaResult.gearPresetMissing,

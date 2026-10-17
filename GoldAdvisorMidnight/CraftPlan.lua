@@ -422,7 +422,7 @@ function Plan.Remove(plan)
 end
 -- Keep the queue's break-even on the same basis as Details (expected yields,
 -- including bonus procs) for the plan's remaining crafts. When it cannot be
--- priced, the queue falls back to its base-yield replacement estimate.
+-- priced, the queue falls back to its replacement estimate (OutputBreakEven).
 function Plan.RecalculateBreakEven(plan)
     plan.breakEven = nil
     local strat = GAM.Importer and GAM.Importer.GetStratByID and GAM.Importer.GetStratByID(plan.strategyID)

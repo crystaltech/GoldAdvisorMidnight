@@ -440,7 +440,7 @@ function UI.Refresh()
                 Add(L("WF_EXTRA_POLICY", "Optional: uses surplus after all regular jobs. No additional materials will be purchased."))
                 local estimate = Plan.OutputBreakEven and Plan.OutputBreakEven(plan, plan.root)
                 Add(L("WF_EXTRA_BREAK_EVEN", "Est. break-even / extra item: %s", estimate and Price(estimate) or L("WF_ESTIMATE_UNAVAILABLE", "unavailable"))
-                    .. "\n" .. L("WF_ESTIMATE_BASIS", "Current material prices and base yield; includes AH cut."))
+                    .. "\n" .. L("WF_ESTIMATE_BASIS", "Current material prices and expected yield with Multicraft and Resourcefulness; includes AH cut."))
             end
             end -- unfinished plan
         end
@@ -452,7 +452,7 @@ function UI.Refresh()
             local estimate = output.breakEven and Price(output.breakEven) or L("WF_ESTIMATE_MISSING", "unavailable (missing or differing costs)")
             local row = Add(Name(output.itemID) .. "\n" .. L("WF_OUTPUT_BREAK_EVEN", "Est. break-even / item: %s", estimate),
                 L("WF_RECORDED_COUNT", "%d recorded", output.produced) .. "\n" .. FreeText(output), nil, nil, nil, nil,
-                (output.currentEstimate and L("WF_CURRENT_ESTIMATE_TIP", "Break-even uses current material prices and base yield, including the AH cut; bonus procs are excluded.")
+                (output.currentEstimate and L("WF_CURRENT_ESTIMATE_TIP", "Break-even uses current material prices and your expected yield, including Multicraft and Resourcefulness and the AH cut.")
                     or L("WF_SAVED_ESTIMATE_TIP", "Break-even from the strategy's pricing estimate, including expected bonus procs; recalculated when you change the craft count.")) .. "\n"
                 .. L("WF_OUTPUT_TIP", "These are estimates, not actual acquisition costs. Recorded includes GAM batches only. Free counts your bags, bank, reagent bank and Warband bank, excludes all queue reservations, and may include previously owned stock. Free items may be sold or kept."))
             row.itemID = output.itemID

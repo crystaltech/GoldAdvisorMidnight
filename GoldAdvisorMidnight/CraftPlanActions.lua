@@ -210,12 +210,31 @@ function Plan.AcceptRankChange(proposal)
     return true
 end
 
--- Replacement-cost estimate, not historical purchase cost. Base yield excludes
--- bonus output/resourcefulness; missing prices never turn into free materials.
+-- Expected items per base-yield item: Multicraft and Resourcefulness, as the
+-- plan was priced. Plans saved before nodes kept it rebuild it from the
+-- node's planned stats.
+function Plan.NodeYieldMultiplier(node)
+    local saved = tonumber(node.yieldMultiplier)
+    if saved and saved >= 1 then return saved end
+    local stats, formula = node.plannedStats, GAM.PricingFormula
+    if type(stats) ~= "table" or not formula then return 1 end
+    -- Both pricing models give the same output per material; unsupported
+    -- stats were saved as zero.
+    return formula.YieldMultiplier(formula.CalculateExhaustMaterials({ crafts = 1,
+        baseYield = tonumber(node.baseYield) or 0,
+        mcPercent = (tonumber(stats.multiPercent) or 0) / 100, resPercent = (tonumber(stats.resPercent) or 0) / 100,
+        mcExtra = tonumber(stats.multiExtra) or 0, resExtra = tonumber(stats.resExtra) or 0,
+        supportsMulticraft = true, supportsResourcefulness = true }))
+end
+
+-- Replacement-cost estimate, not historical purchase cost. Each step's yield
+-- includes its expected Multicraft and Resourcefulness, like the strategy's
+-- Return; missing prices never turn into free materials.
 function Plan.OutputBreakEven(plan, key, visiting)
     local node = plan.nodes[key]
     local yield = node and tonumber(node.baseYield)
     if not yield or yield <= 0 then return nil end
+    yield = yield * Plan.NodeYieldMultiplier(node)
     visiting = visiting or {}
     if visiting[key] then return nil end
     visiting[key] = true
