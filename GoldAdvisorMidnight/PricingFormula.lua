@@ -194,6 +194,25 @@ function Formula.CalculateExhaustMaterials(input)
     }
 end
 
+-- Expected items per base-yield item, for the materials of one craft:
+-- Multicraft bonus output and the extra attempts Resourcefulness saves. Works
+-- on either model's result; 1 when nothing is known.
+function Formula.YieldMultiplier(result)
+    if type(result) ~= "table" then return 1 end
+    local baseYield = Num(result.baseYield, 0)
+    local perCraft = Num(result.expectedYieldPerActualCraft, 0)
+    if baseYield <= 0 or perCraft <= 0 then return 1 end
+    local consumed = Num(result.consumptionFactor, 0)
+    if consumed <= 0 then
+        local required = Num(result.requiredCraftCost, 0)
+        consumed = required > 0 and (1 - Num(result.averageSavedCost, 0) / required) or 1
+    end
+    if consumed <= 0 then return 1 end
+    local multiplier = perCraft / baseYield / consumed
+    if multiplier < 1 then return 1 end
+    return multiplier
+end
+
 -- Compatibility entry point for saved settings and third-party callers from
 -- the first V2 test branch. Its manual multiplier fields are intentionally no
 -- longer used; the CraftSim-derived model above is authoritative.

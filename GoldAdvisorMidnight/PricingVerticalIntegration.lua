@@ -748,6 +748,9 @@ function Pricing.BuildCraftPlanSnapshot(strat, patchTag, result)
                 resPercent = usage.resPercent and usage.resPercent * 100,
                 multiExtra = usage.mcExtra, resExtra = usage.resExtra, nodeHash = usage.nodeHash,
                 crafterUID = usage.crafterUID }
+            -- Expected output per base output, so the queue's break-even for
+            -- this step counts procs like the Details tab does.
+            node.yieldMultiplier = tonumber(usage.yieldMultiplier)
         end
         if selectedChoice and tonumber(selectedChoice.craftCapacity) then
             node.craftLimit = math.max(0, math.floor(selectedChoice.craftCapacity))
